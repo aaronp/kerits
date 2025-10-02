@@ -58,7 +58,7 @@ export function IdentityCreator({ onCreated }: IdentityCreatorProps) {
       // Save identity
       const identity: StoredIdentity = {
         alias,
-        prefix: inceptionEvent.i,
+        prefix: inceptionEvent.pre,
         mnemonic,
         currentKeys: {
           public: currentKeypair.verfer,

@@ -8,7 +8,11 @@ export function Identities() {
   return (
     <div className="space-y-6">
       <IdentityCreator onCreated={refreshIdentities} />
-      <IdentityList identities={identities} onDelete={refreshIdentities} />
+      <IdentityList
+        identities={identities}
+        onDelete={refreshIdentities}
+        onUpdate={refreshIdentities}
+      />
     </div>
   );
 }

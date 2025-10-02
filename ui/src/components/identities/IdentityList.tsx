@@ -1,20 +1,23 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
-import { Copy, Check, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Copy, Check, Trash2, Eye, EyeOff, RotateCw } from 'lucide-react';
 import type { StoredIdentity } from '@/lib/storage';
-import { deleteIdentity } from '@/lib/storage';
-import { formatMnemonic } from '@/lib/mnemonic';
+import { deleteIdentity, saveIdentity } from '@/lib/storage';
+import { formatMnemonic, deriveSeed } from '@/lib/mnemonic';
+import { generateKeypairFromSeed, rotate, diger } from '@/lib/keri';
 
 interface IdentityListProps {
   identities: StoredIdentity[];
   onDelete?: () => void;
+  onUpdate?: () => void;
 }
 
-export function IdentityList({ identities, onDelete }: IdentityListProps) {
+export function IdentityList({ identities, onDelete, onUpdate }: IdentityListProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showMnemonic, setShowMnemonic] = useState<Record<string, boolean>>({});
+  const [rotating, setRotating] = useState<Record<string, boolean>>({});
 
   const copyToClipboard = async (text: string, field: string) => {
     await navigator.clipboard.writeText(text);
@@ -31,6 +34,67 @@ export function IdentityList({ identities, onDelete }: IdentityListProps) {
 
   const toggleMnemonic = (alias: string) => {
     setShowMnemonic(prev => ({ ...prev, [alias]: !prev[alias] }));
+  };
+
+  const handleRotateKeys = async (identity: StoredIdentity) => {
+    if (!confirm(`Rotate keys for "${identity.alias}"? This will create a new rotation event.`)) {
+      return;
+    }
+
+    setRotating(prev => ({ ...prev, [identity.alias]: true }));
+    try {
+      // Derive new next keypair from mnemonic with incremented path
+      const nextRotationSeed = deriveSeed(identity.mnemonic, `next-${identity.kel.length}`);
+      const newNextKeypair = await generateKeypairFromSeed(nextRotationSeed, true);
+
+      // Compute digest of new next key
+      const newNextKeyDigest = diger(newNextKeypair.publicKey);
+
+      // Get the prefix from the inception event if not stored directly
+      const prefix = identity.prefix || identity.inceptionEvent?.pre || identity.inceptionEvent?.ked?.i;
+
+      if (!prefix) {
+        throw new Error('Identity prefix not found. Please delete and recreate this identity.');
+      }
+
+      // Get the previous event digest
+      const prevEvent = identity.kel[identity.kel.length - 1];
+      const prevDigest = prevEvent.said || prevEvent.d || prevEvent.ked?.d;
+
+      if (!prevDigest) {
+        throw new Error('Previous event digest not found');
+      }
+
+      // Current "next" keys become "current" keys
+      const rotationEvent = rotate({
+        pre: prefix,
+        keys: [identity.nextKeys.public],
+        ndigs: [newNextKeyDigest],
+        sn: identity.kel.length,
+        dig: prevDigest,
+      });
+
+      // Update identity
+      const updatedIdentity: StoredIdentity = {
+        ...identity,
+        prefix: prefix, // Ensure prefix is always set
+        currentKeys: identity.nextKeys, // Next becomes current
+        nextKeys: {
+          public: newNextKeypair.verfer,
+          private: Buffer.from(newNextKeypair.privateKey).toString('hex'),
+          seed: Buffer.from(nextRotationSeed).toString('hex'),
+        },
+        kel: [...identity.kel, rotationEvent],
+      };
+
+      await saveIdentity(updatedIdentity);
+      if (onUpdate) onUpdate();
+    } catch (error) {
+      console.error('Failed to rotate keys:', error);
+      alert('Failed to rotate keys. See console for details.');
+    } finally {
+      setRotating(prev => ({ ...prev, [identity.alias]: false }));
+    }
   };
 
   if (identities.length === 0) {
@@ -62,6 +126,15 @@ export function IdentityList({ identities, onDelete }: IdentityListProps) {
                   onClick={() => setExpandedId(expandedId === identity.alias ? null : identity.alias)}
                 >
                   {expandedId === identity.alias ? 'Hide' : 'Details'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleRotateKeys(identity)}
+                  disabled={rotating[identity.alias]}
+                  title="Rotate Keys"
+                >
+                  <RotateCw className={`h-4 w-4 ${rotating[identity.alias] ? 'animate-spin' : ''}`} />
                 </Button>
                 <Button
                   variant="ghost"
