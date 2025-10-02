@@ -6,7 +6,7 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Copy, Check, RefreshCw } from 'lucide-react';
 import { createMnemonic, deriveSeed, formatMnemonic } from '@/lib/mnemonic';
-import { generateKeypairFromSeed, incept } from '@/lib/keri';
+import { generateKeypairFromSeed, incept, diger } from '@/lib/keri';
 import { saveIdentity } from '@/lib/storage';
 import type { StoredIdentity } from '@/lib/storage';
 
@@ -46,11 +46,13 @@ export function IdentityCreator({ onCreated }: IdentityCreatorProps) {
       const currentKeypair = await generateKeypairFromSeed(currentSeed, true);
       const nextKeypair = await generateKeypairFromSeed(nextSeed, true);
 
-      // Create inception event
+      // Compute digest of next key (using raw publicKey bytes)
+      const nextKeyDigest = diger(nextKeypair.publicKey);
+
+      // Create inception event (using verfer string)
       const inceptionEvent = incept({
-        keys: [currentKeypair.public],
-        next: [nextKeypair.public],
-        toad: 0,
+        keys: [currentKeypair.verfer],
+        ndigs: [nextKeyDigest],
       });
 
       // Save identity
@@ -59,13 +61,13 @@ export function IdentityCreator({ onCreated }: IdentityCreatorProps) {
         prefix: inceptionEvent.i,
         mnemonic,
         currentKeys: {
-          public: currentKeypair.public,
-          private: currentKeypair.private,
+          public: currentKeypair.verfer,
+          private: Buffer.from(currentKeypair.privateKey).toString('hex'),
           seed: Buffer.from(currentSeed).toString('hex'),
         },
         nextKeys: {
-          public: nextKeypair.public,
-          private: nextKeypair.private,
+          public: nextKeypair.verfer,
+          private: Buffer.from(nextKeypair.privateKey).toString('hex'),
           seed: Buffer.from(nextSeed).toString('hex'),
         },
         inceptionEvent,
