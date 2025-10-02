@@ -1,0 +1,2 @@
+dev:
+	bun run start
