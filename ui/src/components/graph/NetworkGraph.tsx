@@ -23,7 +23,7 @@ type GraphType = 'kel' | 'tel';
 function EventNode({ data }: NodeProps) {
   return (
     <div className="px-4 py-3 rounded-lg border-2 bg-white shadow-md min-w-[200px]">
-      <Handle type="target" position={Position.Top} className="w-3 h-3" />
+      <Handle type="target" position={Position.Left} className="w-3 h-3" />
       <div className="space-y-1">
         <div className="font-semibold text-sm">{data.label}</div>
         <div className="text-xs text-muted-foreground font-mono">
@@ -35,7 +35,7 @@ function EventNode({ data }: NodeProps) {
           </div>
         )}
       </div>
-      <Handle type="source" position={Position.Bottom} className="w-3 h-3" />
+      <Handle type="source" position={Position.Right} className="w-3 h-3" />
     </div>
   );
 }
@@ -65,7 +65,7 @@ export function NetworkGraph() {
     nodes.push({
       id: 'inception',
       type: 'event',
-      position: { x: 250, y: 50 },
+      position: { x: 50, y: 150 },
       data: {
         label: `Inception (${identity.alias})`,
         type: inceptionEvent.ked?.t || 'icp',
@@ -82,7 +82,7 @@ export function NetworkGraph() {
       nodes.push({
         id: eventId,
         type: 'event',
-        position: { x: 250, y: 150 + (index * 100) },
+        position: { x: 300 + (index * 300), y: 150 },
         data: {
           label: `Rotation ${index + 1}`,
           type: event.ked?.t || 'rot',
@@ -123,14 +123,15 @@ export function NetworkGraph() {
     let yOffset = 50;
 
     relatedCredentials.forEach((credential, credIndex) => {
-      const baseX = 100 + (credIndex * 300);
+      const baseY = 50 + (credIndex * 200);
+      let xOffset = 50;
 
       // Add credential node
       const credNodeId = `cred-${credIndex}`;
       nodes.push({
         id: credNodeId,
         type: 'event',
-        position: { x: baseX, y: yOffset },
+        position: { x: xOffset, y: baseY },
         data: {
           label: credential.name,
           type: 'Credential',
@@ -147,7 +148,7 @@ export function NetworkGraph() {
           nodes.push({
             id: telNodeId,
             type: 'event',
-            position: { x: baseX, y: yOffset + 100 + (telIndex * 100) },
+            position: { x: xOffset + 300 + (telIndex * 300), y: baseY },
             data: {
               label: telEvent.t || telEvent.ked?.t || 'TEL Event',
               type: telEvent.t || telEvent.ked?.t || 'event',
@@ -188,9 +189,9 @@ export function NetworkGraph() {
   }, []);
 
   return (
-    <div className="space-y-4 h-[calc(100vh-12rem)]">
+    <div className="space-y-4 flex flex-col h-[calc(100vh-12rem)]">
       {/* Controls */}
-      <Card>
+      <Card className="flex-shrink-0">
         <CardContent className="pt-6">
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
@@ -241,9 +242,9 @@ export function NetworkGraph() {
       </Card>
 
       {/* Graph Container */}
-      <div className="grid grid-rows-2 gap-4 h-full">
-        <Card className="overflow-hidden">
-          <CardHeader className="pb-3">
+      <div className="flex-1 flex flex-col gap-4 min-h-0">
+        <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
+          <CardHeader className="pb-3 flex-shrink-0">
             <CardTitle className="text-lg">
               {graphType === 'kel' ? 'Key Event Log' : 'Transaction Event Log'}
             </CardTitle>
@@ -253,7 +254,7 @@ export function NetworkGraph() {
                 : 'Select an identity to view graph'}
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-0 h-[calc(100%-5rem)]">
+          <CardContent className="p-0 flex-1 min-h-0">
             {selectedIdentity ? (
               <ReactFlow
                 nodes={nodes}
@@ -279,16 +280,16 @@ export function NetworkGraph() {
         </Card>
 
         {/* Detail Panel */}
-        <Card className="overflow-hidden">
-          <CardHeader className="pb-3">
+        <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
+          <CardHeader className="pb-3 flex-shrink-0">
             <CardTitle className="text-lg">Node Details</CardTitle>
             <CardDescription>
               {selectedNode ? 'Selected node information' : 'Click a node to view details'}
             </CardDescription>
           </CardHeader>
-          <CardContent className="overflow-y-auto max-h-[calc(100%-5rem)]">
+          <CardContent className="flex-1 overflow-y-auto min-h-0">
             {selectedNode ? (
-              <div className="space-y-4">
+              <div className="space-y-4 pb-4">
                 <div className="space-y-2">
                   <div className="text-sm font-semibold">Label</div>
                   <div className="text-sm text-muted-foreground">{selectedNode.data.label}</div>
@@ -308,7 +309,7 @@ export function NetworkGraph() {
 
                 <div className="space-y-2">
                   <div className="text-sm font-semibold">Event Data</div>
-                  <pre className="text-xs bg-muted p-3 rounded overflow-x-auto max-h-96">
+                  <pre className="text-xs bg-muted p-3 rounded overflow-x-auto">
                     {JSON.stringify(selectedNode.data.event, null, 2)}
                   </pre>
                 </div>
