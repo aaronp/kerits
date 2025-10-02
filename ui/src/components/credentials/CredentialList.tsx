@@ -210,6 +210,16 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
     );
   }
 
+  // Group credentials by recipient
+  const groupedCredentials = credentials.reduce((groups, credential) => {
+    const key = credential.recipient || 'No Recipient';
+    if (!groups[key]) {
+      groups[key] = [];
+    }
+    groups[key].push(credential);
+    return groups;
+  }, {} as Record<string, StoredCredential[]>);
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
@@ -219,35 +229,59 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
         </Button>
       </div>
 
-      {credentials.map((credential) => {
-        const isExpanded = expandedId === credential.id;
+      {Object.entries(groupedCredentials).map(([recipientAid, creds]) => {
+        const recipientAlias = creds[0]?.recipientAlias;
+        const recipientLabel = recipientAlias
+          ? `${recipientAlias} (${recipientAid.substring(0, 20)}...)`
+          : recipientAid === 'No Recipient'
+          ? 'No Recipient'
+          : `${recipientAid.substring(0, 20)}...`;
 
         return (
-          <Card key={credential.id}>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setExpandedId(isExpanded ? null : credential.id)}
-                      className="p-0 h-auto"
-                    >
-                      {isExpanded ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                    </Button>
-                    <div>
-                      <CardTitle className="text-lg">{credential.name}</CardTitle>
-                      <CardDescription className="mt-1">
-                        SAID: {credential.id.substring(0, 30)}...
-                      </CardDescription>
-                    </div>
-                  </div>
-                </div>
+          <div key={recipientAid} className="space-y-3">
+            <div className="flex items-center gap-2 px-2">
+              <div className="h-px flex-1 bg-border" />
+              <h3 className="text-sm font-semibold text-muted-foreground">
+                {recipientLabel}
+              </h3>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+
+            {creds.map((credential) => {
+              const isExpanded = expandedId === credential.id;
+
+              // Format: "from -> to : schema name"
+              const issuerLabel = credential.issuerAlias || credential.issuer.substring(0, 20) + '...';
+              const recipientLabel = credential.recipientAlias || (credential.recipient ? credential.recipient.substring(0, 20) + '...' : 'None');
+              const schemaLabel = credential.schemaName || credential.schema.substring(0, 20) + '...';
+              const summary = `${issuerLabel} → ${recipientLabel} : ${schemaLabel}`;
+
+              return (
+                <Card key={credential.id}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setExpandedId(isExpanded ? null : credential.id)}
+                            className="p-0 h-auto"
+                          >
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <div>
+                            <CardTitle className="text-lg">{summary}</CardTitle>
+                            <CardDescription className="mt-1 font-mono text-xs">
+                              {credential.id.substring(0, 44)}...
+                            </CardDescription>
+                          </div>
+                        </div>
+                      </div>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
@@ -376,6 +410,9 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
               </CardContent>
             )}
           </Card>
+              );
+            })}
+          </div>
         );
       })}
 

@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-ro
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
 import { Button } from './components/ui/button';
 import { useStore } from './store/useStore';
-import { Network, Users, FileText, Award, Shield } from 'lucide-react';
+import { Network, Users, FileText, Award } from 'lucide-react';
 import { Identities } from './components/identities/Identities';
 import { Schemas } from './components/schemas/Schemas';
 import { SchemaCreator } from './components/schemas/SchemaCreator';
@@ -35,12 +35,12 @@ function AppContent() {
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Shield className="h-8 w-8 text-primary" />
+            <div className="flex items-center gap-3">
+              <img src={`${import.meta.env.BASE_URL}kerits.jpg`} alt="KERI" className="h-12 w-12 rounded-md object-cover" />
               <div>
-                <h1 className="text-2xl font-bold">KERI Demo</h1>
+                <h1 className="text-2xl font-bold">KERITS</h1>
                 <p className="text-sm text-muted-foreground">
-                  Key Event Receipt Infrastructure
+                  Key Event Receipt Infrastructure (TypeScript)
                 </p>
               </div>
             </div>
