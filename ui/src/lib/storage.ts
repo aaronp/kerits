@@ -4,7 +4,7 @@
  */
 
 import { openDB } from 'idb';
-import type { DBSchema, IDBPDatabase } from 'idb';;
+import type { DBSchema, IDBPDatabase } from 'idb';
 
 export interface StoredIdentity {
   alias: string;

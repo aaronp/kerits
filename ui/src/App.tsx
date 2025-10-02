@@ -1,17 +1,31 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
 import { Button } from './components/ui/button';
 import { useStore } from './store/useStore';
 import { Network, Users, FileText, Award, Shield } from 'lucide-react';
 import { Identities } from './components/identities/Identities';
+import { Schemas } from './components/schemas/Schemas';
+import { SchemaCreator } from './components/schemas/SchemaCreator';
 
-function App() {
-  const [activeTab, setActiveTab] = useState<'identities' | 'schemas' | 'credentials' | 'graph'>('identities');
+function AppContent() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { identities, credentials, schemas, loading, init } = useStore();
 
   useEffect(() => {
     init();
   }, [init]);
+
+  const getActiveTab = () => {
+    const path = location.pathname;
+    if (path.startsWith('/schemas')) return 'schemas';
+    if (path.startsWith('/credentials')) return 'credentials';
+    if (path.startsWith('/graph')) return 'graph';
+    return 'identities';
+  };
+
+  const activeTab = getActiveTab();
 
   return (
     <div className="min-h-screen bg-background">
@@ -49,7 +63,7 @@ function App() {
                 <Button
                   variant={activeTab === 'identities' ? 'default' : 'ghost'}
                   className="w-full justify-start"
-                  onClick={() => setActiveTab('identities')}
+                  onClick={() => navigate('/')}
                 >
                   <Users className="mr-2 h-4 w-4" />
                   Identities
@@ -57,7 +71,7 @@ function App() {
                 <Button
                   variant={activeTab === 'schemas' ? 'default' : 'ghost'}
                   className="w-full justify-start"
-                  onClick={() => setActiveTab('schemas')}
+                  onClick={() => navigate('/schemas')}
                 >
                   <FileText className="mr-2 h-4 w-4" />
                   Schemas
@@ -65,7 +79,7 @@ function App() {
                 <Button
                   variant={activeTab === 'credentials' ? 'default' : 'ghost'}
                   className="w-full justify-start"
-                  onClick={() => setActiveTab('credentials')}
+                  onClick={() => navigate('/credentials')}
                 >
                   <Award className="mr-2 h-4 w-4" />
                   Credentials
@@ -73,7 +87,7 @@ function App() {
                 <Button
                   variant={activeTab === 'graph' ? 'default' : 'ghost'}
                   className="w-full justify-start"
-                  onClick={() => setActiveTab('graph')}
+                  onClick={() => navigate('/graph')}
                 >
                   <Network className="mr-2 h-4 w-4" />
                   Network Graph
@@ -91,53 +105,38 @@ function App() {
                 </CardContent>
               </Card>
             ) : (
-              <>
-                {activeTab === 'identities' && <Identities />}
-                {activeTab === 'schemas' && (
+              <Routes>
+                <Route path="/" element={<Identities />} />
+                <Route path="/schemas" element={<Schemas />} />
+                <Route path="/schemas/new" element={<SchemaCreator />} />
+                <Route path="/credentials" element={
                   <Card>
-                    <CardHeader>
-                      <CardTitle>Schema Management</CardTitle>
-                      <CardDescription>Define credential schemas</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-center py-12 text-muted-foreground">
-                        Schema management coming soon...
-                      </div>
+                    <CardContent className="text-center py-12 text-muted-foreground">
+                      Credential management coming soon...
                     </CardContent>
                   </Card>
-                )}
-                {activeTab === 'credentials' && (
+                } />
+                <Route path="/graph" element={
                   <Card>
-                    <CardHeader>
-                      <CardTitle>Credential Management</CardTitle>
-                      <CardDescription>Issue and accept verifiable credentials</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-center py-12 text-muted-foreground">
-                        Credential management coming soon...
-                      </div>
+                    <CardContent className="text-center py-12 text-muted-foreground">
+                      Network visualization coming soon...
                     </CardContent>
                   </Card>
-                )}
-                {activeTab === 'graph' && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Network Visualization</CardTitle>
-                      <CardDescription>Visualize KEL and TEL events</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-center py-12 text-muted-foreground">
-                        Network visualization coming soon...
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </>
+                } />
+              </Routes>
             )}
           </main>
         </div>
       </div>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
   );
 }
 
