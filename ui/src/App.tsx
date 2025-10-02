@@ -7,6 +7,8 @@ import { Network, Users, FileText, Award, Shield } from 'lucide-react';
 import { Identities } from './components/identities/Identities';
 import { Schemas } from './components/schemas/Schemas';
 import { SchemaCreator } from './components/schemas/SchemaCreator';
+import { Credentials } from './components/credentials/Credentials';
+import { CredentialIssuer } from './components/credentials/CredentialIssuer';
 
 function AppContent() {
   const navigate = useNavigate();
@@ -109,13 +111,8 @@ function AppContent() {
                 <Route path="/" element={<Identities />} />
                 <Route path="/schemas" element={<Schemas />} />
                 <Route path="/schemas/new" element={<SchemaCreator />} />
-                <Route path="/credentials" element={
-                  <Card>
-                    <CardContent className="text-center py-12 text-muted-foreground">
-                      Credential management coming soon...
-                    </CardContent>
-                  </Card>
-                } />
+                <Route path="/credentials" element={<Credentials />} />
+                <Route path="/credentials/new" element={<CredentialIssuer />} />
                 <Route path="/graph" element={
                   <Card>
                     <CardContent className="text-center py-12 text-muted-foreground">
