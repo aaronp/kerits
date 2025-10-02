@@ -3,18 +3,20 @@ import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-ro
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
 import { Button } from './components/ui/button';
 import { useStore } from './store/useStore';
-import { Network, Users, FileText, Award } from 'lucide-react';
+import { Network, Users, FileText, Award, Moon, Sun } from 'lucide-react';
 import { Identities } from './components/identities/Identities';
 import { Schemas } from './components/schemas/Schemas';
 import { SchemaCreator } from './components/schemas/SchemaCreator';
 import { Credentials } from './components/credentials/Credentials';
 import { CredentialIssuer } from './components/credentials/CredentialIssuer';
 import { NetworkGraph } from './components/graph/NetworkGraph';
+import { ThemeProvider, useTheme } from './lib/theme-provider';
 
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const { identities, credentials, schemas, loading, init } = useStore();
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     init();
@@ -58,43 +60,66 @@ function AppContent() {
         <div className="grid grid-cols-12 gap-6">
           {/* Sidebar Navigation */}
           <aside className="col-span-3">
-            <Card>
+            <Card className="flex flex-col h-full">
               <CardHeader>
                 <CardTitle className="text-lg">Navigation</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
-                <Button
-                  variant={activeTab === 'identities' ? 'default' : 'ghost'}
-                  className="w-full justify-start"
-                  onClick={() => navigate('/')}
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  Identities
-                </Button>
-                <Button
-                  variant={activeTab === 'schemas' ? 'default' : 'ghost'}
-                  className="w-full justify-start"
-                  onClick={() => navigate('/schemas')}
-                >
-                  <FileText className="mr-2 h-4 w-4" />
-                  Schemas
-                </Button>
-                <Button
-                  variant={activeTab === 'credentials' ? 'default' : 'ghost'}
-                  className="w-full justify-start"
-                  onClick={() => navigate('/credentials')}
-                >
-                  <Award className="mr-2 h-4 w-4" />
-                  Credentials
-                </Button>
-                <Button
-                  variant={activeTab === 'graph' ? 'default' : 'ghost'}
-                  className="w-full justify-start"
-                  onClick={() => navigate('/graph')}
-                >
-                  <Network className="mr-2 h-4 w-4" />
-                  Network Graph
-                </Button>
+              <CardContent className="space-y-2 flex-1 flex flex-col">
+                <div className="flex-1 space-y-2">
+                  <Button
+                    variant={activeTab === 'identities' ? 'default' : 'ghost'}
+                    className={`w-full justify-start ${activeTab === 'identities' ? 'shadow-lg shadow-primary/40' : 'hover:bg-accent/50 hover:border-l-4 hover:border-primary hover:pl-3'}`}
+                    onClick={() => navigate('/')}
+                  >
+                    <Users className="mr-2 h-4 w-4" />
+                    Identities
+                  </Button>
+                  <Button
+                    variant={activeTab === 'schemas' ? 'default' : 'ghost'}
+                    className={`w-full justify-start ${activeTab === 'schemas' ? 'shadow-lg shadow-primary/40' : 'hover:bg-accent/50 hover:border-l-4 hover:border-primary hover:pl-3'}`}
+                    onClick={() => navigate('/schemas')}
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    Schemas
+                  </Button>
+                  <Button
+                    variant={activeTab === 'credentials' ? 'default' : 'ghost'}
+                    className={`w-full justify-start ${activeTab === 'credentials' ? 'shadow-lg shadow-primary/40' : 'hover:bg-accent/50 hover:border-l-4 hover:border-primary hover:pl-3'}`}
+                    onClick={() => navigate('/credentials')}
+                  >
+                    <Award className="mr-2 h-4 w-4" />
+                    Credentials
+                  </Button>
+                  <Button
+                    variant={activeTab === 'graph' ? 'default' : 'ghost'}
+                    className={`w-full justify-start ${activeTab === 'graph' ? 'shadow-lg shadow-primary/40' : 'hover:bg-accent/50 hover:border-l-4 hover:border-primary hover:pl-3'}`}
+                    onClick={() => navigate('/graph')}
+                  >
+                    <Network className="mr-2 h-4 w-4" />
+                    Network Graph
+                  </Button>
+                </div>
+
+                {/* Theme Toggle at Bottom */}
+                <div className="border-t pt-2">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                  >
+                    {theme === 'dark' ? (
+                      <>
+                        <Sun className="mr-2 h-4 w-4" />
+                        Light Mode
+                      </>
+                    ) : (
+                      <>
+                        <Moon className="mr-2 h-4 w-4" />
+                        Dark Mode
+                      </>
+                    )}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </aside>
@@ -127,7 +152,9 @@ function AppContent() {
 function App() {
   return (
     <BrowserRouter>
-      <AppContent />
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
     </BrowserRouter>
   );
 }
