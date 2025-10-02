@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { Buffer } from 'buffer'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -10,6 +11,9 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@kerits': path.resolve(__dirname, '../src'),
+      'node:crypto': path.resolve(__dirname, './src/lib/crypto-polyfill.ts'),
+      'crypto': path.resolve(__dirname, './src/lib/crypto-polyfill.ts'),
+      'buffer': 'buffer',
     },
   },
   build: {
@@ -20,6 +24,16 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ['@noble/ed25519', '@noble/hashes'],
+    include: ['@noble/ed25519', '@noble/hashes/blake3.js', '@noble/hashes/sha2.js', 'buffer', 'bip39'],
+    esbuildOptions: {
+      define: {
+        global: 'globalThis'
+      }
+    }
+  },
+  define: {
+    'process.env': {},
+    'global': 'globalThis',
+    'Buffer': ['buffer', 'Buffer'],
   },
 })

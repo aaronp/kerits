@@ -11,29 +11,57 @@ interface AppState {
   credentials: StoredCredential[];
   schemas: StoredSchema[];
   selectedIdentity: string | null;
+  loading: boolean;
 
   // Actions
-  refreshIdentities: () => void;
-  refreshCredentials: () => void;
-  refreshSchemas: () => void;
+  refreshIdentities: () => Promise<void>;
+  refreshCredentials: () => Promise<void>;
+  refreshSchemas: () => Promise<void>;
   setSelectedIdentity: (alias: string | null) => void;
-  refreshAll: () => void;
+  refreshAll: () => Promise<void>;
+  init: () => Promise<void>;
 }
 
 export const useStore = create<AppState>((set) => ({
-  identities: getIdentities(),
-  credentials: getCredentials(),
-  schemas: getSchemas(),
+  identities: [],
+  credentials: [],
+  schemas: [],
   selectedIdentity: null,
+  loading: true,
 
-  refreshIdentities: () => set({ identities: getIdentities() }),
-  refreshCredentials: () => set({ credentials: getCredentials() }),
-  refreshSchemas: () => set({ schemas: getSchemas() }),
+  refreshIdentities: async () => {
+    const identities = await getIdentities();
+    set({ identities });
+  },
+
+  refreshCredentials: async () => {
+    const credentials = await getCredentials();
+    set({ credentials });
+  },
+
+  refreshSchemas: async () => {
+    const schemas = await getSchemas();
+    set({ schemas });
+  },
+
   setSelectedIdentity: (alias) => set({ selectedIdentity: alias }),
 
-  refreshAll: () => set({
-    identities: getIdentities(),
-    credentials: getCredentials(),
-    schemas: getSchemas(),
-  }),
+  refreshAll: async () => {
+    set({ loading: true });
+    const [identities, credentials, schemas] = await Promise.all([
+      getIdentities(),
+      getCredentials(),
+      getSchemas(),
+    ]);
+    set({ identities, credentials, schemas, loading: false });
+  },
+
+  init: async () => {
+    const [identities, credentials, schemas] = await Promise.all([
+      getIdentities(),
+      getCredentials(),
+      getSchemas(),
+    ]);
+    set({ identities, credentials, schemas, loading: false });
+  },
 }));

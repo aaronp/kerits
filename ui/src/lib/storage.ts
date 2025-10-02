@@ -1,17 +1,23 @@
 /**
- * Browser storage for demo purposes
- * Stores identities, credentials, and events in localStorage
+ * Browser storage using IndexedDB
+ * Stores identities, credentials, schemas, and all KERI data
  */
+
+import { openDB } from 'idb';
+import type { DBSchema, IDBPDatabase } from 'idb';;
 
 export interface StoredIdentity {
   alias: string;
   prefix: string;
+  mnemonic: string; // BIP39 mnemonic for key derivation
   currentKeys: {
     public: string;
+    private: string;
     seed: string;
   };
   nextKeys: {
     public: string;
+    private: string;
     seed: string;
   };
   inceptionEvent: any;
@@ -23,107 +29,182 @@ export interface StoredCredential {
   id: string;
   name: string;
   issuer: string;
+  issuerAlias?: string;
   recipient?: string;
+  recipientAlias?: string;
   schema: string;
+  schemaName?: string;
   sad: any;
   tel?: any[]; // Transaction Event Log
+  registry?: string;
   createdAt: string;
+}
+
+export interface SchemaField {
+  name: string;
+  type: 'string' | 'number' | 'boolean' | 'date' | 'email' | 'url';
+  required?: boolean;
 }
 
 export interface StoredSchema {
   id: string;
   name: string;
+  description?: string;
+  fields: SchemaField[];
   sad: any;
   createdAt: string;
 }
 
-const STORAGE_KEYS = {
-  IDENTITIES: 'keri-demo-identities',
-  CREDENTIALS: 'keri-demo-credentials',
-  SCHEMAS: 'keri-demo-schemas',
-};
+// IndexedDB Schema
+interface KeriDB extends DBSchema {
+  identities: {
+    key: string;
+    value: StoredIdentity;
+    indexes: { 'by-prefix': string };
+  };
+  credentials: {
+    key: string;
+    value: StoredCredential;
+    indexes: { 'by-issuer': string; 'by-recipient': string; 'by-schema': string };
+  };
+  schemas: {
+    key: string;
+    value: StoredSchema;
+  };
+}
+
+const DB_NAME = 'keri-demo';
+const DB_VERSION = 1;
+
+let dbPromise: Promise<IDBPDatabase<KeriDB>> | null = null;
+
+async function getDB(): Promise<IDBPDatabase<KeriDB>> {
+  if (!dbPromise) {
+    dbPromise = openDB<KeriDB>(DB_NAME, DB_VERSION, {
+      upgrade(db) {
+        // Identities store
+        if (!db.objectStoreNames.contains('identities')) {
+          const identityStore = db.createObjectStore('identities', { keyPath: 'alias' });
+          identityStore.createIndex('by-prefix', 'prefix');
+        }
+
+        // Credentials store
+        if (!db.objectStoreNames.contains('credentials')) {
+          const credentialStore = db.createObjectStore('credentials', { keyPath: 'id' });
+          credentialStore.createIndex('by-issuer', 'issuer');
+          credentialStore.createIndex('by-recipient', 'recipient');
+          credentialStore.createIndex('by-schema', 'schema');
+        }
+
+        // Schemas store
+        if (!db.objectStoreNames.contains('schemas')) {
+          db.createObjectStore('schemas', { keyPath: 'id' });
+        }
+      },
+    });
+  }
+  return dbPromise;
+}
 
 // Identity Management
-export function saveIdentity(identity: StoredIdentity): void {
-  const identities = getIdentities();
-  const index = identities.findIndex(i => i.alias === identity.alias);
-  if (index >= 0) {
-    identities[index] = identity;
-  } else {
-    identities.push(identity);
-  }
-  localStorage.setItem(STORAGE_KEYS.IDENTITIES, JSON.stringify(identities));
+export async function saveIdentity(identity: StoredIdentity): Promise<void> {
+  const db = await getDB();
+  await db.put('identities', identity);
 }
 
-export function getIdentities(): StoredIdentity[] {
-  const data = localStorage.getItem(STORAGE_KEYS.IDENTITIES);
-  return data ? JSON.parse(data) : [];
+export async function getIdentities(): Promise<StoredIdentity[]> {
+  const db = await getDB();
+  return db.getAll('identities');
 }
 
-export function getIdentity(alias: string): StoredIdentity | undefined {
-  return getIdentities().find(i => i.alias === alias);
+export async function getIdentity(alias: string): Promise<StoredIdentity | undefined> {
+  const db = await getDB();
+  return db.get('identities', alias);
 }
 
-export function deleteIdentity(alias: string): void {
-  const identities = getIdentities().filter(i => i.alias !== alias);
-  localStorage.setItem(STORAGE_KEYS.IDENTITIES, JSON.stringify(identities));
+export async function getIdentityByPrefix(prefix: string): Promise<StoredIdentity | undefined> {
+  const db = await getDB();
+  return db.getFromIndex('identities', 'by-prefix', prefix);
+}
+
+export async function deleteIdentity(alias: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('identities', alias);
 }
 
 // Credential Management
-export function saveCredential(credential: StoredCredential): void {
-  const credentials = getCredentials();
-  const index = credentials.findIndex(c => c.id === credential.id);
-  if (index >= 0) {
-    credentials[index] = credential;
-  } else {
-    credentials.push(credential);
-  }
-  localStorage.setItem(STORAGE_KEYS.CREDENTIALS, JSON.stringify(credentials));
+export async function saveCredential(credential: StoredCredential): Promise<void> {
+  const db = await getDB();
+  await db.put('credentials', credential);
 }
 
-export function getCredentials(): StoredCredential[] {
-  const data = localStorage.getItem(STORAGE_KEYS.CREDENTIALS);
-  return data ? JSON.parse(data) : [];
+export async function getCredentials(): Promise<StoredCredential[]> {
+  const db = await getDB();
+  return db.getAll('credentials');
 }
 
-export function getCredential(id: string): StoredCredential | undefined {
-  return getCredentials().find(c => c.id === id);
+export async function getCredential(id: string): Promise<StoredCredential | undefined> {
+  const db = await getDB();
+  return db.get('credentials', id);
 }
 
-export function deleteCredential(id: string): void {
-  const credentials = getCredentials().filter(c => c.id !== id);
-  localStorage.setItem(STORAGE_KEYS.CREDENTIALS, JSON.stringify(credentials));
+export async function getCredentialsByIssuer(issuer: string): Promise<StoredCredential[]> {
+  const db = await getDB();
+  return db.getAllFromIndex('credentials', 'by-issuer', issuer);
+}
+
+export async function getCredentialsByRecipient(recipient: string): Promise<StoredCredential[]> {
+  const db = await getDB();
+  return db.getAllFromIndex('credentials', 'by-recipient', recipient);
+}
+
+export async function deleteCredential(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('credentials', id);
 }
 
 // Schema Management
-export function saveSchema(schema: StoredSchema): void {
-  const schemas = getSchemas();
-  const index = schemas.findIndex(s => s.id === schema.id);
-  if (index >= 0) {
-    schemas[index] = schema;
-  } else {
-    schemas.push(schema);
-  }
-  localStorage.setItem(STORAGE_KEYS.SCHEMAS, JSON.stringify(schemas));
+export async function saveSchema(schema: StoredSchema): Promise<void> {
+  const db = await getDB();
+  await db.put('schemas', schema);
 }
 
-export function getSchemas(): StoredSchema[] {
-  const data = localStorage.getItem(STORAGE_KEYS.SCHEMAS);
-  return data ? JSON.parse(data) : [];
+export async function getSchemas(): Promise<StoredSchema[]> {
+  const db = await getDB();
+  return db.getAll('schemas');
 }
 
-export function getSchema(id: string): StoredSchema | undefined {
-  return getSchemas().find(s => s.id === id);
+export async function getSchema(id: string): Promise<StoredSchema | undefined> {
+  const db = await getDB();
+  return db.get('schemas', id);
 }
 
-export function deleteSchema(id: string): void {
-  const schemas = getSchemas().filter(s => s.id !== id);
-  localStorage.setItem(STORAGE_KEYS.SCHEMAS, JSON.stringify(schemas));
+export async function deleteSchema(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('schemas', id);
+}
+
+// Export all data
+export async function exportAllData(): Promise<{
+  identities: StoredIdentity[];
+  credentials: StoredCredential[];
+  schemas: StoredSchema[];
+}> {
+  const [identities, credentials, schemas] = await Promise.all([
+    getIdentities(),
+    getCredentials(),
+    getSchemas(),
+  ]);
+
+  return { identities, credentials, schemas };
 }
 
 // Clear all data
-export function clearAllData(): void {
-  localStorage.removeItem(STORAGE_KEYS.IDENTITIES);
-  localStorage.removeItem(STORAGE_KEYS.CREDENTIALS);
-  localStorage.removeItem(STORAGE_KEYS.SCHEMAS);
+export async function clearAllData(): Promise<void> {
+  const db = await getDB();
+  await Promise.all([
+    db.clear('identities'),
+    db.clear('credentials'),
+    db.clear('schemas'),
+  ]);
 }

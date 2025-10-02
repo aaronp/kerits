@@ -2,6 +2,12 @@
  * KERI library - imports from parent kerits/src
  */
 
+// Setup @noble/ed25519 with sha512 from @noble/hashes
+import * as ed from '@noble/ed25519';
+import { sha512 } from '@noble/hashes/sha2.js';
+ed.etc.sha512Sync = (...m) => sha512(ed.etc.concatBytes(...m));
+ed.etc.sha512Async = (...m) => Promise.resolve(ed.etc.sha512Sync(...m));
+
 export { incept } from '@kerits/incept';
 export type { InceptOptions, InceptionEvent } from '@kerits/incept';
 

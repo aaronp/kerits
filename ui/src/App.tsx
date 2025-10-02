@@ -1,12 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Button } from './components/ui/button';
 import { useStore } from './store/useStore';
 import { Network, Users, FileText, Award, Shield } from 'lucide-react';
+import { Identities } from './components/identities/Identities';
 
 function App() {
   const [activeTab, setActiveTab] = useState<'identities' | 'schemas' | 'credentials' | 'graph'>('identities');
-  const { identities, credentials, schemas } = useStore();
+  const { identities, credentials, schemas, loading, init } = useStore();
+
+  useEffect(() => {
+    init();
+  }, [init]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -79,44 +84,56 @@ function App() {
 
           {/* Main Content */}
           <main className="col-span-9">
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {activeTab === 'identities' && 'Identity Management'}
-                  {activeTab === 'schemas' && 'Schema Management'}
-                  {activeTab === 'credentials' && 'Credential Management'}
-                  {activeTab === 'graph' && 'Network Visualization'}
-                </CardTitle>
-                <CardDescription>
-                  {activeTab === 'identities' && 'Create and manage KERI identities (AIDs)'}
-                  {activeTab === 'schemas' && 'Define credential schemas'}
-                  {activeTab === 'credentials' && 'Issue and accept verifiable credentials'}
-                  {activeTab === 'graph' && 'Visualize KEL and TEL events'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {activeTab === 'identities' && (
-                  <div className="text-center py-12 text-muted-foreground">
-                    Identity management coming soon...
-                  </div>
-                )}
+            {loading ? (
+              <Card>
+                <CardContent className="text-center py-12 text-muted-foreground">
+                  Loading...
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {activeTab === 'identities' && <Identities />}
                 {activeTab === 'schemas' && (
-                  <div className="text-center py-12 text-muted-foreground">
-                    Schema management coming soon...
-                  </div>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Schema Management</CardTitle>
+                      <CardDescription>Define credential schemas</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-center py-12 text-muted-foreground">
+                        Schema management coming soon...
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
                 {activeTab === 'credentials' && (
-                  <div className="text-center py-12 text-muted-foreground">
-                    Credential management coming soon...
-                  </div>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Credential Management</CardTitle>
+                      <CardDescription>Issue and accept verifiable credentials</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-center py-12 text-muted-foreground">
+                        Credential management coming soon...
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
                 {activeTab === 'graph' && (
-                  <div className="text-center py-12 text-muted-foreground">
-                    Network visualization coming soon...
-                  </div>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Network Visualization</CardTitle>
+                      <CardDescription>Visualize KEL and TEL events</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-center py-12 text-muted-foreground">
+                        Network visualization coming soon...
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
-              </CardContent>
-            </Card>
+              </>
+            )}
           </main>
         </div>
       </div>
