@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
+import { Label } from '../ui/label';
+import { Select } from '../ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import { Textarea } from '../ui/textarea';
+import { Toast, useToast } from '../ui/toast';
 import { ChevronDown, ChevronRight, Copy, Download, Upload, Trash2, CheckCircle2 } from 'lucide-react';
 import { deleteCredential, saveCredential } from '@/lib/storage';
+import { useStore } from '@/store/useStore';
 import type { StoredCredential } from '@/lib/storage';
 
 interface CredentialListProps {
@@ -14,13 +18,17 @@ interface CredentialListProps {
 }
 
 export function CredentialList({ credentials, onDelete, onImport }: CredentialListProps) {
+  const { identities } = useStore();
+  const { toast, showToast, hideToast } = useToast();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importData, setImportData] = useState('');
+  const [importRecipientAlias, setImportRecipientAlias] = useState('');
   const [importing, setImporting] = useState(false);
 
-  const handleCopy = async (text: string) => {
+  const handleCopy = async (text: string, itemName: string = 'Text') => {
     await navigator.clipboard.writeText(text);
+    showToast(`${itemName} copied to clipboard`);
   };
 
   const handleExport = (credential: StoredCredential) => {
@@ -40,7 +48,7 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
     };
 
     const json = JSON.stringify(exportData, null, 2);
-    handleCopy(json);
+    handleCopy(json, 'Credential');
   };
 
   const handleDelete = async (id: string) => {
@@ -63,39 +71,73 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
       return;
     }
 
+    if (!importRecipientAlias) {
+      alert('Please select which identity is receiving this credential');
+      return;
+    }
+
     setImporting(true);
     try {
       const parsed = JSON.parse(importData);
 
-      // Validate credential structure
-      if (!parsed.id || !parsed.sad) {
-        throw new Error('Invalid credential format');
+      // Find the selected recipient identity
+      const recipientIdentity = identities.find(i => i.alias === importRecipientAlias);
+      if (!recipientIdentity) {
+        throw new Error('Selected identity not found');
       }
 
-      const importedCredential: StoredCredential = {
-        id: parsed.id,
-        name: parsed.name || 'Imported Credential',
-        issuer: parsed.issuer,
-        issuerAlias: parsed.issuerAlias,
-        recipient: parsed.recipient,
-        recipientAlias: parsed.recipientAlias,
-        schema: parsed.schema,
-        schemaName: parsed.schemaName,
-        sad: parsed.sad,
-        tel: parsed.tel || [],
-        registry: parsed.registry,
-        createdAt: parsed.createdAt || new Date().toISOString(),
-      };
+      let importedCredential: StoredCredential;
+
+      // Check if this is the full export format (StoredCredential) or raw ACDC SAD
+      if (parsed.id && parsed.sad) {
+        // Full export format - StoredCredential structure
+        console.log('Importing from full credential export format');
+        importedCredential = {
+          id: parsed.id,
+          name: parsed.name || 'Imported Credential',
+          issuer: parsed.issuer,
+          issuerAlias: parsed.issuerAlias,
+          recipient: recipientIdentity.prefix,
+          recipientAlias: recipientIdentity.alias,
+          schema: parsed.schema,
+          schemaName: parsed.schemaName,
+          sad: parsed.sad,
+          tel: parsed.tel || [],
+          registry: parsed.registry,
+          createdAt: parsed.createdAt || new Date().toISOString(),
+        };
+      } else if (parsed.v && parsed.d && parsed.i && parsed.s) {
+        // Raw ACDC SAD format (v, d, i, s, a fields)
+        console.log('Importing from raw ACDC SAD format');
+        importedCredential = {
+          id: parsed.d, // SAID is the credential ID
+          name: 'Imported Credential',
+          issuer: parsed.i, // Issuer AID
+          issuerAlias: undefined,
+          recipient: recipientIdentity.prefix,
+          recipientAlias: recipientIdentity.alias,
+          schema: parsed.s, // Schema SAID
+          schemaName: undefined,
+          sad: parsed, // The entire object is the SAD
+          tel: [], // No TEL data in raw format
+          registry: undefined,
+          createdAt: new Date().toISOString(),
+        };
+      } else {
+        throw new Error('Invalid credential format. Expected either full export or ACDC SAD structure.');
+      }
 
       await saveCredential(importedCredential);
       console.log('Credential imported successfully:', importedCredential.id);
+      console.log('Imported to recipient:', recipientIdentity.alias, recipientIdentity.prefix);
 
       setImportData('');
+      setImportRecipientAlias('');
       setShowImportDialog(false);
       onImport();
     } catch (error) {
       console.error('Failed to import credential:', error);
-      alert('Failed to import credential. Please check the format.');
+      alert(`Failed to import credential: ${error instanceof Error ? error.message : 'Please check the format.'}`);
     } finally {
       setImporting(false);
     }
@@ -120,17 +162,39 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
             <DialogHeader>
               <DialogTitle>Import Credential</DialogTitle>
               <DialogDescription>
-                Paste a credential JSON exported from another user
+                Paste a credential - supports full export format or raw ACDC SAD
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <Textarea
-                placeholder='{"id": "...", "sad": {...}, "tel": [...], ...}'
-                value={importData}
-                onChange={(e) => setImportData(e.target.value)}
-                rows={12}
-                className="font-mono text-xs"
-              />
+              <div className="space-y-2">
+                <Label htmlFor="import-recipient">Import to Identity *</Label>
+                <Select
+                  id="import-recipient"
+                  value={importRecipientAlias}
+                  onChange={(e) => setImportRecipientAlias(e.target.value)}
+                >
+                  <option value="">Select identity...</option>
+                  {identities.map(identity => (
+                    <option key={identity.alias} value={identity.alias}>
+                      {identity.alias} ({identity.prefix.substring(0, 20)}...)
+                    </option>
+                  ))}
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Select which of your identities is receiving this credential
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="import-data">Credential JSON</Label>
+                <Textarea
+                  id="import-data"
+                  placeholder='{"id": "...", "sad": {...}, "tel": [...], ...}'
+                  value={importData}
+                  onChange={(e) => setImportData(e.target.value)}
+                  rows={10}
+                  className="font-mono text-xs"
+                />
+              </div>
               <div className="flex gap-2">
                 <Button onClick={handleImport} disabled={importing} className="flex-1">
                   {importing ? 'Importing...' : 'Import Credential'}
@@ -217,7 +281,7 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleCopy(credential.issuer)}
+                      onClick={() => handleCopy(credential.issuer, 'Issuer AID')}
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
@@ -235,7 +299,7 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleCopy(credential.recipient!)}
+                        onClick={() => handleCopy(credential.recipient!, 'Recipient AID')}
                       >
                         <Copy className="h-4 w-4" />
                       </Button>
@@ -253,7 +317,7 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleCopy(credential.schema)}
+                      onClick={() => handleCopy(credential.schema, 'Schema SAID')}
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
@@ -298,7 +362,7 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
                       variant="ghost"
                       size="sm"
                       className="absolute top-2 right-2"
-                      onClick={() => handleCopy(JSON.stringify(credential.sad, null, 2))}
+                      onClick={() => handleCopy(JSON.stringify(credential.sad, null, 2), 'Credential SAD')}
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
@@ -321,17 +385,39 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
           <DialogHeader>
             <DialogTitle>Import Credential</DialogTitle>
             <DialogDescription>
-              Paste a credential JSON exported from another user
+              Paste a credential - supports full export format or raw ACDC SAD
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <Textarea
-              placeholder='{"id": "...", "sad": {...}, "tel": [...], ...}'
-              value={importData}
-              onChange={(e) => setImportData(e.target.value)}
-              rows={12}
-              className="font-mono text-xs"
-            />
+            <div className="space-y-2">
+              <Label htmlFor="import-recipient-main">Import to Identity *</Label>
+              <Select
+                id="import-recipient-main"
+                value={importRecipientAlias}
+                onChange={(e) => setImportRecipientAlias(e.target.value)}
+              >
+                <option value="">Select identity...</option>
+                {identities.map(identity => (
+                  <option key={identity.alias} value={identity.alias}>
+                    {identity.alias} ({identity.prefix.substring(0, 20)}...)
+                  </option>
+                ))}
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Select which of your identities is receiving this credential
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="import-data-main">Credential JSON</Label>
+              <Textarea
+                id="import-data-main"
+                placeholder='{"id": "...", "sad": {...}, "tel": [...], ...}'
+                value={importData}
+                onChange={(e) => setImportData(e.target.value)}
+                rows={10}
+                className="font-mono text-xs"
+              />
+            </div>
             <div className="flex gap-2">
               <Button onClick={handleImport} disabled={importing} className="flex-1">
                 {importing ? 'Importing...' : 'Import Credential'}
@@ -343,6 +429,8 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
           </div>
         </DialogContent>
       </Dialog>
+
+      <Toast message={toast.message} show={toast.show} onClose={hideToast} />
     </div>
   );
 }

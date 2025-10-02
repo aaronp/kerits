@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
+import { Toast, useToast } from '../ui/toast';
 import { Copy, Check, Trash2, Eye, EyeOff, RotateCw } from 'lucide-react';
 import type { StoredIdentity } from '@/lib/storage';
 import { deleteIdentity, saveIdentity } from '@/lib/storage';
@@ -14,15 +15,19 @@ interface IdentityListProps {
 }
 
 export function IdentityList({ identities, onDelete, onUpdate }: IdentityListProps) {
+  const { toast, showToast, hideToast } = useToast();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showMnemonic, setShowMnemonic] = useState<Record<string, boolean>>({});
   const [rotating, setRotating] = useState<Record<string, boolean>>({});
 
-  const copyToClipboard = async (text: string, field: string) => {
+  const copyToClipboard = async (text: string, field: string, itemName?: string) => {
     await navigator.clipboard.writeText(text);
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 2000);
+    if (itemName) {
+      showToast(`${itemName} copied to clipboard`);
+    }
   };
 
   const handleDelete = async (alias: string) => {
@@ -235,6 +240,7 @@ export function IdentityList({ identities, onDelete, onUpdate }: IdentityListPro
           )}
         </Card>
       ))}
+      <Toast message={toast.message} show={toast.show} onClose={hideToast} />
     </div>
   );
 }
