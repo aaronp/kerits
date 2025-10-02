@@ -5,7 +5,7 @@ import path from 'path'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/keripy/', // Update this to match your GitHub repo name
+  base: '/kerits/', // Update this to match your GitHub repo name
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

@@ -9,6 +9,7 @@ import { Schemas } from './components/schemas/Schemas';
 import { SchemaCreator } from './components/schemas/SchemaCreator';
 import { Credentials } from './components/credentials/Credentials';
 import { CredentialIssuer } from './components/credentials/CredentialIssuer';
+import { NetworkGraph } from './components/graph/NetworkGraph';
 
 function AppContent() {
   const navigate = useNavigate();
@@ -113,13 +114,7 @@ function AppContent() {
                 <Route path="/schemas/new" element={<SchemaCreator />} />
                 <Route path="/credentials" element={<Credentials />} />
                 <Route path="/credentials/new" element={<CredentialIssuer />} />
-                <Route path="/graph" element={
-                  <Card>
-                    <CardContent className="text-center py-12 text-muted-foreground">
-                      Network visualization coming soon...
-                    </CardContent>
-                  </Card>
-                } />
+                <Route path="/graph" element={<NetworkGraph />} />
               </Routes>
             )}
           </main>
