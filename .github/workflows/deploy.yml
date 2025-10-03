@@ -1,0 +1,70 @@
+name: Deploy Kerits UI to GitHub Pages
+
+on:
+  push:
+    branches: [main, master, aaron]
+    paths:
+      - 'kerits/ui/**'
+      - '.github/workflows/*.yml'
+      - 'build-for-pages.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.OS }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.OS }}-bun-
+
+      - name: Make build script executable
+        run: chmod +x build-for-pages.sh
+
+      - name: Update repository name in build script
+        run: |
+          sed -i "s/REPO_NAME=\"keripy\"/REPO_NAME=\"${{ github.event.repository.name }}\"/" build-for-pages.sh
+
+      - name: Build UI
+        run: ./build-for-pages.sh
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./deploy
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Deploy notification
+        run: |
+          echo "✅ Deployment complete!"
+          echo "🌐 UI available at: ${{ steps.deployment.outputs.page_url }}"
