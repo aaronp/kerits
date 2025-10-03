@@ -10,6 +10,8 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@kerits': path.resolve(__dirname, '../src'),
+      '@noble/ed25519': path.resolve(__dirname, './node_modules/@noble/ed25519'),
+      '@noble/hashes': path.resolve(__dirname, './node_modules/@noble/hashes'),
       'node:crypto': path.resolve(__dirname, './src/lib/crypto-polyfill.ts'),
       'crypto': path.resolve(__dirname, './src/lib/crypto-polyfill.ts'),
       'buffer': 'buffer',
@@ -20,6 +22,9 @@ export default defineConfig({
     sourcemap: true,
     commonjsOptions: {
       transformMixedEsModules: true,
+    },
+    rollupOptions: {
+      external: [],
     },
   },
   optimizeDeps: {

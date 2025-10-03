@@ -46,7 +46,7 @@ mv vite.config.ts.bak vite.config.ts
 
 # Copy UI to deployment root
 echo "📋 Copying UI to deployment directory..."
-cd ../..
+cd ..
 cp -r ui/dist/* deploy/
 
 echo ""
