@@ -14,7 +14,7 @@ body {
   --color-foreground: oklch(18% 0.03 264);
   --color-card: oklch(100% 0 0);
   --color-card-foreground: oklch(18% 0.03 264);
-  --color-popover: oklch(100% 0 0);
+  --color-popover: oklch(98% 0 0);
   --color-popover-foreground: oklch(18% 0.03 264);
   --color-primary: oklch(60% 0.2 264);
   --color-primary-foreground: oklch(98% 0 0);
@@ -38,7 +38,7 @@ body {
   --color-foreground: oklch(91% 0.01 264);
   --color-card: oklch(17% 0.02 264);
   --color-card-foreground: oklch(91% 0.01 264);
-  --color-popover: oklch(15% 0.02 264);
+  --color-popover: oklch(22% 0.03 264);
   --color-popover-foreground: oklch(91% 0.01 264);
   --color-primary: oklch(68% 0.19 264);
   --color-primary-foreground: oklch(18% 0.03 264);

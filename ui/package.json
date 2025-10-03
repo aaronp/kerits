@@ -16,6 +16,7 @@
   "dependencies": {
     "@noble/ed25519": "^3.0.0",
     "@noble/hashes": "^2.0.1",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
     "bip39": "^3.1.0",
     "buffer": "^6.0.3",
     "class-variance-authority": "^0.7.1",
