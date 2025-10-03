@@ -196,12 +196,12 @@ export function NetworkGraph() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <span className="text-sm font-medium">Graph Type:</span>
-              <div className="flex items-center gap-2 bg-muted rounded-lg p-1">
+              <div className="flex items-center gap-1 bg-muted rounded-lg p-1 border border-border">
                 <Button
                   variant={graphType === 'kel' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setGraphType('kel')}
-                  className="h-8"
+                  className={`h-8 ${graphType === 'kel' ? 'shadow-sm' : 'hover:bg-accent'}`}
                 >
                   KEL
                 </Button>
@@ -209,7 +209,7 @@ export function NetworkGraph() {
                   variant={graphType === 'tel' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setGraphType('tel')}
-                  className="h-8"
+                  className={`h-8 ${graphType === 'tel' ? 'shadow-sm' : 'hover:bg-accent'}`}
                 >
                   TEL
                 </Button>

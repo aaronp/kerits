@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
@@ -7,8 +7,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Textarea } from '../ui/textarea';
 import { Toast, useToast } from '../ui/toast';
 import { ChevronDown, ChevronRight, Copy, Download, Upload, Trash2, CheckCircle2 } from 'lucide-react';
-import { deleteCredential, saveCredential } from '@/lib/storage';
+import { deleteCredential, saveCredential, getIdentities } from '@/lib/storage';
 import { useStore } from '@/store/useStore';
+import { useUser } from '@/lib/user-provider';
 import type { StoredCredential } from '@/lib/storage';
 
 interface CredentialListProps {
@@ -19,12 +20,38 @@ interface CredentialListProps {
 
 export function CredentialList({ credentials, onDelete, onImport }: CredentialListProps) {
   const { identities } = useStore();
+  const { users } = useUser();
   const { toast, showToast, hideToast } = useToast();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importData, setImportData] = useState('');
   const [importRecipientAlias, setImportRecipientAlias] = useState('');
   const [importing, setImporting] = useState(false);
+  const [aidToUserName, setAidToUserName] = useState<Map<string, string>>(new Map());
+
+  // Build AID to user name mapping from global database
+  useEffect(() => {
+    const buildAidMapping = async () => {
+      const mapping = new Map<string, string>();
+
+      for (const user of users) {
+        try {
+          const userIdentities = await getIdentities(user.id);
+          userIdentities.forEach(identity => {
+            mapping.set(identity.prefix, user.name);
+          });
+        } catch (error) {
+          console.error(`Failed to load identities for user ${user.name}:`, error);
+        }
+      }
+
+      setAidToUserName(mapping);
+    };
+
+    if (users.length > 0) {
+      buildAidMapping();
+    }
+  }, [users]);
 
   const handleCopy = async (text: string, itemName: string = 'Text') => {
     await navigator.clipboard.writeText(text);
@@ -251,8 +278,12 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
               const isExpanded = expandedId === credential.id;
 
               // Format: "from -> to : schema name"
-              const issuerLabel = credential.issuerAlias || credential.issuer.substring(0, 8) + '...';
-              const recipientLabel = credential.recipientAlias || (credential.recipient ? credential.recipient.substring(0, 8) + '...' : 'None');
+              // Try to resolve AIDs to user names from global database
+              const issuerUserName = aidToUserName.get(credential.issuer);
+              const recipientUserName = credential.recipient ? aidToUserName.get(credential.recipient) : undefined;
+
+              const issuerLabel = credential.issuerAlias || issuerUserName || credential.issuer.substring(0, 8) + '...';
+              const recipientLabel = credential.recipientAlias || recipientUserName || (credential.recipient ? credential.recipient.substring(0, 8) + '...' : 'None');
               const schemaLabel = credential.schemaName || 'Schema';
               const summary = `${issuerLabel} → ${recipientLabel} : ${schemaLabel}`;
 
