@@ -115,7 +115,10 @@ export function Schemas() {
             <Upload className="mr-2 h-4 w-4" />
             Import Schema
           </Button>
-          <Button onClick={() => navigate(route('/dashboard/schemas/new'))}>
+          <Button
+            onClick={() => navigate(route('/dashboard/schemas/new'))}
+            className="border shadow-sm hover:shadow-md transition-shadow"
+          >
             <Plus className="mr-2 h-4 w-4" />
             Create Schema
           </Button>

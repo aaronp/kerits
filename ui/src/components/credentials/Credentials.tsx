@@ -23,7 +23,10 @@ export function Credentials() {
             Issue and manage verifiable credentials
           </p>
         </div>
-        <Button onClick={() => navigate(route('/dashboard/credentials/new'))}>
+        <Button
+          onClick={() => navigate(route('/dashboard/credentials/new'))}
+          className="border shadow-sm hover:shadow-md transition-shadow"
+        >
           <Plus className="mr-2 h-4 w-4" />
           Issue Credential
         </Button>
