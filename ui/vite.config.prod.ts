@@ -21,15 +21,6 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@kerits': path.resolve(__dirname, '../src'),
-      '@noble/ed25519': path.resolve(__dirname, './node_modules/@noble/ed25519'),
-      '@noble/hashes/blake3.js': path.resolve(__dirname, './node_modules/@noble/hashes/blake3.js'),
-      '@noble/hashes/blake3': path.resolve(__dirname, './node_modules/@noble/hashes/blake3.js'),
-      '@noble/hashes/sha2.js': path.resolve(__dirname, './node_modules/@noble/hashes/sha2.js'),
-      '@noble/hashes/sha2': path.resolve(__dirname, './node_modules/@noble/hashes/sha2.js'),
-      '@noble/hashes/sha512.js': path.resolve(__dirname, './node_modules/@noble/hashes/sha2.js'),
-      '@noble/hashes/sha512': path.resolve(__dirname, './node_modules/@noble/hashes/sha2.js'),
-      'readable-stream': 'vite-compatible-readable-stream/readable-browser.js',
-      stream: 'vite-compatible-readable-stream/readable-browser.js',
     },
   },
   build: {
