@@ -6,7 +6,7 @@ import { Textarea } from './ui/textarea';
 import { Toast, useToast } from './ui/toast';
 import { useUser } from '../lib/user-provider';
 import { useStore } from '../store/useStore';
-import { UserCircle, RotateCw, Shield, Eye, EyeOff, Key } from 'lucide-react';
+import { UserCircle, RotateCw, Shield, Eye, EyeOff, Key, Copy } from 'lucide-react';
 import { saveIdentity } from '../lib/storage';
 import { deriveSeed, formatMnemonic } from '../lib/mnemonic';
 import { generateKeypairFromSeed, rotate, diger } from '../lib/keri';
@@ -21,6 +21,11 @@ export function Profile() {
 
   const toggleMnemonic = (alias: string) => {
     setShowMnemonic(prev => ({ ...prev, [alias]: !prev[alias] }));
+  };
+
+  const handleCopyAID = async (aid: string) => {
+    await navigator.clipboard.writeText(aid);
+    showToast('User\'s AID copied to clipboard');
   };
 
   const handleRotateKeys = async (identity: StoredIdentity) => {
@@ -105,10 +110,6 @@ export function Profile() {
             <div className="text-lg font-medium">{currentUser.name}</div>
           </div>
           <div className="space-y-2">
-            <Label>User ID</Label>
-            <div className="text-sm font-mono text-muted-foreground">{currentUser.id}</div>
-          </div>
-          <div className="space-y-2">
             <Label>Created</Label>
             <div className="text-sm text-muted-foreground">
               {new Date(currentUser.createdAt).toLocaleString()}
@@ -139,8 +140,19 @@ export function Profile() {
                           <Shield className="h-5 w-5 text-primary" />
                           <h3 className="text-lg font-semibold">{identity.alias}</h3>
                         </div>
-                        <div className="text-xs font-mono text-muted-foreground">
-                          {identity.prefix}
+                        <div className="flex items-center gap-2">
+                          <div className="text-xs font-mono text-muted-foreground">
+                            {identity.prefix}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCopyAID(identity.prefix)}
+                            className="h-6 w-6 p-0"
+                            title="Copy AID"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
                         </div>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                           <span>Created: {new Date(identity.createdAt).toLocaleDateString()}</span>

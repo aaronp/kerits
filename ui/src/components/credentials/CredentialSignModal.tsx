@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { Toast, useToast } from '../ui/toast';
 import { Copy, Pencil } from 'lucide-react';
 import { diger } from '@kerits/diger';
 import { sign, encodeBase64Url } from '@kerits/sign';
@@ -32,6 +33,7 @@ function encodePrivateKeyCESR(privateKeyHex: string): string {
 export function CredentialSignModal({ credential, isOpen, onClose }: CredentialSignModalProps) {
   const { identities } = useStore();
   const { currentUser } = useUser();
+  const { toast, showToast, hideToast } = useToast();
   const [challenge, setChallenge] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
   const [hash, setHash] = useState('');
@@ -96,6 +98,7 @@ export function CredentialSignModal({ credential, isOpen, onClose }: CredentialS
     await navigator.clipboard.writeText(text);
     setCopied(type);
     setTimeout(() => setCopied(null), 2000);
+    showToast(type === 'hash' ? 'Hash copied to clipboard' : 'Signature copied to clipboard');
   };
 
   const handleClose = () => {
@@ -191,6 +194,8 @@ export function CredentialSignModal({ credential, isOpen, onClose }: CredentialS
           </div>
         </div>
       </DialogContent>
+
+      <Toast message={toast.message} show={toast.show} onClose={hideToast} />
     </Dialog>
   );
 }
