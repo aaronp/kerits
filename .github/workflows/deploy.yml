@@ -4,9 +4,7 @@ on:
   push:
     branches: [main, master, aaron]
     paths:
-      - 'kerits/ui/**'
-      - '.github/workflows/*.yml'
-      - 'build-for-pages.sh'
+      - '*'
   workflow_dispatch:
 
 permissions:
