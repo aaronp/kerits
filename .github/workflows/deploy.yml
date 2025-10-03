@@ -4,7 +4,10 @@ on:
   push:
     branches: [main, master, aaron]
     paths:
-      - '*'
+      - 'ui/**'
+      - 'src/**'
+      - 'build-for-pages.sh'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
