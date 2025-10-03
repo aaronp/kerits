@@ -1,20 +1,37 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    nodePolyfills({
+      include: ['buffer', 'crypto', 'stream', 'util'],
+      globals: {
+        Buffer: true,
+        global: true,
+        process: true,
+      },
+    }),
+  ],
   base: '/kerits', // Update this to match your GitHub repo name
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@kerits': path.resolve(__dirname, '../src'),
       '@noble/ed25519': path.resolve(__dirname, './node_modules/@noble/ed25519'),
+<<<<<<< HEAD
       '@noble/hashes': path.resolve(__dirname, './node_modules/@noble/hashes'),
       'node:crypto': path.resolve(__dirname, './src/lib/crypto-polyfill.ts'),
       'crypto': path.resolve(__dirname, './src/lib/crypto-polyfill.ts'),
       'buffer': 'buffer',
+=======
+      '@noble/hashes/blake3': path.resolve(__dirname, './node_modules/@noble/hashes/blake3.js'),
+      '@noble/hashes/sha2': path.resolve(__dirname, './node_modules/@noble/hashes/sha2.js'),
+      '@noble/hashes/sha512': path.resolve(__dirname, './node_modules/@noble/hashes/sha2.js'),
+>>>>>>> 078545f (polyfill fix for static github pages site)
     },
   },
   build: {
@@ -45,6 +62,5 @@ export default defineConfig({
   define: {
     'process.env': {},
     'global': 'globalThis',
-    'Buffer': ['buffer', 'Buffer'],
   },
 })
