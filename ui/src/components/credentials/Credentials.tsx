@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { CredentialList } from './CredentialList';
 import { Plus } from 'lucide-react';
 import { useStore } from '@/store/useStore';
+import { route } from '@/config';
 
 export function Credentials() {
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ export function Credentials() {
             Issue and manage verifiable credentials
           </p>
         </div>
-        <Button onClick={() => navigate('/credentials/new')}>
+        <Button onClick={() => navigate(route('/dashboard/credentials/new'))}>
           <Plus className="mr-2 h-4 w-4" />
           Issue Credential
         </Button>

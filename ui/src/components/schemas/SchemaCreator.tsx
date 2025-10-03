@@ -11,6 +11,7 @@ import { schema } from '@/lib/keri';
 import { saveSchema } from '@/lib/storage';
 import { useStore } from '@/store/useStore';
 import type { SchemaField, StoredSchema } from '@/lib/storage';
+import { route } from '@/config';
 
 const FIELD_TYPES: Array<SchemaField['type']> = ['string', 'number', 'boolean', 'date', 'email', 'url'];
 
@@ -51,11 +52,15 @@ export function SchemaCreator() {
         $id: `https://example.com/schemas/${name.toLowerCase().replace(/\s+/g, '-')}`,
         $schema: 'http://json-schema.org/draft-07/schema#',
         title: name,
-        description: description || undefined,
         type: 'object',
         properties: {},
         required: fields.filter(f => f.required).map(f => f.name),
       };
+
+      // Only add description if it's not empty
+      if (description) {
+        schemaDefinition.description = description;
+      }
 
       // Add field properties
       fields.forEach(field => {
@@ -103,8 +108,8 @@ export function SchemaCreator() {
       console.log('Schema saved successfully');
 
       await refreshSchemas();
-      console.log('Schemas refreshed, navigating to /schemas');
-      navigate('/schemas');
+      console.log('Schemas refreshed, navigating to /dashboard/schemas');
+      navigate(route('/dashboard/schemas'));
     } catch (error) {
       console.error('Failed to create schema:', error);
       alert('Failed to create schema. See console for details.');
@@ -116,7 +121,7 @@ export function SchemaCreator() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/schemas')}>
+        <Button variant="ghost" size="sm" onClick={() => navigate(route('/dashboard/schemas'))}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
@@ -221,7 +226,7 @@ export function SchemaCreator() {
             <Button onClick={handleCreate} disabled={creating} className="flex-1">
               {creating ? 'Creating...' : 'Create Schema'}
             </Button>
-            <Button variant="outline" onClick={() => navigate('/schemas')}>
+            <Button variant="outline" onClick={() => navigate(route('/dashboard/schemas'))}>
               Cancel
             </Button>
           </div>

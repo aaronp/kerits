@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { UserCircle, ArrowLeft } from 'lucide-react';
 import { useUser } from '../../lib/user-provider';
+import { route } from '../../config';
 
 export function UserSelection() {
   const { users, setCurrentUser } = useUser();
@@ -14,7 +15,7 @@ export function UserSelection() {
     setSelecting(true);
     try {
       await setCurrentUser(user);
-      navigate('/dashboard');
+      navigate(route('/dashboard'));
     } catch (error) {
       console.error('Failed to select user:', error);
       alert('Failed to select user');
@@ -24,7 +25,7 @@ export function UserSelection() {
   };
 
   const handleCreateNew = () => {
-    navigate('/create-user');
+    navigate(route('/create-user'));
   };
 
   return (
@@ -64,7 +65,7 @@ export function UserSelection() {
             <Button
               variant="outline"
               className="w-full"
-              onClick={() => navigate('/')}
+              onClick={() => navigate(route('/'))}
               disabled={selecting}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />

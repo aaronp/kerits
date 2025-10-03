@@ -5,6 +5,7 @@ import { AuthLayout } from './components/auth/AuthLayout';
 import { UserCreation } from './components/auth/UserCreation';
 import { UserSelection } from './components/auth/UserSelection';
 import { Dashboard } from './components/Dashboard';
+import { BASE_PATH } from './config';
 
 function App() {
   return (
@@ -12,10 +13,10 @@ function App() {
       <ThemeProvider>
         <UserProvider>
           <Routes>
-            <Route path="/" element={<AuthLayout />} />
-            <Route path="/create-user" element={<UserCreation />} />
-            <Route path="/select-user" element={<UserSelection />} />
-            <Route path="/dashboard/*" element={<Dashboard />} />
+            <Route path={BASE_PATH} element={<AuthLayout />} />
+            <Route path={`${BASE_PATH}/create-user`} element={<UserCreation />} />
+            <Route path={`${BASE_PATH}/select-user`} element={<UserSelection />} />
+            <Route path={`${BASE_PATH}/dashboard/*`} element={<Dashboard />} />
           </Routes>
         </UserProvider>
       </ThemeProvider>

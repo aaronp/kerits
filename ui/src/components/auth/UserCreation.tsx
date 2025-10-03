@@ -10,6 +10,7 @@ import { createMnemonic, deriveSeed, formatMnemonic } from '../../lib/mnemonic';
 import { generateKeypairFromSeed, incept, diger } from '../../lib/keri';
 import { saveUser, saveIdentity, type User, type StoredIdentity } from '../../lib/storage';
 import { useUser } from '../../lib/user-provider';
+import { route } from '../../config';
 
 export function UserCreation() {
   const [step, setStep] = useState<'name' | 'identity'>('name');
@@ -87,7 +88,7 @@ export function UserCreation() {
       await saveIdentity(identity);
       await refreshUsers();
       await setCurrentUser(user);
-      navigate('/dashboard');
+      navigate(route('/dashboard'));
     } catch (error) {
       console.error('Failed to create user:', error);
       alert('Failed to create user. See console for details.');
@@ -130,7 +131,7 @@ export function UserCreation() {
               <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  onClick={() => navigate('/')}
+                  onClick={() => navigate(route('/'))}
                   className="flex-1"
                 >
                   Cancel

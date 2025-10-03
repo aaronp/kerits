@@ -20,6 +20,7 @@ import { NetworkGraph } from './graph/NetworkGraph';
 import { Profile } from './Profile';
 import { useTheme } from '../lib/theme-provider';
 import { useUser } from '../lib/user-provider';
+import { route } from '../config';
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -35,16 +36,16 @@ export function Dashboard() {
   useEffect(() => {
     // Redirect to root if no user is logged in
     if (!currentUser) {
-      navigate('/', { replace: true });
+      navigate(route('/'), { replace: true });
     }
   }, [currentUser, navigate]);
 
   const getActiveTab = () => {
     const path = location.pathname;
-    if (path.startsWith('/dashboard/schemas')) return 'schemas';
-    if (path.startsWith('/dashboard/credentials')) return 'credentials';
-    if (path.startsWith('/dashboard/graph')) return 'graph';
-    if (path.startsWith('/dashboard/profile')) return 'profile';
+    if (path.includes('/dashboard/schemas')) return 'schemas';
+    if (path.includes('/dashboard/credentials')) return 'credentials';
+    if (path.includes('/dashboard/graph')) return 'graph';
+    if (path.includes('/dashboard/profile')) return 'profile';
     return 'schemas';
   };
 
@@ -53,7 +54,7 @@ export function Dashboard() {
   const handleLogout = async () => {
     try {
       await logout();
-      navigate('/', { replace: true });
+      navigate(route('/'), { replace: true });
     } catch (error) {
       console.error('Logout failed:', error);
     }
@@ -93,7 +94,7 @@ export function Dashboard() {
                   <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuLabel>My Account</DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => navigate('/dashboard/profile')}>
+                    <DropdownMenuItem onClick={() => navigate(route('/dashboard/profile'))}>
                       <User className="mr-2 h-4 w-4" />
                       Profile
                     </DropdownMenuItem>
@@ -123,7 +124,7 @@ export function Dashboard() {
                   <Button
                     variant={activeTab === 'schemas' ? 'default' : 'ghost'}
                     className={`w-full justify-start ${activeTab === 'schemas' ? 'shadow-lg shadow-primary/40' : 'hover:bg-accent/50 hover:border-l-4 hover:border-primary hover:pl-3'}`}
-                    onClick={() => navigate('/dashboard/schemas')}
+                    onClick={() => navigate(route('/dashboard/schemas'))}
                   >
                     <FileText className="mr-2 h-4 w-4" />
                     Schemas
@@ -131,7 +132,7 @@ export function Dashboard() {
                   <Button
                     variant={activeTab === 'credentials' ? 'default' : 'ghost'}
                     className={`w-full justify-start ${activeTab === 'credentials' ? 'shadow-lg shadow-primary/40' : 'hover:bg-accent/50 hover:border-l-4 hover:border-primary hover:pl-3'}`}
-                    onClick={() => navigate('/dashboard/credentials')}
+                    onClick={() => navigate(route('/dashboard/credentials'))}
                   >
                     <Award className="mr-2 h-4 w-4" />
                     Credentials
@@ -139,7 +140,7 @@ export function Dashboard() {
                   <Button
                     variant={activeTab === 'graph' ? 'default' : 'ghost'}
                     className={`w-full justify-start ${activeTab === 'graph' ? 'shadow-lg shadow-primary/40' : 'hover:bg-accent/50 hover:border-l-4 hover:border-primary hover:pl-3'}`}
-                    onClick={() => navigate('/dashboard/graph')}
+                    onClick={() => navigate(route('/dashboard/graph'))}
                   >
                     <Network className="mr-2 h-4 w-4" />
                     Network Graph

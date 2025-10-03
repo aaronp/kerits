@@ -25,8 +25,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     const root = document.documentElement;
-    console.log('Theme changing to:', theme);
-    console.log('Current classes:', root.className);
 
     if (theme === 'dark') {
       root.classList.add('dark');
@@ -34,7 +32,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       root.classList.remove('dark');
     }
 
-    console.log('New classes:', root.className);
     localStorage.setItem('theme', theme);
   }, [theme]);
 

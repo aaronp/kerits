@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { UserPlus, Users } from 'lucide-react';
 import { useUser } from '../../lib/user-provider';
+import { route } from '../../config';
 
 export function AuthLayout() {
   const { currentUser, users, loading } = useUser();
@@ -12,7 +13,7 @@ export function AuthLayout() {
   useEffect(() => {
     // If user is already logged in, go to dashboard
     if (currentUser) {
-      navigate('/dashboard', { replace: true });
+      navigate(route('/dashboard'), { replace: true });
     }
   }, [currentUser, navigate]);
 
@@ -48,7 +49,7 @@ export function AuthLayout() {
             <Button
               variant="default"
               className="w-full h-auto p-4 shadow-lg hover:shadow-xl hover:scale-105 transition-all"
-              onClick={() => navigate('/select-user')}
+              onClick={() => navigate(route('/select-user'))}
             >
               <Users className="mr-3 h-6 w-6" />
               <div className="text-left flex-1">
@@ -62,7 +63,7 @@ export function AuthLayout() {
           <Button
             variant={hasUsers ? 'outline' : 'default'}
             className={`w-full h-auto p-4 transition-all ${hasUsers ? 'hover:bg-accent/50 hover:border-primary' : 'shadow-lg hover:shadow-xl hover:scale-105'}`}
-            onClick={() => navigate('/create-user')}
+            onClick={() => navigate(route('/create-user'))}
           >
             <UserPlus className="mr-3 h-6 w-6" />
             <div className="text-left flex-1">

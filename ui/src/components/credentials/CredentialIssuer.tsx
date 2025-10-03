@@ -12,6 +12,7 @@ import { credential, registryIncept, issue } from '@/lib/keri';
 import { saveCredential } from '@/lib/storage';
 import { useStore } from '@/store/useStore';
 import type { StoredCredential, StoredSchema, StoredIdentity, SchemaField } from '@/lib/storage';
+import { route } from '@/config';
 
 export function CredentialIssuer() {
   const navigate = useNavigate();
@@ -158,8 +159,8 @@ export function CredentialIssuer() {
       console.log('Credential saved successfully');
 
       await refreshCredentials();
-      console.log('Credentials refreshed, navigating to /credentials');
-      navigate('/credentials');
+      console.log('Credentials refreshed, navigating to /dashboard/credentials');
+      navigate(route('/dashboard/credentials'));
     } catch (error) {
       console.error('Failed to issue credential:', error);
       alert('Failed to issue credential. See console for details.');
@@ -189,7 +190,7 @@ export function CredentialIssuer() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/credentials')}>
+        <Button variant="ghost" size="sm" onClick={() => navigate(route('/dashboard/credentials'))}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
@@ -357,7 +358,7 @@ export function CredentialIssuer() {
             <Button onClick={handleIssue} disabled={issuing || !activeSchema} className="flex-1">
               {issuing ? 'Issuing...' : 'Issue Credential'}
             </Button>
-            <Button variant="outline" onClick={() => navigate('/credentials')}>
+            <Button variant="outline" onClick={() => navigate(route('/dashboard/credentials'))}>
               Cancel
             </Button>
           </div>
