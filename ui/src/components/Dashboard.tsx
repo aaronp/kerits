@@ -3,7 +3,7 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { useStore } from '../store/useStore';
-import { Network, FileText, Award, Moon, Sun, LogOut, UserCircle, User } from 'lucide-react';
+import { Network, FileText, Award, Moon, Sun, LogOut, UserCircle, User, ShieldCheck } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +16,7 @@ import { Schemas } from './schemas/Schemas';
 import { SchemaCreator } from './schemas/SchemaCreator';
 import { Credentials } from './credentials/Credentials';
 import { CredentialIssuer } from './credentials/CredentialIssuer';
+import { VerifyCredential } from './credentials/VerifyCredential';
 import { NetworkGraph } from './graph/NetworkGraph';
 import { Profile } from './Profile';
 import { useTheme } from '../lib/theme-provider';
@@ -44,6 +45,7 @@ export function Dashboard() {
     const path = location.pathname;
     if (path.includes('/dashboard/schemas')) return 'schemas';
     if (path.includes('/dashboard/credentials')) return 'credentials';
+    if (path.includes('/dashboard/verify')) return 'verify';
     if (path.includes('/dashboard/graph')) return 'graph';
     if (path.includes('/dashboard/profile')) return 'profile';
     return 'schemas';
@@ -138,6 +140,14 @@ export function Dashboard() {
                     Credentials
                   </Button>
                   <Button
+                    variant={activeTab === 'verify' ? 'default' : 'ghost'}
+                    className={`w-full justify-start ${activeTab === 'verify' ? 'shadow-lg shadow-primary/40' : 'hover:bg-accent/50 hover:border-l-4 hover:border-primary hover:pl-3'}`}
+                    onClick={() => navigate(route('/dashboard/verify'))}
+                  >
+                    <ShieldCheck className="mr-2 h-4 w-4" />
+                    Verify
+                  </Button>
+                  <Button
                     variant={activeTab === 'graph' ? 'default' : 'ghost'}
                     className={`w-full justify-start ${activeTab === 'graph' ? 'shadow-lg shadow-primary/40' : 'hover:bg-accent/50 hover:border-l-4 hover:border-primary hover:pl-3'}`}
                     onClick={() => navigate(route('/dashboard/graph'))}
@@ -186,6 +196,7 @@ export function Dashboard() {
                 <Route path="/schemas/new" element={<SchemaCreator />} />
                 <Route path="/credentials" element={<Credentials />} />
                 <Route path="/credentials/new" element={<CredentialIssuer />} />
+                <Route path="/verify" element={<VerifyCredential />} />
                 <Route path="/graph" element={<NetworkGraph />} />
                 <Route path="/profile" element={<Profile />} />
               </Routes>

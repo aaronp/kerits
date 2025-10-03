@@ -6,10 +6,11 @@ import { Select } from '../ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import { Textarea } from '../ui/textarea';
 import { Toast, useToast } from '../ui/toast';
-import { ChevronDown, ChevronRight, Copy, Download, Upload, Trash2, CheckCircle2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Copy, Download, Upload, Trash2, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { deleteCredential, saveCredential, getIdentities } from '@/lib/storage';
 import { useStore } from '@/store/useStore';
 import { useUser } from '@/lib/user-provider';
+import { credential as verifyCredential } from '@/lib/keri';
 import type { StoredCredential } from '@/lib/storage';
 
 interface CredentialListProps {
@@ -56,6 +57,33 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
   const handleCopy = async (text: string, itemName: string = 'Text') => {
     await navigator.clipboard.writeText(text);
     showToast(`${itemName} copied to clipboard`);
+  };
+
+  const handleVerify = (credential: StoredCredential) => {
+    try {
+      // Recreate the credential from the stored SAD
+      const sad = credential.sad;
+
+      // Extract the attributes from the SAD
+      const data = sad.a || {};
+
+      // Verify by recreating the credential and comparing SAIDs
+      const recreated = verifyCredential({
+        schema: credential.schema,
+        issuer: credential.issuer,
+        recipient: credential.recipient,
+        data: data,
+      });
+
+      if (recreated.said === credential.id) {
+        showToast('✓ Credential verified successfully');
+      } else {
+        showToast('✗ Credential verification failed: SAID mismatch');
+      }
+    } catch (error) {
+      console.error('Verification error:', error);
+      showToast('✗ Credential verification failed');
+    }
   };
 
   const handleExport = (credential: StoredCredential) => {
@@ -314,6 +342,14 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
                         </div>
                       </div>
                 <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleVerify(credential)}
+                    title="Verify credential"
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
