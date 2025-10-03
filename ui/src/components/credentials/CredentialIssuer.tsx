@@ -10,20 +10,26 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Toast, useToast } from '../ui/toast';
 import { ArrowLeft, Upload, FileJson, Users } from 'lucide-react';
 import { credential, registryIncept, issue } from '@/lib/keri';
-import { saveCredential } from '@/lib/storage';
+import { saveCredential, getIdentities } from '@/lib/storage';
 import { useStore } from '@/store/useStore';
 import type { StoredCredential, StoredSchema, StoredIdentity, SchemaField } from '@/lib/storage';
 import { route } from '@/config';
 import { useUser } from '@/lib/user-provider';
 
+interface UserIdentity extends StoredIdentity {
+  userId: string;
+  userName: string;
+}
+
 export function CredentialIssuer() {
   const navigate = useNavigate();
-  const { currentUser } = useUser();
+  const { currentUser, users } = useUser();
   const { identities, schemas, refreshCredentials } = useStore();
   const { toast, showToast, hideToast } = useToast();
 
   // Get current user's identity (first identity for this user)
   const currentUserIdentity = identities.length > 0 ? identities[0] : null;
+  const [allUserIdentities, setAllUserIdentities] = useState<UserIdentity[]>([]);
   const [recipientType, setRecipientType] = useState<'existing' | 'external'>('existing');
   const [recipientAlias, setRecipientAlias] = useState('');
   const [externalRecipient, setExternalRecipient] = useState('');
@@ -33,7 +39,6 @@ export function CredentialIssuer() {
   const [credentialData, setCredentialData] = useState<Record<string, any>>({});
   const [issuing, setIssuing] = useState(false);
   const [showSchemaDialog, setShowSchemaDialog] = useState(false);
-  const [showRecipientDialog, setShowRecipientDialog] = useState(false);
 
   // Get selected schema
   const selectedSchema: StoredSchema | null = schemaType === 'existing'
@@ -54,6 +59,37 @@ export function CredentialIssuer() {
   })();
 
   const activeSchema = selectedSchema || parsedExternalSchema;
+
+  // Load all users' identities for recipient selection
+  useEffect(() => {
+    const loadAllIdentities = async () => {
+      const allIdentities: UserIdentity[] = [];
+
+      for (const user of users) {
+        try {
+          const userIdentities = await getIdentities(user.id);
+          // Add the first identity for each user (typically their main identity)
+          if (userIdentities.length > 0) {
+            userIdentities.forEach(identity => {
+              allIdentities.push({
+                ...identity,
+                userId: user.id,
+                userName: user.name,
+              });
+            });
+          }
+        } catch (error) {
+          console.error(`Failed to load identities for user ${user.name}:`, error);
+        }
+      }
+
+      setAllUserIdentities(allIdentities);
+    };
+
+    if (users.length > 0) {
+      loadAllIdentities();
+    }
+  }, [users]);
 
   // Initialize credential data when schema changes
   useEffect(() => {
@@ -94,7 +130,7 @@ export function CredentialIssuer() {
       let recipientAliasValue: string | undefined;
 
       if (recipientType === 'existing' && recipientAlias) {
-        const recipient = identities.find(i => i.alias === recipientAlias);
+        const recipient = allUserIdentities.find(i => i.alias === recipientAlias);
         if (recipient) {
           recipientAid = recipient.prefix;
           recipientAliasValue = recipient.alias;
@@ -188,15 +224,6 @@ export function CredentialIssuer() {
     setShowSchemaDialog(false);
   };
 
-  const handlePasteRecipient = () => {
-    setShowRecipientDialog(true);
-  };
-
-  const handleRecipientDialogConfirm = () => {
-    setRecipientType('external');
-    setShowRecipientDialog(false);
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -261,47 +288,47 @@ export function CredentialIssuer() {
 
           {/* Recipient Selection */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Recipient *</Label>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePasteRecipient}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Paste External KEL
-              </Button>
-            </div>
-
-            {recipientType === 'existing' ? (
+            <Label>Recipient *</Label>
+            <div className="space-y-2">
               <Select
                 value={recipientAlias}
-                onChange={(e) => setRecipientAlias(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === '__manual__') {
+                    setRecipientType('external');
+                    setRecipientAlias('');
+                  } else {
+                    setRecipientType('existing');
+                    setRecipientAlias(value);
+                    setExternalRecipient('');
+                  }
+                }}
               >
                 <option value="">Select recipient...</option>
-                {identities.map(identity => (
-                  <option key={identity.alias} value={identity.alias}>
-                    {identity.alias} ({identity.prefix.substring(0, 20)}...)
-                  </option>
-                ))}
+                {allUserIdentities
+                  .filter(identity => identity.userId !== currentUser?.id)
+                  .map(identity => (
+                    <option key={`${identity.userId}-${identity.alias}`} value={identity.alias}>
+                      {identity.alias} ({identity.userName}) - {identity.prefix.substring(0, 16)}...
+                    </option>
+                  ))}
+                <option value="__manual__">Manual AID Entry...</option>
               </Select>
-            ) : (
-              <div className="p-3 bg-muted rounded border text-sm">
-                <Users className="inline h-4 w-4 mr-2" />
-                Using external recipient AID
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="ml-2"
-                  onClick={() => {
-                    setRecipientType('existing');
-                    setExternalRecipient('');
-                  }}
-                >
-                  Clear
-                </Button>
-              </div>
-            )}
+
+              {recipientType === 'external' && (
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Enter recipient AID or paste KEL/identity JSON"
+                    value={externalRecipient}
+                    onChange={(e) => setExternalRecipient(e.target.value)}
+                    className="font-mono text-xs"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enter an AID prefix (e.g., EKS1234...) or paste a full KEL/identity JSON
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Credential Data Fields */}
@@ -380,35 +407,6 @@ export function CredentialIssuer() {
                 Use Schema
               </Button>
               <Button variant="outline" onClick={() => setShowSchemaDialog(false)}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Recipient Paste Dialog */}
-      <Dialog open={showRecipientDialog} onOpenChange={setShowRecipientDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Paste External KEL</DialogTitle>
-            <DialogDescription>
-              Paste a KEL (Key Event Log) or AID from another user
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Textarea
-              placeholder='{"prefix": "...", "kel": [...], ...} or just AID string'
-              value={externalRecipient}
-              onChange={(e) => setExternalRecipient(e.target.value)}
-              rows={10}
-              className="font-mono text-xs"
-            />
-            <div className="flex gap-2">
-              <Button onClick={handleRecipientDialogConfirm} className="flex-1">
-                Use Recipient
-              </Button>
-              <Button variant="outline" onClick={() => setShowRecipientDialog(false)}>
                 Cancel
               </Button>
             </div>

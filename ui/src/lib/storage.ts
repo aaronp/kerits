@@ -167,8 +167,8 @@ export async function saveIdentity(identity: StoredIdentity, userId?: string): P
   await db.put('identities', identity);
 }
 
-export async function getIdentities(): Promise<StoredIdentity[]> {
-  const db = await getDB();
+export async function getIdentities(userId?: string): Promise<StoredIdentity[]> {
+  const db = await getDB(userId);
   return db.getAll('identities');
 }
 
