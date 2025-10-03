@@ -20,6 +20,8 @@ import { VerifyCredential } from './credentials/VerifyCredential';
 import { NetworkGraph } from './graph/NetworkGraph';
 import { Profile } from './Profile';
 import { Sign } from './signing/Sign';
+import { IssueSchemaList } from './issue/IssueSchemaList';
+import { IssueCredentialForm } from './issue/IssueCredentialForm';
 import { useTheme } from '../lib/theme-provider';
 import { useUser } from '../lib/user-provider';
 import { route } from '../config';
@@ -45,6 +47,7 @@ export function Dashboard() {
   const getActiveTab = () => {
     const path = location.pathname;
     if (path.includes('/dashboard/schemas')) return 'schemas';
+    if (path.includes('/dashboard/issue')) return 'issue';
     if (path.includes('/dashboard/credentials')) return 'credentials';
     if (path.includes('/dashboard/verify')) return 'verify';
     if (path.includes('/dashboard/sign')) return 'sign';
@@ -125,6 +128,16 @@ export function Dashboard() {
               </CardHeader>
               <CardContent className="space-y-2 flex-1 flex flex-col">
                 <div className="flex-1 space-y-2">
+                  {schemas.length > 0 && (
+                    <Button
+                      variant={activeTab === 'issue' ? 'default' : 'ghost'}
+                      className={`w-full justify-start ${activeTab === 'issue' ? 'shadow-lg shadow-primary/40' : 'hover:bg-accent/50 hover:border-l-4 hover:border-primary hover:pl-3'}`}
+                      onClick={() => navigate(route('/dashboard/issue'))}
+                    >
+                      <Award className="mr-2 h-4 w-4" />
+                      Issue
+                    </Button>
+                  )}
                   <Button
                     variant={activeTab === 'schemas' ? 'default' : 'ghost'}
                     className={`w-full justify-start ${activeTab === 'schemas' ? 'shadow-lg shadow-primary/40' : 'hover:bg-accent/50 hover:border-l-4 hover:border-primary hover:pl-3'}`}
@@ -142,14 +155,6 @@ export function Dashboard() {
                     Credentials
                   </Button>
                   <Button
-                    variant={activeTab === 'verify' ? 'default' : 'ghost'}
-                    className={`w-full justify-start ${activeTab === 'verify' ? 'shadow-lg shadow-primary/40' : 'hover:bg-accent/50 hover:border-l-4 hover:border-primary hover:pl-3'}`}
-                    onClick={() => navigate(route('/dashboard/verify'))}
-                  >
-                    <ShieldCheck className="mr-2 h-4 w-4" />
-                    Verify
-                  </Button>
-                  <Button
                     variant={activeTab === 'sign' ? 'default' : 'ghost'}
                     className={`w-full justify-start ${activeTab === 'sign' ? 'shadow-lg shadow-primary/40' : 'hover:bg-accent/50 hover:border-l-4 hover:border-primary hover:pl-3'}`}
                     onClick={() => navigate(route('/dashboard/sign'))}
@@ -163,7 +168,7 @@ export function Dashboard() {
                     onClick={() => navigate(route('/dashboard/graph'))}
                   >
                     <Network className="mr-2 h-4 w-4" />
-                    Network Graph
+                    Events
                   </Button>
                 </div>
 
@@ -204,6 +209,8 @@ export function Dashboard() {
                 <Route path="/" element={<Schemas />} />
                 <Route path="/schemas" element={<Schemas />} />
                 <Route path="/schemas/new" element={<SchemaCreator />} />
+                <Route path="/issue" element={<IssueSchemaList />} />
+                <Route path="/issue/:schemaId" element={<IssueCredentialForm />} />
                 <Route path="/credentials" element={<Credentials />} />
                 <Route path="/credentials/new" element={<CredentialIssuer />} />
                 <Route path="/verify" element={<VerifyCredential />} />

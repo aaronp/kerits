@@ -337,8 +337,13 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
                           </Button>
                           <div>
                             <CardTitle className="text-lg">{summary}</CardTitle>
-                            <CardDescription className="mt-1 font-mono text-xs">
-                              {credential.id.substring(0, 44)}...
+                            <CardDescription className="mt-1 space-y-1">
+                              <div className="font-mono text-xs">
+                                {credential.id.substring(0, 44)}...
+                              </div>
+                              <div className="text-xs">
+                                {new Date(credential.createdAt).toLocaleString()}
+                              </div>
                             </CardDescription>
                           </div>
                         </div>
