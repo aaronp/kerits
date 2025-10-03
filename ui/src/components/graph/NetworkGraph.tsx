@@ -282,25 +282,130 @@ export function NetworkGraph() {
           <CardContent className="flex-1 overflow-y-auto min-h-0">
             {selectedNode ? (
               <div className="space-y-4 pb-4">
-                <div className="space-y-2">
-                  <div className="text-sm font-semibold">Label</div>
-                  <div className="text-sm text-muted-foreground">{selectedNode.data.label}</div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="text-sm font-semibold">Type</div>
-                  <div className="text-sm text-muted-foreground">{selectedNode.data.type}</div>
-                </div>
-
-                {selectedNode.data.sn !== undefined && (
+                {/* Basic Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <div className="text-sm font-semibold">Sequence Number</div>
-                    <div className="text-sm text-muted-foreground">{selectedNode.data.sn}</div>
+                    <div className="text-sm font-semibold">Label</div>
+                    <div className="text-sm text-muted-foreground">{selectedNode.data.label}</div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-sm font-semibold">Type</div>
+                    <div className="text-sm text-muted-foreground">{selectedNode.data.type}</div>
+                  </div>
+
+                  {selectedNode.data.sn !== undefined && (
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold">Sequence Number</div>
+                      <div className="text-sm text-muted-foreground">{selectedNode.data.sn}</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Event Fields with Human-Readable Labels */}
+                {selectedNode.data.event?.ked && (
+                  <div className="space-y-2 border-t pt-4">
+                    <div className="text-sm font-semibold mb-3">Event Fields</div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {selectedNode.data.event.ked.v && (
+                        <div className="space-y-1">
+                          <div className="text-xs font-medium text-muted-foreground">Version String (v)</div>
+                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
+                            {selectedNode.data.event.ked.v}
+                          </div>
+                        </div>
+                      )}
+                      {selectedNode.data.event.ked.t && (
+                        <div className="space-y-1">
+                          <div className="text-xs font-medium text-muted-foreground">Message Type (t)</div>
+                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
+                            {selectedNode.data.event.ked.t}
+                          </div>
+                        </div>
+                      )}
+                      {selectedNode.data.event.ked.d && (
+                        <div className="space-y-1">
+                          <div className="text-xs font-medium text-muted-foreground">Self-Addressing Identifier (d)</div>
+                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
+                            {selectedNode.data.event.ked.d}
+                          </div>
+                        </div>
+                      )}
+                      {selectedNode.data.event.ked.i && (
+                        <div className="space-y-1">
+                          <div className="text-xs font-medium text-muted-foreground">Issuer AID (i)</div>
+                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
+                            {selectedNode.data.event.ked.i}
+                          </div>
+                        </div>
+                      )}
+                      {selectedNode.data.event.ked.s && (
+                        <div className="space-y-1">
+                          <div className="text-xs font-medium text-muted-foreground">Schema SAID (s)</div>
+                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
+                            {selectedNode.data.event.ked.s}
+                          </div>
+                        </div>
+                      )}
+                      {selectedNode.data.event.ked.p && (
+                        <div className="space-y-1">
+                          <div className="text-xs font-medium text-muted-foreground">Prior Event Digest (p)</div>
+                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
+                            {selectedNode.data.event.ked.p}
+                          </div>
+                        </div>
+                      )}
+                      {selectedNode.data.event.ked.kt && (
+                        <div className="space-y-1">
+                          <div className="text-xs font-medium text-muted-foreground">Keys Signing Threshold (kt)</div>
+                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
+                            {selectedNode.data.event.ked.kt}
+                          </div>
+                        </div>
+                      )}
+                      {selectedNode.data.event.ked.k && (
+                        <div className="space-y-1">
+                          <div className="text-xs font-medium text-muted-foreground">Signing Keys (k)</div>
+                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
+                            {Array.isArray(selectedNode.data.event.ked.k)
+                              ? selectedNode.data.event.ked.k.join(', ')
+                              : selectedNode.data.event.ked.k}
+                          </div>
+                        </div>
+                      )}
+                      {selectedNode.data.event.ked.nt && (
+                        <div className="space-y-1">
+                          <div className="text-xs font-medium text-muted-foreground">Next Keys Threshold (nt)</div>
+                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
+                            {selectedNode.data.event.ked.nt}
+                          </div>
+                        </div>
+                      )}
+                      {selectedNode.data.event.ked.n && (
+                        <div className="space-y-1">
+                          <div className="text-xs font-medium text-muted-foreground">Next Key Digests (n)</div>
+                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
+                            {Array.isArray(selectedNode.data.event.ked.n)
+                              ? selectedNode.data.event.ked.n.join(', ')
+                              : selectedNode.data.event.ked.n}
+                          </div>
+                        </div>
+                      )}
+                      {selectedNode.data.event.ked.a && (
+                        <div className="space-y-1 lg:col-span-2">
+                          <div className="text-xs font-medium text-muted-foreground">Attributes (a)</div>
+                          <pre className="text-xs font-mono bg-muted p-2 rounded overflow-x-auto">
+                            {JSON.stringify(selectedNode.data.event.ked.a, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <div className="text-sm font-semibold">Event Data</div>
+                {/* Raw Event Data */}
+                <div className="space-y-2 border-t pt-4">
+                  <div className="text-sm font-semibold">Raw Event Data</div>
                   <pre className="text-xs bg-muted p-3 rounded overflow-x-auto">
                     {JSON.stringify(selectedNode.data.event, null, 2)}
                   </pre>
