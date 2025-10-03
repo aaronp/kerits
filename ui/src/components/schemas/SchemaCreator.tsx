@@ -6,6 +6,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select } from '../ui/select';
 import { Textarea } from '../ui/textarea';
+import { Toast, useToast } from '../ui/toast';
 import { Plus, Trash2, ArrowLeft } from 'lucide-react';
 import { schema } from '@/lib/keri';
 import { saveSchema } from '@/lib/storage';
@@ -18,6 +19,7 @@ const FIELD_TYPES: Array<SchemaField['type']> = ['string', 'number', 'boolean', 
 export function SchemaCreator() {
   const navigate = useNavigate();
   const { refreshSchemas } = useStore();
+  const { toast, showToast, hideToast } = useToast();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [fields, setFields] = useState<SchemaField[]>([
@@ -41,7 +43,7 @@ export function SchemaCreator() {
 
   const handleCreate = async () => {
     if (!name || fields.length === 0 || fields.some(f => !f.name)) {
-      alert('Please fill in all required fields');
+      showToast('Please fill in all required fields');
       return;
     }
 
@@ -112,7 +114,7 @@ export function SchemaCreator() {
       navigate(route('/dashboard/schemas'));
     } catch (error) {
       console.error('Failed to create schema:', error);
-      alert('Failed to create schema. See console for details.');
+      showToast('Failed to create schema. See console for details.');
     } finally {
       setCreating(false);
     }
@@ -232,6 +234,8 @@ export function SchemaCreator() {
           </div>
         </CardContent>
       </Card>
+
+      <Toast message={toast.message} show={toast.show} onClose={hideToast} />
     </div>
   );
 }

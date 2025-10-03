@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
+import { Toast, useToast } from './ui/toast';
 import { useUser } from '../lib/user-provider';
 import { useStore } from '../store/useStore';
 import { UserCircle, RotateCw, Shield, Eye, EyeOff, Key } from 'lucide-react';
@@ -14,6 +15,7 @@ import type { StoredIdentity } from '../lib/storage';
 export function Profile() {
   const { currentUser } = useUser();
   const { identities, init } = useStore();
+  const { toast, showToast, hideToast } = useToast();
   const [rotating, setRotating] = useState<Record<string, boolean>>({});
   const [showMnemonic, setShowMnemonic] = useState<Record<string, boolean>>({});
 
@@ -74,10 +76,10 @@ export function Profile() {
 
       await saveIdentity(updatedIdentity);
       await init(); // Refresh identities
-      alert(`Keys rotated successfully for "${identity.alias}"`);
+      showToast(`Keys rotated successfully for "${identity.alias}"`);
     } catch (error) {
       console.error('Failed to rotate keys:', error);
-      alert('Failed to rotate keys. See console for details.');
+      showToast('Failed to rotate keys. See console for details.');
     } finally {
       setRotating(prev => ({ ...prev, [identity.alias]: false }));
     }
@@ -211,6 +213,8 @@ export function Profile() {
           )}
         </CardContent>
       </Card>
+
+      <Toast message={toast.message} show={toast.show} onClose={hideToast} />
     </div>
   );
 }

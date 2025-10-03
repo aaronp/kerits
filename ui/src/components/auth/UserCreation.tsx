@@ -5,6 +5,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Toast, useToast } from '../ui/toast';
 import { Copy, Check, RefreshCw, ArrowLeft } from 'lucide-react';
 import { createMnemonic, deriveSeed, formatMnemonic } from '../../lib/mnemonic';
 import { generateKeypairFromSeed, incept, diger } from '../../lib/keri';
@@ -21,6 +22,7 @@ export function UserCreation() {
   const [copied, setCopied] = useState(false);
   const [creating, setCreating] = useState(false);
   const { setCurrentUser, refreshUsers } = useUser();
+  const { toast, showToast, hideToast } = useToast();
   const navigate = useNavigate();
 
   const generateNew = () => {
@@ -91,7 +93,7 @@ export function UserCreation() {
       navigate(route('/dashboard'));
     } catch (error) {
       console.error('Failed to create user:', error);
-      alert('Failed to create user. See console for details.');
+      showToast('Failed to create user. See console for details.');
     } finally {
       setCreating(false);
     }
@@ -224,6 +226,8 @@ export function UserCreation() {
           </>
         )}
       </Card>
+
+      <Toast message={toast.message} show={toast.show} onClose={hideToast} />
     </div>
   );
 }

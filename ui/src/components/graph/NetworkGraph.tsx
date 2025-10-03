@@ -12,8 +12,6 @@ import type { Node, Edge, NodeProps } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
-import { Label } from '../ui/label';
-import { Select } from '../ui/select';
 import { useStore } from '@/store/useStore';
 import type { StoredIdentity, StoredCredential } from '@/lib/storage';
 
@@ -46,8 +44,10 @@ const nodeTypes = {
 
 export function NetworkGraph() {
   const { identities, credentials } = useStore();
-  const [selectedIdentity, setSelectedIdentity] = useState<string>('');
   const [graphType, setGraphType] = useState<GraphType>('kel');
+
+  // Use first identity as current user's identity
+  const selectedIdentity = identities.length > 0 ? identities[0].alias : '';
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
 
   // Build KEL graph for selected identity
@@ -193,50 +193,42 @@ export function NetworkGraph() {
       {/* Controls */}
       <Card className="flex-shrink-0">
         <CardContent className="pt-6">
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="identity-select">Identity</Label>
-              <Select
-                id="identity-select"
-                value={selectedIdentity}
-                onChange={(e) => setSelectedIdentity(e.target.value)}
-              >
-                <option value="">Select identity...</option>
-                {identities.map(identity => (
-                  <option key={identity.alias} value={identity.alias}>
-                    {identity.alias}
-                  </option>
-                ))}
-              </Select>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium">Graph Type:</span>
+              <div className="flex items-center gap-2 bg-muted rounded-lg p-1">
+                <Button
+                  variant={graphType === 'kel' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setGraphType('kel')}
+                  className="h-8"
+                >
+                  KEL
+                </Button>
+                <Button
+                  variant={graphType === 'tel' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setGraphType('tel')}
+                  className="h-8"
+                >
+                  TEL
+                </Button>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="graph-type">Graph Type</Label>
-              <Select
-                id="graph-type"
-                value={graphType}
-                onChange={(e) => setGraphType(e.target.value as GraphType)}
-              >
-                <option value="kel">KEL (Key Event Log)</option>
-                <option value="tel">TEL (Transaction Event Log)</option>
-              </Select>
-            </div>
-
-            <div className="flex items-end">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setNodes([]);
-                  setEdges([]);
-                  setTimeout(() => {
-                    setNodes(currentGraph.nodes);
-                    setEdges(currentGraph.edges);
-                  }, 0);
-                }}
-              >
-                Reset Layout
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setNodes([]);
+                setEdges([]);
+                setTimeout(() => {
+                  setNodes(currentGraph.nodes);
+                  setEdges(currentGraph.edges);
+                }, 0);
+              }}
+            >
+              Reset Layout
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -251,7 +243,7 @@ export function NetworkGraph() {
             <CardDescription>
               {selectedIdentity
                 ? `Showing ${graphType.toUpperCase()} for ${selectedIdentity}`
-                : 'Select an identity to view graph'}
+                : 'No identity found - create an identity to view graphs'}
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0 flex-1 min-h-0">
@@ -273,7 +265,7 @@ export function NetworkGraph() {
               </ReactFlow>
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
-                Select an identity to view the graph
+                No identity found - create an identity to view graphs
               </div>
             )}
           </CardContent>

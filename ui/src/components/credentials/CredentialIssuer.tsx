@@ -7,6 +7,7 @@ import { Label } from '../ui/label';
 import { Select } from '../ui/select';
 import { Textarea } from '../ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
+import { Toast, useToast } from '../ui/toast';
 import { ArrowLeft, Upload, FileJson, Users } from 'lucide-react';
 import { credential, registryIncept, issue } from '@/lib/keri';
 import { saveCredential } from '@/lib/storage';
@@ -19,6 +20,7 @@ export function CredentialIssuer() {
   const navigate = useNavigate();
   const { currentUser } = useUser();
   const { identities, schemas, refreshCredentials } = useStore();
+  const { toast, showToast, hideToast } = useToast();
 
   // Get current user's identity (first identity for this user)
   const currentUserIdentity = identities.length > 0 ? identities[0] : null;
@@ -66,12 +68,12 @@ export function CredentialIssuer() {
 
   const handleIssue = async () => {
     if (!currentUserIdentity) {
-      alert('No identity found. Please create an identity first.');
+      showToast('No identity found. Please create an identity first.');
       return;
     }
 
     if (!activeSchema) {
-      alert('Please select a schema');
+      showToast('Please select a schema');
       return;
     }
 
@@ -81,7 +83,7 @@ export function CredentialIssuer() {
       .map(f => f.name);
 
     if (missingFields.length > 0) {
-      alert(`Missing required fields: ${missingFields.join(', ')}`);
+      showToast(`Missing required fields: ${missingFields.join(', ')}`);
       return;
     }
 
@@ -115,7 +117,7 @@ export function CredentialIssuer() {
 
       // Validate recipient is selected
       if (!recipientAid) {
-        alert('Please select a recipient');
+        showToast('Please select a recipient');
         return;
       }
 
@@ -171,7 +173,7 @@ export function CredentialIssuer() {
       navigate(route('/dashboard/credentials'));
     } catch (error) {
       console.error('Failed to issue credential:', error);
-      alert('Failed to issue credential. See console for details.');
+      showToast('Failed to issue credential. See console for details.');
     } finally {
       setIssuing(false);
     }
@@ -413,6 +415,8 @@ export function CredentialIssuer() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Toast message={toast.message} show={toast.show} onClose={hideToast} />
     </div>
   );
 }

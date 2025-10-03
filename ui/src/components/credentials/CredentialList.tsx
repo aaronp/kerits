@@ -61,18 +61,18 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
       onDelete();
     } catch (error) {
       console.error('Failed to delete credential:', error);
-      alert('Failed to delete credential');
+      showToast('Failed to delete credential');
     }
   };
 
   const handleImport = async () => {
     if (!importData.trim()) {
-      alert('Please paste credential data');
+      showToast('Please paste credential data');
       return;
     }
 
     if (!importRecipientAlias) {
-      alert('Please select which identity is receiving this credential');
+      showToast('Please select which identity is receiving this credential');
       return;
     }
 
@@ -137,7 +137,7 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
       onImport();
     } catch (error) {
       console.error('Failed to import credential:', error);
-      alert(`Failed to import credential: ${error instanceof Error ? error.message : 'Please check the format.'}`);
+      showToast(`Failed to import credential: ${error instanceof Error ? error.message : 'Please check the format.'}`);
     } finally {
       setImporting(false);
     }

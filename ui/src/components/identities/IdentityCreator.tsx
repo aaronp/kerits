@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
+import { Toast, useToast } from '../ui/toast';
 import { Copy, Check, RefreshCw } from 'lucide-react';
 import { createMnemonic, deriveSeed, formatMnemonic } from '@/lib/mnemonic';
 import { generateKeypairFromSeed, incept, diger } from '@/lib/keri';
@@ -15,6 +16,7 @@ interface IdentityCreatorProps {
 }
 
 export function IdentityCreator({ onCreated }: IdentityCreatorProps) {
+  const { toast, showToast, hideToast } = useToast();
   const [alias, setAlias] = useState('');
   const [mnemonic, setMnemonic] = useState('');
   const [showMnemonic, setShowMnemonic] = useState(false);
@@ -85,7 +87,7 @@ export function IdentityCreator({ onCreated }: IdentityCreatorProps) {
       if (onCreated) onCreated();
     } catch (error) {
       console.error('Failed to create identity:', error);
-      alert('Failed to create identity. See console for details.');
+      showToast('Failed to create identity. See console for details.');
     } finally {
       setCreating(false);
     }
@@ -158,6 +160,8 @@ export function IdentityCreator({ onCreated }: IdentityCreatorProps) {
           )}
         </div>
       </CardContent>
+
+      <Toast message={toast.message} show={toast.show} onClose={hideToast} />
     </Card>
   );
 }

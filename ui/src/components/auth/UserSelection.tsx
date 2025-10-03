@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Toast, useToast } from '../ui/toast';
 import { UserCircle, ArrowLeft } from 'lucide-react';
 import { useUser } from '../../lib/user-provider';
 import { route } from '../../config';
 
 export function UserSelection() {
   const { users, setCurrentUser } = useUser();
+  const { toast, showToast, hideToast } = useToast();
   const [selecting, setSelecting] = useState(false);
   const navigate = useNavigate();
 
@@ -18,7 +20,7 @@ export function UserSelection() {
       navigate(route('/dashboard'));
     } catch (error) {
       console.error('Failed to select user:', error);
-      alert('Failed to select user');
+      showToast('Failed to select user');
     } finally {
       setSelecting(false);
     }
@@ -74,6 +76,8 @@ export function UserSelection() {
           </div>
         </CardContent>
       </Card>
+
+      <Toast message={toast.message} show={toast.show} onClose={hideToast} />
     </div>
   );
 }

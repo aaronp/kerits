@@ -96,7 +96,7 @@ export function IdentityList({ identities, onDelete, onUpdate }: IdentityListPro
       if (onUpdate) onUpdate();
     } catch (error) {
       console.error('Failed to rotate keys:', error);
-      alert('Failed to rotate keys. See console for details.');
+      showToast('Failed to rotate keys. See console for details.');
     } finally {
       setRotating(prev => ({ ...prev, [identity.alias]: false }));
     }

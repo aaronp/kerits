@@ -5,6 +5,7 @@ import { Button } from '../ui/button';
 import { SchemaList } from './SchemaList';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import { Textarea } from '../ui/textarea';
+import { Toast, useToast } from '../ui/toast';
 import { Plus, Upload } from 'lucide-react';
 import { route } from '@/config';
 import { saveSchema, type StoredSchema } from '@/lib/storage';
@@ -12,6 +13,7 @@ import { saveSchema, type StoredSchema } from '@/lib/storage';
 export function Schemas() {
   const navigate = useNavigate();
   const { schemas, refreshSchemas } = useStore();
+  const { toast, showToast, hideToast } = useToast();
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importText, setImportText] = useState('');
   const [importing, setImporting] = useState(false);
@@ -22,7 +24,7 @@ export function Schemas() {
 
   const handleImport = async () => {
     if (!importText.trim()) {
-      alert('Please paste a schema');
+      showToast('Please paste a schema');
       return;
     }
 
@@ -45,7 +47,7 @@ export function Schemas() {
 
         // Extract schema name and fields from the SED
         if (!sed.title || !sed.properties) {
-          alert('Invalid SAD format. Must include title and properties in sed.');
+          showToast('Invalid SAD format. Must include title and properties in sed.');
           return;
         }
 
@@ -76,7 +78,7 @@ export function Schemas() {
       }
       // Invalid format
       else {
-        alert('Invalid schema format. Must be either a StoredSchema or KERI SAD format.');
+        showToast('Invalid schema format. Must be either a StoredSchema or KERI SAD format.');
         return;
       }
 
@@ -92,10 +94,10 @@ export function Schemas() {
 
       setShowImportDialog(false);
       setImportText('');
-      alert('Schema imported successfully');
+      showToast('Schema imported successfully');
     } catch (error) {
       console.error('Failed to import schema:', error);
-      alert('Failed to import schema. Please check the format.');
+      showToast('Failed to import schema. Please check the format.');
     } finally {
       setImporting(false);
     }
@@ -155,6 +157,8 @@ export function Schemas() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Toast message={toast.message} show={toast.show} onClose={hideToast} />
     </div>
   );
 }
