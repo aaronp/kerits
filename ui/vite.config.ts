@@ -23,7 +23,14 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['@noble/ed25519', '@noble/hashes/blake3.js', '@noble/hashes/sha2.js', 'buffer', 'bip39'],
+    include: [
+      '@noble/ed25519',
+      '@noble/hashes/blake3',
+      '@noble/hashes/sha2',
+      '@noble/hashes/sha512',
+      'buffer',
+      'bip39'
+    ],
     esbuildOptions: {
       define: {
         global: 'globalThis'

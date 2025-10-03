@@ -93,14 +93,36 @@ interface KeriDB extends DBSchema {
   };
 }
 
-const DB_NAME = 'keri-demo';
+const GLOBAL_DB_NAME = 'keri-demo-global';
 const DB_VERSION = 2; // Incremented for new stores
 
-let dbPromise: Promise<IDBPDatabase<KeriDB>> | null = null;
+let globalDbPromise: Promise<IDBPDatabase<KeriDB>> | null = null;
+let userDbPromises: Map<string, Promise<IDBPDatabase<KeriDB>>> = new Map();
 
-async function getDB(): Promise<IDBPDatabase<KeriDB>> {
-  if (!dbPromise) {
-    dbPromise = openDB<KeriDB>(DB_NAME, DB_VERSION, {
+// Global DB for users and settings only
+async function getGlobalDB(): Promise<IDBPDatabase<KeriDB>> {
+  if (!globalDbPromise) {
+    globalDbPromise = openDB<KeriDB>(GLOBAL_DB_NAME, DB_VERSION, {
+      upgrade(db) {
+        // Users store
+        if (!db.objectStoreNames.contains('users')) {
+          db.createObjectStore('users', { keyPath: 'id' });
+        }
+
+        // Settings store
+        if (!db.objectStoreNames.contains('settings')) {
+          db.createObjectStore('settings', { keyPath: 'key' });
+        }
+      },
+    });
+  }
+  return globalDbPromise;
+}
+
+// User-specific DB for identities, credentials, and schemas
+async function getUserDB(userId: string): Promise<IDBPDatabase<KeriDB>> {
+  if (!userDbPromises.has(userId)) {
+    const dbPromise = openDB<KeriDB>(`keri-demo-user-${userId}`, DB_VERSION, {
       upgrade(db) {
         // Identities store
         if (!db.objectStoreNames.contains('identities')) {
@@ -120,25 +142,28 @@ async function getDB(): Promise<IDBPDatabase<KeriDB>> {
         if (!db.objectStoreNames.contains('schemas')) {
           db.createObjectStore('schemas', { keyPath: 'id' });
         }
-
-        // Users store
-        if (!db.objectStoreNames.contains('users')) {
-          db.createObjectStore('users', { keyPath: 'id' });
-        }
-
-        // Settings store
-        if (!db.objectStoreNames.contains('settings')) {
-          db.createObjectStore('settings', { keyPath: 'key' });
-        }
       },
     });
+    userDbPromises.set(userId, dbPromise);
   }
-  return dbPromise;
+  return userDbPromises.get(userId)!;
+}
+
+// Get current user's DB
+async function getDB(userId?: string): Promise<IDBPDatabase<KeriDB>> {
+  if (userId) {
+    return getUserDB(userId);
+  }
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error('No user logged in');
+  }
+  return getUserDB(user.id);
 }
 
 // Identity Management
-export async function saveIdentity(identity: StoredIdentity): Promise<void> {
-  const db = await getDB();
+export async function saveIdentity(identity: StoredIdentity, userId?: string): Promise<void> {
+  const db = await getDB(userId);
   await db.put('identities', identity);
 }
 
@@ -241,34 +266,34 @@ export async function clearAllData(): Promise<void> {
 
 // User Management
 export async function saveUser(user: User): Promise<void> {
-  const db = await getDB();
+  const db = await getGlobalDB();
   await db.put('users', user);
 }
 
 export async function getUsers(): Promise<User[]> {
-  const db = await getDB();
+  const db = await getGlobalDB();
   return db.getAll('users');
 }
 
 export async function getUser(id: string): Promise<User | undefined> {
-  const db = await getDB();
+  const db = await getGlobalDB();
   return db.get('users', id);
 }
 
 export async function deleteUser(id: string): Promise<void> {
-  const db = await getDB();
+  const db = await getGlobalDB();
   await db.delete('users', id);
 }
 
 export async function getCurrentUser(): Promise<User | null> {
-  const db = await getDB();
+  const db = await getGlobalDB();
   const settings = await db.get('settings', 'currentUser');
   if (!settings?.value) return null;
   return (await db.get('users', settings.value)) || null;
 }
 
 export async function setCurrentUser(userId: string | null): Promise<void> {
-  const db = await getDB();
+  const db = await getGlobalDB();
   await db.put('settings', { key: 'currentUser', value: userId });
 }
 

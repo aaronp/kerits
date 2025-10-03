@@ -85,7 +85,7 @@ export function UserCreation() {
       };
 
       await saveUser(user);
-      await saveIdentity(identity);
+      await saveIdentity(identity, user.id);
       await refreshUsers();
       await setCurrentUser(user);
       navigate(route('/dashboard'));

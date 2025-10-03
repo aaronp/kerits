@@ -251,9 +251,9 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
               const isExpanded = expandedId === credential.id;
 
               // Format: "from -> to : schema name"
-              const issuerLabel = credential.issuerAlias || credential.issuer.substring(0, 20) + '...';
-              const recipientLabel = credential.recipientAlias || (credential.recipient ? credential.recipient.substring(0, 20) + '...' : 'None');
-              const schemaLabel = credential.schemaName || credential.schema.substring(0, 20) + '...';
+              const issuerLabel = credential.issuerAlias || credential.issuer.substring(0, 8) + '...';
+              const recipientLabel = credential.recipientAlias || (credential.recipient ? credential.recipient.substring(0, 8) + '...' : 'None');
+              const schemaLabel = credential.schemaName || 'Schema';
               const summary = `${issuerLabel} → ${recipientLabel} : ${schemaLabel}`;
 
               return (
