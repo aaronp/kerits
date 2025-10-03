@@ -13,12 +13,15 @@ import { saveCredential } from '@/lib/storage';
 import { useStore } from '@/store/useStore';
 import type { StoredCredential, StoredSchema, StoredIdentity, SchemaField } from '@/lib/storage';
 import { route } from '@/config';
+import { useUser } from '@/lib/user-provider';
 
 export function CredentialIssuer() {
   const navigate = useNavigate();
+  const { currentUser } = useUser();
   const { identities, schemas, refreshCredentials } = useStore();
 
-  const [issuerAlias, setIssuerAlias] = useState('');
+  // Get current user's identity (first identity for this user)
+  const currentUserIdentity = identities.length > 0 ? identities[0] : null;
   const [recipientType, setRecipientType] = useState<'existing' | 'external'>('existing');
   const [recipientAlias, setRecipientAlias] = useState('');
   const [externalRecipient, setExternalRecipient] = useState('');
@@ -62,14 +65,13 @@ export function CredentialIssuer() {
   }, [activeSchema]);
 
   const handleIssue = async () => {
-    if (!issuerAlias || !activeSchema) {
-      alert('Please select issuer and schema');
+    if (!currentUserIdentity) {
+      alert('No identity found. Please create an identity first.');
       return;
     }
 
-    const issuer = identities.find(i => i.alias === issuerAlias);
-    if (!issuer) {
-      alert('Issuer not found');
+    if (!activeSchema) {
+      alert('Please select a schema');
       return;
     }
 
@@ -111,12 +113,18 @@ export function CredentialIssuer() {
         }
       }
 
+      // Validate recipient is selected
+      if (!recipientAid) {
+        alert('Please select a recipient');
+        return;
+      }
+
       console.log('Creating credential with data:', credentialData);
 
       // Create credential
       const cred = credential({
         schema: activeSchema.id,
-        issuer: issuer.prefix,
+        issuer: currentUserIdentity.prefix,
         recipient: recipientAid,
         data: credentialData,
       });
@@ -125,7 +133,7 @@ export function CredentialIssuer() {
 
       // Create registry for this credential
       const registry = registryIncept({
-        issuer: issuer.prefix,
+        issuer: currentUserIdentity.prefix,
       });
 
       console.log('Registry created:', registry.regk);
@@ -142,8 +150,8 @@ export function CredentialIssuer() {
       const storedCredential: StoredCredential = {
         id: cred.said,
         name: activeSchema.name,
-        issuer: issuer.prefix,
-        issuerAlias: issuer.alias,
+        issuer: currentUserIdentity.prefix,
+        issuerAlias: currentUserIdentity.alias,
         recipient: recipientAid,
         recipientAlias: recipientAliasValue,
         schema: activeSchema.id,
@@ -204,23 +212,6 @@ export function CredentialIssuer() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Issuer Selection */}
-          <div className="space-y-2">
-            <Label htmlFor="issuer">Issuer (Your Identity) *</Label>
-            <Select
-              id="issuer"
-              value={issuerAlias}
-              onChange={(e) => setIssuerAlias(e.target.value)}
-            >
-              <option value="">Select issuer...</option>
-              {identities.map(identity => (
-                <option key={identity.alias} value={identity.alias}>
-                  {identity.alias} ({identity.prefix.substring(0, 20)}...)
-                </option>
-              ))}
-            </Select>
-          </div>
-
           {/* Schema Selection */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -269,7 +260,7 @@ export function CredentialIssuer() {
           {/* Recipient Selection */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Recipient (Optional)</Label>
+              <Label>Recipient *</Label>
               <Button
                 variant="outline"
                 size="sm"
@@ -286,7 +277,7 @@ export function CredentialIssuer() {
                 onChange={(e) => setRecipientAlias(e.target.value)}
               >
                 <option value="">Select recipient...</option>
-                {identities.filter(i => i.alias !== issuerAlias).map(identity => (
+                {identities.map(identity => (
                   <option key={identity.alias} value={identity.alias}>
                     {identity.alias} ({identity.prefix.substring(0, 20)}...)
                   </option>
