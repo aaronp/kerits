@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
-import { Select } from '../ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import { Textarea } from '../ui/textarea';
 import { Toast, useToast } from '../ui/toast';
@@ -22,12 +21,11 @@ interface CredentialListProps {
 
 export function CredentialList({ credentials, onDelete, onImport }: CredentialListProps) {
   const { identities } = useStore();
-  const { users } = useUser();
+  const { users, currentUser } = useUser();
   const { toast, showToast, hideToast } = useToast();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importData, setImportData] = useState('');
-  const [importRecipientAlias, setImportRecipientAlias] = useState('');
   const [importing, setImporting] = useState(false);
   const [aidToUserName, setAidToUserName] = useState<Map<string, string>>(new Map());
   const [signModalCredential, setSignModalCredential] = useState<StoredCredential | null>(null);
@@ -128,19 +126,14 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
       return;
     }
 
-    if (!importRecipientAlias) {
-      showToast('Please select which identity is receiving this credential');
-      return;
-    }
-
     setImporting(true);
     try {
       const parsed = JSON.parse(importData);
 
-      // Find the selected recipient identity
-      const recipientIdentity = identities.find(i => i.alias === importRecipientAlias);
+      // Use current user's identity as recipient
+      const recipientIdentity = identities.find(i => i.alias.toLowerCase() === users.find(u => u.id === currentUser?.id)?.name.toLowerCase());
       if (!recipientIdentity) {
-        throw new Error('Selected identity not found');
+        throw new Error('Current user identity not found');
       }
 
       let importedCredential: StoredCredential;
@@ -189,7 +182,6 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
       console.log('Imported to recipient:', recipientIdentity.alias, recipientIdentity.prefix);
 
       setImportData('');
-      setImportRecipientAlias('');
       setShowImportDialog(false);
       onImport();
     } catch (error) {
@@ -224,24 +216,6 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="import-recipient">Import to Identity *</Label>
-                <Select
-                  id="import-recipient"
-                  value={importRecipientAlias}
-                  onChange={(e) => setImportRecipientAlias(e.target.value)}
-                >
-                  <option value="">Select identity...</option>
-                  {identities.map(identity => (
-                    <option key={identity.alias} value={identity.alias}>
-                      {identity.alias} ({identity.prefix.substring(0, 20)}...)
-                    </option>
-                  ))}
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Select which of your identities is receiving this credential
-                </p>
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="import-data">Credential JSON</Label>
                 <Textarea
                   id="import-data"
@@ -251,6 +225,9 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
                   rows={10}
                   className="font-mono text-xs"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Credential will be imported to your current identity
+                </p>
               </div>
               <div className="flex gap-2">
                 <Button onClick={handleImport} disabled={importing} className="flex-1">
@@ -288,21 +265,10 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
 
       {Object.entries(groupedCredentials).map(([recipientAid, creds]) => {
         const recipientAlias = creds[0]?.recipientAlias;
-        const recipientLabel = recipientAlias
-          ? `${recipientAlias} (${recipientAid.substring(0, 20)}...)`
-          : recipientAid === 'No Recipient'
-          ? 'No Recipient'
-          : `${recipientAid.substring(0, 20)}...`;
+
 
         return (
           <div key={recipientAid} className="space-y-3">
-            <div className="flex items-center gap-2 px-2">
-              <div className="h-px flex-1 bg-border" />
-              <h3 className="text-sm font-semibold text-muted-foreground">
-                {recipientLabel}
-              </h3>
-              <div className="h-px flex-1 bg-border" />
-            </div>
 
             {creds.map((credential) => {
               const isExpanded = expandedId === credential.id;
@@ -348,150 +314,150 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
                           </div>
                         </div>
                       </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSignModalCredential(credential)}
-                    title="Sign credential"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleVerify(credential)}
-                    title="Verify credential"
-                  >
-                    <ShieldCheck className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleExport(credential)}
-                    title="Export credential (copies to clipboard)"
-                  >
-                    <Download className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(credential.id)}
-                    title="Delete credential"
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-
-            {isExpanded && (
-              <CardContent className="space-y-4 pt-0">
-                {/* Issuer Info */}
-                <div className="space-y-2">
-                  <div className="text-sm font-semibold">Issuer</div>
-                  <div className="flex items-center gap-2">
-                    <code className="text-xs bg-muted p-2 rounded flex-1 overflow-hidden text-ellipsis">
-                      {credential.issuerAlias ? `${credential.issuerAlias} (${credential.issuer})` : credential.issuer}
-                    </code>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleCopy(credential.issuer, 'Issuer AID')}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Recipient Info */}
-                {credential.recipient && (
-                  <div className="space-y-2">
-                    <div className="text-sm font-semibold">Recipient</div>
-                    <div className="flex items-center gap-2">
-                      <code className="text-xs bg-muted p-2 rounded flex-1 overflow-hidden text-ellipsis">
-                        {credential.recipientAlias ? `${credential.recipientAlias} (${credential.recipient})` : credential.recipient}
-                      </code>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleCopy(credential.recipient!, 'Recipient AID')}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSignModalCredential(credential)}
+                          title="Sign credential"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleVerify(credential)}
+                          title="Verify credential"
+                        >
+                          <ShieldCheck className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleExport(credential)}
+                          title="Export credential (copies to clipboard)"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(credential.id)}
+                          title="Delete credential"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  </CardHeader>
 
-                {/* Schema Info */}
-                <div className="space-y-2">
-                  <div className="text-sm font-semibold">Schema</div>
-                  <div className="flex items-center gap-2">
-                    <code className="text-xs bg-muted p-2 rounded flex-1 overflow-hidden text-ellipsis">
-                      {credential.schemaName ? `${credential.schemaName} (${credential.schema})` : credential.schema}
-                    </code>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleCopy(credential.schema, 'Schema SAID')}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Credential Data */}
-                <div className="space-y-2">
-                  <div className="text-sm font-semibold">Credential Data</div>
-                  <div className="bg-muted p-3 rounded space-y-2">
-                    {Object.entries(credential.sad.a || {}).map(([key, value]) => {
-                      if (key === 'd' || key === 'dt' || key === 'i') return null;
-                      return (
-                        <div key={key} className="flex justify-between text-sm">
-                          <span className="font-medium">{key}:</span>
-                          <span className="text-muted-foreground">{String(value)}</span>
+                  {isExpanded && (
+                    <CardContent className="space-y-4 pt-0">
+                      {/* Issuer Info */}
+                      <div className="space-y-2">
+                        <div className="text-sm font-semibold">Issuer</div>
+                        <div className="flex items-center gap-2">
+                          <code className="text-xs bg-muted p-2 rounded flex-1 overflow-hidden text-ellipsis">
+                            {credential.issuerAlias ? `${credential.issuerAlias} (${credential.issuer})` : credential.issuer}
+                          </code>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCopy(credential.issuer, 'Issuer AID')}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                      </div>
 
-                {/* TEL Status */}
-                {credential.tel && credential.tel.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-sm font-semibold">Status</div>
-                    <div className="flex items-center gap-2 text-sm text-green-600">
-                      <CheckCircle2 className="h-4 w-4" />
-                      <span>Issued ({credential.tel.length} TEL events)</span>
-                    </div>
-                  </div>
-                )}
+                      {/* Recipient Info */}
+                      {credential.recipient && (
+                        <div className="space-y-2">
+                          <div className="text-sm font-semibold">Recipient</div>
+                          <div className="flex items-center gap-2">
+                            <code className="text-xs bg-muted p-2 rounded flex-1 overflow-hidden text-ellipsis">
+                              {credential.recipientAlias ? `${credential.recipientAlias} (${credential.recipient})` : credential.recipient}
+                            </code>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleCopy(credential.recipient!, 'Recipient AID')}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
 
-                {/* Full Credential JSON */}
-                <div className="space-y-2">
-                  <div className="text-sm font-semibold">Full Credential (SAD)</div>
-                  <div className="relative">
-                    <pre className="text-xs bg-muted p-3 rounded overflow-x-auto max-h-64">
-                      {JSON.stringify(credential.sad, null, 2)}
-                    </pre>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute top-2 right-2"
-                      onClick={() => handleCopy(JSON.stringify(credential.sad, null, 2), 'Credential SAD')}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+                      {/* Schema Info */}
+                      <div className="space-y-2">
+                        <div className="text-sm font-semibold">Schema</div>
+                        <div className="flex items-center gap-2">
+                          <code className="text-xs bg-muted p-2 rounded flex-1 overflow-hidden text-ellipsis">
+                            {credential.schemaName ? `${credential.schemaName} (${credential.schema})` : credential.schema}
+                          </code>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCopy(credential.schema, 'Schema SAID')}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
 
-                {/* Created Date */}
-                <div className="text-xs text-muted-foreground pt-2 border-t">
-                  Created: {new Date(credential.createdAt).toLocaleString()}
-                </div>
-              </CardContent>
-            )}
-          </Card>
+                      {/* Credential Data */}
+                      <div className="space-y-2">
+                        <div className="text-sm font-semibold">Credential Data</div>
+                        <div className="bg-muted p-3 rounded space-y-2">
+                          {Object.entries(credential.sad.a || {}).map(([key, value]) => {
+                            if (key === 'd' || key === 'dt' || key === 'i') return null;
+                            return (
+                              <div key={key} className="flex justify-between text-sm">
+                                <span className="font-medium">{key}:</span>
+                                <span className="text-muted-foreground">{String(value)}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* TEL Status */}
+                      {credential.tel && credential.tel.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="text-sm font-semibold">Status</div>
+                          <div className="flex items-center gap-2 text-sm text-green-600">
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span>Issued ({credential.tel.length} TEL events)</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Full Credential JSON */}
+                      <div className="space-y-2">
+                        <div className="text-sm font-semibold">Full Credential (SAD)</div>
+                        <div className="relative">
+                          <pre className="text-xs bg-muted p-3 rounded overflow-x-auto max-h-64">
+                            {JSON.stringify(credential.sad, null, 2)}
+                          </pre>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute top-2 right-2"
+                            onClick={() => handleCopy(JSON.stringify(credential.sad, null, 2), 'Credential SAD')}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Created Date */}
+                      <div className="text-xs text-muted-foreground pt-2 border-t">
+                        Created: {new Date(credential.createdAt).toLocaleString()}
+                      </div>
+                    </CardContent>
+                  )}
+                </Card>
               );
             })}
           </div>
@@ -509,24 +475,6 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="import-recipient-main">Import to Identity *</Label>
-              <Select
-                id="import-recipient-main"
-                value={importRecipientAlias}
-                onChange={(e) => setImportRecipientAlias(e.target.value)}
-              >
-                <option value="">Select identity...</option>
-                {identities.map(identity => (
-                  <option key={identity.alias} value={identity.alias}>
-                    {identity.alias} ({identity.prefix.substring(0, 20)}...)
-                  </option>
-                ))}
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Select which of your identities is receiving this credential
-              </p>
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="import-data-main">Credential JSON</Label>
               <Textarea
                 id="import-data-main"
@@ -536,6 +484,9 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
                 rows={10}
                 className="font-mono text-xs"
               />
+              <p className="text-xs text-muted-foreground">
+                Credential will be imported to your current identity
+              </p>
             </div>
             <div className="flex gap-2">
               <Button onClick={handleImport} disabled={importing} className="flex-1">
