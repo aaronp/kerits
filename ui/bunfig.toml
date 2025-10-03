@@ -1,0 +1,8 @@
+[test]
+preload = ["./src/test/setup.ts"]
+
+[[test.module.aliases]]
+"@/*" = "./src/*"
+
+[[test.module.aliases]]
+"@kerits/*" = "../src/*"

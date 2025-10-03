@@ -144,9 +144,10 @@ export function IdentityCreator({ onCreated }: IdentityCreatorProps) {
         {/* Create Button */}
         <div className="flex gap-2">
           <Button
+            variant="default"
             onClick={createIdentity}
             disabled={!alias || !mnemonic || creating}
-            className="flex-1"
+            className="flex-1 shadow-lg hover:shadow-xl hover:scale-105 transition-all"
           >
             {creating ? 'Creating...' : 'Create Identity'}
           </Button>

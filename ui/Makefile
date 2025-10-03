@@ -30,3 +30,10 @@ deploy: build
 	@echo "Deploying to GitHub Pages..."
 	@echo "Run: gh-pages -d dist"
 	@echo "Or manually push the dist/ folder to gh-pages branch"
+
+test:
+	bun run test
+test-ui:
+	bun run test:ui 
+test-once:
+	bun run test:run     # Run once

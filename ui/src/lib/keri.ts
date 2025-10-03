@@ -10,29 +10,29 @@ ed.etc.sha512Sync = (...m: Uint8Array[]) => sha512(ed.etc.concatBytes(...m));
 // @ts-ignore - sha512Async is dynamically added
 ed.etc.sha512Async = (...m: Uint8Array[]) => Promise.resolve(ed.etc.sha512Sync!(...m));
 
-export { incept } from '@kerits/incept';
-export type { InceptOptions, InceptionEvent } from '@kerits/incept';
+export { incept } from '../../../src/incept';
+export type { InceptOptions, InceptionEvent } from '../../../src/incept';
 
-export { rotate } from '@kerits/rotate';
-export type { RotateOptions, RotationEvent } from '@kerits/rotate';
+export { rotate } from '../../../src/rotate';
+export type { RotateOptions, RotationEvent } from '../../../src/rotate';
 
-export { schema } from '@kerits/schema';
-export type { SchemaDefinition, Schema } from '@kerits/schema';
+export { schema } from '../../../src/schema';
+export type { SchemaDefinition, Schema } from '../../../src/schema';
 
-export { credential } from '@kerits/credential';
-export type { CredentialOptions, Credential, CredentialData } from '@kerits/credential';
+export { credential } from '../../../src/credential';
+export type { CredentialOptions, Credential, CredentialData } from '../../../src/credential';
 
-export { registryIncept, issue } from '@kerits/tel';
-export type { RegistryInceptionOptions, RegistryInception, IssuanceOptions, IssuanceEvent } from '@kerits/tel';
+export { registryIncept, issue } from '../../../src/tel';
+export type { RegistryInceptionOptions, RegistryInception, IssuanceOptions, IssuanceEvent } from '../../../src/tel';
 
-export { receipt } from '@kerits/receipt';
-export type { ReceiptOptions, Receipt } from '@kerits/receipt';
+export { receipt } from '../../../src/receipt';
+export type { ReceiptOptions, Receipt } from '../../../src/receipt';
 
-export { verifyCredential } from '@kerits/verify';
-export type { VerificationResult } from '@kerits/verify';
+export { verifyCredential } from '../../../src/verify';
+export type { VerificationResult } from '../../../src/verify';
 
-export { saidify } from '@kerits/saidify';
-export { generateKeypair, generateKeypairFromSeed } from '@kerits/signer';
-export type { Keypair } from '@kerits/signer';
+export { saidify } from '../../../src/saidify';
+export { generateKeypair, generateKeypairFromSeed } from '../../../src/signer';
+export type { Keypair } from '../../../src/signer';
 
-export { diger } from '@kerits/diger';
+export { diger } from '../../../src/diger';
