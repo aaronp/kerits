@@ -55,6 +55,18 @@ export interface StoredSchema {
   createdAt: string;
 }
 
+export interface User {
+  id: string;
+  name: string;
+  avatar?: string;
+  createdAt: string;
+}
+
+export interface AppSettings {
+  key: 'currentUser';
+  value: string | null; // User ID
+}
+
 // IndexedDB Schema
 interface KeriDB extends DBSchema {
   identities: {
@@ -71,10 +83,18 @@ interface KeriDB extends DBSchema {
     key: string;
     value: StoredSchema;
   };
+  users: {
+    key: string;
+    value: User;
+  };
+  settings: {
+    key: string;
+    value: AppSettings;
+  };
 }
 
 const DB_NAME = 'keri-demo';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented for new stores
 
 let dbPromise: Promise<IDBPDatabase<KeriDB>> | null = null;
 
@@ -99,6 +119,16 @@ async function getDB(): Promise<IDBPDatabase<KeriDB>> {
         // Schemas store
         if (!db.objectStoreNames.contains('schemas')) {
           db.createObjectStore('schemas', { keyPath: 'id' });
+        }
+
+        // Users store
+        if (!db.objectStoreNames.contains('users')) {
+          db.createObjectStore('users', { keyPath: 'id' });
+        }
+
+        // Settings store
+        if (!db.objectStoreNames.contains('settings')) {
+          db.createObjectStore('settings', { keyPath: 'key' });
         }
       },
     });
@@ -207,4 +237,41 @@ export async function clearAllData(): Promise<void> {
     db.clear('credentials'),
     db.clear('schemas'),
   ]);
+}
+
+// User Management
+export async function saveUser(user: User): Promise<void> {
+  const db = await getDB();
+  await db.put('users', user);
+}
+
+export async function getUsers(): Promise<User[]> {
+  const db = await getDB();
+  return db.getAll('users');
+}
+
+export async function getUser(id: string): Promise<User | undefined> {
+  const db = await getDB();
+  return db.get('users', id);
+}
+
+export async function deleteUser(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('users', id);
+}
+
+export async function getCurrentUser(): Promise<User | null> {
+  const db = await getDB();
+  const settings = await db.get('settings', 'currentUser');
+  if (!settings?.value) return null;
+  return (await db.get('users', settings.value)) || null;
+}
+
+export async function setCurrentUser(userId: string | null): Promise<void> {
+  const db = await getDB();
+  await db.put('settings', { key: 'currentUser', value: userId });
+}
+
+export async function clearCurrentUser(): Promise<void> {
+  await setCurrentUser(null);
 }
