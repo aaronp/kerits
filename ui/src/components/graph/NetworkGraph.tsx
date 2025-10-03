@@ -20,10 +20,10 @@ type GraphType = 'kel' | 'tel';
 // Custom node component for KEL/TEL events
 function EventNode({ data }: NodeProps) {
   return (
-    <div className="px-4 py-3 rounded-lg border-2 bg-white shadow-md min-w-[200px]">
+    <div className="px-4 py-3 rounded-lg border-2 bg-card shadow-md min-w-[200px]">
       <Handle type="target" position={Position.Left} className="w-3 h-3" />
       <div className="space-y-1">
-        <div className="font-semibold text-sm">{data.label}</div>
+        <div className="font-semibold text-sm text-card-foreground">{data.label}</div>
         <div className="text-xs text-muted-foreground font-mono">
           {data.type}
         </div>
