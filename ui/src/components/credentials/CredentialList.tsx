@@ -6,11 +6,12 @@ import { Select } from '../ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import { Textarea } from '../ui/textarea';
 import { Toast, useToast } from '../ui/toast';
-import { ChevronDown, ChevronRight, Copy, Download, Upload, Trash2, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { ChevronDown, ChevronRight, Copy, Download, Upload, Trash2, CheckCircle2, ShieldCheck, Pencil } from 'lucide-react';
 import { deleteCredential, saveCredential, getIdentities } from '@/lib/storage';
 import { useStore } from '@/store/useStore';
 import { useUser } from '@/lib/user-provider';
 import { credential as verifyCredential } from '@/lib/keri';
+import { CredentialSignModal } from './CredentialSignModal';
 import type { StoredCredential } from '@/lib/storage';
 
 interface CredentialListProps {
@@ -29,6 +30,7 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
   const [importRecipientAlias, setImportRecipientAlias] = useState('');
   const [importing, setImporting] = useState(false);
   const [aidToUserName, setAidToUserName] = useState<Map<string, string>>(new Map());
+  const [signModalCredential, setSignModalCredential] = useState<StoredCredential | null>(null);
 
   // Build AID to user name mapping from global database
   useEffect(() => {
@@ -345,6 +347,14 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => setSignModalCredential(credential)}
+                    title="Sign credential"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => handleVerify(credential)}
                     title="Verify credential"
                   >
@@ -533,6 +543,13 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Sign Modal */}
+      <CredentialSignModal
+        credential={signModalCredential}
+        isOpen={!!signModalCredential}
+        onClose={() => setSignModalCredential(null)}
+      />
 
       <Toast message={toast.message} show={toast.show} onClose={hideToast} />
     </div>

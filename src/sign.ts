@@ -17,7 +17,7 @@ const BASE64_URL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234567
 /**
  * Encode bytes to base64url without padding
  */
-function encodeBase64Url(bytes: Uint8Array): string {
+export function encodeBase64Url(bytes: Uint8Array): string {
   let result = '';
   let i = 0;
 
