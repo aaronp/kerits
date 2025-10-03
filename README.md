@@ -1,15 +1,31 @@
 # kerits
 
-To install dependencies:
+![Kerits](./ui/public/kerits.jpg) Kerits is "KERI+TS" - a purely functional implementation of KERI in typescript.
+
+
+You can run this code [here](https://aaronp.github.io/kerits/) to:
+
+1. create entities (users)
+2. define schemas
+3. and issue, accept and verify credentials for those data schemas.
+
+
+All the identities are stored locally in your browser, but you perfrom interoperability with basic 'copy/paste' functionality,
+leaving you to build upon this implementation with whatever workflows, messaging, etc you'd like.
+
+## Building
 
 ```bash
-bun install
+make dev
 ```
 
-To run:
-
+Running the UI locally:
 ```bash
-bun run index.ts
+cd ui &&  make dev
 ```
 
-This project was created using `bun init` in bun v1.2.15. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+
+Running the CLI locally:
+```bash
+cd cli &&  make dev
+```
