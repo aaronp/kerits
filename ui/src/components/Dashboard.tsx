@@ -71,7 +71,7 @@ export function Dashboard() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img src={`${import.meta.env.BASE_URL}kerits.jpg`} alt="KERI" className="h-12 w-12 rounded-md object-cover" />
+              <img src='/kerits/kerits.jpg' alt="KERI" className="h-12 w-12 rounded-md object-cover" />
               <div>
                 <h1 className="text-2xl font-bold">KERITS</h1>
                 <p className="text-sm text-muted-foreground">
