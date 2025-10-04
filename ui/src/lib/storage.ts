@@ -727,7 +727,26 @@ export async function saveContact(contact: Contact, userId?: string): Promise<vo
 }
 
 export async function getContacts(userId?: string): Promise<Contact[]> {
-  return [];
+  const db = await getDB(userId);
+  const kels = await getAllKELs(userId);
+  const aliases = await getAllAliases(userId);
+  const identityMetadata = await db.getAll('identityMetadata');
+
+  // Filter out KELs that have identity metadata (those are user identities, not contacts)
+  const identityAIDs = new Set(identityMetadata.map(m => m.aid));
+
+  return kels
+    .filter(kel => !identityAIDs.has(kel.aid)) // Exclude user identities
+    .map(kel => {
+      const aliasMapping = aliases.find(a => a.said === kel.aid && a.type === 'kel');
+      return {
+        id: aliasMapping?.id || crypto.randomUUID(),
+        name: aliasMapping?.alias || kel.aid.substring(0, 8),
+        kel: [kel.inceptionEvent, ...kel.events],
+        prefix: kel.aid,
+        createdAt: kel.createdAt,
+      };
+    });
 }
 
 export async function getContactByPrefix(prefix: string, userId?: string): Promise<Contact | undefined> {
