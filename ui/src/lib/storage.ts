@@ -1,82 +1,90 @@
 /**
- * Browser storage using IndexedDB
- * Stores identities, credentials, schemas, and all KERI data
+ * Normalized Browser Storage using IndexedDB
+ *
+ * Architecture:
+ * - KELs (Key Event Logs) are stored by AID as the canonical source
+ * - TELs (Transaction Event Logs) are stored by registry AID
+ * - ACDCs (credentials) are stored by SAID
+ * - Aliases are separate bidirectional mappings to SAIDs/AIDs
  */
 
 import { openDB } from 'idb';
 import type { DBSchema, IDBPDatabase } from 'idb';
 
-export interface StoredIdentity {
-  alias: string;
-  prefix: string;
-  mnemonic: string; // BIP39 mnemonic for key derivation
-  currentKeys: {
-    public: string;
-    private: string;
-    seed: string;
-  };
-  nextKeys: {
-    public: string;
-    private: string;
-    seed: string;
-  };
-  inceptionEvent: any;
-  kel: any[]; // Key Event Log
+// ============================================================================
+// Core Data Types (Canonical Storage)
+// ============================================================================
+
+/**
+ * KEL - Key Event Log
+ * Canonical storage for identity event logs, keyed by AID
+ */
+export interface KEL {
+  aid: string; // Autonomic Identifier (key)
+  inceptionEvent: any; // icp event
+  events: any[]; // Rotation events (rot)
   createdAt: string;
 }
 
-export interface StoredCredential {
-  id: string;
-  name: string;
-  issuer: string;
-  issuerAlias?: string;
-  recipient?: string;
-  recipientAlias?: string;
-  schema: string;
-  schemaName?: string;
-  sad: any;
-  tel?: any[]; // Transaction Event Log
-  registry?: string;
+/**
+ * TEL - Transaction Event Log (Registry)
+ * Canonical storage for credential registry event logs, keyed by registry AID
+ */
+export interface TEL {
+  registryAID: string; // Registry identifier (key)
+  issuerAID: string; // Who owns this registry
+  inceptionEvent: any; // vcp (registry inception) event
+  events: any[]; // iss, rev, bis, brv events
   createdAt: string;
 }
 
-export interface SchemaField {
-  name: string;
-  type: 'string' | 'number' | 'boolean' | 'date' | 'email' | 'url';
-  required?: boolean;
-}
-
-export interface StoredSchema {
-  id: string;
-  name: string;
-  description?: string;
-  fields: SchemaField[];
-  sad: any;
+/**
+ * ACDC - Authentic Chained Data Container (Credential)
+ * Canonical storage for credentials, keyed by SAID
+ */
+export interface ACDC {
+  said: string; // Self-Addressing Identifier (key)
+  sad: any; // Self-Addressing Data (the actual credential)
+  schema: string; // Schema SAID
+  issuer: string; // Issuer AID
+  recipient?: string; // Recipient AID
+  registry?: string; // Registry AID where this was issued
   createdAt: string;
 }
+
+/**
+ * Schema - Credential Schema
+ * Keyed by schema SAID
+ */
+export interface Schema {
+  said: string; // Schema SAID (key)
+  sad: any; // Self-Addressing Data (the schema definition)
+  createdAt: string;
+}
+
+// ============================================================================
+// Alias Mappings (Bidirectional lookups)
+// ============================================================================
+
+/**
+ * Alias mapping - bidirectional lookup between aliases and SAIDs/AIDs
+ */
+export interface AliasMapping {
+  id: string; // UUID (key)
+  alias: string; // Human-readable name
+  said: string; // SAID or AID this alias points to
+  type: 'kel' | 'tel' | 'acdc' | 'schema'; // What kind of thing this is
+  createdAt: string;
+}
+
+// ============================================================================
+// User & Settings
+// ============================================================================
 
 export interface User {
-  id: string;
+  id: string; // UUID (key)
   name: string;
   avatar?: string;
-  createdAt: string;
-}
-
-export interface Contact {
-  id: string; // UUID for the contact
-  name: string; // Contact alias/name
-  kel: any[]; // Key Event Log
-  prefix: string; // SAID/AID from KEL
-  createdAt: string;
-}
-
-export interface TELRegistry {
-  id: string; // UUID for the registry
-  alias: string; // Human-readable name
-  registryAID: string; // The registry's AID (regk from inception)
-  issuerAID: string; // The issuer's AID who owns this registry
-  inceptionEvent: any; // The vcp inception event
-  tel: any[]; // Transaction Event Log - all events in this registry
   createdAt: string;
 }
 
@@ -85,32 +93,39 @@ export interface AppSettings {
   value: string | null; // User ID
 }
 
+// ============================================================================
 // IndexedDB Schema
-interface KeriDB extends DBSchema {
-  identities: {
-    key: string;
-    value: StoredIdentity;
-    indexes: { 'by-prefix': string };
+// ============================================================================
+
+interface NormalizedKeriDB extends DBSchema {
+  // Canonical storage - event logs
+  kels: {
+    key: string; // AID
+    value: KEL;
   };
-  credentials: {
-    key: string;
-    value: StoredCredential;
-    indexes: { 'by-issuer': string; 'by-recipient': string; 'by-schema': string };
+  tels: {
+    key: string; // Registry AID
+    value: TEL;
+    indexes: { 'by-issuer': string };
+  };
+  acdcs: {
+    key: string; // Credential SAID
+    value: ACDC;
+    indexes: { 'by-issuer': string; 'by-recipient': string; 'by-schema': string; 'by-registry': string };
   };
   schemas: {
-    key: string;
-    value: StoredSchema;
+    key: string; // Schema SAID
+    value: Schema;
   };
-  contacts: {
-    key: string;
-    value: Contact;
-    indexes: { 'by-prefix': string; 'by-name': string };
+
+  // Alias mappings
+  aliases: {
+    key: string; // UUID
+    value: AliasMapping;
+    indexes: { 'by-alias': string; 'by-said': string; 'by-type': string };
   };
-  telRegistries: {
-    key: string;
-    value: TELRegistry;
-    indexes: { 'by-alias': string; 'by-registry-aid': string; 'by-issuer-aid': string };
-  };
+
+  // User management (global DB only)
   users: {
     key: string;
     value: User;
@@ -121,11 +136,11 @@ interface KeriDB extends DBSchema {
   };
 }
 
-const GLOBAL_DB_NAME = 'keri-demo-global';
-const DB_VERSION = 5; // Incremented for TEL registry structure updates
+const GLOBAL_DB_NAME = 'keri-demo-global-v2';
+const DB_VERSION = 1;
 
-let globalDbPromise: Promise<IDBPDatabase<KeriDB>> | null = null;
-let userDbPromises: Map<string, Promise<IDBPDatabase<KeriDB>>> = new Map();
+let globalDbPromise: Promise<IDBPDatabase<NormalizedKeriDB>> | null = null;
+let userDbPromises: Map<string, Promise<IDBPDatabase<NormalizedKeriDB>>> = new Map();
 
 // Reset database connections (useful after clearing data)
 export function resetDatabaseConnections(): void {
@@ -134,9 +149,9 @@ export function resetDatabaseConnections(): void {
 }
 
 // Global DB for users and settings only
-async function getGlobalDB(): Promise<IDBPDatabase<KeriDB>> {
+async function getGlobalDB(): Promise<IDBPDatabase<NormalizedKeriDB>> {
   if (!globalDbPromise) {
-    globalDbPromise = openDB<KeriDB>(GLOBAL_DB_NAME, DB_VERSION, {
+    globalDbPromise = openDB<NormalizedKeriDB>(GLOBAL_DB_NAME, DB_VERSION, {
       upgrade(db) {
         // Users store
         if (!db.objectStoreNames.contains('users')) {
@@ -153,43 +168,42 @@ async function getGlobalDB(): Promise<IDBPDatabase<KeriDB>> {
   return globalDbPromise;
 }
 
-// User-specific DB for identities, credentials, schemas, and contacts
-async function getUserDB(userId: string): Promise<IDBPDatabase<KeriDB>> {
+// User-specific DB for KELs, TELs, ACDCs, schemas, and aliases
+async function getUserDB(userId: string): Promise<IDBPDatabase<NormalizedKeriDB>> {
   if (!userDbPromises.has(userId)) {
-    const dbPromise = openDB<KeriDB>(`keri-demo-user-${userId}`, DB_VERSION, {
+    const dbPromise = openDB<NormalizedKeriDB>(`keri-demo-user-v2-${userId}`, DB_VERSION, {
       upgrade(db) {
-        // Identities store
-        if (!db.objectStoreNames.contains('identities')) {
-          const identityStore = db.createObjectStore('identities', { keyPath: 'alias' });
-          identityStore.createIndex('by-prefix', 'prefix');
+        // KEL store - canonical identity event logs
+        if (!db.objectStoreNames.contains('kels')) {
+          db.createObjectStore('kels', { keyPath: 'aid' });
         }
 
-        // Credentials store
-        if (!db.objectStoreNames.contains('credentials')) {
-          const credentialStore = db.createObjectStore('credentials', { keyPath: 'id' });
-          credentialStore.createIndex('by-issuer', 'issuer');
-          credentialStore.createIndex('by-recipient', 'recipient');
-          credentialStore.createIndex('by-schema', 'schema');
+        // TEL store - canonical registry event logs
+        if (!db.objectStoreNames.contains('tels')) {
+          const telStore = db.createObjectStore('tels', { keyPath: 'registryAID' });
+          telStore.createIndex('by-issuer', 'issuerAID', { unique: false });
         }
 
-        // Schemas store
+        // ACDC store - canonical credential storage
+        if (!db.objectStoreNames.contains('acdcs')) {
+          const acdcStore = db.createObjectStore('acdcs', { keyPath: 'said' });
+          acdcStore.createIndex('by-issuer', 'issuer', { unique: false });
+          acdcStore.createIndex('by-recipient', 'recipient', { unique: false });
+          acdcStore.createIndex('by-schema', 'schema', { unique: false });
+          acdcStore.createIndex('by-registry', 'registry', { unique: false });
+        }
+
+        // Schema store
         if (!db.objectStoreNames.contains('schemas')) {
-          db.createObjectStore('schemas', { keyPath: 'id' });
+          db.createObjectStore('schemas', { keyPath: 'said' });
         }
 
-        // Contacts store
-        if (!db.objectStoreNames.contains('contacts')) {
-          const contactStore = db.createObjectStore('contacts', { keyPath: 'id' });
-          contactStore.createIndex('by-prefix', 'prefix');
-          contactStore.createIndex('by-name', 'name');
-        }
-
-        // TEL Registries store
-        if (!db.objectStoreNames.contains('telRegistries')) {
-          const telStore = db.createObjectStore('telRegistries', { keyPath: 'id' });
-          telStore.createIndex('by-alias', 'alias', { unique: true });
-          telStore.createIndex('by-registry-aid', 'registryAID', { unique: true });
-          telStore.createIndex('by-issuer-aid', 'issuerAID', { unique: false });
+        // Alias mappings - bidirectional lookups
+        if (!db.objectStoreNames.contains('aliases')) {
+          const aliasStore = db.createObjectStore('aliases', { keyPath: 'id' });
+          aliasStore.createIndex('by-alias', 'alias', { unique: true });
+          aliasStore.createIndex('by-said', 'said', { unique: false });
+          aliasStore.createIndex('by-type', 'type', { unique: false });
         }
       },
     });
@@ -199,7 +213,7 @@ async function getUserDB(userId: string): Promise<IDBPDatabase<KeriDB>> {
 }
 
 // Get current user's DB
-async function getDB(userId?: string): Promise<IDBPDatabase<KeriDB>> {
+async function getDB(userId?: string): Promise<IDBPDatabase<NormalizedKeriDB>> {
   if (userId) {
     return getUserDB(userId);
   }
@@ -210,112 +224,165 @@ async function getDB(userId?: string): Promise<IDBPDatabase<KeriDB>> {
   return getUserDB(user.id);
 }
 
-// Identity Management
-export async function saveIdentity(identity: StoredIdentity, userId?: string): Promise<void> {
+// ============================================================================
+// KEL Management
+// ============================================================================
+
+export async function saveKEL(kel: KEL, userId?: string): Promise<void> {
   const db = await getDB(userId);
-  await db.put('identities', identity);
+  await db.put('kels', kel);
 }
 
-export async function getIdentities(userId?: string): Promise<StoredIdentity[]> {
+export async function getKEL(aid: string, userId?: string): Promise<KEL | undefined> {
   const db = await getDB(userId);
-  return db.getAll('identities');
+  return db.get('kels', aid);
 }
 
-export async function getIdentity(alias: string): Promise<StoredIdentity | undefined> {
-  const db = await getDB();
-  return db.get('identities', alias);
+export async function getAllKELs(userId?: string): Promise<KEL[]> {
+  const db = await getDB(userId);
+  return db.getAll('kels');
 }
 
-export async function getIdentityByPrefix(prefix: string): Promise<StoredIdentity | undefined> {
-  const db = await getDB();
-  return db.getFromIndex('identities', 'by-prefix', prefix);
+export async function deleteKEL(aid: string, userId?: string): Promise<void> {
+  const db = await getDB(userId);
+  await db.delete('kels', aid);
 }
 
-export async function deleteIdentity(alias: string): Promise<void> {
-  const db = await getDB();
-  await db.delete('identities', alias);
+// ============================================================================
+// TEL Management
+// ============================================================================
+
+export async function saveTEL(tel: TEL, userId?: string): Promise<void> {
+  const db = await getDB(userId);
+  await db.put('tels', tel);
 }
 
-// Credential Management
-export async function saveCredential(credential: StoredCredential): Promise<void> {
-  const db = await getDB();
-  await db.put('credentials', credential);
+export async function getTEL(registryAID: string, userId?: string): Promise<TEL | undefined> {
+  const db = await getDB(userId);
+  return db.get('tels', registryAID);
 }
 
-export async function getCredentials(): Promise<StoredCredential[]> {
-  const db = await getDB();
-  return db.getAll('credentials');
+export async function getAllTELs(userId?: string): Promise<TEL[]> {
+  const db = await getDB(userId);
+  return db.getAll('tels');
 }
 
-export async function getCredential(id: string): Promise<StoredCredential | undefined> {
-  const db = await getDB();
-  return db.get('credentials', id);
+export async function getTELsByIssuer(issuerAID: string, userId?: string): Promise<TEL[]> {
+  const db = await getDB(userId);
+  return db.getAllFromIndex('tels', 'by-issuer', issuerAID);
 }
 
-export async function getCredentialsByIssuer(issuer: string): Promise<StoredCredential[]> {
-  const db = await getDB();
-  return db.getAllFromIndex('credentials', 'by-issuer', issuer);
+export async function deleteTEL(registryAID: string, userId?: string): Promise<void> {
+  const db = await getDB(userId);
+  await db.delete('tels', registryAID);
 }
 
-export async function getCredentialsByRecipient(recipient: string): Promise<StoredCredential[]> {
-  const db = await getDB();
-  return db.getAllFromIndex('credentials', 'by-recipient', recipient);
+// ============================================================================
+// ACDC Management
+// ============================================================================
+
+export async function saveACDC(acdc: ACDC, userId?: string): Promise<void> {
+  const db = await getDB(userId);
+  await db.put('acdcs', acdc);
 }
 
-export async function deleteCredential(id: string): Promise<void> {
-  const db = await getDB();
-  await db.delete('credentials', id);
+export async function getACDC(said: string, userId?: string): Promise<ACDC | undefined> {
+  const db = await getDB(userId);
+  return db.get('acdcs', said);
 }
 
+export async function getAllACDCs(userId?: string): Promise<ACDC[]> {
+  const db = await getDB(userId);
+  return db.getAll('acdcs');
+}
+
+export async function getACDCsByIssuer(issuerAID: string, userId?: string): Promise<ACDC[]> {
+  const db = await getDB(userId);
+  return db.getAllFromIndex('acdcs', 'by-issuer', issuerAID);
+}
+
+export async function getACDCsByRecipient(recipientAID: string, userId?: string): Promise<ACDC[]> {
+  const db = await getDB(userId);
+  return db.getAllFromIndex('acdcs', 'by-recipient', recipientAID);
+}
+
+export async function getACDCsBySchema(schemaSAID: string, userId?: string): Promise<ACDC[]> {
+  const db = await getDB(userId);
+  return db.getAllFromIndex('acdcs', 'by-schema', schemaSAID);
+}
+
+export async function getACDCsByRegistry(registryAID: string, userId?: string): Promise<ACDC[]> {
+  const db = await getDB(userId);
+  return db.getAllFromIndex('acdcs', 'by-registry', registryAID);
+}
+
+export async function deleteACDC(said: string, userId?: string): Promise<void> {
+  const db = await getDB(userId);
+  await db.delete('acdcs', said);
+}
+
+// ============================================================================
 // Schema Management
-export async function saveSchema(schema: StoredSchema): Promise<void> {
-  const db = await getDB();
+// ============================================================================
+
+export async function saveSchema(schema: Schema, userId?: string): Promise<void> {
+  const db = await getDB(userId);
   await db.put('schemas', schema);
 }
 
-export async function getSchemas(): Promise<StoredSchema[]> {
-  const db = await getDB();
+export async function getSchema(said: string, userId?: string): Promise<Schema | undefined> {
+  const db = await getDB(userId);
+  return db.get('schemas', said);
+}
+
+export async function getAllSchemas(userId?: string): Promise<Schema[]> {
+  const db = await getDB(userId);
   return db.getAll('schemas');
 }
 
-export async function getSchema(id: string): Promise<StoredSchema | undefined> {
-  const db = await getDB();
-  return db.get('schemas', id);
+export async function deleteSchema(said: string, userId?: string): Promise<void> {
+  const db = await getDB(userId);
+  await db.delete('schemas', said);
 }
 
-export async function deleteSchema(id: string): Promise<void> {
-  const db = await getDB();
-  await db.delete('schemas', id);
+// ============================================================================
+// Alias Management
+// ============================================================================
+
+export async function saveAlias(alias: AliasMapping, userId?: string): Promise<void> {
+  const db = await getDB(userId);
+  await db.put('aliases', alias);
 }
 
-// Export all data
-export async function exportAllData(): Promise<{
-  identities: StoredIdentity[];
-  credentials: StoredCredential[];
-  schemas: StoredSchema[];
-}> {
-  const [identities, credentials, schemas] = await Promise.all([
-    getIdentities(),
-    getCredentials(),
-    getSchemas(),
-  ]);
-
-  return { identities, credentials, schemas };
+export async function getAliasBySAID(said: string, userId?: string): Promise<AliasMapping | undefined> {
+  const db = await getDB(userId);
+  return db.getFromIndex('aliases', 'by-said', said);
 }
 
-// Clear all data
-export async function clearAllData(): Promise<void> {
-  const db = await getDB();
-  await Promise.all([
-    db.clear('identities'),
-    db.clear('credentials'),
-    db.clear('schemas'),
-    db.clear('contacts'),
-    db.clear('telRegistries'),
-  ]);
+export async function getAliasByName(alias: string, userId?: string): Promise<AliasMapping | undefined> {
+  const db = await getDB(userId);
+  return db.getFromIndex('aliases', 'by-alias', alias);
 }
 
+export async function getSAIDByAlias(alias: string, userId?: string): Promise<string | undefined> {
+  const mapping = await getAliasByName(alias, userId);
+  return mapping?.said;
+}
+
+export async function getAllAliases(userId?: string): Promise<AliasMapping[]> {
+  const db = await getDB(userId);
+  return db.getAll('aliases');
+}
+
+export async function deleteAlias(id: string, userId?: string): Promise<void> {
+  const db = await getDB(userId);
+  await db.delete('aliases', id);
+}
+
+// ============================================================================
 // User Management
+// ============================================================================
+
 export async function saveUser(user: User): Promise<void> {
   const db = await getGlobalDB();
   await db.put('users', user);
@@ -352,69 +419,41 @@ export async function clearCurrentUser(): Promise<void> {
   await setCurrentUser(null);
 }
 
-// Contact Management
-export async function saveContact(contact: Contact): Promise<void> {
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+/**
+ * Clear all user data
+ */
+export async function clearAllData(): Promise<void> {
   const db = await getDB();
-  await db.put('contacts', contact);
+  await Promise.all([
+    db.clear('kels'),
+    db.clear('tels'),
+    db.clear('acdcs'),
+    db.clear('schemas'),
+    db.clear('aliases'),
+  ]);
 }
 
-export async function getContacts(): Promise<Contact[]> {
-  const db = await getDB();
-  return db.getAll('contacts');
+/**
+ * Helper: Resolve alias to SAID/AID
+ */
+export async function resolveAlias(aliasOrSaid: string, userId?: string): Promise<string> {
+  // If it looks like a SAID/AID (starts with capital letter), return as-is
+  if (/^[A-Z]/.test(aliasOrSaid)) {
+    return aliasOrSaid;
+  }
+  // Otherwise try to resolve as alias
+  const said = await getSAIDByAlias(aliasOrSaid, userId);
+  return said || aliasOrSaid;
 }
 
-export async function getContact(id: string): Promise<Contact | undefined> {
-  const db = await getDB();
-  return db.get('contacts', id);
-}
-
-export async function getContactByPrefix(prefix: string): Promise<Contact | undefined> {
-  const db = await getDB();
-  return db.getFromIndex('contacts', 'by-prefix', prefix);
-}
-
-export async function getContactByName(name: string): Promise<Contact | undefined> {
-  const db = await getDB();
-  return db.getFromIndex('contacts', 'by-name', name);
-}
-
-export async function deleteContact(id: string): Promise<void> {
-  const db = await getDB();
-  await db.delete('contacts', id);
-}
-
-// TEL Registry Management
-export async function saveTELRegistry(registry: TELRegistry): Promise<void> {
-  const db = await getDB();
-  await db.put('telRegistries', registry);
-}
-
-export async function getTELRegistries(): Promise<TELRegistry[]> {
-  const db = await getDB();
-  return db.getAll('telRegistries');
-}
-
-export async function getTELRegistry(id: string): Promise<TELRegistry | undefined> {
-  const db = await getDB();
-  return db.get('telRegistries', id);
-}
-
-export async function getTELRegistryByAlias(alias: string): Promise<TELRegistry | undefined> {
-  const db = await getDB();
-  return db.getFromIndex('telRegistries', 'by-alias', alias);
-}
-
-export async function getTELRegistryByAID(registryAID: string): Promise<TELRegistry | undefined> {
-  const db = await getDB();
-  return db.getFromIndex('telRegistries', 'by-registry-aid', registryAID);
-}
-
-export async function getTELRegistriesByIssuer(issuerAID: string): Promise<TELRegistry[]> {
-  const db = await getDB();
-  return db.getAllFromIndex('telRegistries', 'by-issuer-aid', issuerAID);
-}
-
-export async function deleteTELRegistry(id: string): Promise<void> {
-  const db = await getDB();
-  await db.delete('telRegistries', id);
+/**
+ * Helper: Get display name for a SAID/AID (alias if exists, otherwise truncated SAID)
+ */
+export async function getDisplayName(said: string, userId?: string): Promise<string> {
+  const alias = await getAliasBySAID(said, userId);
+  return alias?.alias || `${said.substring(0, 12)}...`;
 }
