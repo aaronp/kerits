@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
-import { ArrowLeft, Users, RefreshCw, ChevronDown, ChevronRight, Search } from 'lucide-react';
+import { ArrowLeft, Users, RefreshCw, ChevronDown, ChevronRight, Search, Copy } from 'lucide-react';
 import { getContactByPrefix, getContactByName, saveContact } from '../lib/storage';
 import { Toast, useToast } from './ui/toast';
 import { route } from '../config';
@@ -33,6 +33,7 @@ export function MyContact() {
   const [showAllKeys, setShowAllKeys] = useState(false);
   const [keyFilter, setKeyFilter] = useState('');
   const [telRefreshTrigger, setTelRefreshTrigger] = useState(0);
+  const [showDetails, setShowDetails] = useState(false);
   const { toast, showToast, hideToast } = useToast();
 
   useEffect(() => {
@@ -244,34 +245,59 @@ export function MyContact() {
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <div>
-                <CardTitle className="flex items-center gap-3">
-                  <Users className="h-8 w-8" />
-                  {contact.name}
-                </CardTitle>
-                <CardDescription>Contact details and key event log</CardDescription>
+              <div className="flex items-center gap-3">
+                <Users className="h-8 w-8" />
+                <div>
+                  <CardTitle>{contact.name}</CardTitle>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="text-xs font-mono text-muted-foreground">
+                      {contact.prefix}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCopyPrefix()}
+                      className="h-5 w-5 p-0"
+                      title="Copy AID"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsUpdateDialogOpen(true)}
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Update KEL
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDetails(!showDetails)}
+              >
+                {showDetails ? (
+                  <>
+                    <ChevronDown className="h-4 w-4 mr-2" />
+                    Hide Details
+                  </>
+                ) : (
+                  <>
+                    <ChevronRight className="h-4 w-4 mr-2" />
+                    Show Details
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsUpdateDialogOpen(true)}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Update KEL
+              </Button>
+            </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <div className="text-sm font-medium">AID</div>
-              <CopyableText
-                text={contact.prefix}
-                label="AID"
-                onCopy={() => showToast('AID copied to clipboard')}
-              />
-            </div>
+        {showDetails && (
+          <CardContent className="space-y-4">
+            <div className="space-y-3">
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -343,19 +369,20 @@ export function MyContact() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 text-sm pt-2 border-t">
-            <div>
-              <div className="font-medium">Added</div>
-              <div className="text-muted-foreground">
-                {new Date(contact.createdAt).toLocaleDateString()}
+            <div className="grid grid-cols-2 gap-4 text-sm pt-2 border-t">
+              <div>
+                <div className="font-medium">Added</div>
+                <div className="text-muted-foreground">
+                  {new Date(contact.createdAt).toLocaleDateString()}
+                </div>
+              </div>
+              <div>
+                <div className="font-medium">KEL Events</div>
+                <div className="text-muted-foreground">{contact.kel.length}</div>
               </div>
             </div>
-            <div>
-              <div className="font-medium">KEL Events</div>
-              <div className="text-muted-foreground">{contact.kel.length}</div>
-            </div>
-          </div>
-        </CardContent>
+          </CardContent>
+        )}
       </Card>
 
       <IdentityEventGraph

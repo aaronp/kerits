@@ -109,6 +109,8 @@ export function IdentityEventGraph({
   const { toast, showToast, hideToast } = useToast();
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importData, setImportData] = useState('');
+  const [graphHeight, setGraphHeight] = useState(500);
+  const [isResizing, setIsResizing] = useState(false);
 
   // Load TEL registries for this identity
   useEffect(() => {
@@ -318,6 +320,34 @@ export function IdentityEventGraph({
     setSelectedNode(null);
   }, []);
 
+  // Handle resize
+  const handleMouseDown = useCallback(() => {
+    setIsResizing(true);
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isResizing) return;
+    const newHeight = e.clientY - 200; // Adjust based on offset from top
+    if (newHeight >= 300 && newHeight <= 800) {
+      setGraphHeight(newHeight);
+    }
+  }, [isResizing]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isResizing, handleMouseMove, handleMouseUp]);
+
   // Handle exporting credential from TEL event or registry
   const handleExportCredential = useCallback(async (node: Node) => {
     // If clicking on a registry node, export the entire TEL registry
@@ -457,6 +487,9 @@ export function IdentityEventGraph({
       const registries = await getTELRegistriesByIssuer(prefix);
       setTelRegistries(registries);
 
+      console.log('TEL Registry imported:', telRegistry);
+      console.log('Reloaded registries:', registries);
+
       setImportData('');
       setShowImportDialog(false);
       showToast('TEL Registry imported successfully');
@@ -471,10 +504,9 @@ export function IdentityEventGraph({
   }, [importData, prefix, showToast]);
 
   return (
-    <div className="space-y-4 flex flex-col h-[calc(100vh-12rem)]">
-      {/* Graph Container */}
-      <div className="flex-1 flex flex-col gap-4 min-h-0">
-        <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
+    <div className="space-y-0">
+      {/* Graph Container - Resizable */}
+      <Card className="flex flex-col overflow-hidden" style={{ height: `${graphHeight}px` }}>
           <CardHeader className="pb-3 flex-shrink-0">
             <CardTitle className="text-lg">
               Network Graph: {alias}
@@ -502,96 +534,104 @@ export function IdentityEventGraph({
           </CardContent>
         </Card>
 
-        {/* Detail Panel */}
-        <Card className="flex-1 flex flex-col overflow-hidden min-h-0 max-h-96">
-          <CardHeader className="pb-3 flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg">Node Details</CardTitle>
-                <CardDescription>
-                  {selectedNode ? 'Selected node information' : 'Click a node to view details'}
-                </CardDescription>
-              </div>
-              {selectedNode && (() => {
-                // Check if this is a credential issuance event - check multiple locations for type
-                const eventType = selectedNode.data.type ||
-                                 selectedNode.data.event?.sad?.t ||
-                                 selectedNode.data.event?.ked?.t ||
-                                 selectedNode.data.event?.t;
-                const isCredentialEvent = ['iss', 'bis', 'brv'].includes(eventType) ||
-                                         selectedNode.type === 'registry';
-                const isSAIDNode = selectedNode.type === 'said';
+      {/* Resize Handle */}
+      <div
+        className="h-2 bg-border hover:bg-primary cursor-ns-resize flex items-center justify-center"
+        onMouseDown={handleMouseDown}
+      >
+        <div className="w-12 h-1 bg-muted-foreground rounded-full" />
+      </div>
 
-                return isCredentialEvent || isSAIDNode;
-              })() && (
-                <div className="flex gap-2">
-                  {selectedNode.type !== 'said' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleExportCredential(selectedNode)}
-                      title="Export credential to clipboard"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Export
-                    </Button>
-                  )}
+      {/* Detail Panel - Always Visible */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg">Node Details</CardTitle>
+              <CardDescription>
+                {selectedNode ? 'Selected node information' : 'Click a node to view details'}
+              </CardDescription>
+            </div>
+            {selectedNode && (() => {
+              // Check if this is a credential issuance event - check multiple locations for type
+              const eventType = selectedNode.data.type ||
+                               selectedNode.data.event?.sad?.t ||
+                               selectedNode.data.event?.ked?.t ||
+                               selectedNode.data.event?.t;
+              const isCredentialEvent = ['iss', 'bis', 'brv'].includes(eventType) ||
+                                       selectedNode.type === 'registry';
+              const isSAIDNode = selectedNode.type === 'said';
+
+              return isCredentialEvent || isSAIDNode;
+            })() && (
+              <div className="flex gap-2">
+                {selectedNode.type !== 'said' && (
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleImportTEL(selectedNode)}
-                    title={selectedNode.type === 'said' ? 'Import TEL Registry' : 'Import credential (use Credentials page)'}
+                    onClick={() => handleExportCredential(selectedNode)}
+                    title="Export credential to clipboard"
                   >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Import
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
                   </Button>
-                </div>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto min-h-0">
-            {selectedNode ? (
-              <div className="space-y-4 pb-4">
-                {/* Basic Info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <div className="text-sm font-semibold">Label</div>
-                    <div className="text-sm text-muted-foreground">{selectedNode.data.label}</div>
-                  </div>
-
-                  {selectedNode.data.type && (
-                    <div className="space-y-2">
-                      <div className="text-sm font-semibold">Type</div>
-                      <div className="text-sm text-muted-foreground">{selectedNode.data.type}</div>
-                    </div>
-                  )}
-
-                  {selectedNode.data.sn !== undefined && (
-                    <div className="space-y-2">
-                      <div className="text-sm font-semibold">Sequence Number</div>
-                      <div className="text-sm text-muted-foreground">{selectedNode.data.sn}</div>
-                    </div>
-                  )}
-
-                  {selectedNode.data.prefix && (
-                    <div className="space-y-2 md:col-span-2">
-                      <div className="text-sm font-semibold">Prefix (AID)</div>
-                      <div className="text-xs font-mono bg-muted p-2 rounded break-all">
-                        {selectedNode.data.prefix}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Event Data */}
-                {selectedNode.data.event && (
-                  <div className="space-y-2 border-t pt-4">
-                    <div className="text-sm font-semibold">Raw Event Data</div>
-                    <pre className="text-xs bg-muted p-3 rounded overflow-x-auto max-h-64">
-                      {JSON.stringify(selectedNode.data.event, null, 2)}
-                    </pre>
-                  </div>
                 )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleImportTEL(selectedNode)}
+                  title={selectedNode.type === 'said' ? 'Import TEL Registry' : 'Import credential (use Credentials page)'}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Import
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {selectedNode ? (
+            <div className="space-y-4 pb-4">
+                  {/* Basic Info */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold">Label</div>
+                      <div className="text-sm text-muted-foreground">{selectedNode.data.label}</div>
+                    </div>
+
+                    {selectedNode.data.type && (
+                      <div className="space-y-2">
+                        <div className="text-sm font-semibold">Type</div>
+                        <div className="text-sm text-muted-foreground">{selectedNode.data.type}</div>
+                      </div>
+                    )}
+
+                    {selectedNode.data.sn !== undefined && (
+                      <div className="space-y-2">
+                        <div className="text-sm font-semibold">Sequence Number</div>
+                        <div className="text-sm text-muted-foreground">{selectedNode.data.sn}</div>
+                      </div>
+                    )}
+
+                    {selectedNode.data.prefix && (
+                      <div className="space-y-2 md:col-span-2">
+                        <div className="text-sm font-semibold">Prefix (AID)</div>
+                        <div className="text-xs font-mono bg-muted p-2 rounded break-all">
+                          {selectedNode.data.prefix}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Event Data */}
+                  {selectedNode.data.event && (
+                    <div className="space-y-2 border-t pt-4">
+                      <div className="text-sm font-semibold">Raw Event Data</div>
+                      <pre className="text-xs bg-muted p-3 rounded overflow-x-auto max-h-64">
+                        {JSON.stringify(selectedNode.data.event, null, 2)}
+                      </pre>
+                    </div>
+                  )}
               </div>
             ) : (
               <div className="flex items-center justify-center h-32 text-muted-foreground">
@@ -600,7 +640,6 @@ export function IdentityEventGraph({
             )}
           </CardContent>
         </Card>
-      </div>
 
       {/* Import TEL Registry Dialog */}
       <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
