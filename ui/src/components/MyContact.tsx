@@ -32,6 +32,7 @@ export function MyContact() {
   const [updating, setUpdating] = useState(false);
   const [showAllKeys, setShowAllKeys] = useState(false);
   const [keyFilter, setKeyFilter] = useState('');
+  const [telRefreshTrigger, setTelRefreshTrigger] = useState(0);
   const { toast, showToast, hideToast } = useToast();
 
   useEffect(() => {
@@ -362,7 +363,9 @@ export function MyContact() {
         prefix={contact.prefix}
         inceptionEvent={contact.kel[0]}
         kelEvents={contact.kel.slice(1)}
-        showTEL={false}
+        showTEL={true}
+        credentials={[]}
+        telRefreshTrigger={telRefreshTrigger}
       />
 
       <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>

@@ -299,8 +299,10 @@ export function IdentityEventGraph({
 
   // Create a stable key based on actual graph content to prevent infinite loops
   const graphKey = useMemo(() => {
-    return `${prefix}-${kelEvents?.length || 0}-${telRegistries.length}-${showTEL}`;
-  }, [prefix, kelEvents?.length, telRegistries.length, showTEL]);
+    // Include total TEL events count to detect when registries are updated
+    const totalTelEvents = telRegistries.reduce((sum, reg) => sum + (reg.tel?.length || 0), 0);
+    return `${prefix}-${kelEvents?.length || 0}-${telRegistries.length}-${totalTelEvents}-${showTEL}-${telRefreshTrigger}`;
+  }, [prefix, kelEvents?.length, telRegistries, showTEL, telRefreshTrigger]);
 
   // Update nodes/edges when graph key changes (use graphKey to prevent infinite loops)
   useEffect(() => {
@@ -415,7 +417,26 @@ export function IdentityEventGraph({
 
       // Validate TEL registry structure
       if (!parsed.registryAID || !parsed.issuerAID || !parsed.inceptionEvent) {
-        showToast('Invalid TEL registry format');
+        showToast('Invalid TEL registry format - missing required fields');
+        return;
+      }
+
+      // KERI Validation: Verify issuerAID matches the current identity's prefix
+      if (parsed.issuerAID !== prefix) {
+        showToast(`TEL registry issuer (${parsed.issuerAID.substring(0, 12)}...) does not match this identity (${prefix.substring(0, 12)}...)`);
+        return;
+      }
+
+      // Validate inception event structure
+      const inceptionEvent = parsed.inceptionEvent;
+      if (!inceptionEvent.sad || inceptionEvent.sad.t !== 'vcp') {
+        showToast('Invalid TEL inception event - must be type "vcp"');
+        return;
+      }
+
+      // Validate registryAID matches inception event
+      if (parsed.registryAID !== inceptionEvent.sad.i) {
+        showToast('Registry AID does not match inception event identifier');
         return;
       }
 
@@ -432,7 +453,7 @@ export function IdentityEventGraph({
       // Save the TEL registry
       await saveTELRegistry(telRegistry);
 
-      // Reload TEL registries
+      // Force reload TEL registries to update the graph
       const registries = await getTELRegistriesByIssuer(prefix);
       setTelRegistries(registries);
 
