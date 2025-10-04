@@ -204,64 +204,50 @@ export function NetworkGraph() {
         label: 'TEL',
       });
 
-      // Find credentials in this registry
-      const registryCredentials = credentials.filter(
-        c => c.registry === registry.registryAID
-      );
+      // Read TEL events directly from the registry's TEL log
+      // This is the source of truth - not from credentials
+      const baseX = telXStart + 350;
+      let prevNodeId = regNodeId;
 
-      // Add TEL events for each credential
-      registryCredentials.forEach((credential, credIndex) => {
-        const credNodeId = `tel-${regIndex}-cred-${credIndex}`;
-        const baseX = telXStart + 350;
+      registry.tel.forEach((telEvent: any, telIndex: number) => {
+        const telNodeId = `tel-${regIndex}-evt-${telIndex}`;
 
-        // Credential issuance node
+        // Determine event type and label
+        const eventType = telEvent.ked?.t || telEvent.t || 'event';
+        let eventLabel = eventType;
+
+        // For issuance events, try to find the credential to show a better label
+        if (eventType === 'iss' || eventType === 'bis' || eventType === 'brv') {
+          const credSAID = telEvent.ked?.i || telEvent.i;
+          const credential = credentials.find(c => c.id === credSAID);
+          if (credential) {
+            eventLabel = `${eventType}: ${credential.schemaName || credential.name}`;
+          } else {
+            eventLabel = `${eventType}: ${credSAID?.substring(0, 12)}...`;
+          }
+        }
+
         nodes.push({
-          id: credNodeId,
+          id: telNodeId,
           type: 'event',
-          position: { x: baseX + (credIndex * 300), y: telY },
+          position: { x: baseX + (telIndex * 300), y: telY },
           data: {
-            label: credential.schemaName || credential.name,
-            type: 'iss',
-            event: credential,
+            label: eventLabel,
+            type: eventType,
+            sn: telEvent.ked?.s !== undefined ? telEvent.ked.s : undefined,
+            event: telEvent,
           },
         });
 
-        // Edge from registry to credential
-        const prevCredId = credIndex === 0 ? regNodeId : `tel-${regIndex}-cred-${credIndex - 1}`;
         edges.push({
-          id: `edge-${prevCredId}-${credNodeId}`,
-          source: prevCredId,
-          target: credNodeId,
+          id: `edge-${prevNodeId}-${telNodeId}`,
+          source: prevNodeId,
+          target: telNodeId,
           animated: true,
           style: { stroke: '#10b981', strokeWidth: 2 },
         });
 
-        // TEL events for this credential
-        if (credential.tel && credential.tel.length > 0) {
-          credential.tel.forEach((telEvent: any, telIndex: number) => {
-            const telNodeId = `tel-${regIndex}-cred-${credIndex}-evt-${telIndex}`;
-            const prevTelId = telIndex === 0 ? credNodeId : `tel-${regIndex}-cred-${credIndex}-evt-${telIndex - 1}`;
-
-            nodes.push({
-              id: telNodeId,
-              type: 'event',
-              position: { x: baseX + (credIndex * 300) + 300 + (telIndex * 300), y: telY },
-              data: {
-                label: telEvent.t || telEvent.ked?.t || 'TEL Event',
-                type: telEvent.t || telEvent.ked?.t || 'event',
-                event: telEvent,
-              },
-            });
-
-            edges.push({
-              id: `edge-${prevTelId}-${telNodeId}`,
-              source: prevTelId,
-              target: telNodeId,
-              animated: true,
-              style: { stroke: '#10b981', strokeWidth: 2 },
-            });
-          });
-        }
+        prevNodeId = telNodeId;
       });
     });
 

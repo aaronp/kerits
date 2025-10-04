@@ -73,8 +73,10 @@ export interface Contact {
 export interface TELRegistry {
   id: string; // UUID for the registry
   alias: string; // Human-readable name
-  registryAID: string; // The registry's AID
+  registryAID: string; // The registry's AID (regk from inception)
   issuerAID: string; // The issuer's AID who owns this registry
+  inceptionEvent: any; // The vcp inception event
+  tel: any[]; // Transaction Event Log - all events in this registry
   createdAt: string;
 }
 

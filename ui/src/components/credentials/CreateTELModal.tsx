@@ -63,6 +63,8 @@ export function CreateTELModal({ isOpen, onClose, onCreated }: CreateTELModalPro
         alias: alias.trim(),
         registryAID: inception.regk, // Use the registry identifier from inception
         issuerAID: issuerIdentity.prefix, // Track the issuer
+        inceptionEvent: inception, // Store the full vcp inception event
+        tel: [], // Initialize empty TEL - will be populated as credentials are issued
         createdAt: new Date().toISOString(),
       };
 
