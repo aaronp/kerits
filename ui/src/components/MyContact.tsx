@@ -16,6 +16,7 @@ import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Input } from './ui/input';
+import { CopyableText } from './ui/copyable-text';
 import {
   Dialog,
   DialogContent,
@@ -357,22 +358,13 @@ export function MyContact() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="space-y-2">
               <div className="text-sm font-medium">AID</div>
-              <div className="flex items-center gap-2">
-                <div className="text-xs font-mono text-muted-foreground">
-                  {contact.prefix}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCopyPrefix}
-                  className="h-6 w-6 p-0 flex-shrink-0"
-                  title="Copy AID"
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
-              </div>
+              <CopyableText
+                text={contact.prefix}
+                label="AID"
+                onCopy={() => showToast('AID copied to clipboard')}
+              />
             </div>
 
             <div className="space-y-2">
@@ -383,7 +375,7 @@ export function MyContact() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowAllKeys(!showAllKeys)}
-                    className="h-6 text-xs"
+                    className="h-6 text-xs text-primary hover:text-primary/80"
                   >
                     {showAllKeys ? (
                       <>
@@ -400,20 +392,11 @@ export function MyContact() {
                 )}
               </div>
               {currentPublicKey && (
-                <div className="flex items-center gap-2">
-                  <div className="text-xs font-mono text-muted-foreground break-all flex-1">
-                    {currentPublicKey}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleCopyKey(currentPublicKey)}
-                    className="h-6 w-6 p-0 flex-shrink-0"
-                    title="Copy Public Key"
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                </div>
+                <CopyableText
+                  text={currentPublicKey}
+                  label="Public Key"
+                  onCopy={() => showToast('Public key copied to clipboard')}
+                />
               )}
 
               {showAllKeys && allKeys.length > 1 && (
@@ -429,30 +412,18 @@ export function MyContact() {
                   </div>
                   <div className="space-y-2 max-h-[300px] overflow-y-auto">
                     {filteredKeys.map((keyInfo, index) => (
-                      <div
-                        key={index}
-                        className="flex items-start justify-between gap-2 p-2 rounded bg-background border"
-                      >
-                        <div className="flex-1 space-y-1">
-                          <div className="text-xs font-mono break-all">
-                            {keyInfo.key}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Event {keyInfo.event} • {keyInfo.type || 'Unknown'}
-                            {keyInfo.date && (
-                              <> • {new Date(keyInfo.date).toLocaleDateString()}</>
-                            )}
-                          </div>
+                      <div key={index} className="space-y-1">
+                        <CopyableText
+                          text={keyInfo.key}
+                          label="Public Key"
+                          onCopy={() => showToast('Public key copied to clipboard')}
+                        />
+                        <div className="text-xs text-muted-foreground px-3">
+                          Event {keyInfo.event} • {keyInfo.type || 'Unknown'}
+                          {keyInfo.date && (
+                            <> • {new Date(keyInfo.date).toLocaleDateString()}</>
+                          )}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleCopyKey(keyInfo.key)}
-                          className="h-6 w-6 p-0 flex-shrink-0"
-                          title="Copy Key"
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
                       </div>
                     ))}
                     {filteredKeys.length === 0 && (
