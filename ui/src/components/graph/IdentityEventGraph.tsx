@@ -11,8 +11,14 @@ import ReactFlow, {
 import type { Node, Edge, NodeProps } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { getTELRegistriesByIssuer } from '@/lib/storage';
+import { Button } from '../ui/button';
+import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Download, Upload } from 'lucide-react';
+import { getTELRegistriesByIssuer, saveTELRegistry } from '@/lib/storage';
 import type { TELRegistry, StoredCredential } from '@/lib/storage';
+import { Toast, useToast } from '../ui/toast';
 
 // Custom node component for SAID root
 function SAIDNode({ data }: NodeProps) {
@@ -100,6 +106,9 @@ export function IdentityEventGraph({
 }: IdentityEventGraphProps) {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [telRegistries, setTelRegistries] = useState<TELRegistry[]>([]);
+  const { toast, showToast, hideToast } = useToast();
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importData, setImportData] = useState('');
 
   // Load TEL registries for this identity
   useEffect(() => {
@@ -307,6 +316,139 @@ export function IdentityEventGraph({
     setSelectedNode(null);
   }, []);
 
+  // Handle exporting credential from TEL event or registry
+  const handleExportCredential = useCallback(async (node: Node) => {
+    // If clicking on a registry node, export the entire TEL registry
+    if (node.type === 'registry') {
+      const registryAID = node.data.registryAID;
+      const registry = telRegistries.find(r => r.registryAID === registryAID);
+
+      if (!registry) {
+        showToast('Registry not found');
+        return;
+      }
+
+      // Export the entire TEL registry
+      const exportData = {
+        registryAID: registry.registryAID,
+        alias: registry.alias,
+        issuerAID: registry.issuerAID,
+        inceptionEvent: registry.inceptionEvent,
+        tel: registry.tel,
+        createdAt: registry.createdAt,
+      };
+
+      const json = JSON.stringify(exportData, null, 2);
+      await navigator.clipboard.writeText(json);
+      showToast('TEL Registry copied to clipboard');
+      return;
+    }
+
+    // Otherwise, handle individual credential export
+    // Check event type from multiple possible locations
+    const eventType = node.data.type ||
+                     node.data.event?.sad?.t ||
+                     node.data.event?.ked?.t ||
+                     node.data.event?.t;
+
+    // Check if this is a TEL issuance event (iss, bis, brv)
+    if (!['iss', 'bis', 'brv'].includes(eventType)) {
+      showToast('This event is not a credential issuance event');
+      return;
+    }
+
+    const telEvent = node.data.event;
+    // Check for credential SAID in multiple possible locations
+    const credSAID = telEvent.sad?.i || telEvent.ked?.i || telEvent.i;
+
+    if (!credSAID) {
+      showToast('Could not find credential SAID in this event');
+      return;
+    }
+
+    // Find the credential
+    const credential = credentials.find(c => c.id === credSAID);
+
+    if (!credential) {
+      showToast('Credential not found. The credential may not be in your local storage.');
+      return;
+    }
+
+    // Export the full credential
+    const exportData = {
+      id: credential.id,
+      name: credential.name,
+      issuer: credential.issuer,
+      issuerAlias: credential.issuerAlias,
+      recipient: credential.recipient,
+      recipientAlias: credential.recipientAlias,
+      schema: credential.schema,
+      schemaName: credential.schemaName,
+      sad: credential.sad,
+      tel: credential.tel,
+      registry: credential.registry,
+      createdAt: credential.createdAt,
+    };
+
+    const json = JSON.stringify(exportData, null, 2);
+    await navigator.clipboard.writeText(json);
+    showToast('Credential copied to clipboard');
+  }, [credentials, telRegistries, showToast]);
+
+  const handleImportTEL = useCallback(async (node: Node) => {
+    // If clicking on SAID node, show import dialog
+    if (node.type === 'said') {
+      setShowImportDialog(true);
+    } else {
+      showToast('Import credential from the Credentials page');
+    }
+  }, [showToast]);
+
+  const handleImportConfirm = useCallback(async () => {
+    if (!importData.trim()) {
+      showToast('Please paste TEL registry data');
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(importData);
+
+      // Validate TEL registry structure
+      if (!parsed.registryAID || !parsed.issuerAID || !parsed.inceptionEvent) {
+        showToast('Invalid TEL registry format');
+        return;
+      }
+
+      // Create TEL registry object
+      const telRegistry: TELRegistry = {
+        registryAID: parsed.registryAID,
+        alias: parsed.alias || 'Imported Registry',
+        issuerAID: parsed.issuerAID,
+        inceptionEvent: parsed.inceptionEvent,
+        tel: parsed.tel || [],
+        createdAt: parsed.createdAt || new Date().toISOString(),
+      };
+
+      // Save the TEL registry
+      await saveTELRegistry(telRegistry);
+
+      // Reload TEL registries
+      const registries = await getTELRegistriesByIssuer(prefix);
+      setTelRegistries(registries);
+
+      setImportData('');
+      setShowImportDialog(false);
+      showToast('TEL Registry imported successfully');
+    } catch (error) {
+      console.error('Failed to import TEL registry:', error);
+      if (error instanceof SyntaxError) {
+        showToast('Invalid JSON format');
+      } else {
+        showToast(`Failed to import: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+  }, [importData, prefix, showToast]);
+
   return (
     <div className="space-y-4 flex flex-col h-[calc(100vh-12rem)]">
       {/* Graph Container */}
@@ -342,10 +484,49 @@ export function IdentityEventGraph({
         {/* Detail Panel */}
         <Card className="flex-1 flex flex-col overflow-hidden min-h-0 max-h-96">
           <CardHeader className="pb-3 flex-shrink-0">
-            <CardTitle className="text-lg">Node Details</CardTitle>
-            <CardDescription>
-              {selectedNode ? 'Selected node information' : 'Click a node to view details'}
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg">Node Details</CardTitle>
+                <CardDescription>
+                  {selectedNode ? 'Selected node information' : 'Click a node to view details'}
+                </CardDescription>
+              </div>
+              {selectedNode && (() => {
+                // Check if this is a credential issuance event - check multiple locations for type
+                const eventType = selectedNode.data.type ||
+                                 selectedNode.data.event?.sad?.t ||
+                                 selectedNode.data.event?.ked?.t ||
+                                 selectedNode.data.event?.t;
+                const isCredentialEvent = ['iss', 'bis', 'brv'].includes(eventType) ||
+                                         selectedNode.type === 'registry';
+                const isSAIDNode = selectedNode.type === 'said';
+
+                return isCredentialEvent || isSAIDNode;
+              })() && (
+                <div className="flex gap-2">
+                  {selectedNode.type !== 'said' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExportCredential(selectedNode)}
+                      title="Export credential to clipboard"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Export
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleImportTEL(selectedNode)}
+                    title={selectedNode.type === 'said' ? 'Import TEL Registry' : 'Import credential (use Credentials page)'}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Import
+                  </Button>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto min-h-0">
             {selectedNode ? (
@@ -399,6 +580,48 @@ export function IdentityEventGraph({
           </CardContent>
         </Card>
       </div>
+
+      {/* Import TEL Registry Dialog */}
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Import TEL Registry</DialogTitle>
+            <DialogDescription>
+              Paste the TEL registry JSON data to import it for this identity
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="tel-data">TEL Registry JSON</Label>
+              <Textarea
+                id="tel-data"
+                placeholder='{"registryAID": "...", "alias": "...", "issuerAID": "...", ...}'
+                value={importData}
+                onChange={(e) => setImportData(e.target.value)}
+                rows={12}
+                className="font-mono text-xs"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowImportDialog(false);
+                setImportData('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleImportConfirm}>
+              Import Registry
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Toast message={toast.message} show={toast.show} onClose={hideToast} />
     </div>
   );
 }
