@@ -26,6 +26,7 @@ interface TestResult {
   file: string;
   description: string;
   passed: boolean;
+  duration: number;
   actual?: any;
   expected?: any;
   error?: string;
@@ -61,10 +62,12 @@ async function loadTestCases(): Promise<TestCase[]> {
 }
 
 function runTest(testCase: TestCase): TestResult {
+  const startTime = performance.now();
   const result: TestResult = {
     file: testCase.file,
     description: testCase.description,
     passed: false,
+    duration: 0,
   };
 
   try {
@@ -123,10 +126,11 @@ function runTest(testCase: TestCase): TestResult {
     result.error = error instanceof Error ? error.message : String(error);
   }
 
+  result.duration = performance.now() - startTime;
   return result;
 }
 
-function printResults(results: TestResult[]) {
+function printResults(results: TestResult[], totalDuration: number) {
   const total = results.length;
   const passed = results.filter(r => r.passed).length;
   const failed = total - passed;
@@ -139,6 +143,7 @@ function printResults(results: TestResult[]) {
   console.log(`Passed:    ${passed}`);
   console.log(`Failed:    ${failed}`);
   console.log(`Pass Rate: ${passRate}%`);
+  console.log(`Duration:  ${(totalDuration / 1000).toFixed(2)}s`);
   console.log('='.repeat(70));
 
   if (failed > 0) {
@@ -228,6 +233,7 @@ async function main() {
 
   console.log(`Running ${testCases.length} test cases...\n`);
 
+  const startTime = performance.now();
   const results: TestResult[] = [];
   for (let i = 0; i < testCases.length; i++) {
     const testCase = testCases[i]!;
@@ -237,13 +243,14 @@ async function main() {
     results.push(result);
 
     if (result.passed) {
-      console.log('✓ PASSED');
+      console.log(`✓ PASSED (${result.duration.toFixed(0)}ms)`);
     } else {
-      console.log('✗ FAILED');
+      console.log(`✗ FAILED (${result.duration.toFixed(0)}ms)`);
     }
   }
+  const totalDuration = performance.now() - startTime;
 
-  printResults(results);
+  printResults(results, totalDuration);
 }
 
 main();
