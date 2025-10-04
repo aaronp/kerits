@@ -42,6 +42,7 @@ export function SchemaCreator() {
   };
 
   const handleCreate = async () => {
+
     if (!name || fields.length === 0 || fields.some(f => !f.name)) {
       showToast('Please fill in all required fields');
       return;
@@ -58,6 +59,7 @@ export function SchemaCreator() {
         properties: {},
         required: fields.filter(f => f.required).map(f => f.name),
       };
+
 
       // Only add description if it's not empty
       if (description) {
@@ -86,6 +88,11 @@ export function SchemaCreator() {
             fieldSchema.type = 'string';
             fieldSchema.format = 'date-time';
             break;
+        }
+
+        // Add description if provided
+        if (field.description) {
+          fieldSchema.description = field.description;
         }
 
         schemaDefinition.properties[field.name] = fieldSchema;
@@ -142,7 +149,7 @@ export function SchemaCreator() {
             <Label htmlFor="name">Schema Name *</Label>
             <Input
               id="name"
-              placeholder="Driver's License"
+              placeholder="e.g. Onboarding Form"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />

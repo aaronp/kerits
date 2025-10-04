@@ -59,6 +59,8 @@ export interface ACDC {
 export interface Schema {
   said: string; // Schema SAID (key)
   sad: any; // Self-Addressing Data (the schema definition)
+  description?: string; // User-provided description
+  fields?: Array<{ name: string; type: string; required?: boolean; description?: string }>; // Field metadata for UI
   createdAt: string;
 }
 
@@ -667,6 +669,8 @@ export async function saveSchema(schema: StoredSchema, userId?: string): Promise
   await saveSchemaData({
     said: schema.id,
     sad: schema.sad,
+    description: schema.description,
+    fields: schema.fields,
     createdAt: schema.createdAt,
   }, userId);
 
@@ -685,17 +689,27 @@ export async function getSchemas(userId?: string): Promise<StoredSchema[]> {
 
   return schemas.map(s => {
     const aliasMapping = aliases.find(a => a.said === s.said && a.type === 'schema');
-    const fields = s.sad.properties ? Object.entries(s.sad.properties).map(([name, prop]: [string, any]) => ({
-      name,
-      type: prop.type || 'string',
-      required: s.sad.required?.includes(name),
-      description: prop.description,
-    })) : [];
+
+    // Prefer stored fields metadata if available, otherwise reconstruct from SAD
+    let fields = s.fields;
+    let description = s.description;
+
+    if (!fields || fields.length === 0) {
+      // Fallback: reconstruct from SAD structure
+      const sadData = s.sad.sad || s.sad;
+      fields = sadData.properties ? Object.entries(sadData.properties).map(([name, prop]: [string, any]) => ({
+        name,
+        type: prop.type || 'string',
+        required: sadData.required?.includes(name),
+        description: prop.description,
+      })) : [];
+      description = description || sadData.description;
+    }
 
     return {
       id: s.said,
-      name: aliasMapping?.alias || s.sad.title || 'Unnamed Schema',
-      description: s.sad.description,
+      name: aliasMapping?.alias || (s.sad.sad || s.sad).title || 'Unnamed Schema',
+      description,
       fields,
       sad: s.sad,
       createdAt: s.createdAt,
