@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
@@ -6,7 +6,7 @@ import { Textarea } from './ui/textarea';
 import { Toast, useToast } from './ui/toast';
 import { useUser } from '../lib/user-provider';
 import { useStore } from '../store/useStore';
-import { UserCircle, RotateCw, Shield, Eye, EyeOff, Key, Copy, Share, Trash2 } from 'lucide-react';
+import { UserCircle, RotateCw, Shield, Eye, EyeOff, Key, Copy, Share, Trash2, Palette } from 'lucide-react';
 import { saveIdentity, clearAllData } from '../lib/storage';
 import { deriveSeed, formatMnemonic } from '../lib/mnemonic';
 import { generateKeypairFromSeed, rotate, diger } from '../lib/keri';
@@ -18,6 +18,22 @@ export function Profile() {
   const { toast, showToast, hideToast } = useToast();
   const [rotating, setRotating] = useState<Record<string, boolean>>({});
   const [showMnemonic, setShowMnemonic] = useState<Record<string, boolean>>({});
+  const [bannerColor, setBannerColor] = useState<string>('#3b82f6');
+
+  useEffect(() => {
+    const savedColor = localStorage.getItem('kerits-banner-color');
+    if (savedColor) {
+      setBannerColor(savedColor);
+    }
+  }, []);
+
+  const handleColorChange = (color: string) => {
+    setBannerColor(color);
+    localStorage.setItem('kerits-banner-color', color);
+    // Dispatch custom event for same-window updates
+    window.dispatchEvent(new Event('kerits-color-changed'));
+    showToast('Banner color updated!');
+  };
 
   const toggleMnemonic = (alias: string) => {
     setShowMnemonic(prev => ({ ...prev, [alias]: !prev[alias] }));
@@ -163,6 +179,31 @@ export function Profile() {
             <Label>Created</Label>
             <div className="text-sm text-muted-foreground">
               {new Date(currentUser.createdAt).toLocaleString()}
+            </div>
+          </div>
+
+          <div className="space-y-2 border-t pt-4 mt-4">
+            <div className="flex items-center gap-2">
+              <Palette className="h-5 w-5" />
+              <Label>Banner Color</Label>
+            </div>
+            <div className="flex items-center gap-4">
+              <input
+                type="color"
+                value={bannerColor}
+                onChange={(e) => handleColorChange(e.target.value)}
+                className="h-10 w-20 rounded cursor-pointer border-2 border-border"
+              />
+              <div className="text-sm text-muted-foreground font-mono">
+                {bannerColor}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleColorChange('#3b82f6')}
+              >
+                Reset
+              </Button>
             </div>
           </div>
 

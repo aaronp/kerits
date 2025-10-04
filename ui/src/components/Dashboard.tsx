@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
+import { Toast, useToast } from './ui/toast';
 import { useStore } from '../store/useStore';
 import { Network, FileText, Award, Moon, Sun, LogOut, UserCircle, User, ShieldCheck, Pencil, Users, Share2 } from 'lucide-react';
 import {
@@ -34,6 +35,8 @@ export function Dashboard() {
   const { identities, credentials, schemas, loading, init } = useStore();
   const { theme, setTheme } = useTheme();
   const { currentUser, logout } = useUser();
+  const { toast, showToast, hideToast } = useToast();
+  const [bannerColor, setBannerColor] = useState<string>('#3b82f6');
 
   useEffect(() => {
     init();
@@ -45,6 +48,37 @@ export function Dashboard() {
       navigate(route('/'), { replace: true });
     }
   }, [currentUser, navigate]);
+
+  useEffect(() => {
+    // Load banner color from localStorage
+    const savedColor = localStorage.getItem('kerits-banner-color');
+    if (savedColor) {
+      setBannerColor(savedColor);
+    }
+
+    // Listen for storage changes
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'kerits-banner-color' && e.newValue) {
+        setBannerColor(e.newValue);
+      }
+    };
+
+    // Listen for custom event for same-window updates
+    const handleColorUpdate = () => {
+      const savedColor = localStorage.getItem('kerits-banner-color');
+      if (savedColor) {
+        setBannerColor(savedColor);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('kerits-color-changed', handleColorUpdate);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('kerits-color-changed', handleColorUpdate);
+    };
+  }, []);
 
   const getActiveTab = () => {
     const path = location.pathname;
@@ -60,6 +94,18 @@ export function Dashboard() {
   };
 
   const activeTab = getActiveTab();
+
+  const handleShareKEL = async () => {
+    if (identities.length === 0) {
+      showToast('No identity to share');
+      return;
+    }
+
+    const identity = identities[0];
+    const kelString = JSON.stringify(identity.kel, null, 2);
+    await navigator.clipboard.writeText(kelString);
+    showToast('KEL copied to clipboard');
+  };
 
   const handleLogout = async () => {
     try {
@@ -77,26 +123,26 @@ export function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b bg-card">
+      <header className="border-b" style={{ backgroundColor: bannerColor }}>
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img src='/kerits/kerits.jpg' alt="KERI" className="h-12 w-12 rounded-md object-cover" />
               <div>
-                <h1 className="text-2xl font-bold">KERITS</h1>
-                <p className="text-sm text-muted-foreground">
+                <h1 className="text-2xl font-bold text-white">KERITS</h1>
+                <p className="text-sm text-white/80">
                   Key Event Receipt Infrastructure (TypeScript)
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-white/80">
                 {identities.length} Identities · {schemas.length} Schemas · {credentials.length} Credentials
               </div>
-              <div className="flex items-center gap-2 border-l pl-4">
+              <div className="flex items-center gap-2 border-l border-white/20 pl-4">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="flex items-center gap-2">
+                    <Button variant="ghost" className="flex items-center gap-2 text-white hover:bg-white/10">
                       <UserCircle className="h-5 w-5" />
                       <span className="text-sm font-medium">{currentUser.name}</span>
                     </Button>
@@ -108,7 +154,7 @@ export function Dashboard() {
                       <User className="mr-2 h-4 w-4" />
                       Profile
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate(route('/dashboard/share'))}>
+                    <DropdownMenuItem onClick={handleShareKEL}>
                       <Share2 className="mr-2 h-4 w-4" />
                       Share
                     </DropdownMenuItem>
@@ -240,6 +286,8 @@ export function Dashboard() {
           </main>
         </div>
       </div>
+
+      <Toast message={toast.message} show={toast.show} onClose={hideToast} />
     </div>
   );
 }

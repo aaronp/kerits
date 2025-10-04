@@ -94,6 +94,17 @@ export interface AppSettings {
 }
 
 // ============================================================================
+// Identity Metadata (Private Keys and Mnemonic)
+// ============================================================================
+
+export interface IdentityMetadata {
+  aid: string; // Autonomic Identifier (key)
+  mnemonic: string;
+  currentKeys: { public: string; private: string; seed: string };
+  nextKeys: { public: string; private: string; seed: string };
+}
+
+// ============================================================================
 // IndexedDB Schema
 // ============================================================================
 
@@ -125,6 +136,12 @@ interface NormalizedKeriDB extends DBSchema {
     indexes: { 'by-alias': string; 'by-said': string; 'by-type': string };
   };
 
+  // Identity metadata (private keys and mnemonics)
+  identityMetadata: {
+    key: string; // AID
+    value: IdentityMetadata;
+  };
+
   // User management (global DB only)
   users: {
     key: string;
@@ -137,7 +154,8 @@ interface NormalizedKeriDB extends DBSchema {
 }
 
 const GLOBAL_DB_NAME = 'keri-demo-global-v2';
-const DB_VERSION = 1;
+const GLOBAL_DB_VERSION = 1; // Global DB only has users and settings
+const USER_DB_VERSION = 2; // User DB version incremented to add identityMetadata store
 
 let globalDbPromise: Promise<IDBPDatabase<NormalizedKeriDB>> | null = null;
 let userDbPromises: Map<string, Promise<IDBPDatabase<NormalizedKeriDB>>> = new Map();
@@ -151,7 +169,7 @@ export function resetDatabaseConnections(): void {
 // Global DB for users and settings only
 async function getGlobalDB(): Promise<IDBPDatabase<NormalizedKeriDB>> {
   if (!globalDbPromise) {
-    globalDbPromise = openDB<NormalizedKeriDB>(GLOBAL_DB_NAME, DB_VERSION, {
+    globalDbPromise = openDB<NormalizedKeriDB>(GLOBAL_DB_NAME, GLOBAL_DB_VERSION, {
       upgrade(db) {
         // Users store
         if (!db.objectStoreNames.contains('users')) {
@@ -171,7 +189,7 @@ async function getGlobalDB(): Promise<IDBPDatabase<NormalizedKeriDB>> {
 // User-specific DB for KELs, TELs, ACDCs, schemas, and aliases
 async function getUserDB(userId: string): Promise<IDBPDatabase<NormalizedKeriDB>> {
   if (!userDbPromises.has(userId)) {
-    const dbPromise = openDB<NormalizedKeriDB>(`keri-demo-user-v2-${userId}`, DB_VERSION, {
+    const dbPromise = openDB<NormalizedKeriDB>(`keri-demo-user-v2-${userId}`, USER_DB_VERSION, {
       upgrade(db) {
         // KEL store - canonical identity event logs
         if (!db.objectStoreNames.contains('kels')) {
@@ -204,6 +222,11 @@ async function getUserDB(userId: string): Promise<IDBPDatabase<NormalizedKeriDB>
           aliasStore.createIndex('by-alias', 'alias', { unique: true });
           aliasStore.createIndex('by-said', 'said', { unique: false });
           aliasStore.createIndex('by-type', 'type', { unique: false });
+        }
+
+        // Identity metadata - private keys and mnemonics
+        if (!db.objectStoreNames.contains('identityMetadata')) {
+          db.createObjectStore('identityMetadata', { keyPath: 'aid' });
         }
       },
     });
@@ -434,6 +457,7 @@ export async function clearAllData(): Promise<void> {
     db.clear('acdcs'),
     db.clear('schemas'),
     db.clear('aliases'),
+    db.clear('identityMetadata'),
   ]);
 }
 
@@ -523,6 +547,9 @@ export interface TELRegistry {
 }
 
 export async function saveIdentity(identity: StoredIdentity, userId?: string): Promise<void> {
+  const db = await getDB(userId);
+
+  // Save KEL events
   await saveKEL({
     aid: identity.prefix,
     inceptionEvent: identity.inceptionEvent,
@@ -530,6 +557,15 @@ export async function saveIdentity(identity: StoredIdentity, userId?: string): P
     createdAt: identity.createdAt,
   }, userId);
 
+  // Save identity metadata (mnemonic and keys)
+  await db.put('identityMetadata', {
+    aid: identity.prefix,
+    mnemonic: identity.mnemonic,
+    currentKeys: identity.currentKeys,
+    nextKeys: identity.nextKeys,
+  });
+
+  // Save alias
   await saveAlias({
     id: crypto.randomUUID(),
     alias: identity.alias,
@@ -540,28 +576,33 @@ export async function saveIdentity(identity: StoredIdentity, userId?: string): P
 }
 
 export async function getIdentities(userId?: string): Promise<StoredIdentity[]> {
+  const db = await getDB(userId);
   const kels = await getAllKELs(userId);
   const aliases = await getAllAliases(userId);
 
-  return kels.map(kel => {
+  return Promise.all(kels.map(async (kel) => {
     const aliasMapping = aliases.find(a => a.said === kel.aid && a.type === 'kel');
+    const metadata = await db.get('identityMetadata', kel.aid);
+
     return {
       alias: aliasMapping?.alias || kel.aid.substring(0, 8),
       prefix: kel.aid,
-      mnemonic: '',
-      currentKeys: { public: '', private: '', seed: '' },
-      nextKeys: { public: '', private: '', seed: '' },
+      mnemonic: metadata?.mnemonic || '',
+      currentKeys: metadata?.currentKeys || { public: '', private: '', seed: '' },
+      nextKeys: metadata?.nextKeys || { public: '', private: '', seed: '' },
       inceptionEvent: kel.inceptionEvent,
       kel: kel.events,
       createdAt: kel.createdAt,
     };
-  });
+  }));
 }
 
 export async function deleteIdentity(alias: string, userId?: string): Promise<void> {
+  const db = await getDB(userId);
   const aid = await getSAIDByAlias(alias, userId);
   if (aid) {
     await deleteKEL(aid, userId);
+    await db.delete('identityMetadata', aid);
     const aliasMapping = await getAliasByName(alias, userId);
     if (aliasMapping) await deleteAlias(aliasMapping.id, userId);
   }
