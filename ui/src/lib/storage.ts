@@ -70,6 +70,14 @@ export interface Contact {
   createdAt: string;
 }
 
+export interface TELRegistry {
+  id: string; // UUID for the registry
+  alias: string; // Human-readable name
+  registryAID: string; // The registry's AID
+  issuerAID: string; // The issuer's AID who owns this registry
+  createdAt: string;
+}
+
 export interface AppSettings {
   key: 'currentUser';
   value: string | null; // User ID
@@ -96,6 +104,11 @@ interface KeriDB extends DBSchema {
     value: Contact;
     indexes: { 'by-prefix': string; 'by-name': string };
   };
+  telRegistries: {
+    key: string;
+    value: TELRegistry;
+    indexes: { 'by-alias': string; 'by-registry-aid': string; 'by-issuer-aid': string };
+  };
   users: {
     key: string;
     value: User;
@@ -107,7 +120,7 @@ interface KeriDB extends DBSchema {
 }
 
 const GLOBAL_DB_NAME = 'keri-demo-global';
-const DB_VERSION = 3; // Incremented for contacts store
+const DB_VERSION = 4; // Incremented for TEL registries store
 
 let globalDbPromise: Promise<IDBPDatabase<KeriDB>> | null = null;
 let userDbPromises: Map<string, Promise<IDBPDatabase<KeriDB>>> = new Map();
@@ -167,6 +180,14 @@ async function getUserDB(userId: string): Promise<IDBPDatabase<KeriDB>> {
           const contactStore = db.createObjectStore('contacts', { keyPath: 'id' });
           contactStore.createIndex('by-prefix', 'prefix');
           contactStore.createIndex('by-name', 'name');
+        }
+
+        // TEL Registries store
+        if (!db.objectStoreNames.contains('telRegistries')) {
+          const telStore = db.createObjectStore('telRegistries', { keyPath: 'id' });
+          telStore.createIndex('by-alias', 'alias', { unique: true });
+          telStore.createIndex('by-registry-aid', 'registryAID', { unique: true });
+          telStore.createIndex('by-issuer-aid', 'issuerAID', { unique: false });
         }
       },
     });
@@ -288,6 +309,7 @@ export async function clearAllData(): Promise<void> {
     db.clear('credentials'),
     db.clear('schemas'),
     db.clear('contacts'),
+    db.clear('telRegistries'),
   ]);
 }
 
@@ -357,4 +379,40 @@ export async function getContactByName(name: string): Promise<Contact | undefine
 export async function deleteContact(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('contacts', id);
+}
+
+// TEL Registry Management
+export async function saveTELRegistry(registry: TELRegistry): Promise<void> {
+  const db = await getDB();
+  await db.put('telRegistries', registry);
+}
+
+export async function getTELRegistries(): Promise<TELRegistry[]> {
+  const db = await getDB();
+  return db.getAll('telRegistries');
+}
+
+export async function getTELRegistry(id: string): Promise<TELRegistry | undefined> {
+  const db = await getDB();
+  return db.get('telRegistries', id);
+}
+
+export async function getTELRegistryByAlias(alias: string): Promise<TELRegistry | undefined> {
+  const db = await getDB();
+  return db.getFromIndex('telRegistries', 'by-alias', alias);
+}
+
+export async function getTELRegistryByAID(registryAID: string): Promise<TELRegistry | undefined> {
+  const db = await getDB();
+  return db.getFromIndex('telRegistries', 'by-registry-aid', registryAID);
+}
+
+export async function getTELRegistriesByIssuer(issuerAID: string): Promise<TELRegistry[]> {
+  const db = await getDB();
+  return db.getAllFromIndex('telRegistries', 'by-issuer-aid', issuerAID);
+}
+
+export async function deleteTELRegistry(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('telRegistries', id);
 }

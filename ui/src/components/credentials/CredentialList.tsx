@@ -11,6 +11,7 @@ import { useStore } from '@/store/useStore';
 import { useUser } from '@/lib/user-provider';
 import { credential as verifyCredential } from '@/lib/keri';
 import { CredentialSignModal } from './CredentialSignModal';
+import { TELSelector } from './TELSelector';
 import type { StoredCredential } from '@/lib/storage';
 
 interface CredentialListProps {
@@ -26,6 +27,7 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importData, setImportData] = useState('');
+  const [selectedRegistryAID, setSelectedRegistryAID] = useState('');
   const [importing, setImporting] = useState(false);
   const [aidToUserName, setAidToUserName] = useState<Map<string, string>>(new Map());
   const [signModalCredential, setSignModalCredential] = useState<StoredCredential | null>(null);
@@ -126,6 +128,11 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
       return;
     }
 
+    if (!selectedRegistryAID || selectedRegistryAID === '__CREATE_NEW__') {
+      showToast('Please select a credential registry');
+      return;
+    }
+
     setImporting(true);
     try {
       const parsed = JSON.parse(importData);
@@ -153,7 +160,7 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
           schemaName: parsed.schemaName,
           sad: parsed.sad,
           tel: parsed.tel || [],
-          registry: parsed.registry,
+          registry: selectedRegistryAID,
           createdAt: parsed.createdAt || new Date().toISOString(),
         };
       } else if (parsed.v && parsed.d && parsed.i && parsed.s) {
@@ -170,7 +177,7 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
           schemaName: undefined,
           sad: parsed, // The entire object is the SAD
           tel: [], // No TEL data in raw format
-          registry: undefined,
+          registry: selectedRegistryAID,
           createdAt: new Date().toISOString(),
         };
       } else {
@@ -180,8 +187,10 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
       await saveCredential(importedCredential);
       console.log('Credential imported successfully:', importedCredential.id);
       console.log('Imported to recipient:', recipientIdentity.alias, recipientIdentity.prefix);
+      console.log('Assigned to registry:', selectedRegistryAID);
 
       setImportData('');
+      setSelectedRegistryAID('');
       setShowImportDialog(false);
       onImport();
     } catch (error) {
@@ -215,6 +224,17 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="registry-selector">Credential Registry</Label>
+                <TELSelector
+                  value={selectedRegistryAID}
+                  onChange={(aid) => setSelectedRegistryAID(aid)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Select or create a registry to store credential events
+                </p>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="import-data">Credential JSON</Label>
                 <Textarea
@@ -474,6 +494,17 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="registry-selector-main">Credential Registry</Label>
+              <TELSelector
+                value={selectedRegistryAID}
+                onChange={(aid) => setSelectedRegistryAID(aid)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Select or create a registry to store credential events
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="import-data-main">Credential JSON</Label>
               <Textarea

@@ -227,6 +227,7 @@ export function Dashboard() {
                 <Route path="/verify" element={<VerifyCredential />} />
                 <Route path="/sign" element={<Sign />} />
                 <Route path="/graph" element={<NetworkGraph />} />
+                <Route path="/graph/:said" element={<NetworkGraph />} />
                 <Route path="/contacts" element={<Contacts />} />
                 <Route path="/contacts/:identifier" element={<MyContact />} />
                 <Route path="/profile" element={<Profile />} />

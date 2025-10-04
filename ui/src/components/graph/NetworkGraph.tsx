@@ -1,4 +1,5 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import ReactFlow, {
   Controls,
   Background,
@@ -11,11 +12,24 @@ import ReactFlow, {
 import type { Node, Edge, NodeProps } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Button } from '../ui/button';
 import { useStore } from '@/store/useStore';
-import type { StoredIdentity, StoredCredential } from '@/lib/storage';
+import { getTELRegistriesByIssuer } from '@/lib/storage';
+import type { StoredIdentity, TELRegistry } from '@/lib/storage';
 
-type GraphType = 'kel' | 'tel';
+// Custom node component for SAID root
+function SAIDNode({ data }: NodeProps) {
+  return (
+    <div className="px-6 py-4 rounded-lg border-2 border-primary bg-primary/10 shadow-lg min-w-[250px]">
+      <div className="space-y-1 text-center">
+        <div className="font-bold text-lg text-primary">{data.label}</div>
+        <div className="text-xs text-muted-foreground font-mono break-all">
+          {data.prefix?.substring(0, 24)}...
+        </div>
+      </div>
+      <Handle type="source" position={Position.Right} className="w-4 h-4" />
+    </div>
+  );
+}
 
 // Custom node component for KEL/TEL events
 function EventNode({ data }: NodeProps) {
@@ -38,51 +52,107 @@ function EventNode({ data }: NodeProps) {
   );
 }
 
+// Custom node component for TEL Registry
+function RegistryNode({ data }: NodeProps) {
+  return (
+    <div className="px-5 py-3 rounded-lg border-2 border-green-500 bg-green-50 dark:bg-green-950 shadow-md min-w-[220px]">
+      <Handle type="target" position={Position.Left} className="w-3 h-3" />
+      <div className="space-y-1">
+        <div className="font-semibold text-sm text-green-700 dark:text-green-300">{data.label}</div>
+        <div className="text-xs text-muted-foreground">
+          Registry
+        </div>
+      </div>
+      <Handle type="source" position={Position.Right} className="w-3 h-3" />
+    </div>
+  );
+}
+
 const nodeTypes = {
+  said: SAIDNode,
   event: EventNode,
+  registry: RegistryNode,
 };
 
 export function NetworkGraph() {
+  const { said: saidParam } = useParams<{ said?: string }>();
   const { identities, credentials } = useStore();
-  const [graphType, setGraphType] = useState<GraphType>('kel');
-
-  // Use first identity as current user's identity
-  const selectedIdentity = identities.length > 0 ? identities[0].alias : '';
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [telRegistries, setTelRegistries] = useState<TELRegistry[]>([]);
 
-  // Build KEL graph for selected identity
-  const kelGraph = useMemo(() => {
-    if (!selectedIdentity) return { nodes: [], edges: [] };
+  // Determine which SAID to display
+  const displaySAID = saidParam || (identities.length > 0 ? identities[0].prefix : '');
+  const identity = identities.find(i => i.prefix === displaySAID);
 
-    const identity = identities.find(i => i.alias === selectedIdentity);
-    if (!identity) return { nodes: [], edges: [] };
+  // Load TEL registries for the displayed SAID
+  useEffect(() => {
+    if (!displaySAID) return;
+
+    const loadRegistries = async () => {
+      try {
+        const registries = await getTELRegistriesByIssuer(displaySAID);
+        setTelRegistries(registries);
+      } catch (error) {
+        console.error('Failed to load TEL registries:', error);
+      }
+    };
+
+    loadRegistries();
+  }, [displaySAID]);
+
+  // Build unified graph with SAID root, KEL, and TELs
+  const unifiedGraph = useMemo(() => {
+    if (!identity || !displaySAID) return { nodes: [], edges: [] };
 
     const nodes: Node[] = [];
     const edges: Edge[] = [];
 
-    // Add inception event
-    const inceptionEvent = identity.inceptionEvent;
+    // Root SAID node
     nodes.push({
-      id: 'inception',
-      type: 'event',
-      position: { x: 50, y: 150 },
+      id: 'root-said',
+      type: 'said',
+      position: { x: 50, y: 400 },
       data: {
-        label: `Inception (${identity.alias})`,
-        type: inceptionEvent.ked?.t || 'icp',
-        sn: 0,
-        event: inceptionEvent,
+        label: identity.alias,
+        prefix: identity.prefix,
       },
     });
 
-    // Add rotation events
+    // KEL branch (to the right of SAID)
+    const kelY = 400;
+    const kelXStart = 400;
+
+    // Inception event
+    nodes.push({
+      id: 'kel-inception',
+      type: 'event',
+      position: { x: kelXStart, y: kelY },
+      data: {
+        label: `Inception`,
+        type: identity.inceptionEvent.ked?.t || 'icp',
+        sn: 0,
+        event: identity.inceptionEvent,
+      },
+    });
+
+    edges.push({
+      id: 'edge-root-kel',
+      source: 'root-said',
+      target: 'kel-inception',
+      animated: false,
+      style: { stroke: '#6366f1', strokeWidth: 2 },
+      label: 'KEL',
+    });
+
+    // Rotation events
     identity.kel.forEach((event: any, index: number) => {
-      const eventId = `event-${index}`;
-      const prevId = index === 0 ? 'inception' : `event-${index - 1}`;
+      const eventId = `kel-${index}`;
+      const prevId = index === 0 ? 'kel-inception' : `kel-${index - 1}`;
 
       nodes.push({
         id: eventId,
         type: 'event',
-        position: { x: 300 + (index * 300), y: 150 },
+        position: { x: kelXStart + 300 + (index * 300), y: kelY },
         data: {
           label: `Rotation ${index + 1}`,
           type: event.ked?.t || 'rot',
@@ -100,85 +170,112 @@ export function NetworkGraph() {
       });
     });
 
-    return { nodes, edges };
-  }, [selectedIdentity, identities]);
+    // TEL branches (distributed above and below KEL)
+    const telXStart = 400;
+    const telSpacing = 250;
 
-  // Build TEL graph for credentials related to selected identity
-  const telGraph = useMemo(() => {
-    if (!selectedIdentity) return { nodes: [], edges: [] };
+    telRegistries.forEach((registry, regIndex) => {
+      // Calculate Y position - distribute evenly above and below KEL
+      const isAbove = regIndex % 2 === 0;
+      const groupIndex = Math.floor(regIndex / 2);
+      const telY = isAbove
+        ? kelY - (telSpacing * (groupIndex + 1))
+        : kelY + (telSpacing * (groupIndex + 1));
 
-    const identity = identities.find(i => i.alias === selectedIdentity);
-    if (!identity) return { nodes: [], edges: [] };
-
-    const relatedCredentials = credentials.filter(
-      c => c.issuer === identity.prefix || c.recipient === identity.prefix
-    );
-
-    if (relatedCredentials.length === 0) {
-      return { nodes: [], edges: [] };
-    }
-
-    const nodes: Node[] = [];
-    const edges: Edge[] = [];
-    let yOffset = 50;
-
-    relatedCredentials.forEach((credential, credIndex) => {
-      const baseY = 50 + (credIndex * 200);
-      let xOffset = 50;
-
-      // Add credential node
-      const credNodeId = `cred-${credIndex}`;
+      // Registry node
+      const regNodeId = `tel-reg-${regIndex}`;
       nodes.push({
-        id: credNodeId,
-        type: 'event',
-        position: { x: xOffset, y: baseY },
+        id: regNodeId,
+        type: 'registry',
+        position: { x: telXStart, y: telY },
         data: {
-          label: credential.name,
-          type: 'Credential',
-          event: credential,
+          label: registry.alias,
+          registryAID: registry.registryAID,
         },
       });
 
-      // Add TEL events
-      if (credential.tel && credential.tel.length > 0) {
-        credential.tel.forEach((telEvent: any, telIndex: number) => {
-          const telNodeId = `tel-${credIndex}-${telIndex}`;
-          const prevNodeId = telIndex === 0 ? credNodeId : `tel-${credIndex}-${telIndex - 1}`;
+      // Edge from root SAID to registry
+      edges.push({
+        id: `edge-root-${regNodeId}`,
+        source: 'root-said',
+        target: regNodeId,
+        animated: false,
+        style: { stroke: '#10b981', strokeWidth: 2 },
+        label: 'TEL',
+      });
 
-          nodes.push({
-            id: telNodeId,
-            type: 'event',
-            position: { x: xOffset + 300 + (telIndex * 300), y: baseY },
-            data: {
-              label: telEvent.t || telEvent.ked?.t || 'TEL Event',
-              type: telEvent.t || telEvent.ked?.t || 'event',
-              event: telEvent,
-            },
-          });
+      // Find credentials in this registry
+      const registryCredentials = credentials.filter(
+        c => c.registry === registry.registryAID
+      );
 
-          edges.push({
-            id: `edge-${prevNodeId}-${telNodeId}`,
-            source: prevNodeId,
-            target: telNodeId,
-            animated: true,
-            style: { stroke: '#10b981', strokeWidth: 2 },
-          });
+      // Add TEL events for each credential
+      registryCredentials.forEach((credential, credIndex) => {
+        const credNodeId = `tel-${regIndex}-cred-${credIndex}`;
+        const baseX = telXStart + 350;
+
+        // Credential issuance node
+        nodes.push({
+          id: credNodeId,
+          type: 'event',
+          position: { x: baseX + (credIndex * 300), y: telY },
+          data: {
+            label: credential.schemaName || credential.name,
+            type: 'iss',
+            event: credential,
+          },
         });
-      }
+
+        // Edge from registry to credential
+        const prevCredId = credIndex === 0 ? regNodeId : `tel-${regIndex}-cred-${credIndex - 1}`;
+        edges.push({
+          id: `edge-${prevCredId}-${credNodeId}`,
+          source: prevCredId,
+          target: credNodeId,
+          animated: true,
+          style: { stroke: '#10b981', strokeWidth: 2 },
+        });
+
+        // TEL events for this credential
+        if (credential.tel && credential.tel.length > 0) {
+          credential.tel.forEach((telEvent: any, telIndex: number) => {
+            const telNodeId = `tel-${regIndex}-cred-${credIndex}-evt-${telIndex}`;
+            const prevTelId = telIndex === 0 ? credNodeId : `tel-${regIndex}-cred-${credIndex}-evt-${telIndex - 1}`;
+
+            nodes.push({
+              id: telNodeId,
+              type: 'event',
+              position: { x: baseX + (credIndex * 300) + 300 + (telIndex * 300), y: telY },
+              data: {
+                label: telEvent.t || telEvent.ked?.t || 'TEL Event',
+                type: telEvent.t || telEvent.ked?.t || 'event',
+                event: telEvent,
+              },
+            });
+
+            edges.push({
+              id: `edge-${prevTelId}-${telNodeId}`,
+              source: prevTelId,
+              target: telNodeId,
+              animated: true,
+              style: { stroke: '#10b981', strokeWidth: 2 },
+            });
+          });
+        }
+      });
     });
 
     return { nodes, edges };
-  }, [selectedIdentity, identities, credentials]);
+  }, [identity, displaySAID, telRegistries, credentials]);
 
-  const currentGraph = graphType === 'kel' ? kelGraph : telGraph;
-  const [nodes, setNodes, onNodesChange] = useNodesState(currentGraph.nodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(currentGraph.edges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(unifiedGraph.nodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(unifiedGraph.edges);
 
   // Update nodes/edges when graph changes
   useMemo(() => {
-    setNodes(currentGraph.nodes);
-    setEdges(currentGraph.edges);
-  }, [currentGraph, setNodes, setEdges]);
+    setNodes(unifiedGraph.nodes);
+    setEdges(unifiedGraph.edges);
+  }, [unifiedGraph, setNodes, setEdges]);
 
   const onNodeClick = useCallback((_: any, node: Node) => {
     setSelectedNode(node);
@@ -188,91 +285,52 @@ export function NetworkGraph() {
     setSelectedNode(null);
   }, []);
 
-  return (
-    <div className="space-y-4 flex flex-col h-[calc(100vh-12rem)]">
-      {/* Controls */}
-      <Card className="flex-shrink-0">
+  if (!identity || !displaySAID) {
+    return (
+      <Card>
         <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <span className="text-sm font-medium">Graph Type:</span>
-              <div className="flex items-center gap-1 bg-muted rounded-lg p-1 border border-border">
-                <Button
-                  variant={graphType === 'kel' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setGraphType('kel')}
-                  className={`h-8 ${graphType === 'kel' ? 'shadow-sm' : 'hover:bg-accent'}`}
-                >
-                  KEL
-                </Button>
-                <Button
-                  variant={graphType === 'tel' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setGraphType('tel')}
-                  className={`h-8 ${graphType === 'tel' ? 'shadow-sm' : 'hover:bg-accent'}`}
-                >
-                  TEL
-                </Button>
-              </div>
-            </div>
-
-            <Button
-              variant="outline"
-              onClick={() => {
-                setNodes([]);
-                setEdges([]);
-                setTimeout(() => {
-                  setNodes(currentGraph.nodes);
-                  setEdges(currentGraph.edges);
-                }, 0);
-              }}
-            >
-              Reset Layout
-            </Button>
+          <div className="text-center py-12 text-muted-foreground">
+            No identity found - create an identity to view the network graph
           </div>
         </CardContent>
       </Card>
+    );
+  }
 
+  return (
+    <div className="space-y-4 flex flex-col h-[calc(100vh-12rem)]">
       {/* Graph Container */}
       <div className="flex-1 flex flex-col gap-4 min-h-0">
         <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
           <CardHeader className="pb-3 flex-shrink-0">
             <CardTitle className="text-lg">
-              {graphType === 'kel' ? 'Key Event Log' : 'Transaction Event Log'}
+              Network Graph: {identity.alias}
             </CardTitle>
             <CardDescription>
-              {selectedIdentity
-                ? `Showing ${graphType.toUpperCase()} for ${selectedIdentity}`
-                : 'No identity found - create an identity to view graphs'}
+              Showing KEL and TELs for {identity.prefix.substring(0, 32)}...
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0 flex-1 min-h-0">
-            {selectedIdentity ? (
-              <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onNodeClick={onNodeClick}
-                onPaneClick={onPaneClick}
-                nodeTypes={nodeTypes}
-                fitView
-                minZoom={0.5}
-                maxZoom={1.5}
-              >
-                <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-                <Controls />
-              </ReactFlow>
-            ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                No identity found - create an identity to view graphs
-              </div>
-            )}
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onNodeClick={onNodeClick}
+              onPaneClick={onPaneClick}
+              nodeTypes={nodeTypes}
+              fitView
+              minZoom={0.3}
+              maxZoom={1.5}
+            >
+              <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+              <Controls />
+            </ReactFlow>
           </CardContent>
         </Card>
 
         {/* Detail Panel */}
-        <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
+        <Card className="flex-1 flex flex-col overflow-hidden min-h-0 max-h-96">
           <CardHeader className="pb-3 flex-shrink-0">
             <CardTitle className="text-lg">Node Details</CardTitle>
             <CardDescription>
@@ -289,10 +347,12 @@ export function NetworkGraph() {
                     <div className="text-sm text-muted-foreground">{selectedNode.data.label}</div>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="text-sm font-semibold">Type</div>
-                    <div className="text-sm text-muted-foreground">{selectedNode.data.type}</div>
-                  </div>
+                  {selectedNode.data.type && (
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold">Type</div>
+                      <div className="text-sm text-muted-foreground">{selectedNode.data.type}</div>
+                    </div>
+                  )}
 
                   {selectedNode.data.sn !== undefined && (
                     <div className="space-y-2">
@@ -300,116 +360,26 @@ export function NetworkGraph() {
                       <div className="text-sm text-muted-foreground">{selectedNode.data.sn}</div>
                     </div>
                   )}
+
+                  {selectedNode.data.prefix && (
+                    <div className="space-y-2 md:col-span-2">
+                      <div className="text-sm font-semibold">Prefix (AID)</div>
+                      <div className="text-xs font-mono bg-muted p-2 rounded break-all">
+                        {selectedNode.data.prefix}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Event Fields with Human-Readable Labels */}
-                {selectedNode.data.event?.ked && (
+                {/* Event Data */}
+                {selectedNode.data.event && (
                   <div className="space-y-2 border-t pt-4">
-                    <div className="text-sm font-semibold mb-3">Event Fields</div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      {selectedNode.data.event.ked.v && (
-                        <div className="space-y-1">
-                          <div className="text-xs font-medium text-muted-foreground">Version String (v)</div>
-                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
-                            {selectedNode.data.event.ked.v}
-                          </div>
-                        </div>
-                      )}
-                      {selectedNode.data.event.ked.t && (
-                        <div className="space-y-1">
-                          <div className="text-xs font-medium text-muted-foreground">Message Type (t)</div>
-                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
-                            {selectedNode.data.event.ked.t}
-                          </div>
-                        </div>
-                      )}
-                      {selectedNode.data.event.ked.d && (
-                        <div className="space-y-1">
-                          <div className="text-xs font-medium text-muted-foreground">Self-Addressing Identifier (d)</div>
-                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
-                            {selectedNode.data.event.ked.d}
-                          </div>
-                        </div>
-                      )}
-                      {selectedNode.data.event.ked.i && (
-                        <div className="space-y-1">
-                          <div className="text-xs font-medium text-muted-foreground">Issuer AID (i)</div>
-                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
-                            {selectedNode.data.event.ked.i}
-                          </div>
-                        </div>
-                      )}
-                      {selectedNode.data.event.ked.s && (
-                        <div className="space-y-1">
-                          <div className="text-xs font-medium text-muted-foreground">Schema SAID (s)</div>
-                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
-                            {selectedNode.data.event.ked.s}
-                          </div>
-                        </div>
-                      )}
-                      {selectedNode.data.event.ked.p && (
-                        <div className="space-y-1">
-                          <div className="text-xs font-medium text-muted-foreground">Prior Event Digest (p)</div>
-                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
-                            {selectedNode.data.event.ked.p}
-                          </div>
-                        </div>
-                      )}
-                      {selectedNode.data.event.ked.kt && (
-                        <div className="space-y-1">
-                          <div className="text-xs font-medium text-muted-foreground">Keys Signing Threshold (kt)</div>
-                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
-                            {selectedNode.data.event.ked.kt}
-                          </div>
-                        </div>
-                      )}
-                      {selectedNode.data.event.ked.k && (
-                        <div className="space-y-1">
-                          <div className="text-xs font-medium text-muted-foreground">Signing Keys (k)</div>
-                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
-                            {Array.isArray(selectedNode.data.event.ked.k)
-                              ? selectedNode.data.event.ked.k.join(', ')
-                              : selectedNode.data.event.ked.k}
-                          </div>
-                        </div>
-                      )}
-                      {selectedNode.data.event.ked.nt && (
-                        <div className="space-y-1">
-                          <div className="text-xs font-medium text-muted-foreground">Next Keys Threshold (nt)</div>
-                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
-                            {selectedNode.data.event.ked.nt}
-                          </div>
-                        </div>
-                      )}
-                      {selectedNode.data.event.ked.n && (
-                        <div className="space-y-1">
-                          <div className="text-xs font-medium text-muted-foreground">Next Key Digests (n)</div>
-                          <div className="text-xs font-mono bg-muted p-2 rounded break-all">
-                            {Array.isArray(selectedNode.data.event.ked.n)
-                              ? selectedNode.data.event.ked.n.join(', ')
-                              : selectedNode.data.event.ked.n}
-                          </div>
-                        </div>
-                      )}
-                      {selectedNode.data.event.ked.a && (
-                        <div className="space-y-1 lg:col-span-2">
-                          <div className="text-xs font-medium text-muted-foreground">Attributes (a)</div>
-                          <pre className="text-xs font-mono bg-muted p-2 rounded overflow-x-auto">
-                            {JSON.stringify(selectedNode.data.event.ked.a, null, 2)}
-                          </pre>
-                        </div>
-                      )}
-                    </div>
+                    <div className="text-sm font-semibold">Raw Event Data</div>
+                    <pre className="text-xs bg-muted p-3 rounded overflow-x-auto max-h-64">
+                      {JSON.stringify(selectedNode.data.event, null, 2)}
+                    </pre>
                   </div>
                 )}
-
-                {/* Raw Event Data */}
-                <div className="space-y-2 border-t pt-4">
-                  <div className="text-sm font-semibold">Raw Event Data</div>
-                  <pre className="text-xs bg-muted p-3 rounded overflow-x-auto">
-                    {JSON.stringify(selectedNode.data.event, null, 2)}
-                  </pre>
-                </div>
               </div>
             ) : (
               <div className="flex items-center justify-center h-32 text-muted-foreground">
