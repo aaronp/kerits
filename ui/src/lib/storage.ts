@@ -674,13 +674,27 @@ export async function saveSchema(schema: StoredSchema, userId?: string): Promise
     createdAt: schema.createdAt,
   }, userId);
 
-  await saveAlias({
-    id: crypto.randomUUID(),
-    alias: schema.name,
-    said: schema.id,
-    type: 'schema',
-    createdAt: schema.createdAt,
-  }, userId);
+  // Save or update alias
+  const existingAlias = await getAliasByName(schema.name, userId);
+  if (existingAlias) {
+    // Update existing alias mapping
+    await saveAlias({
+      id: existingAlias.id,
+      alias: schema.name,
+      said: schema.id,
+      type: 'schema',
+      createdAt: existingAlias.createdAt,
+    }, userId);
+  } else {
+    // Create new alias mapping
+    await saveAlias({
+      id: crypto.randomUUID(),
+      alias: schema.name,
+      said: schema.id,
+      type: 'schema',
+      createdAt: schema.createdAt,
+    }, userId);
+  }
 }
 
 export async function getSchemas(userId?: string): Promise<StoredSchema[]> {
@@ -829,13 +843,27 @@ export async function saveTELRegistry(registry: TELRegistry, userId?: string): P
     createdAt: registry.createdAt,
   }, userId);
 
-  await saveAlias({
-    id: crypto.randomUUID(),
-    alias: registry.alias,
-    said: registry.registryAID,
-    type: 'tel',
-    createdAt: registry.createdAt,
-  }, userId);
+  // Save or update alias
+  const existingAlias = await getAliasByName(registry.alias, userId);
+  if (existingAlias) {
+    // Update existing alias mapping
+    await saveAlias({
+      id: existingAlias.id,
+      alias: registry.alias,
+      said: registry.registryAID,
+      type: 'tel',
+      createdAt: existingAlias.createdAt,
+    }, userId);
+  } else {
+    // Create new alias mapping
+    await saveAlias({
+      id: crypto.randomUUID(),
+      alias: registry.alias,
+      said: registry.registryAID,
+      type: 'tel',
+      createdAt: registry.createdAt,
+    }, userId);
+  }
 }
 
 export async function getTELRegistryByAID(registryAID: string, userId?: string): Promise<TELRegistry | undefined> {
