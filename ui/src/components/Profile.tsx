@@ -6,7 +6,7 @@ import { Textarea } from './ui/textarea';
 import { Toast, useToast } from './ui/toast';
 import { useUser } from '../lib/user-provider';
 import { useStore } from '../store/useStore';
-import { UserCircle, RotateCw, Shield, Eye, EyeOff, Key, Copy } from 'lucide-react';
+import { UserCircle, RotateCw, Shield, Eye, EyeOff, Key, Copy, Share } from 'lucide-react';
 import { saveIdentity } from '../lib/storage';
 import { deriveSeed, formatMnemonic } from '../lib/mnemonic';
 import { generateKeypairFromSeed, rotate, diger } from '../lib/keri';
@@ -26,6 +26,12 @@ export function Profile() {
   const handleCopyAID = async (aid: string) => {
     await navigator.clipboard.writeText(aid);
     showToast('User\'s AID copied to clipboard');
+  };
+
+  const handleShareKEL = async (identity: StoredIdentity) => {
+    const kelString = JSON.stringify(identity.kel, null, 2);
+    await navigator.clipboard.writeText(kelString);
+    showToast('KEL copied to clipboard');
   };
 
   const handleRotateKeys = async (identity: StoredIdentity) => {
@@ -98,11 +104,36 @@ export function Profile() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-3">
-            <UserCircle className="h-8 w-8" />
-            User Profile
-          </CardTitle>
-          <CardDescription>Your account information</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-3">
+                <UserCircle className="h-8 w-8" />
+                User Profile
+              </CardTitle>
+              <CardDescription>Your account information</CardDescription>
+            </div>
+            {identities.length > 0 && (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleShareKEL(identities[0])}
+                >
+                  <Share className="h-4 w-4 mr-2" />
+                  Share
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleRotateKeys(identities[0])}
+                  disabled={rotating[identities[0].alias]}
+                >
+                  <RotateCw className={`h-4 w-4 mr-2 ${rotating[identities[0].alias] ? 'animate-spin' : ''}`} />
+                  {rotating[identities[0].alias] ? 'Rotating...' : 'Rotate Keys'}
+                </Button>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -115,59 +146,40 @@ export function Profile() {
               {new Date(currentUser.createdAt).toLocaleString()}
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Identities</CardTitle>
-          <CardDescription>KERI identities associated with this profile</CardDescription>
-        </CardHeader>
-        <CardContent>
           {identities.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-muted-foreground border-t mt-4 pt-4">
               No identities created yet
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 border-t mt-4 pt-4">
               {identities.map((identity) => (
                 <Card key={identity.alias} className="border-2">
                   <CardContent className="pt-6 space-y-4">
                     {/* Header */}
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Shield className="h-5 w-5 text-primary" />
-                          <h3 className="text-lg font-semibold">{identity.alias}</h3>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="text-xs font-mono text-muted-foreground">
-                            {identity.prefix}
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleCopyAID(identity.prefix)}
-                            className="h-6 w-6 p-0"
-                            title="Copy AID"
-                          >
-                            <Copy className="h-3 w-3" />
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <span>Created: {new Date(identity.createdAt).toLocaleDateString()}</span>
-                          <span>KEL Events: {identity.kel.length}</span>
-                        </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-5 w-5 text-primary" />
+                        <h3 className="text-lg font-semibold">{identity.alias}</h3>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRotateKeys(identity)}
-                        disabled={rotating[identity.alias]}
-                      >
-                        <RotateCw className={`h-4 w-4 mr-2 ${rotating[identity.alias] ? 'animate-spin' : ''}`} />
-                        {rotating[identity.alias] ? 'Rotating...' : 'Rotate Keys'}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <div className="text-xs font-mono text-muted-foreground">
+                          {identity.prefix}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCopyAID(identity.prefix)}
+                          className="h-6 w-6 p-0"
+                          title="Copy AID"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>Created: {new Date(identity.createdAt).toLocaleDateString()}</span>
+                        <span>KEL Events: {identity.kel.length}</span>
+                      </div>
                     </div>
 
                     {/* Keys */}
