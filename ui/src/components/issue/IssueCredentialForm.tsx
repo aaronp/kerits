@@ -4,15 +4,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Select } from '../ui/select';
+import { Combobox } from '../ui/combobox';
 import { Toast, useToast } from '../ui/toast';
 import { ArrowLeft, Award, Copy } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { useUser } from '@/lib/user-provider';
 import { credential as createCredential, diger } from '@/lib/keri';
-import { saveCredential, getIdentities } from '@/lib/storage';
+import { saveCredential, getIdentities, getContacts } from '@/lib/storage';
 import { route } from '@/config';
-import type { StoredSchema, StoredCredential, StoredIdentity } from '@/lib/storage';
+import type { StoredSchema, StoredCredential, StoredIdentity, Contact } from '@/lib/storage';
 
 export function IssueCredentialForm() {
   const { schemaId } = useParams<{ schemaId: string }>();
@@ -22,12 +22,10 @@ export function IssueCredentialForm() {
   const { toast, showToast, hideToast } = useToast();
 
   const [schema, setSchema] = useState<StoredSchema | null>(null);
-  const [recipientMode, setRecipientMode] = useState<'select' | 'manual'>('select');
-  const [selectedRecipient, setSelectedRecipient] = useState('');
-  const [manualRecipient, setManualRecipient] = useState('');
+  const [recipientAID, setRecipientAID] = useState('');
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [issuing, setIssuing] = useState(false);
-  const [allIdentities, setAllIdentities] = useState<Array<StoredIdentity & { userName: string }>>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [issuedCredential, setIssuedCredential] = useState<StoredCredential | null>(null);
 
   // Load schema
@@ -44,29 +42,19 @@ export function IssueCredentialForm() {
     }
   }, [schemaId, schemas]);
 
-  // Load all identities from all users in global database
+  // Load contacts
   useEffect(() => {
-    const loadAllIdentities = async () => {
-      const allIdents: Array<StoredIdentity & { userName: string }> = [];
-
-      for (const user of users) {
-        try {
-          const userIdentities = await getIdentities(user.id);
-          userIdentities.forEach(identity => {
-            allIdents.push({ ...identity, userName: user.name });
-          });
-        } catch (error) {
-          console.error(`Failed to load identities for user ${user.name}:`, error);
-        }
+    const loadContacts = async () => {
+      try {
+        const loadedContacts = await getContacts();
+        setContacts(loadedContacts);
+      } catch (error) {
+        console.error('Failed to load contacts:', error);
       }
-
-      setAllIdentities(allIdents);
     };
 
-    if (users.length > 0) {
-      loadAllIdentities();
-    }
-  }, [users]);
+    loadContacts();
+  }, []);
 
   const handleFieldChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -98,9 +86,8 @@ export function IssueCredentialForm() {
   const handleIssue = async () => {
     if (!schema) return;
 
-    // Get recipient AID
-    const recipientAID = recipientMode === 'select' ? selectedRecipient : manualRecipient;
-    if (!recipientAID) {
+    // Validate recipient AID
+    if (!recipientAID || recipientAID.trim() === '') {
       showToast('Please select or enter a recipient AID');
       return;
     }
@@ -144,8 +131,8 @@ export function IssueCredentialForm() {
         data: credentialData,
       });
 
-      // Find recipient alias from all identities
-      const recipientIdentity = allIdentities.find(i => i.prefix === recipientAID);
+      // Find recipient alias from contacts
+      const recipientContact = contacts.find(c => c.prefix === recipientAID);
 
       // Save credential
       const storedCredential: StoredCredential = {
@@ -154,7 +141,7 @@ export function IssueCredentialForm() {
         issuer: issuerIdentity.prefix,
         issuerAlias: issuerIdentity.alias,
         recipient: recipientAID,
-        recipientAlias: recipientIdentity?.alias,
+        recipientAlias: recipientContact?.name,
         schema: schema.id,
         schemaName: schema.name,
         sad: cred.sad,
@@ -232,8 +219,7 @@ export function IssueCredentialForm() {
                 onClick={() => {
                   setIssuedCredential(null);
                   setFormData({});
-                  setSelectedRecipient('');
-                  setManualRecipient('');
+                  setRecipientAID('');
                 }}
               >
                 Issue Another
@@ -275,59 +261,37 @@ export function IssueCredentialForm() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Recipient</CardTitle>
-          <CardDescription>Select or enter the recipient's AID</CardDescription>
+          <CardDescription>Select a contact or enter a custom AID</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Recipient Mode Toggle */}
-          <div className="flex items-center gap-4">
-            <Label>Recipient Input:</Label>
-            <div className="flex items-center gap-2">
-              <Button
-                variant={recipientMode === 'select' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setRecipientMode('select')}
-              >
-                Select Identity
-              </Button>
-              <Button
-                variant={recipientMode === 'manual' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setRecipientMode('manual')}
-              >
-                Enter Manually
-              </Button>
-            </div>
-          </div>
-
-          {/* Recipient Input */}
-          {recipientMode === 'select' ? (
-            <div className="space-y-2">
-              <Label htmlFor="recipient-select">Select Identity</Label>
-              <Select
-                id="recipient-select"
-                value={selectedRecipient}
-                onChange={(e) => setSelectedRecipient(e.target.value)}
-              >
-                <option value="">Select a recipient...</option>
-                {allIdentities.map((identity) => (
-                  <option key={identity.prefix} value={identity.prefix}>
-                    {identity.alias} ({identity.userName}) - {identity.prefix.substring(0, 20)}...
-                  </option>
-                ))}
-              </Select>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <Label htmlFor="recipient-manual">Recipient AID</Label>
-              <Input
-                id="recipient-manual"
-                value={manualRecipient}
-                onChange={(e) => setManualRecipient(e.target.value)}
-                placeholder="Enter recipient AID..."
-                className="font-mono text-sm"
-              />
-            </div>
-          )}
+        <CardContent className="space-y-2">
+          <Label htmlFor="recipient">Recipient AID</Label>
+          <Combobox
+            options={[
+              // Add current user identity first
+              ...(identities.find(i => i.alias.toLowerCase() === currentUser?.name.toLowerCase())
+                ? [{
+                    value: identities.find(i => i.alias.toLowerCase() === currentUser?.name.toLowerCase())!.prefix,
+                    label: currentUser?.name + ' (me)',
+                    description: identities.find(i => i.alias.toLowerCase() === currentUser?.name.toLowerCase())!.prefix.substring(0, 40) + '...',
+                  }]
+                : []),
+              // Then add contacts
+              ...contacts.map((contact) => ({
+                value: contact.prefix,
+                label: contact.name,
+                description: contact.prefix.substring(0, 40) + '...',
+              }))
+            ]}
+            value={recipientAID}
+            onChange={setRecipientAID}
+            placeholder="Select contact or enter AID..."
+            emptyMessage={contacts.length === 0 ? "No contacts found. Enter AID manually." : "No matching contacts."}
+            allowCustomValue={true}
+            className="font-mono text-sm"
+          />
+          <p className="text-xs text-muted-foreground">
+            Start typing to filter contacts or enter a custom AID directly
+          </p>
         </CardContent>
       </Card>
 
