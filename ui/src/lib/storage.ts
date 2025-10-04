@@ -122,7 +122,7 @@ interface KeriDB extends DBSchema {
 }
 
 const GLOBAL_DB_NAME = 'keri-demo-global';
-const DB_VERSION = 4; // Incremented for TEL registries store
+const DB_VERSION = 5; // Incremented for TEL registry structure updates
 
 let globalDbPromise: Promise<IDBPDatabase<KeriDB>> | null = null;
 let userDbPromises: Map<string, Promise<IDBPDatabase<KeriDB>>> = new Map();

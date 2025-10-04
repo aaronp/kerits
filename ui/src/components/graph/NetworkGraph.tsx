@@ -91,6 +91,7 @@ export function NetworkGraph() {
     const loadRegistries = async () => {
       try {
         const registries = await getTELRegistriesByIssuer(displaySAID);
+        console.log('NetworkGraph: Loaded TEL registries for', displaySAID, ':', registries);
         setTelRegistries(registries);
       } catch (error) {
         console.error('Failed to load TEL registries:', error);
@@ -174,7 +175,10 @@ export function NetworkGraph() {
     const telXStart = 400;
     const telSpacing = 250;
 
+    console.log('NetworkGraph: Building graph with', telRegistries.length, 'TEL registries');
+
     telRegistries.forEach((registry, regIndex) => {
+      console.log(`NetworkGraph: Processing registry ${regIndex}:`, registry.alias, 'with', registry.tel.length, 'events');
       // Calculate Y position - distribute evenly above and below KEL
       const isAbove = regIndex % 2 === 0;
       const groupIndex = Math.floor(regIndex / 2);
@@ -209,7 +213,10 @@ export function NetworkGraph() {
       const baseX = telXStart + 350;
       let prevNodeId = regNodeId;
 
-      registry.tel.forEach((telEvent: any, telIndex: number) => {
+      // Handle registries that might not have tel array (legacy)
+      const telEvents = registry.tel || [];
+
+      telEvents.forEach((telEvent: any, telIndex: number) => {
         const telNodeId = `tel-${regIndex}-evt-${telIndex}`;
 
         // Determine event type and label

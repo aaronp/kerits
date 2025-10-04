@@ -3,7 +3,7 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { useStore } from '../store/useStore';
-import { Network, FileText, Award, Moon, Sun, LogOut, UserCircle, User, ShieldCheck, Pencil, Users } from 'lucide-react';
+import { Network, FileText, Award, Moon, Sun, LogOut, UserCircle, User, ShieldCheck, Pencil, Users, Share2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -107,6 +107,10 @@ export function Dashboard() {
                     <DropdownMenuItem onClick={() => navigate(route('/dashboard/profile'))}>
                       <User className="mr-2 h-4 w-4" />
                       Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate(route('/dashboard/share'))}>
+                      <Share2 className="mr-2 h-4 w-4" />
+                      Share
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout}>

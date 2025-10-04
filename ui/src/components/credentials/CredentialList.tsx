@@ -191,17 +191,22 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
       }
 
       // Create issuance event
+      // vcdig = credential SAID (the 'd' field from the SAD)
+      // regk = registry identifier
       const issuanceEvent = issue({
-        credential: importedCredential.sad,
-        registryAID: registry.registryAID,
+        vcdig: importedCredential.sad.d || importedCredential.id,
+        regk: registry.registryAID,
       });
 
       console.log('Created issuance event:', issuanceEvent);
 
       // Append issuance event to the registry's TEL
+      // Handle legacy registries that might not have tel array
       const updatedRegistry = {
         ...registry,
-        tel: [...registry.tel, issuanceEvent],
+        tel: [...(registry.tel || []), issuanceEvent],
+        // Ensure inceptionEvent exists (for legacy registries)
+        inceptionEvent: registry.inceptionEvent || null,
       };
 
       // Save both the credential and updated registry
