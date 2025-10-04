@@ -1,16 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import ReactFlow, {
-  Controls,
-  Background,
-  BackgroundVariant,
-  useNodesState,
-  useEdgesState,
-  Handle,
-  Position,
-} from 'reactflow';
-import type { Node, Edge, NodeProps } from 'reactflow';
-import 'reactflow/dist/style.css';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
@@ -24,36 +13,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
-import { ArrowLeft, Users, Copy, RefreshCw, ChevronDown, ChevronRight, Search } from 'lucide-react';
+import { ArrowLeft, Users, RefreshCw, ChevronDown, ChevronRight, Search } from 'lucide-react';
 import { getContactByPrefix, getContactByName, saveContact } from '../lib/storage';
 import { Toast, useToast } from './ui/toast';
 import { route } from '../config';
 import type { Contact } from '../lib/storage';
-
-// Custom node component for KEL events
-function EventNode({ data }: NodeProps) {
-  return (
-    <div className="px-4 py-3 rounded-lg border-2 bg-card shadow-md min-w-[200px]">
-      <Handle type="target" position={Position.Left} className="w-3 h-3" />
-      <div className="space-y-1">
-        <div className="font-semibold text-sm text-card-foreground">{data.label}</div>
-        <div className="text-xs text-muted-foreground font-mono">
-          {data.type}
-        </div>
-        {data.sn !== undefined && (
-          <div className="text-xs text-muted-foreground">
-            Sequence: {data.sn}
-          </div>
-        )}
-      </div>
-      <Handle type="source" position={Position.Right} className="w-3 h-3" />
-    </div>
-  );
-}
-
-const nodeTypes = {
-  event: EventNode,
-};
+import { IdentityEventGraph } from './graph/IdentityEventGraph';
 
 export function MyContact() {
   const { identifier } = useParams<{ identifier: string }>();
@@ -176,66 +141,6 @@ export function MyContact() {
     setIsKelValid(false);
     setIsUpdateDialogOpen(false);
   };
-
-  // Build KEL graph for contact
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
-    if (!contact) return { nodes: [], edges: [] };
-
-    const nodes: Node[] = [];
-    const edges: Edge[] = [];
-
-    // Add inception event (first event in KEL)
-    const inceptionEvent = contact.kel[0];
-    if (inceptionEvent) {
-      nodes.push({
-        id: 'inception',
-        type: 'event',
-        position: { x: 50, y: 150 },
-        data: {
-          label: `Inception (${contact.name})`,
-          type: inceptionEvent.t || inceptionEvent.ked?.t || 'icp',
-          sn: 0,
-          event: inceptionEvent,
-        },
-      });
-    }
-
-    // Add subsequent events (rotations, etc.)
-    contact.kel.slice(1).forEach((event: any, index: number) => {
-      const eventId = `event-${index}`;
-      const prevId = index === 0 ? 'inception' : `event-${index - 1}`;
-
-      nodes.push({
-        id: eventId,
-        type: 'event',
-        position: { x: 300 + (index * 300), y: 150 },
-        data: {
-          label: `Event ${index + 1}`,
-          type: event.t || event.ked?.t || 'rot',
-          sn: index + 1,
-          event,
-        },
-      });
-
-      edges.push({
-        id: `edge-${prevId}-${eventId}`,
-        source: prevId,
-        target: eventId,
-        animated: false,
-        style: { stroke: '#6366f1', strokeWidth: 2 },
-      });
-    });
-
-    return { nodes, edges };
-  }, [contact]);
-
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-
-  useEffect(() => {
-    setNodes(initialNodes);
-    setEdges(initialEdges);
-  }, [initialNodes, initialEdges, setNodes, setEdges]);
 
   const handleCopyPrefix = async () => {
     if (contact) {
@@ -452,28 +357,13 @@ export function MyContact() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Key Event Log</CardTitle>
-          <CardDescription>Visual representation of the key event history</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[500px] border rounded-lg bg-background">
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              nodeTypes={nodeTypes}
-              fitView
-              fitViewOptions={{ padding: 0.2 }}
-            >
-              <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
-              <Controls />
-            </ReactFlow>
-          </div>
-        </CardContent>
-      </Card>
+      <IdentityEventGraph
+        alias={contact.name}
+        prefix={contact.prefix}
+        inceptionEvent={contact.kel[0]}
+        kelEvents={contact.kel.slice(1)}
+        showTEL={false}
+      />
 
       <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">

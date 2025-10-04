@@ -594,22 +594,30 @@ export async function getIdentities(userId?: string): Promise<StoredIdentity[]> 
   const db = await getDB(userId);
   const kels = await getAllKELs(userId);
   const aliases = await getAllAliases(userId);
+  const identityMetadata = await db.getAll('identityMetadata');
 
-  return Promise.all(kels.map(async (kel) => {
-    const aliasMapping = aliases.find(a => a.said === kel.aid && a.type === 'kel');
-    const metadata = await db.get('identityMetadata', kel.aid);
+  // Only return KELs that have identity metadata (user identities, not contacts)
+  const identityAIDs = new Set(identityMetadata.map(m => m.aid));
 
-    return {
-      alias: aliasMapping?.alias || kel.aid.substring(0, 8),
-      prefix: kel.aid,
-      mnemonic: metadata?.mnemonic || '',
-      currentKeys: metadata?.currentKeys || { public: '', private: '', seed: '' },
-      nextKeys: metadata?.nextKeys || { public: '', private: '', seed: '' },
-      inceptionEvent: kel.inceptionEvent,
-      kel: kel.events,
-      createdAt: kel.createdAt,
-    };
-  }));
+  return Promise.all(
+    kels
+      .filter(kel => identityAIDs.has(kel.aid)) // Only include user identities
+      .map(async (kel) => {
+        const aliasMapping = aliases.find(a => a.said === kel.aid && a.type === 'kel');
+        const metadata = await db.get('identityMetadata', kel.aid);
+
+        return {
+          alias: aliasMapping?.alias || kel.aid.substring(0, 8),
+          prefix: kel.aid,
+          mnemonic: metadata?.mnemonic || '',
+          currentKeys: metadata?.currentKeys || { public: '', private: '', seed: '' },
+          nextKeys: metadata?.nextKeys || { public: '', private: '', seed: '' },
+          inceptionEvent: kel.inceptionEvent,
+          kel: kel.events,
+          createdAt: kel.createdAt,
+        };
+      })
+  );
 }
 
 export async function deleteIdentity(alias: string, userId?: string): Promise<void> {
