@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
+import { Input } from './ui/input';
 import {
   Dialog,
   DialogContent,
@@ -22,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
-import { ArrowLeft, Users, Copy, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Users, Copy, RefreshCw, ChevronDown, ChevronRight, Search } from 'lucide-react';
 import { getContactByPrefix, getContactByName, saveContact } from '../lib/storage';
 import { Toast, useToast } from './ui/toast';
 import { route } from '../config';
@@ -63,6 +64,8 @@ export function MyContact() {
   const [kelError, setKelError] = useState('');
   const [isKelValid, setIsKelValid] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [showAllKeys, setShowAllKeys] = useState(false);
+  const [keyFilter, setKeyFilter] = useState('');
   const { toast, showToast, hideToast } = useToast();
 
   useEffect(() => {
@@ -240,6 +243,60 @@ export function MyContact() {
     }
   };
 
+  const handleCopyKey = async (key: string) => {
+    await navigator.clipboard.writeText(key);
+    showToast('Public key copied to clipboard');
+  };
+
+  // Extract all public keys from KEL events
+  const allKeys = useMemo(() => {
+    if (!contact) return [];
+
+    const keys: Array<{ key: string; event: number; type: string; date?: string }> = [];
+
+    contact.kel.forEach((event: any, index: number) => {
+      const eventType = event.t || event.ked?.t || '';
+      const eventDate = event.dt || event.ked?.dt;
+      const eventKeys = event.k || event.keys || event.ked?.k || event.ked?.keys || [];
+
+      // Convert event type to friendly name
+      let friendlyType = eventType;
+      if (eventType === 'icp') {
+        friendlyType = 'First Key';
+      } else if (eventType === 'rot') {
+        friendlyType = 'Key Rotation';
+      }
+
+      if (Array.isArray(eventKeys)) {
+        eventKeys.forEach((key: string) => {
+          keys.push({
+            key,
+            event: index + 1, // Make events 1-based
+            type: friendlyType,
+            date: eventDate,
+          });
+        });
+      }
+    });
+
+    return keys;
+  }, [contact]);
+
+  // Get current public key (from latest event)
+  const currentPublicKey = useMemo(() => {
+    if (allKeys.length === 0) return null;
+    return allKeys[allKeys.length - 1].key;
+  }, [allKeys]);
+
+  // Filter keys based on search
+  const filteredKeys = useMemo(() => {
+    if (!keyFilter.trim()) return allKeys;
+    return allKeys.filter(k =>
+      k.key.toLowerCase().includes(keyFilter.toLowerCase()) ||
+      k.type.toLowerCase().includes(keyFilter.toLowerCase())
+    );
+  }, [allKeys, keyFilter]);
+
   if (loading) {
     return (
       <Card>
@@ -299,24 +356,117 @@ export function MyContact() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Prefix (AID)</div>
-            <div className="flex items-center gap-2">
-              <div className="text-xs font-mono text-muted-foreground break-all flex-1">
-                {contact.prefix}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium">AID</div>
+              <div className="flex items-center gap-2">
+                <div className="text-xs font-mono text-muted-foreground">
+                  {contact.prefix}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCopyPrefix}
+                  className="h-6 w-6 p-0 flex-shrink-0"
+                  title="Copy AID"
+                >
+                  <Copy className="h-3 w-3" />
+                </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleCopyPrefix}
-                className="h-6 w-6 p-0 flex-shrink-0"
-                title="Copy Prefix"
-              >
-                <Copy className="h-3 w-3" />
-              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium">Public Key</div>
+                {allKeys.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAllKeys(!showAllKeys)}
+                    className="h-6 text-xs"
+                  >
+                    {showAllKeys ? (
+                      <>
+                        <ChevronDown className="h-3 w-3 mr-1" />
+                        Hide History
+                      </>
+                    ) : (
+                      <>
+                        <ChevronRight className="h-3 w-3 mr-1" />
+                        Show History ({allKeys.length - 1} previous)
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+              {currentPublicKey && (
+                <div className="flex items-center gap-2">
+                  <div className="text-xs font-mono text-muted-foreground break-all flex-1">
+                    {currentPublicKey}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleCopyKey(currentPublicKey)}
+                    className="h-6 w-6 p-0 flex-shrink-0"
+                    title="Copy Public Key"
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+
+              {showAllKeys && allKeys.length > 1 && (
+                <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <Search className="h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Filter keys..."
+                      value={keyFilter}
+                      onChange={(e) => setKeyFilter(e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {filteredKeys.map((keyInfo, index) => (
+                      <div
+                        key={index}
+                        className="flex items-start justify-between gap-2 p-2 rounded bg-background border"
+                      >
+                        <div className="flex-1 space-y-1">
+                          <div className="text-xs font-mono break-all">
+                            {keyInfo.key}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Event {keyInfo.event} • {keyInfo.type || 'Unknown'}
+                            {keyInfo.date && (
+                              <> • {new Date(keyInfo.date).toLocaleDateString()}</>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCopyKey(keyInfo.key)}
+                          className="h-6 w-6 p-0 flex-shrink-0"
+                          title="Copy Key"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                    {filteredKeys.length === 0 && (
+                      <div className="text-center text-sm text-muted-foreground py-4">
+                        No keys match your filter
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 text-sm">
+
+          <div className="grid grid-cols-2 gap-4 text-sm pt-2 border-t">
             <div>
               <div className="font-medium">Added</div>
               <div className="text-muted-foreground">
