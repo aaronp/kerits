@@ -565,14 +565,27 @@ export async function saveIdentity(identity: StoredIdentity, userId?: string): P
     nextKeys: identity.nextKeys,
   });
 
-  // Save alias
-  await saveAlias({
-    id: crypto.randomUUID(),
-    alias: identity.alias,
-    said: identity.prefix,
-    type: 'kel',
-    createdAt: identity.createdAt,
-  }, userId);
+  // Save or update alias
+  const existingAlias = await getAliasByName(identity.alias, userId);
+  if (existingAlias) {
+    // Update existing alias mapping
+    await saveAlias({
+      id: existingAlias.id,
+      alias: identity.alias,
+      said: identity.prefix,
+      type: 'kel',
+      createdAt: existingAlias.createdAt,
+    }, userId);
+  } else {
+    // Create new alias mapping
+    await saveAlias({
+      id: crypto.randomUUID(),
+      alias: identity.alias,
+      said: identity.prefix,
+      type: 'kel',
+      createdAt: identity.createdAt,
+    }, userId);
+  }
 }
 
 export async function getIdentities(userId?: string): Promise<StoredIdentity[]> {

@@ -121,9 +121,9 @@ export function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b" style={{ backgroundColor: bannerColor }}>
+    <div className="flex flex-col h-screen bg-background">
+      {/* Header - Fixed */}
+      <header className="border-b flex-shrink-0" style={{ backgroundColor: bannerColor }}>
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -171,11 +171,13 @@ export function Dashboard() {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-12 gap-6">
-          {/* Sidebar Navigation */}
-          <aside className="col-span-3">
-            <Card className="flex flex-col h-full">
+      {/* Main Content Area - Scrollable */}
+      <div className="flex-1 overflow-hidden">
+        <div className="container mx-auto px-4 py-6 h-full">
+          <div className="grid grid-cols-12 gap-6 h-full">
+            {/* Sidebar Navigation - Fixed */}
+            <aside className="col-span-3 overflow-y-auto">
+              <Card className="flex flex-col h-full sticky top-0">
               <CardHeader>
                 <CardTitle className="text-lg">Navigation</CardTitle>
               </CardHeader>
@@ -257,33 +259,34 @@ export function Dashboard() {
             </Card>
           </aside>
 
-          {/* Main Content */}
-          <main className="col-span-9">
-            {loading ? (
-              <Card>
-                <CardContent className="text-center py-12 text-muted-foreground">
-                  Loading...
-                </CardContent>
-              </Card>
-            ) : (
-              <Routes>
-                <Route path="/" element={<Schemas />} />
-                <Route path="/schemas" element={<Schemas />} />
-                <Route path="/schemas/new" element={<SchemaCreator />} />
-                <Route path="/issue" element={<IssueSchemaList />} />
-                <Route path="/issue/:schemaId" element={<IssueCredentialForm />} />
-                <Route path="/credentials" element={<Credentials />} />
-                <Route path="/credentials/new" element={<CredentialIssuer />} />
-                <Route path="/verify" element={<VerifyCredential />} />
-                <Route path="/sign" element={<Sign />} />
-                <Route path="/graph" element={<NetworkGraph />} />
-                <Route path="/graph/:said" element={<NetworkGraph />} />
-                <Route path="/contacts" element={<Contacts />} />
-                <Route path="/contacts/:identifier" element={<MyContact />} />
-                <Route path="/profile" element={<Profile />} />
-              </Routes>
-            )}
-          </main>
+            {/* Main Content - Scrollable */}
+            <main className="col-span-9 overflow-y-auto">
+              {loading ? (
+                <Card>
+                  <CardContent className="text-center py-12 text-muted-foreground">
+                    Loading...
+                  </CardContent>
+                </Card>
+              ) : (
+                <Routes>
+                  <Route path="/" element={<Schemas />} />
+                  <Route path="/schemas" element={<Schemas />} />
+                  <Route path="/schemas/new" element={<SchemaCreator />} />
+                  <Route path="/issue" element={<IssueSchemaList />} />
+                  <Route path="/issue/:schemaId" element={<IssueCredentialForm />} />
+                  <Route path="/credentials" element={<Credentials />} />
+                  <Route path="/credentials/new" element={<CredentialIssuer />} />
+                  <Route path="/verify" element={<VerifyCredential />} />
+                  <Route path="/sign" element={<Sign />} />
+                  <Route path="/graph" element={<NetworkGraph />} />
+                  <Route path="/graph/:said" element={<NetworkGraph />} />
+                  <Route path="/contacts" element={<Contacts />} />
+                  <Route path="/contacts/:identifier" element={<MyContact />} />
+                  <Route path="/profile" element={<Profile />} />
+                </Routes>
+              )}
+            </main>
+          </div>
         </div>
       </div>
 
