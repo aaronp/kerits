@@ -325,12 +325,12 @@ export async function deleteACDC(said: string, userId?: string): Promise<void> {
 // Schema Management
 // ============================================================================
 
-export async function saveSchema(schema: Schema, userId?: string): Promise<void> {
+export async function saveSchemaData(schema: Schema, userId?: string): Promise<void> {
   const db = await getDB(userId);
   await db.put('schemas', schema);
 }
 
-export async function getSchema(said: string, userId?: string): Promise<Schema | undefined> {
+export async function getSchemaData(said: string, userId?: string): Promise<Schema | undefined> {
   const db = await getDB(userId);
   return db.get('schemas', said);
 }
@@ -340,7 +340,7 @@ export async function getAllSchemas(userId?: string): Promise<Schema[]> {
   return db.getAll('schemas');
 }
 
-export async function deleteSchema(said: string, userId?: string): Promise<void> {
+export async function deleteSchemaData(said: string, userId?: string): Promise<void> {
   const db = await getDB(userId);
   await db.delete('schemas', said);
 }
@@ -456,4 +456,344 @@ export async function resolveAlias(aliasOrSaid: string, userId?: string): Promis
 export async function getDisplayName(said: string, userId?: string): Promise<string> {
   const alias = await getAliasBySAID(said, userId);
   return alias?.alias || `${said.substring(0, 12)}...`;
+}
+
+// ============================================================================
+// Component Compatibility Layer (simple wrappers)
+// ============================================================================
+
+export interface StoredIdentity {
+  alias: string;
+  prefix: string;
+  mnemonic: string;
+  currentKeys: { public: string; private: string; seed: string };
+  nextKeys: { public: string; private: string; seed: string };
+  inceptionEvent: any;
+  kel: any[];
+  createdAt: string;
+}
+
+export interface StoredCredential {
+  id: string;
+  name: string;
+  issuer: string;
+  issuerAlias?: string;
+  recipient?: string;
+  recipientAlias?: string;
+  schema: string;
+  schemaName?: string;
+  sad: any;
+  tel?: any[];
+  registry?: string;
+  createdAt: string;
+}
+
+export interface StoredSchema {
+  id: string;
+  name: string;
+  description?: string;
+  fields: SchemaField[];
+  sad: any;
+  createdAt: string;
+}
+
+export interface SchemaField {
+  name: string;
+  type: 'string' | 'number' | 'boolean' | 'date' | 'email' | 'url';
+  required?: boolean;
+  description?: string;
+}
+
+export interface Contact {
+  id: string;
+  name: string;
+  kel: any[];
+  prefix: string;
+  createdAt: string;
+}
+
+export interface TELRegistry {
+  id: string;
+  alias: string;
+  registryAID: string;
+  issuerAID: string;
+  inceptionEvent: any;
+  tel: any[];
+  createdAt: string;
+}
+
+export async function saveIdentity(identity: StoredIdentity, userId?: string): Promise<void> {
+  await saveKEL({
+    aid: identity.prefix,
+    inceptionEvent: identity.inceptionEvent,
+    events: identity.kel,
+    createdAt: identity.createdAt,
+  }, userId);
+
+  await saveAlias({
+    id: crypto.randomUUID(),
+    alias: identity.alias,
+    said: identity.prefix,
+    type: 'kel',
+    createdAt: identity.createdAt,
+  }, userId);
+}
+
+export async function getIdentities(userId?: string): Promise<StoredIdentity[]> {
+  const kels = await getAllKELs(userId);
+  const aliases = await getAllAliases(userId);
+
+  return kels.map(kel => {
+    const aliasMapping = aliases.find(a => a.said === kel.aid && a.type === 'kel');
+    return {
+      alias: aliasMapping?.alias || kel.aid.substring(0, 8),
+      prefix: kel.aid,
+      mnemonic: '',
+      currentKeys: { public: '', private: '', seed: '' },
+      nextKeys: { public: '', private: '', seed: '' },
+      inceptionEvent: kel.inceptionEvent,
+      kel: kel.events,
+      createdAt: kel.createdAt,
+    };
+  });
+}
+
+export async function deleteIdentity(alias: string, userId?: string): Promise<void> {
+  const aid = await getSAIDByAlias(alias, userId);
+  if (aid) {
+    await deleteKEL(aid, userId);
+    const aliasMapping = await getAliasByName(alias, userId);
+    if (aliasMapping) await deleteAlias(aliasMapping.id, userId);
+  }
+}
+
+export async function saveCredential(credential: StoredCredential, userId?: string): Promise<void> {
+  await saveACDC({
+    said: credential.id,
+    sad: credential.sad,
+    schema: credential.schema,
+    issuer: credential.issuer,
+    recipient: credential.recipient,
+    registry: credential.registry,
+    createdAt: credential.createdAt,
+  }, userId);
+}
+
+export async function getCredentials(userId?: string): Promise<StoredCredential[]> {
+  const acdcs = await getAllACDCs(userId);
+  const aliases = await getAllAliases(userId);
+
+  return acdcs.map(acdc => {
+    const issuerAlias = aliases.find(a => a.said === acdc.issuer && a.type === 'kel');
+    const recipientAlias = acdc.recipient ? aliases.find(a => a.said === acdc.recipient && a.type === 'kel') : undefined;
+    const schemaAlias = aliases.find(a => a.said === acdc.schema && a.type === 'schema');
+
+    return {
+      id: acdc.said,
+      name: acdc.sad.a?.name || 'Unnamed Credential',
+      issuer: acdc.issuer,
+      issuerAlias: issuerAlias?.alias,
+      recipient: acdc.recipient,
+      recipientAlias: recipientAlias?.alias,
+      schema: acdc.schema,
+      schemaName: schemaAlias?.alias,
+      sad: acdc.sad,
+      tel: [],
+      registry: acdc.registry,
+      createdAt: acdc.createdAt,
+    };
+  });
+}
+
+export async function deleteCredential(id: string, userId?: string): Promise<void> {
+  await deleteACDC(id, userId);
+}
+
+export async function saveSchema(schema: StoredSchema, userId?: string): Promise<void> {
+  await saveSchemaData({
+    said: schema.id,
+    sad: schema.sad,
+    createdAt: schema.createdAt,
+  }, userId);
+
+  await saveAlias({
+    id: crypto.randomUUID(),
+    alias: schema.name,
+    said: schema.id,
+    type: 'schema',
+    createdAt: schema.createdAt,
+  }, userId);
+}
+
+export async function getSchemas(userId?: string): Promise<StoredSchema[]> {
+  const schemas = await getAllSchemas(userId);
+  const aliases = await getAllAliases(userId);
+
+  return schemas.map(s => {
+    const aliasMapping = aliases.find(a => a.said === s.said && a.type === 'schema');
+    const fields = s.sad.properties ? Object.entries(s.sad.properties).map(([name, prop]: [string, any]) => ({
+      name,
+      type: prop.type || 'string',
+      required: s.sad.required?.includes(name),
+      description: prop.description,
+    })) : [];
+
+    return {
+      id: s.said,
+      name: aliasMapping?.alias || s.sad.title || 'Unnamed Schema',
+      description: s.sad.description,
+      fields,
+      sad: s.sad,
+      createdAt: s.createdAt,
+    };
+  });
+}
+
+export async function deleteSchema(id: string, userId?: string): Promise<void> {
+  await deleteSchemaData(id, userId);
+  const aliasMapping = await getAliasBySAID(id, userId);
+  if (aliasMapping) await deleteAlias(aliasMapping.id, userId);
+}
+
+export async function saveContact(contact: Contact, userId?: string): Promise<void> {
+  await saveKEL({
+    aid: contact.prefix,
+    inceptionEvent: contact.kel[0],
+    events: contact.kel.slice(1),
+    createdAt: contact.createdAt,
+  }, userId);
+
+  await saveAlias({
+    id: contact.id,
+    alias: contact.name,
+    said: contact.prefix,
+    type: 'kel',
+    createdAt: contact.createdAt,
+  }, userId);
+}
+
+export async function getContacts(userId?: string): Promise<Contact[]> {
+  return [];
+}
+
+export async function getContactByPrefix(prefix: string, userId?: string): Promise<Contact | undefined> {
+  const kel = await getKEL(prefix, userId);
+  if (!kel) return undefined;
+
+  const aliasMapping = await getAliasBySAID(prefix, userId);
+
+  return {
+    id: aliasMapping?.id || crypto.randomUUID(),
+    name: aliasMapping?.alias || prefix.substring(0, 8),
+    kel: [kel.inceptionEvent, ...kel.events],
+    prefix: kel.aid,
+    createdAt: kel.createdAt,
+  };
+}
+
+export async function getContactByName(name: string, userId?: string): Promise<Contact | undefined> {
+  const aliasMapping = await getAliasByName(name, userId);
+  if (!aliasMapping) return undefined;
+
+  const kel = await getKEL(aliasMapping.said, userId);
+  if (!kel) return undefined;
+
+  return {
+    id: aliasMapping.id,
+    name: aliasMapping.alias,
+    kel: [kel.inceptionEvent, ...kel.events],
+    prefix: kel.aid,
+    createdAt: kel.createdAt,
+  };
+}
+
+export async function deleteContact(id: string, userId?: string): Promise<void> {
+  const aliasMapping = await getAliasByName(id, userId);
+  if (aliasMapping) {
+    await deleteKEL(aliasMapping.said, userId);
+    await deleteAlias(aliasMapping.id, userId);
+  }
+}
+
+export async function getTELRegistries(userId?: string): Promise<TELRegistry[]> {
+  const tels = await getAllTELs(userId);
+  const aliases = await getAllAliases(userId);
+
+  return tels.map(tel => {
+    const aliasMapping = aliases.find(a => a.said === tel.registryAID && a.type === 'tel');
+    return {
+      id: tel.registryAID,
+      alias: aliasMapping?.alias || tel.registryAID.substring(0, 8),
+      registryAID: tel.registryAID,
+      issuerAID: tel.issuerAID,
+      inceptionEvent: tel.inceptionEvent,
+      tel: tel.events,
+      createdAt: tel.createdAt,
+    };
+  });
+}
+
+export async function saveTELRegistry(registry: TELRegistry, userId?: string): Promise<void> {
+  await saveTEL({
+    registryAID: registry.registryAID,
+    issuerAID: registry.issuerAID,
+    inceptionEvent: registry.inceptionEvent,
+    events: registry.tel || [],
+    createdAt: registry.createdAt,
+  }, userId);
+
+  await saveAlias({
+    id: crypto.randomUUID(),
+    alias: registry.alias,
+    said: registry.registryAID,
+    type: 'tel',
+    createdAt: registry.createdAt,
+  }, userId);
+}
+
+export async function getTELRegistryByAID(registryAID: string, userId?: string): Promise<TELRegistry | undefined> {
+  const tel = await getTEL(registryAID, userId);
+  if (!tel) return undefined;
+
+  const aliasMapping = await getAliasBySAID(registryAID, userId);
+
+  return {
+    id: tel.registryAID,
+    alias: aliasMapping?.alias || tel.registryAID.substring(0, 8),
+    registryAID: tel.registryAID,
+    issuerAID: tel.issuerAID,
+    inceptionEvent: tel.inceptionEvent,
+    tel: tel.events,
+    createdAt: tel.createdAt,
+  };
+}
+
+export async function getTELRegistryByAlias(alias: string, userId?: string): Promise<TELRegistry | undefined> {
+  const registryAID = await getSAIDByAlias(alias, userId);
+  if (!registryAID) return undefined;
+  return getTELRegistryByAID(registryAID, userId);
+}
+
+export async function getTELRegistriesByIssuer(issuerAID: string, userId?: string): Promise<TELRegistry[]> {
+  const tels = await getTELsByIssuer(issuerAID, userId);
+  const aliases = await getAllAliases(userId);
+
+  return tels.map(tel => {
+    const aliasMapping = aliases.find(a => a.said === tel.registryAID && a.type === 'tel');
+    return {
+      id: tel.registryAID,
+      alias: aliasMapping?.alias || tel.registryAID.substring(0, 8),
+      registryAID: tel.registryAID,
+      issuerAID: tel.issuerAID,
+      inceptionEvent: tel.inceptionEvent,
+      tel: tel.events,
+      createdAt: tel.createdAt,
+    };
+  });
+}
+
+export async function deleteTELRegistry(id: string, userId?: string): Promise<void> {
+  await deleteTEL(id, userId);
+  const aliasMapping = await getAliasBySAID(id, userId);
+  if (aliasMapping) await deleteAlias(aliasMapping.id, userId);
 }
