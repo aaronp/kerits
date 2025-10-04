@@ -21,7 +21,7 @@ interface CredentialListProps {
 }
 
 export function CredentialList({ credentials, onDelete, onImport }: CredentialListProps) {
-  const { identities } = useStore();
+  const { identities, triggerTELRefresh } = useStore();
   const { users, currentUser } = useUser();
   const { toast, showToast, hideToast } = useToast();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -221,6 +221,9 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
       setImportData('');
       setSelectedRegistryAID('');
       setShowImportDialog(false);
+
+      // Trigger TEL refresh for NetworkGraph
+      triggerTELRefresh();
       onImport();
     } catch (error) {
       console.error('Failed to import credential:', error);

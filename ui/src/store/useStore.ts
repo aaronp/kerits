@@ -12,6 +12,7 @@ interface AppState {
   schemas: StoredSchema[];
   selectedIdentity: string | null;
   loading: boolean;
+  telRefreshTrigger: number;
 
   // Actions
   refreshIdentities: () => Promise<void>;
@@ -20,6 +21,7 @@ interface AppState {
   setSelectedIdentity: (alias: string | null) => void;
   refreshAll: () => Promise<void>;
   init: () => Promise<void>;
+  triggerTELRefresh: () => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -28,6 +30,7 @@ export const useStore = create<AppState>((set) => ({
   schemas: [],
   selectedIdentity: null,
   loading: true,
+  telRefreshTrigger: 0,
 
   refreshIdentities: async () => {
     const identities = await getIdentities();
@@ -45,6 +48,8 @@ export const useStore = create<AppState>((set) => ({
   },
 
   setSelectedIdentity: (alias) => set({ selectedIdentity: alias }),
+
+  triggerTELRefresh: () => set((state) => ({ telRefreshTrigger: state.telRefreshTrigger + 1 })),
 
   refreshAll: async () => {
     set({ loading: true });

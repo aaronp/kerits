@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { useStore } from '@/store/useStore';
 import { getTELRegistriesByIssuer } from '@/lib/storage';
 import type { StoredIdentity, TELRegistry } from '@/lib/storage';
+import { useUser } from '@/lib/user-provider';
 
 // Custom node component for SAID root
 function SAIDNode({ data }: NodeProps) {
@@ -76,12 +77,16 @@ const nodeTypes = {
 
 export function NetworkGraph() {
   const { said: saidParam } = useParams<{ said?: string }>();
-  const { identities, credentials } = useStore();
+  const { identities, credentials, telRefreshTrigger } = useStore();
+  const { currentUser, users } = useUser();
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [telRegistries, setTelRegistries] = useState<TELRegistry[]>([]);
 
-  // Determine which SAID to display
-  const displaySAID = saidParam || (identities.length > 0 ? identities[0].prefix : '');
+  // Determine which SAID to display - prefer current user's identity
+  const currentUserIdentity = identities.find(i =>
+    i.alias.toLowerCase() === users.find(u => u.id === currentUser?.id)?.name.toLowerCase()
+  );
+  const displaySAID = saidParam || currentUserIdentity?.prefix || (identities.length > 0 ? identities[0].prefix : '');
   const identity = identities.find(i => i.prefix === displaySAID);
 
   // Load TEL registries for the displayed SAID
@@ -99,7 +104,7 @@ export function NetworkGraph() {
     };
 
     loadRegistries();
-  }, [displaySAID]);
+  }, [displaySAID, telRefreshTrigger]);
 
   // Build unified graph with SAID root, KEL, and TELs
   const unifiedGraph = useMemo(() => {
