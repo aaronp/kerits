@@ -532,6 +532,179 @@ export function registryRotate(options: RegistryRotationOptions): RegistryRotati
 }
 
 /**
+ * Options for creating a backer issuance event
+ */
+export interface BackerIssuanceOptions {
+  vcdig: string;   // Credential SAID
+  regk: string;    // Registry identifier
+  regsn: number;   // Registry event sequence number
+  regd: string;    // Registry event digest
+  dt?: string;     // Issuance datetime (ISO 8601)
+}
+
+/**
+ * Backer issuance event structure
+ */
+export interface BackerIssuance {
+  sad: Record<string, any>;
+  raw: string;
+  said: string;
+}
+
+/**
+ * Create a backer issuance (bis) event
+ *
+ * Backer issuance is used when a credential is issued and the registry
+ * has backers that need to provide signatures.
+ *
+ * @param options - Backer issuance options
+ * @returns Backer issuance event
+ */
+export function backerIssue(options: BackerIssuanceOptions): BackerIssuance {
+  const { vcdig, regk, regsn, regd, dt } = options;
+
+  // Validate inputs
+  if (!vcdig || !regk || !regd) {
+    throw new Error('vcdig, regk, and regd are required');
+  }
+
+  if (regsn < 0) {
+    throw new Error('regsn must be non-negative');
+  }
+
+  const isn = 0; // Issuance always has sequence number 0
+
+  // Create registry anchor seal
+  const ra = {
+    i: regk,
+    s: regsn.toString(16),
+    d: regd,
+  };
+
+  // Build event with placeholder for SAID
+  const vs = versify(Protocol.KERI, VERSION_1_0, Kind.JSON, 0);
+
+  const ked: Record<string, any> = {
+    v: vs,
+    t: 'bis',          // Backer issuance ilk
+    d: '',             // Will be computed
+    i: vcdig,          // Credential SAID
+    ii: regk,          // Registry identifier
+    s: isn.toString(16), // Sequence number (always 0 for issuance)
+    ra: ra,            // Registry anchor seal
+    dt: dt || new Date().toISOString(),
+  };
+
+  // Compute size with placeholder SAID
+  ked.d = '#'.repeat(44);
+  let serialized = JSON.stringify(ked);
+  const size = serialized.length;
+
+  // Update version with actual size
+  ked.v = versify(Protocol.KERI, VERSION_1_0, Kind.JSON, size);
+
+  // Compute SAID
+  const saidified = saidify(ked, { label: 'd' });
+  ked.d = saidified.d;
+
+  // Final serialization
+  serialized = JSON.stringify(ked);
+
+  return {
+    sad: ked,
+    raw: serialized,
+    said: ked.d,
+  };
+}
+
+/**
+ * Options for creating a backer revocation event
+ */
+export interface BackerRevocationOptions {
+  vcdig: string;   // Credential SAID
+  regk: string;    // Registry identifier
+  regsn: number;   // Registry event sequence number
+  regd: string;    // Registry event digest
+  dig: string;     // Prior event digest
+  dt?: string;     // Revocation datetime (ISO 8601)
+}
+
+/**
+ * Backer revocation event structure
+ */
+export interface BackerRevocation {
+  sad: Record<string, any>;
+  raw: string;
+  said: string;
+}
+
+/**
+ * Create a backer revocation (brv) event
+ *
+ * Backer revocation is used when a credential is revoked and the registry
+ * has backers that need to provide signatures.
+ *
+ * @param options - Backer revocation options
+ * @returns Backer revocation event
+ */
+export function backerRevoke(options: BackerRevocationOptions): BackerRevocation {
+  const { vcdig, regk, regsn, regd, dig, dt } = options;
+
+  // Validate inputs
+  if (!vcdig || !regk || !regd || !dig) {
+    throw new Error('vcdig, regk, regd, and dig are required');
+  }
+
+  if (regsn < 0) {
+    throw new Error('regsn must be non-negative');
+  }
+
+  const isn = 1; // Revocation always has sequence number 1
+
+  // Create registry anchor seal
+  const ra = {
+    i: regk,
+    s: regsn.toString(16),
+    d: regd,
+  };
+
+  // Build event with placeholder for SAID
+  const vs = versify(Protocol.KERI, VERSION_1_0, Kind.JSON, 0);
+
+  const ked: Record<string, any> = {
+    v: vs,
+    t: 'brv',          // Backer revocation ilk
+    d: '',             // Will be computed
+    i: vcdig,          // Credential SAID
+    s: isn.toString(16), // Sequence number (always 1 for revocation)
+    p: dig,            // Prior event digest
+    ra: ra,            // Registry anchor seal
+    dt: dt || new Date().toISOString(),
+  };
+
+  // Compute size with placeholder SAID
+  ked.d = '#'.repeat(44);
+  let serialized = JSON.stringify(ked);
+  const size = serialized.length;
+
+  // Update version with actual size
+  ked.v = versify(Protocol.KERI, VERSION_1_0, Kind.JSON, size);
+
+  // Compute SAID
+  const saidified = saidify(ked, { label: 'd' });
+  ked.d = saidified.d;
+
+  // Final serialization
+  serialized = JSON.stringify(ked);
+
+  return {
+    sad: ked,
+    raw: serialized,
+    said: ked.d,
+  };
+}
+
+/**
  * Parse a TEL event from raw JSON
  *
  * @param raw - Serialized TEL event JSON
