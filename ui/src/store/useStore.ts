@@ -48,20 +48,30 @@ export const useStore = create<AppState>((set) => ({
 
   refreshAll: async () => {
     set({ loading: true });
-    const [identities, credentials, schemas] = await Promise.all([
-      getIdentities(),
-      getCredentials(),
-      getSchemas(),
-    ]);
-    set({ identities, credentials, schemas, loading: false });
+    try {
+      const [identities, credentials, schemas] = await Promise.all([
+        getIdentities(),
+        getCredentials(),
+        getSchemas(),
+      ]);
+      set({ identities, credentials, schemas, loading: false });
+    } catch (error) {
+      console.error('Failed to refresh data:', error);
+      set({ loading: false });
+    }
   },
 
   init: async () => {
-    const [identities, credentials, schemas] = await Promise.all([
-      getIdentities(),
-      getCredentials(),
-      getSchemas(),
-    ]);
-    set({ identities, credentials, schemas, loading: false });
+    try {
+      const [identities, credentials, schemas] = await Promise.all([
+        getIdentities(),
+        getCredentials(),
+        getSchemas(),
+      ]);
+      set({ identities, credentials, schemas, loading: false });
+    } catch (error) {
+      console.error('Failed to initialize store:', error);
+      set({ loading: false });
+    }
   },
 }));

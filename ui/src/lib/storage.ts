@@ -62,6 +62,14 @@ export interface User {
   createdAt: string;
 }
 
+export interface Contact {
+  id: string; // UUID for the contact
+  name: string; // Contact alias/name
+  kel: any[]; // Key Event Log
+  prefix: string; // SAID/AID from KEL
+  createdAt: string;
+}
+
 export interface AppSettings {
   key: 'currentUser';
   value: string | null; // User ID
@@ -83,6 +91,11 @@ interface KeriDB extends DBSchema {
     key: string;
     value: StoredSchema;
   };
+  contacts: {
+    key: string;
+    value: Contact;
+    indexes: { 'by-prefix': string; 'by-name': string };
+  };
   users: {
     key: string;
     value: User;
@@ -94,10 +107,16 @@ interface KeriDB extends DBSchema {
 }
 
 const GLOBAL_DB_NAME = 'keri-demo-global';
-const DB_VERSION = 2; // Incremented for new stores
+const DB_VERSION = 3; // Incremented for contacts store
 
 let globalDbPromise: Promise<IDBPDatabase<KeriDB>> | null = null;
 let userDbPromises: Map<string, Promise<IDBPDatabase<KeriDB>>> = new Map();
+
+// Reset database connections (useful after clearing data)
+export function resetDatabaseConnections(): void {
+  globalDbPromise = null;
+  userDbPromises.clear();
+}
 
 // Global DB for users and settings only
 async function getGlobalDB(): Promise<IDBPDatabase<KeriDB>> {
@@ -119,7 +138,7 @@ async function getGlobalDB(): Promise<IDBPDatabase<KeriDB>> {
   return globalDbPromise;
 }
 
-// User-specific DB for identities, credentials, and schemas
+// User-specific DB for identities, credentials, schemas, and contacts
 async function getUserDB(userId: string): Promise<IDBPDatabase<KeriDB>> {
   if (!userDbPromises.has(userId)) {
     const dbPromise = openDB<KeriDB>(`keri-demo-user-${userId}`, DB_VERSION, {
@@ -141,6 +160,13 @@ async function getUserDB(userId: string): Promise<IDBPDatabase<KeriDB>> {
         // Schemas store
         if (!db.objectStoreNames.contains('schemas')) {
           db.createObjectStore('schemas', { keyPath: 'id' });
+        }
+
+        // Contacts store
+        if (!db.objectStoreNames.contains('contacts')) {
+          const contactStore = db.createObjectStore('contacts', { keyPath: 'id' });
+          contactStore.createIndex('by-prefix', 'prefix');
+          contactStore.createIndex('by-name', 'name');
         }
       },
     });
@@ -261,6 +287,7 @@ export async function clearAllData(): Promise<void> {
     db.clear('identities'),
     db.clear('credentials'),
     db.clear('schemas'),
+    db.clear('contacts'),
   ]);
 }
 
@@ -299,4 +326,35 @@ export async function setCurrentUser(userId: string | null): Promise<void> {
 
 export async function clearCurrentUser(): Promise<void> {
   await setCurrentUser(null);
+}
+
+// Contact Management
+export async function saveContact(contact: Contact): Promise<void> {
+  const db = await getDB();
+  await db.put('contacts', contact);
+}
+
+export async function getContacts(): Promise<Contact[]> {
+  const db = await getDB();
+  return db.getAll('contacts');
+}
+
+export async function getContact(id: string): Promise<Contact | undefined> {
+  const db = await getDB();
+  return db.get('contacts', id);
+}
+
+export async function getContactByPrefix(prefix: string): Promise<Contact | undefined> {
+  const db = await getDB();
+  return db.getFromIndex('contacts', 'by-prefix', prefix);
+}
+
+export async function getContactByName(name: string): Promise<Contact | undefined> {
+  const db = await getDB();
+  return db.getFromIndex('contacts', 'by-name', name);
+}
+
+export async function deleteContact(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('contacts', id);
 }

@@ -6,8 +6,8 @@ import { Textarea } from './ui/textarea';
 import { Toast, useToast } from './ui/toast';
 import { useUser } from '../lib/user-provider';
 import { useStore } from '../store/useStore';
-import { UserCircle, RotateCw, Shield, Eye, EyeOff, Key, Copy, Share } from 'lucide-react';
-import { saveIdentity } from '../lib/storage';
+import { UserCircle, RotateCw, Shield, Eye, EyeOff, Key, Copy, Share, Trash2 } from 'lucide-react';
+import { saveIdentity, clearAllData } from '../lib/storage';
 import { deriveSeed, formatMnemonic } from '../lib/mnemonic';
 import { generateKeypairFromSeed, rotate, diger } from '../lib/keri';
 import type { StoredIdentity } from '../lib/storage';
@@ -32,6 +32,25 @@ export function Profile() {
     const kelString = JSON.stringify(identity.kel, null, 2);
     await navigator.clipboard.writeText(kelString);
     showToast('KEL copied to clipboard');
+  };
+
+  const handleClearData = async () => {
+    if (!confirm('WARNING: This will permanently delete ALL local data including identities, credentials, schemas, and contacts. This action cannot be undone. Are you sure?')) {
+      return;
+    }
+
+    if (!confirm('Are you absolutely sure? All your data will be lost forever!')) {
+      return;
+    }
+
+    try {
+      await clearAllData();
+      // Reload the page to reset all state
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to clear data:', error);
+      showToast('Failed to clear data. See console for details.');
+    }
   };
 
   const handleRotateKeys = async (identity: StoredIdentity) => {
@@ -145,6 +164,17 @@ export function Profile() {
             <div className="text-sm text-muted-foreground">
               {new Date(currentUser.createdAt).toLocaleString()}
             </div>
+          </div>
+
+          <div className="border-t pt-4 mt-4">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleClearData}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Clear All Data
+            </Button>
           </div>
 
           {identities.length === 0 ? (
