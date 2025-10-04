@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
-import { Copy, Check, Trash2 } from 'lucide-react';
+import { Copy, Check, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Toast, useToast } from '../ui/toast';
 import type { StoredSchema } from '@/lib/storage';
 import { deleteSchema } from '@/lib/storage';
 
@@ -12,12 +13,31 @@ interface SchemaListProps {
 
 export function SchemaList({ schemas, onDelete }: SchemaListProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedDefinitions, setExpandedDefinitions] = useState<Set<string>>(new Set());
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const { toast, showToast, hideToast } = useToast();
 
   const copyToClipboard = async (text: string, field: string) => {
     await navigator.clipboard.writeText(text);
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const handleCopySchema = async (schema: StoredSchema) => {
+    await navigator.clipboard.writeText(JSON.stringify(schema, null, 2));
+    showToast('Schema copied to clipboard');
+  };
+
+  const toggleDefinition = (schemaId: string) => {
+    setExpandedDefinitions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(schemaId)) {
+        newSet.delete(schemaId);
+      } else {
+        newSet.add(schemaId);
+      }
+      return newSet;
+    });
   };
 
   const handleDelete = async (id: string, name: string) => {
@@ -65,6 +85,14 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
                 <Button
                   variant="ghost"
                   size="sm"
+                  onClick={() => handleCopySchema(schema)}
+                  title="Copy schema"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => handleDelete(schema.id, schema.name)}
                 >
                   <Trash2 className="h-4 w-4 text-destructive" />
@@ -102,23 +130,29 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
 
               {/* Schema Definition */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Schema Definition (JSON)</Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard(JSON.stringify(schema.sad, null, 2), `schema-${schema.id}`)}
-                  >
-                    {copiedField === `schema-${schema.id}` ? (
-                      <Check className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-                <pre className="text-xs font-mono bg-muted p-3 rounded-md overflow-x-auto max-h-64">
-                  {JSON.stringify(schema.sad, null, 2)}
-                </pre>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => toggleDefinition(schema.id)}
+                  className="h-auto p-0 text-sm font-medium hover:bg-transparent text-primary hover:text-primary/80"
+                >
+                  {expandedDefinitions.has(schema.id) ? (
+                    <>
+                      <ChevronDown className="h-4 w-4 mr-1" />
+                      Hide Schema Definition (JSON)
+                    </>
+                  ) : (
+                    <>
+                      <ChevronRight className="h-4 w-4 mr-1" />
+                      Show Schema Definition (JSON)
+                    </>
+                  )}
+                </Button>
+                {expandedDefinitions.has(schema.id) && (
+                  <pre className="text-xs font-mono bg-muted p-3 rounded-md overflow-x-auto max-h-64">
+                    {JSON.stringify(schema.sad, null, 2)}
+                  </pre>
+                )}
               </div>
 
               {/* Export Button */}
@@ -143,6 +177,7 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
           )}
         </Card>
       ))}
+      <Toast message={toast.message} show={toast.show} onClose={hideToast} />
     </div>
   );
 }
