@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
@@ -13,10 +14,12 @@ import {
   DialogTitle,
 } from './ui/dialog';
 import { UserPlus, Users, Trash2, Copy } from 'lucide-react';
-import { saveContact, getContacts, deleteContact } from '../lib/storage';
+import { saveContact, getContacts, deleteContact, getContactByPrefix } from '../lib/storage';
+import { route } from '../config';
 import type { Contact } from '../lib/storage';
 
 export function Contacts() {
+  const navigate = useNavigate();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newContactName, setNewContactName] = useState('');
@@ -65,6 +68,14 @@ export function Contacts() {
 
       if (!prefix) {
         showToast('Could not find prefix in KEL data');
+        return;
+      }
+
+      // Check if contact with this AID already exists
+      const existingContact = await getContactByPrefix(prefix);
+      if (existingContact) {
+        showToast(`Contact already exists by the name '${existingContact.name}'`);
+        setLoading(false);
         return;
       }
 
@@ -122,6 +133,12 @@ export function Contacts() {
     showToast('KEL copied to clipboard');
   };
 
+  const handleCancelAdd = () => {
+    setNewContactName('');
+    setNewContactKEL('');
+    setIsDialogOpen(false);
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -155,7 +172,12 @@ export function Contacts() {
                     <div className="space-y-3">
                       <div className="flex items-start justify-between">
                         <div className="space-y-2 flex-1">
-                          <h3 className="text-lg font-semibold">{contact.name}</h3>
+                          <h3
+                            className="text-lg font-semibold text-primary hover:underline cursor-pointer"
+                            onClick={() => navigate(route(`/dashboard/contacts/${contact.prefix}`))}
+                          >
+                            {contact.name}
+                          </h3>
                           <div className="flex items-center gap-2">
                             <div className="text-xs font-mono text-muted-foreground break-all">
                               {contact.prefix}
@@ -236,7 +258,7 @@ export function Contacts() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setIsDialogOpen(false)}
+              onClick={handleCancelAdd}
             >
               Cancel
             </Button>

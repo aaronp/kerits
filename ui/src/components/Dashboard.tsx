@@ -23,6 +23,7 @@ import { Sign } from './signing/Sign';
 import { IssueSchemaList } from './issue/IssueSchemaList';
 import { IssueCredentialForm } from './issue/IssueCredentialForm';
 import { Contacts } from './Contacts';
+import { MyContact } from './MyContact';
 import { useTheme } from '../lib/theme-provider';
 import { useUser } from '../lib/user-provider';
 import { route } from '../config';
@@ -227,6 +228,7 @@ export function Dashboard() {
                 <Route path="/sign" element={<Sign />} />
                 <Route path="/graph" element={<NetworkGraph />} />
                 <Route path="/contacts" element={<Contacts />} />
+                <Route path="/contacts/:identifier" element={<MyContact />} />
                 <Route path="/profile" element={<Profile />} />
               </Routes>
             )}
