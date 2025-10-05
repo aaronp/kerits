@@ -15,7 +15,9 @@ import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
-import { Download, Upload } from 'lucide-react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
+import { Download, Upload, ChevronDown } from 'lucide-react';
+import { KeriID } from '../ui/keri-id';
 import { getTELRegistriesByIssuer, saveTELRegistry } from '@/lib/storage';
 import type { TELRegistry, StoredCredential } from '@/lib/storage';
 import { Toast, useToast } from '../ui/toast';
@@ -547,9 +549,32 @@ export function IdentityEventGraph({
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-lg">Node Details</CardTitle>
+              <CardTitle className="text-lg">
+                {selectedNode ? (() => {
+                  const event = selectedNode.data.event;
+                  const eventData = event?.sad || event?.ked || event;
+                  const eventType = eventData?.t || selectedNode.data.type;
+
+                  const eventTypeNames: Record<string, string> = {
+                    'icp': 'Inception',
+                    'rot': 'Rotation',
+                    'iss': 'Issuance',
+                    'rev': 'Revocation',
+                    'bis': 'Backerless Issuance',
+                    'brv': 'Backerless Revocation',
+                    'vcp': 'Registry Inception',
+                    'vrt': 'Registry Rotation',
+                    'ixn': 'Interaction',
+                  };
+
+                  if (selectedNode.type === 'said') return selectedNode.data.label || 'Identity';
+                  if (selectedNode.type === 'registry') return selectedNode.data.label || 'Registry';
+
+                  return eventTypeNames[eventType] || eventType || 'Event Details';
+                })() : 'Node Details'}
+              </CardTitle>
               <CardDescription>
-                {selectedNode ? 'Selected node information' : 'Click a node to view details'}
+                {selectedNode ? 'Click a different node to view its details' : 'Click a node to view details'}
               </CardDescription>
             </div>
             {selectedNode && (() => {
@@ -592,53 +617,170 @@ export function IdentityEventGraph({
         <CardContent>
           {selectedNode ? (
             <div className="space-y-4 pb-4">
-                  {/* Basic Info */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <div className="text-sm font-semibold">Label</div>
-                      <div className="text-sm text-muted-foreground">{selectedNode.data.label}</div>
-                    </div>
+              {/* Render event-specific details */}
+              {(() => {
+                const event = selectedNode.data.event;
+                const eventData = event?.sad || event?.ked || event;
+                const eventType = eventData?.t || selectedNode.data.type;
 
-                    {selectedNode.data.type && (
-                      <div className="space-y-2">
-                        <div className="text-sm font-semibold">Type</div>
-                        <div className="text-sm text-muted-foreground">{selectedNode.data.type}</div>
-                      </div>
-                    )}
-
-                    {selectedNode.data.sn !== undefined && (
-                      <div className="space-y-2">
-                        <div className="text-sm font-semibold">Sequence Number</div>
-                        <div className="text-sm text-muted-foreground">{selectedNode.data.sn}</div>
-                      </div>
-                    )}
-
-                    {selectedNode.data.prefix && (
-                      <div className="space-y-2 md:col-span-2">
-                        <div className="text-sm font-semibold">Prefix (AID)</div>
-                        <div className="text-xs font-mono bg-muted p-2 rounded break-all">
-                          {selectedNode.data.prefix}
+                return (
+                  <>
+                    {/* Event-specific fields */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-3">
+                      {/* SAID node (root identity) */}
+                      {selectedNode.type === 'said' && selectedNode.data.prefix && (
+                        <div className="flex gap-4 items-start">
+                          <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Identity (AID)</div>
+                          <div className="flex-1 min-w-0">
+                            <KeriID id={selectedNode.data.prefix} type="kel" />
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      )}
 
-                  {/* Event Data */}
-                  {selectedNode.data.event && (
-                    <div className="space-y-2 border-t pt-4">
-                      <div className="text-sm font-semibold">Raw Event Data</div>
-                      <pre className="text-xs bg-muted p-3 rounded overflow-x-auto max-h-64">
-                        {JSON.stringify(selectedNode.data.event, null, 2)}
-                      </pre>
+                      {/* Registry node */}
+                      {selectedNode.type === 'registry' && selectedNode.data.registryAID && (
+                        <div className="flex gap-4 items-start">
+                          <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Registry ID</div>
+                          <div className="flex-1 min-w-0">
+                            <KeriID id={selectedNode.data.registryAID} type="tel" />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* TEL Issuance events (iss, bis, brv) */}
+                      {['iss', 'bis', 'brv'].includes(eventType) && eventData && (
+                        <>
+                          {eventData.i && (
+                            <div className="flex gap-4 items-start">
+                              <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Credential ID</div>
+                              <div className="flex-1 min-w-0">
+                                <KeriID id={eventData.i} type="acdc" />
+                              </div>
+                            </div>
+                          )}
+                          {eventData.s !== undefined && (
+                            <div className="flex gap-4 items-start">
+                              <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Sequence Number</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm text-muted-foreground">{eventData.s}</div>
+                              </div>
+                            </div>
+                          )}
+                          {eventData.ri && (
+                            <div className="flex gap-4 items-start">
+                              <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Registry ID</div>
+                              <div className="flex-1 min-w-0">
+                                <KeriID id={eventData.ri} type="tel" />
+                              </div>
+                            </div>
+                          )}
+                          {eventData.dt && (
+                            <div className="flex gap-4 items-start">
+                              <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Timestamp</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm text-muted-foreground">
+                                  {new Date(eventData.dt).toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {/* KEL events (icp, rot) */}
+                      {['icp', 'rot'].includes(eventType) && eventData && (
+                        <>
+                          {eventData.i && (
+                            <div className="flex gap-4 items-start">
+                              <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Identifier (AID)</div>
+                              <div className="flex-1 min-w-0">
+                                <KeriID id={eventData.i} type="kel" />
+                              </div>
+                            </div>
+                          )}
+                          {eventData.s !== undefined && (
+                            <div className="flex gap-4 items-start">
+                              <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Sequence Number</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm text-muted-foreground">{eventData.s}</div>
+                              </div>
+                            </div>
+                          )}
+                          {eventData.kt && (
+                            <div className="flex gap-4 items-start">
+                              <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Signing Threshold</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm text-muted-foreground">{eventData.kt}</div>
+                              </div>
+                            </div>
+                          )}
+                          {eventData.nt && (
+                            <div className="flex gap-4 items-start">
+                              <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Next Threshold</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm text-muted-foreground">{eventData.nt}</div>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {/* Registry inception (vcp) */}
+                      {eventType === 'vcp' && eventData && (
+                        <>
+                          {eventData.i && (
+                            <div className="flex gap-4 items-start">
+                              <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Registry ID</div>
+                              <div className="flex-1 min-w-0">
+                                <KeriID id={eventData.i} type="tel" />
+                              </div>
+                            </div>
+                          )}
+                          {eventData.ii && (
+                            <div className="flex gap-4 items-start">
+                              <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Issuer (AID)</div>
+                              <div className="flex-1 min-w-0">
+                                <KeriID id={eventData.ii} type="kel" />
+                              </div>
+                            </div>
+                          )}
+                          {eventData.s !== undefined && (
+                            <div className="flex gap-4 items-start">
+                              <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Sequence Number</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm text-muted-foreground">{eventData.s}</div>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
-                  )}
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-32 text-muted-foreground">
-                No node selected
-              </div>
-            )}
-          </CardContent>
+
+                    {/* Collapsible Raw JSON */}
+                    {event && (
+                      <Accordion type="single" collapsible className="border-t pt-4">
+                        <AccordionItem value="raw-json" className="border-0">
+                          <AccordionTrigger className="text-sm font-semibold hover:no-underline py-2">
+                            Raw Event Data (JSON)
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <pre className="text-xs bg-muted p-3 rounded overflow-x-auto max-h-64 mt-2">
+                              {JSON.stringify(event, null, 2)}
+                            </pre>
+                          </AccordionContent>
+                        </AccordionItem>
+                      </Accordion>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-32 text-muted-foreground">
+              No node selected
+            </div>
+          )}
+        </CardContent>
         </Card>
 
       {/* Import TEL Registry Dialog */}

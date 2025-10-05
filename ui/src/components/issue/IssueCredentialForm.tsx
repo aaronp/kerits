@@ -298,7 +298,9 @@ export function IssueCredentialForm() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Credential Data</CardTitle>
-          <CardDescription>Fill in the credential fields</CardDescription>
+          {schema.description && (
+            <CardDescription>{schema.description}</CardDescription>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           {schema.fields?.map((field) => (
@@ -309,10 +311,17 @@ export function IssueCredentialForm() {
               </Label>
               <Input
                 id={field.name}
-                type={field.type === 'number' ? 'number' : 'text'}
+                type={
+                  field.type === 'number' ? 'number' :
+                  field.type === 'date' ? 'date' :
+                  field.type === 'email' ? 'email' :
+                  field.type === 'url' ? 'url' :
+                  'text'
+                }
                 value={formData[field.name] || ''}
                 onChange={(e) => handleFieldChange(field.name, e.target.value)}
                 placeholder={field.description || `Enter ${field.name}...`}
+                className={field.type === 'date' ? 'block' : ''}
               />
               {field.description && (
                 <p className="text-xs text-muted-foreground">{field.description}</p>
