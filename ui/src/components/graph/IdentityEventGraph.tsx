@@ -177,7 +177,8 @@ export function IdentityEventGraph({
       label: 'KEL',
     });
 
-    // Rotation events - handle array or empty kelEvents
+    // KEL events (rotations, interactions, etc.) - handle array or empty kelEvents
+    const kelEventNodeIds: string[] = []; // Track KEL event node IDs for linking to registries
     if (kelEvents && Array.isArray(kelEvents)) {
       kelEvents.forEach((event: any, index: number) => {
         const eventId = `kel-${index}`;
@@ -185,13 +186,22 @@ export function IdentityEventGraph({
 
         // Handle different event formats
         const eventType = event.ked?.t || event.t || 'rot';
+        const eventData = event.ked || event;
+
+        // Determine label based on event type
+        let label = `Event ${index + 1}`;
+        if (eventType === 'rot') {
+          label = `Rotation ${index + 1}`;
+        } else if (eventType === 'ixn') {
+          label = `Interaction ${index + 1}`;
+        }
 
         nodes.push({
           id: eventId,
           type: 'event',
           position: { x: kelXStart + 300 + (index * 300), y: kelY },
           data: {
-            label: `Rotation ${index + 1}`,
+            label,
             type: eventType,
             sn: index + 1,
             event,
@@ -205,6 +215,8 @@ export function IdentityEventGraph({
           animated: false,
           style: { stroke: '#6366f1', strokeWidth: 2 },
         });
+
+        kelEventNodeIds.push(eventId);
       });
     }
 
@@ -233,17 +245,40 @@ export function IdentityEventGraph({
           data: {
             label: registry.alias,
             registryAID: registry.registryAID,
+            registry,
           },
         });
 
-        // Edge from root SAID to registry
+        // Find the KEL interaction event that anchors this registry
+        // Look for an ixn event with a seal containing this registry's SAID
+        let anchorEventId: string | null = null;
+        if (kelEvents && Array.isArray(kelEvents)) {
+          kelEvents.forEach((event: any, index: number) => {
+            const eventData = event.ked || event;
+            const eventType = eventData.t;
+
+            if (eventType === 'ixn' && eventData.a && Array.isArray(eventData.a)) {
+              // Check if any seal in the anchored data matches this registry
+              const hasSeal = eventData.a.some((seal: any) =>
+                seal.i === registry.registryAID || seal.d === registry.inceptionEvent?.sad?.d
+              );
+
+              if (hasSeal) {
+                anchorEventId = `kel-${index}`;
+              }
+            }
+          });
+        }
+
+        // Create edge from anchoring event or root SAID to registry
+        const sourceNode = anchorEventId || 'root-said';
         edges.push({
-          id: `edge-root-${regNodeId}`,
-          source: 'root-said',
+          id: `edge-${sourceNode}-${regNodeId}`,
+          source: sourceNode,
           target: regNodeId,
           animated: false,
           style: { stroke: '#10b981', strokeWidth: 2 },
-          label: 'TEL',
+          label: anchorEventId ? 'Anchors' : 'TEL',
         });
 
         // Read TEL events directly from the registry's TEL log
