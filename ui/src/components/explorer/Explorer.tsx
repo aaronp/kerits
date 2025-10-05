@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, ChevronDown, Plus } from 'lucide-react';
+import { ChevronRight, ChevronDown, Plus, Download, Upload, Share2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
@@ -10,7 +10,7 @@ import { getTELRegistriesByIssuer, saveTELRegistry, getKEL, appendKELEvent } fro
 import type { TELRegistry } from '@/lib/storage';
 import { useStore } from '@/store/useStore';
 import { useTheme } from '@/lib/theme-provider';
-import { Topic } from './Topic';
+import { CredentialRegistry } from './CredentialRegistry';
 import { registryIncept } from '@/../../src/tel';
 import { interaction } from '@/../../src/interaction';
 import { diger } from '@/../../src/diger';
@@ -20,6 +20,7 @@ export function Explorer() {
   const { theme } = useTheme();
   const [registries, setRegistries] = useState<TELRegistry[]>([]);
   const [expandedRegistries, setExpandedRegistries] = useState<Set<string>>(new Set());
+  const [hoveredRegistry, setHoveredRegistry] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newRegistryName, setNewRegistryName] = useState('');
   const { toast, showToast, hideToast } = useToast();
@@ -143,6 +144,30 @@ export function Explorer() {
     }
   };
 
+  const handleRegistryExport = (e: React.MouseEvent, registryAID: string) => {
+    e.stopPropagation();
+    // TODO: Implement export functionality
+    console.log('Export registry:', registryAID);
+  };
+
+  const handleRegistryImport = (e: React.MouseEvent, registryAID: string) => {
+    e.stopPropagation();
+    // TODO: Implement import functionality
+    console.log('Import to registry:', registryAID);
+  };
+
+  const handleRegistryShare = (e: React.MouseEvent, registryAID: string) => {
+    e.stopPropagation();
+    // TODO: Implement share functionality
+    console.log('Share registry:', registryAID);
+  };
+
+  const handleRegistryAdd = (e: React.MouseEvent, registryAID: string) => {
+    e.stopPropagation();
+    // TODO: Implement add credential functionality
+    console.log('Add credential to registry:', registryAID);
+  };
+
   return (
     <div className="space-y-6 -m-6 p-6 min-h-full" style={{ backgroundColor: theme === 'dark' ? 'rgb(2 6 23)' : 'rgb(248 250 252)' }}>
       <Card style={{ backgroundColor: theme === 'dark' ? 'rgb(15 23 42)' : 'rgb(255 255 255)' }}>
@@ -161,7 +186,13 @@ export function Explorer() {
           ) : (
             <div className="space-y-2">
               {registries.map((registry) => (
-                <div key={registry.registryAID} className="border rounded-lg" style={{ backgroundColor: theme === 'dark' ? 'rgb(30 41 59)' : 'rgb(241 245 249)' }}>
+                <div
+                  key={registry.registryAID}
+                  className="border rounded-lg relative group"
+                  style={{ backgroundColor: theme === 'dark' ? 'rgb(30 41 59)' : 'rgb(241 245 249)' }}
+                  onMouseEnter={() => setHoveredRegistry(registry.registryAID)}
+                  onMouseLeave={() => setHoveredRegistry(null)}
+                >
                   <div
                     className="flex items-center gap-2 p-3 cursor-pointer transition-colors"
                     style={{ backgroundColor: theme === 'dark' ? 'rgb(30 41 59)' : 'rgb(241 245 249)' }}
@@ -189,11 +220,55 @@ export function Explorer() {
                         {registry.alias}
                       </div>
                     </div>
+
+                    {/* Button bar - fades in on hover */}
+                    <div
+                      className={`flex gap-1 transition-opacity duration-200 ${
+                        hoveredRegistry === registry.registryAID ? 'opacity-100' : 'opacity-0'
+                      }`}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={(e) => handleRegistryImport(e, registry.registryAID)}
+                        title="Import credentials"
+                      >
+                        <Upload className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={(e) => handleRegistryExport(e, registry.registryAID)}
+                        title="Export registry"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={(e) => handleRegistryShare(e, registry.registryAID)}
+                        title="Share registry"
+                      >
+                        <Share2 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={(e) => handleRegistryAdd(e, registry.registryAID)}
+                        title="Add credential"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
 
                   {expandedRegistries.has(registry.registryAID) && (
                     <div className="border-t p-4">
-                      <Topic registryAID={registry.registryAID} />
+                      <CredentialRegistry registryAID={registry.registryAID} />
                     </div>
                   )}
                 </div>

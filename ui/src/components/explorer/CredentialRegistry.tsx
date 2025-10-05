@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, ChevronDown } from 'lucide-react';
+import { ChevronRight, ChevronDown, Download, Upload, Share2, Plus } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useStore } from '@/store/useStore';
 import { getTELRegistriesByIssuer, getContacts } from '@/lib/storage';
-import type { Contact } from '@/lib/storage';
 import { ACDCRow } from './ACDCRow';
 
-interface TopicProps {
+interface CredentialRegistryProps {
   registryAID: string;
 }
 
@@ -16,10 +15,11 @@ interface ContactWithAlias {
   isMe: boolean;
 }
 
-export function Topic({ registryAID }: TopicProps) {
+export function CredentialRegistry({ registryAID }: CredentialRegistryProps) {
   const { identities } = useStore();
   const [contacts, setContacts] = useState<ContactWithAlias[]>([]);
   const [expandedContacts, setExpandedContacts] = useState<Set<string>>(new Set());
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     const loadContacts = async () => {
@@ -76,8 +76,80 @@ export function Topic({ registryAID }: TopicProps) {
     });
   };
 
+  const handleExport = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // TODO: Implement export functionality
+    console.log('Export registry:', registryAID);
+  };
+
+  const handleImport = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // TODO: Implement import functionality
+    console.log('Import to registry:', registryAID);
+  };
+
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // TODO: Implement share functionality
+    console.log('Share registry:', registryAID);
+  };
+
+  const handleAdd = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // TODO: Implement add credential functionality
+    console.log('Add credential to registry:', registryAID);
+  };
+
   return (
-    <div className="space-y-2">
+    <div
+      className="space-y-2 relative group"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Button bar - fades in on hover */}
+      <div
+        className={`absolute right-2 top-2 flex gap-1 transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'
+          }`}
+      >
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-7 p-0"
+          onClick={handleImport}
+          title="Import credentials"
+        >
+          <Upload className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-7 p-0"
+          onClick={handleExport}
+          title="Export registry"
+        >
+          <Download className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-7 p-0"
+          onClick={handleShare}
+          title="Share registry"
+        >
+          <Share2 className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-7 p-0"
+          onClick={handleAdd}
+          title="Add credential"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
+      {/* Contact list */}
       {contacts.map((contact) => (
         <div key={contact.prefix} className="ml-4">
           <div
