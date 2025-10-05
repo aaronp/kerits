@@ -2,18 +2,17 @@ import { useState, useEffect } from 'react';
 import { Copy } from 'lucide-react';
 import { Button } from './button';
 import { getAliasBySAID } from '@/lib/storage';
-import { useToast } from './toast';
 
 interface KeriIDProps {
   id: string;
   type?: 'kel' | 'tel' | 'schema' | 'acdc';
   showCopy?: boolean;
   className?: string;
+  onCopy?: (message: string) => void;
 }
 
-export function KeriID({ id, type, showCopy = true, className = '' }: KeriIDProps) {
+export function KeriID({ id, type, showCopy = true, className = '', onCopy }: KeriIDProps) {
   const [alias, setAlias] = useState<string | null>(null);
-  const { showToast } = useToast();
 
   useEffect(() => {
     const loadAlias = async () => {
@@ -34,7 +33,7 @@ export function KeriID({ id, type, showCopy = true, className = '' }: KeriIDProp
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(id);
-    showToast('ID copied to clipboard');
+    onCopy?.(`${alias || 'ID'} copied to clipboard`);
   };
 
   if (!id) return null;

@@ -645,7 +645,7 @@ export function IdentityEventGraph({
                         <div className="flex gap-4 items-start">
                           <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Identity (AID)</div>
                           <div className="flex-1 min-w-0">
-                            <KeriID id={selectedNode.data.prefix} type="kel" />
+                            <KeriID id={selectedNode.data.prefix} type="kel" onCopy={showToast} />
                           </div>
                         </div>
                       )}
@@ -655,7 +655,7 @@ export function IdentityEventGraph({
                         <div className="flex gap-4 items-start">
                           <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Registry ID</div>
                           <div className="flex-1 min-w-0">
-                            <KeriID id={selectedNode.data.registryAID} type="tel" />
+                            <KeriID id={selectedNode.data.registryAID} type="tel" onCopy={showToast} />
                           </div>
                         </div>
                       )}
@@ -667,7 +667,7 @@ export function IdentityEventGraph({
                             <div className="flex gap-4 items-start">
                               <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Credential ID</div>
                               <div className="flex-1 min-w-0">
-                                <KeriID id={eventData.i} type="acdc" />
+                                <KeriID id={eventData.i} type="acdc" onCopy={showToast} />
                               </div>
                             </div>
                           )}
@@ -683,7 +683,7 @@ export function IdentityEventGraph({
                             <div className="flex gap-4 items-start">
                               <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Registry ID</div>
                               <div className="flex-1 min-w-0">
-                                <KeriID id={eventData.ri} type="tel" />
+                                <KeriID id={eventData.ri} type="tel" onCopy={showToast} />
                               </div>
                             </div>
                           )}
@@ -707,7 +707,7 @@ export function IdentityEventGraph({
                             <div className="flex gap-4 items-start">
                               <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Identifier (AID)</div>
                               <div className="flex-1 min-w-0">
-                                <KeriID id={eventData.i} type="kel" />
+                                <KeriID id={eventData.i} type="kel" onCopy={showToast} />
                               </div>
                             </div>
                           )}
@@ -745,7 +745,7 @@ export function IdentityEventGraph({
                             <div className="flex gap-4 items-start">
                               <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Registry ID</div>
                               <div className="flex-1 min-w-0">
-                                <KeriID id={eventData.i} type="tel" />
+                                <KeriID id={eventData.i} type="tel" onCopy={showToast} />
                               </div>
                             </div>
                           )}
@@ -753,7 +753,7 @@ export function IdentityEventGraph({
                             <div className="flex gap-4 items-start">
                               <div className="text-sm font-semibold text-right whitespace-nowrap w-32 flex-shrink-0">Issuer (AID)</div>
                               <div className="flex-1 min-w-0">
-                                <KeriID id={eventData.ii} type="kel" />
+                                <KeriID id={eventData.ii} type="kel" onCopy={showToast} />
                               </div>
                             </div>
                           )}
