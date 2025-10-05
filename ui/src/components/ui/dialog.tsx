@@ -77,4 +77,16 @@ const DialogDescription = React.forwardRef<
 ));
 DialogDescription.displayName = "DialogDescription";
 
-export { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription };
+const DialogFooter = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn("flex justify-end gap-2", className)}
+    {...props}
+  />
+));
+DialogFooter.displayName = "DialogFooter";
+
+export { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter };

@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, ChevronDown, Plus, Download, Upload, Share2 } from 'lucide-react';
+import { ChevronRight, ChevronDown, PlusCircle, Download, Upload, Share2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Toast, useToast } from '../ui/toast';
-import { getTELRegistriesByIssuer, saveTELRegistry, getKEL, appendKELEvent } from '@/lib/storage';
-import type { TELRegistry } from '@/lib/storage';
+import { getTELRegistriesByIssuer, saveTELRegistry, getKEL, appendKELEvent, getTEL, saveTEL, saveAlias } from '@/lib/storage';
+import type { TELRegistry, TEL } from '@/lib/storage';
 import { useStore } from '@/store/useStore';
 import { useTheme } from '@/lib/theme-provider';
 import { CredentialRegistry } from './CredentialRegistry';
-import { registryIncept } from '@/../../src/tel';
+import { registryIncept, issue } from '@/../../src/tel';
 import { interaction } from '@/../../src/interaction';
 import { diger } from '@/../../src/diger';
 
@@ -23,6 +23,9 @@ export function Explorer() {
   const [hoveredRegistry, setHoveredRegistry] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newRegistryName, setNewRegistryName] = useState('');
+  const [showAddACDCDialog, setShowAddACDCDialog] = useState(false);
+  const [acdcAlias, setAcdcAlias] = useState('');
+  const [selectedRegistryForACDC, setSelectedRegistryForACDC] = useState<string | null>(null);
   const { toast, showToast, hideToast } = useToast();
 
   useEffect(() => {
@@ -164,8 +167,64 @@ export function Explorer() {
 
   const handleRegistryAdd = (e: React.MouseEvent, registryAID: string) => {
     e.stopPropagation();
-    // TODO: Implement add credential functionality
-    console.log('Add credential to registry:', registryAID);
+    setSelectedRegistryForACDC(registryAID);
+    setShowAddACDCDialog(true);
+  };
+
+  const handleCreateACDC = async () => {
+    if (!acdcAlias.trim() || !selectedRegistryForACDC) return;
+
+    try {
+      // Generate credential SAID (placeholder for now - should be from actual ACDC creation)
+      const credentialSAID = 'E' + Array.from(crypto.getRandomValues(new Uint8Array(43)))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('')
+        .substring(0, 43);
+
+      // Create issuance event in the TEL
+      const issuanceEvent = issue({
+        vcdig: credentialSAID,
+        regk: selectedRegistryForACDC,
+      });
+
+      // Load the TEL registry
+      const tel = await getTEL(selectedRegistryForACDC);
+      if (!tel) {
+        console.error('TEL registry not found:', selectedRegistryForACDC);
+        return;
+      }
+
+      // Append the issuance event to the TEL
+      const updatedTEL: TEL = {
+        ...tel,
+        events: [...tel.events, issuanceEvent],
+      };
+
+      // Save the updated TEL
+      await saveTEL(updatedTEL);
+
+      // Save alias mapping for the ACDC
+      await saveAlias({
+        id: crypto.randomUUID(),
+        alias: acdcAlias.trim(),
+        said: credentialSAID,
+        type: 'acdc',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      console.log('ACDC created and anchored in registry:', selectedRegistryForACDC, 'Credential:', credentialSAID);
+
+      // Close dialog and reset
+      setShowAddACDCDialog(false);
+      setAcdcAlias('');
+      setSelectedRegistryForACDC(null);
+
+      showToast('ACDC created successfully', 'success');
+    } catch (error) {
+      console.error('Failed to add ACDC:', error);
+      showToast('Failed to create ACDC', 'error');
+    }
   };
 
   return (
@@ -174,7 +233,7 @@ export function Explorer() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Credential Registries</CardTitle>
           <Button onClick={handleAddRegistry} size="sm">
-            <Plus className="h-4 w-4 mr-2" />
+            <PlusCircle className="h-4 w-4 mr-2" />
             Add
           </Button>
         </CardHeader>
@@ -259,9 +318,9 @@ export function Explorer() {
                         size="sm"
                         className="h-7 w-7 p-0"
                         onClick={(e) => handleRegistryAdd(e, registry.registryAID)}
-                        title="Add credential"
+                        title="Add ACDC"
                       >
-                        <Plus className="h-3.5 w-3.5" />
+                        <PlusCircle className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </div>
@@ -311,6 +370,42 @@ export function Explorer() {
               Create
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add ACDC Dialog */}
+      <Dialog open={showAddACDCDialog} onOpenChange={setShowAddACDCDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New ACDC</DialogTitle>
+            <DialogDescription>
+              Enter an alias for the new credential. It will be incepted in the TEL and anchored to this registry.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="acdc-alias">Credential Alias</Label>
+              <Input
+                id="acdc-alias"
+                value={acdcAlias}
+                onChange={(e) => setAcdcAlias(e.target.value)}
+                placeholder="e.g., Employee Badge, Membership Card"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && acdcAlias.trim()) {
+                    handleCreateACDC();
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddACDCDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateACDC} disabled={!acdcAlias.trim()}>
+              Create ACDC
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
