@@ -16,8 +16,9 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
-import { Download, Upload, ChevronDown } from 'lucide-react';
+import { Download, Upload } from 'lucide-react';
 import { KeriID } from '../ui/keri-id';
+import { VisualId } from '../ui/visual-id';
 import { getTELRegistriesByIssuer, saveTELRegistry } from '@/lib/storage';
 import type { TELRegistry, StoredCredential } from '@/lib/storage';
 import { Toast, useToast } from '../ui/toast';
@@ -627,6 +628,18 @@ export function IdentityEventGraph({
                   <>
                     {/* Event-specific fields */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-3">
+                      {/* Event ID (d field) - Show for all events that have it */}
+                      {eventData?.d && selectedNode.type !== 'said' && selectedNode.type !== 'registry' && (
+                        <div className="col-span-full">
+                          <VisualId
+                            label="Event ID"
+                            value={eventData.d}
+                            size={40}
+                            onCopy={(label) => showToast(`${label} copied to clipboard`)}
+                          />
+                        </div>
+                      )}
+
                       {/* SAID node (root identity) */}
                       {selectedNode.type === 'said' && selectedNode.data.prefix && (
                         <div className="flex gap-4 items-start">
