@@ -250,6 +250,7 @@ async function main() {
   }
   const totalDuration = performance.now() - startTime;
 
+  // Print final results
   printResults(results, totalDuration);
 }
 
