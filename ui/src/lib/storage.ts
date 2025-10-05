@@ -273,6 +273,18 @@ export async function deleteKEL(aid: string, userId?: string): Promise<void> {
   await db.delete('kels', aid);
 }
 
+export async function appendKELEvent(aid: string, event: any, userId?: string): Promise<void> {
+  const db = await getDB(userId);
+  const kel = await db.get('kels', aid);
+
+  if (!kel) {
+    throw new Error(`KEL not found for AID: ${aid}`);
+  }
+
+  kel.events.push(event);
+  await db.put('kels', kel);
+}
+
 // ============================================================================
 // TEL Management
 // ============================================================================

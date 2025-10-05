@@ -6,12 +6,14 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Toast, useToast } from '../ui/toast';
-import { getTELRegistriesByIssuer, saveTELRegistry } from '@/lib/storage';
+import { getTELRegistriesByIssuer, saveTELRegistry, getKEL, appendKELEvent } from '@/lib/storage';
 import type { TELRegistry } from '@/lib/storage';
 import { useStore } from '@/store/useStore';
 import { useTheme } from '@/lib/theme-provider';
 import { Topic } from './Topic';
 import { registryIncept } from '@/../../src/tel';
+import { interaction } from '@/../../src/interaction';
+import { diger } from '@/../../src/diger';
 
 export function Explorer() {
   const { identities } = useStore();
@@ -55,6 +57,15 @@ export function Explorer() {
   };
 
   const handleCreateRegistry = async () => {
+    /**
+     * Registry creation process (following KERI spec):
+     * 1. Create TEL registry inception event (vcp) with issuer AID
+     * 2. Create KEL interaction event (ixn) that anchors the vcp
+     *    - The ixn includes a seal with the registry AID and vcp SAID
+     *    - This proves the issuer claims ownership of the registry
+     * 3. Append the ixn to the issuer's KEL
+     * 4. Save the TEL registry
+     */
     if (!newRegistryName.trim()) {
       showToast('Please enter a name for the registry');
       return;
@@ -69,11 +80,41 @@ export function Explorer() {
       // Use the first identity as the issuer
       const issuerIdentity = identities[0];
 
-      // Create registry inception event
+      // Get the issuer's KEL to determine sequence number and prior event
+      const kel = await getKEL(issuerIdentity.prefix);
+      if (!kel) {
+        showToast('Issuer KEL not found. Please create an identity first.');
+        return;
+      }
+
+      // Calculate next sequence number
+      const sn = kel.events.length + 1; // +1 because inception is at sn=0
+
+      // Get prior event digest (last event in KEL)
+      const priorEvent = kel.events.length > 0
+        ? kel.events[kel.events.length - 1]
+        : kel.inceptionEvent;
+      const priorDigest = diger(JSON.stringify(priorEvent.ked || priorEvent));
+
+      // Create registry inception event (vcp)
       const inception = registryIncept({
         issuer: issuerIdentity.prefix,
         nonce: '',
       });
+
+      // Create KEL interaction event (ixn) that anchors the TEL inception
+      const anchorEvent = interaction({
+        pre: issuerIdentity.prefix,
+        sn: sn,
+        dig: priorDigest,
+        seals: [{
+          i: inception.sad.i,  // Registry AID
+          d: inception.sad.d,  // Registry inception SAID (vcp.d)
+        }],
+      });
+
+      // Append the anchoring event to the KEL
+      await appendKELEvent(issuerIdentity.prefix, anchorEvent);
 
       // Create TEL registry object
       const newRegistry: TELRegistry = {
@@ -95,10 +136,10 @@ export function Explorer() {
 
       setShowAddDialog(false);
       setNewRegistryName('');
-      showToast('Registry created');
+      showToast('Registry created and anchored in KEL');
     } catch (error) {
       console.error('Failed to create registry:', error);
-      showToast('Failed to create registry');
+      showToast(`Failed to create registry: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
