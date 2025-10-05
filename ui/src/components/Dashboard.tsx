@@ -4,7 +4,7 @@ import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Toast, useToast } from './ui/toast';
 import { useStore } from '../store/useStore';
-import { Network, FileText, Award, Moon, Sun, LogOut, UserCircle, User, Pencil, Users, Share2, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Network, FileText, Award, Moon, Sun, LogOut, UserCircle, User, Pencil, Users, Share2, ChevronRight, ChevronLeft, Home } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +25,7 @@ import { IssueSchemaList } from './issue/IssueSchemaList';
 import { IssueCredentialForm } from './issue/IssueCredentialForm';
 import { Contacts } from './Contacts';
 import { MyContact } from './MyContact';
+import { Explorer } from './explorer/Explorer';
 import { useTheme } from '../lib/theme-provider';
 import { useUser } from '../lib/user-provider';
 import { route } from '../config';
@@ -83,6 +84,7 @@ export function Dashboard() {
 
   const getActiveTab = () => {
     const path = location.pathname;
+    if (path === '/dashboard' || path === '/dashboard/') return 'home';
     if (path.includes('/dashboard/schemas')) return 'schemas';
     if (path.includes('/dashboard/issue')) return 'issue';
     if (path.includes('/dashboard/credentials')) return 'credentials';
@@ -91,7 +93,7 @@ export function Dashboard() {
     if (path.includes('/dashboard/graph')) return 'graph';
     if (path.includes('/dashboard/contacts')) return 'contacts';
     if (path.includes('/dashboard/profile')) return 'profile';
-    return 'schemas';
+    return 'home';
   };
 
   const activeTab = getActiveTab();
@@ -194,6 +196,16 @@ export function Dashboard() {
           </div>
 
           <div className="flex-1 flex flex-col py-4 space-y-2 overflow-hidden">
+            <Button
+              variant={activeTab === 'home' ? 'default' : 'ghost'}
+              size={sidebarExpanded ? 'default' : 'icon'}
+              className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'home' ? 'bg-primary text-primary-foreground' : ''}`}
+              onClick={() => navigate(route('/dashboard'))}
+              title="Home"
+            >
+              <Home className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
+              {sidebarExpanded && <span>Home</span>}
+            </Button>
             {schemas.length > 0 && (
               <Button
                 variant={activeTab === 'issue' ? 'default' : 'ghost'}
@@ -294,7 +306,7 @@ export function Dashboard() {
                 </Card>
               ) : (
                 <Routes>
-                  <Route path="/" element={<Schemas />} />
+                  <Route path="/" element={<Explorer />} />
                   <Route path="/schemas" element={<Schemas />} />
                   <Route path="/schemas/new" element={<SchemaCreator />} />
                   <Route path="/issue" element={<IssueSchemaList />} />
