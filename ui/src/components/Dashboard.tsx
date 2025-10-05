@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Toast, useToast } from './ui/toast';
 import { useStore } from '../store/useStore';
-import { Network, FileText, Award, Moon, Sun, LogOut, UserCircle, User, ShieldCheck, Pencil, Users, Share2 } from 'lucide-react';
+import { Network, FileText, Award, Moon, Sun, LogOut, UserCircle, User, Pencil, Users, Share2, ChevronRight, ChevronLeft } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +37,7 @@ export function Dashboard() {
   const { currentUser, logout } = useUser();
   const { toast, showToast, hideToast } = useToast();
   const [bannerColor, setBannerColor] = useState<string>('#3b82f6');
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
   useEffect(() => {
     init();
@@ -171,96 +172,115 @@ export function Dashboard() {
         </div>
       </header>
 
-      {/* Main Content Area - Scrollable */}
-      <div className="flex-1 overflow-hidden">
-        <div className="container mx-auto px-4 py-6 h-full">
-          <div className="grid grid-cols-12 gap-6 h-full">
-            {/* Sidebar Navigation - Fixed */}
-            <aside className="col-span-3 overflow-y-auto">
-              <Card className="flex flex-col h-full sticky top-0">
-              <CardHeader>
-                <CardTitle className="text-lg">Navigation</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 flex-1 flex flex-col">
-                <div className="flex-1 space-y-2">
-                  {schemas.length > 0 && (
-                    <Button
-                      variant={activeTab === 'issue' ? 'default' : 'ghost'}
-                      className={`w-full justify-start ${activeTab === 'issue' ? 'shadow-lg shadow-primary/40' : 'hover:bg-accent/50 hover:border-l-4 hover:border-primary hover:pl-3'}`}
-                      onClick={() => navigate(route('/dashboard/issue'))}
-                    >
-                      <Award className="mr-2 h-4 w-4" />
-                      Issue
-                    </Button>
-                  )}
-                  <Button
-                    variant={activeTab === 'schemas' ? 'default' : 'ghost'}
-                    className={`w-full justify-start ${activeTab === 'schemas' ? 'shadow-lg shadow-primary/40' : 'hover:bg-accent/50 hover:border-l-4 hover:border-primary hover:pl-3'}`}
-                    onClick={() => navigate(route('/dashboard/schemas'))}
-                  >
-                    <FileText className="mr-2 h-4 w-4" />
-                    Schemas
-                  </Button>
-                  <Button
-                    variant={activeTab === 'credentials' ? 'default' : 'ghost'}
-                    className={`w-full justify-start ${activeTab === 'credentials' ? 'shadow-lg shadow-primary/40' : 'hover:bg-accent/50 hover:border-l-4 hover:border-primary hover:pl-3'}`}
-                    onClick={() => navigate(route('/dashboard/credentials'))}
-                  >
-                    <Award className="mr-2 h-4 w-4" />
-                    Credentials
-                  </Button>
-                  <Button
-                    variant={activeTab === 'sign' ? 'default' : 'ghost'}
-                    className={`w-full justify-start ${activeTab === 'sign' ? 'shadow-lg shadow-primary/40' : 'hover:bg-accent/50 hover:border-l-4 hover:border-primary hover:pl-3'}`}
-                    onClick={() => navigate(route('/dashboard/sign'))}
-                  >
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Sign
-                  </Button>
-                  <Button
-                    variant={activeTab === 'graph' ? 'default' : 'ghost'}
-                    className={`w-full justify-start ${activeTab === 'graph' ? 'shadow-lg shadow-primary/40' : 'hover:bg-accent/50 hover:border-l-4 hover:border-primary hover:pl-3'}`}
-                    onClick={() => navigate(route('/dashboard/graph'))}
-                  >
-                    <Network className="mr-2 h-4 w-4" />
-                    Events
-                  </Button>
-                  <Button
-                    variant={activeTab === 'contacts' ? 'default' : 'ghost'}
-                    className={`w-full justify-start ${activeTab === 'contacts' ? 'shadow-lg shadow-primary/40' : 'hover:bg-accent/50 hover:border-l-4 hover:border-primary hover:pl-3'}`}
-                    onClick={() => navigate(route('/dashboard/contacts'))}
-                  >
-                    <Users className="mr-2 h-4 w-4" />
-                    Contacts
-                  </Button>
-                </div>
+      {/* Main Content Area with Sidebar */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Expandable/collapsible sidebar */}
+        <aside className={`flex flex-col border-r bg-card transition-all duration-300 ease-in-out ${sidebarExpanded ? 'w-64' : 'w-16'}`}>
+          {/* Toggle button at top */}
+          <div className="flex items-center justify-end p-2 border-b">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarExpanded(!sidebarExpanded)}
+              title={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+            >
+              {sidebarExpanded ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+            </Button>
+          </div>
 
-                {/* Theme Toggle at Bottom */}
-                <div className="border-t pt-2">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                  >
-                    {theme === 'dark' ? (
-                      <>
-                        <Sun className="mr-2 h-4 w-4" />
-                        Light Mode
-                      </>
-                    ) : (
-                      <>
-                        <Moon className="mr-2 h-4 w-4" />
-                        Dark Mode
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </aside>
+          <div className="flex-1 flex flex-col py-4 space-y-2 overflow-hidden">
+            {schemas.length > 0 && (
+              <Button
+                variant={activeTab === 'issue' ? 'default' : 'ghost'}
+                size={sidebarExpanded ? 'default' : 'icon'}
+                className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'issue' ? 'bg-primary text-primary-foreground' : ''}`}
+                onClick={() => navigate(route('/dashboard/issue'))}
+                title="Issue"
+              >
+                <Award className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
+                {sidebarExpanded && <span>Issue</span>}
+              </Button>
+            )}
+            <Button
+              variant={activeTab === 'schemas' ? 'default' : 'ghost'}
+              size={sidebarExpanded ? 'default' : 'icon'}
+              className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'schemas' ? 'bg-primary text-primary-foreground' : ''}`}
+              onClick={() => navigate(route('/dashboard/schemas'))}
+              title="Schemas"
+            >
+              <FileText className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
+              {sidebarExpanded && <span>Schemas</span>}
+            </Button>
+            <Button
+              variant={activeTab === 'credentials' ? 'default' : 'ghost'}
+              size={sidebarExpanded ? 'default' : 'icon'}
+              className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'credentials' ? 'bg-primary text-primary-foreground' : ''}`}
+              onClick={() => navigate(route('/dashboard/credentials'))}
+              title="Credentials"
+            >
+              <Award className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
+              {sidebarExpanded && <span>Credentials</span>}
+            </Button>
+            <Button
+              variant={activeTab === 'sign' ? 'default' : 'ghost'}
+              size={sidebarExpanded ? 'default' : 'icon'}
+              className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'sign' ? 'bg-primary text-primary-foreground' : ''}`}
+              onClick={() => navigate(route('/dashboard/sign'))}
+              title="Sign"
+            >
+              <Pencil className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
+              {sidebarExpanded && <span>Sign</span>}
+            </Button>
+            <Button
+              variant={activeTab === 'graph' ? 'default' : 'ghost'}
+              size={sidebarExpanded ? 'default' : 'icon'}
+              className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'graph' ? 'bg-primary text-primary-foreground' : ''}`}
+              onClick={() => navigate(route('/dashboard/graph'))}
+              title="Events"
+            >
+              <Network className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
+              {sidebarExpanded && <span>Events</span>}
+            </Button>
+            <Button
+              variant={activeTab === 'contacts' ? 'default' : 'ghost'}
+              size={sidebarExpanded ? 'default' : 'icon'}
+              className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'contacts' ? 'bg-primary text-primary-foreground' : ''}`}
+              onClick={() => navigate(route('/dashboard/contacts'))}
+              title="Contacts"
+            >
+              <Users className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
+              {sidebarExpanded && <span>Contacts</span>}
+            </Button>
+          </div>
 
-            {/* Main Content - Scrollable */}
-            <main className="col-span-9 overflow-y-auto">
+          {/* Theme toggle at bottom */}
+          <div className="border-t p-2">
+            <Button
+              variant="ghost"
+              size={sidebarExpanded ? 'default' : 'icon'}
+              className={`${sidebarExpanded ? 'w-full justify-start' : 'mx-auto'}`}
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            >
+              {theme === 'dark' ? (
+                <>
+                  <Sun className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
+                  {sidebarExpanded && <span>Light Mode</span>}
+                </>
+              ) : (
+                <>
+                  <Moon className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
+                  {sidebarExpanded && <span>Dark Mode</span>}
+                </>
+              )}
+            </Button>
+          </div>
+        </aside>
+
+        {/* Main content */}
+        <div className="flex-1 overflow-hidden">
+          <div className="container mx-auto px-4 py-6 h-full">
+            <main className="h-full overflow-y-auto">
               {loading ? (
                 <Card>
                   <CardContent className="text-center py-12 text-muted-foreground">
