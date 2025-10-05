@@ -144,9 +144,8 @@ export function Explorer() {
                       )}
                     </Button>
                     <div className="flex-1">
-                      <div className="font-medium">{registry.alias}</div>
-                      <div className="text-xs text-muted-foreground font-mono truncate">
-                        {registry.registryAID}
+                      <div className="font-medium" title={registry.registryAID}>
+                        {registry.alias}
                       </div>
                     </div>
                   </div>
