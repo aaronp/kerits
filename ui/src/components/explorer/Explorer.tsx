@@ -151,7 +151,7 @@ export function Explorer() {
                   </div>
 
                   {expandedRegistries.has(registry.registryAID) && (
-                    <div className="border-t p-4 bg-muted/30">
+                    <div className="border-t p-4">
                       <Topic registryAID={registry.registryAID} />
                     </div>
                   )}
