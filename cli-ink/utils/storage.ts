@@ -25,9 +25,9 @@ export function getAccountDataDir(alias: string): string {
  */
 export async function loadAccountDSL(alias: string) {
   const dataDir = getAccountDataDir(alias);
-  const parser = new DefaultJsonCesrParser();
   const hasher = new CesrHasher();
-  const store = createKerStore(new DiskKv(dataDir), parser, hasher);
+  const parser = new DefaultJsonCesrParser(hasher);
+  const store = createKerStore(new DiskKv({ baseDir: dataDir }), { parser, hasher });
   const dsl = createKeritsDSL(store);
 
   return { store, dsl, dataDir };

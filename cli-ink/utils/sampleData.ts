@@ -6,9 +6,9 @@ import { MemoryKv, createKerStore, DefaultJsonCesrParser, CesrHasher } from '../
 import { createKeritsDSL } from '../../src/app/dsl';
 
 export async function generateSampleData() {
-  const parser = new DefaultJsonCesrParser();
   const hasher = new CesrHasher();
-  const store = createKerStore(new MemoryKv(), parser, hasher);
+  const parser = new DefaultJsonCesrParser(hasher);
+  const store = createKerStore(new MemoryKv(), { parser, hasher });
   const dsl = createKeritsDSL(store);
 
   // Create accounts
