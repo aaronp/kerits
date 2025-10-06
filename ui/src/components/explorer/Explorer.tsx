@@ -928,6 +928,21 @@ export function Explorer() {
               </p>
             </div>
 
+            {/* Credential Alias (Optional) */}
+            <div className="space-y-2">
+              <Label htmlFor="credentialAlias">Credential Alias (Optional)</Label>
+              <Input
+                id="credentialAlias"
+                type="text"
+                placeholder="my-credential"
+                value={credentialAlias}
+                onChange={(e) => setCredentialAlias(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Optional friendly name to reference this credential
+              </p>
+            </div>
+
             {/* Schema-based Form Fields */}
             {selectedSchema && selectedSchema.schema?.schema?.properties && (
               <div className="space-y-4 border-t pt-4">
