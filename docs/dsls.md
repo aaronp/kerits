@@ -550,9 +550,259 @@ interface ExportDSL {
 }
 ```
 
+## Use Case 7: Contact Sync Tracking
+
+**Scenario**: Track what events each contact has seen to enable incremental sync.
+
+### Initialize Sync State
+
+```typescript
+const dsl = createKeritsDSL(store);
+const syncDsl = dsl.sync();
+
+// Add a contact
+await dsl.contacts().add('alice', 'DAliceAID...', {
+  name: 'Alice',
+  role: 'patient',
+});
+
+// Get initial sync state (empty)
+const state = await syncDsl.getState('alice');
+console.log('KEL sync:', state?.kelSync); // {}
+console.log('TEL sync:', state?.telSync); // {}
+```
+
+### Track KEL Sync
+
+```typescript
+const issuer = await dsl.getAccount('issuer');
+const issuerAid = issuer!.aid;
+
+// Check what's new for alice
+const report = await syncDsl.getNewKelEvents('alice', issuerAid);
+console.log(`Alice needs ${report.newEvents} KEL events`);
+
+// Export new events only
+const incrementalExport = await exportKelIncremental(store, issuerAid);
+await incrementalExport.toFile('./exports/alice-kel-update.json');
+
+// After alice imports, mark as synced
+await syncDsl.markKelSynced(
+  'alice',
+  issuerAid,
+  report.lastSaid!,
+  report.lastSeq!
+);
+```
+
+### Track TEL Sync
+
+```typescript
+const registryDsl = await accountDsl.registry('health-records');
+const registryId = registryDsl!.registry.registryId;
+
+// Check what's new for alice
+const telReport = await syncDsl.getNewTelEvents('alice', registryId);
+console.log(`Alice needs ${telReport.newEvents} TEL events`);
+
+// Export incrementally
+const state = await syncDsl.getState('alice');
+const lastSynced = state?.telSync[registryId]?.lastSaid;
+
+const incrementalExport = await exportTelIncremental(store, registryId, issuerAid, {
+  afterSaid: lastSynced,
+});
+
+// Mark as synced
+await syncDsl.markTelSynced(
+  'alice',
+  registryId,
+  telReport.lastSaid!,
+  telReport.lastSeq!
+);
+```
+
+### Incremental Sync Workflow
+
+```typescript
+// 1. Check what contact needs
+const syncDsl = dsl.sync();
+const report = await syncDsl.getNewKelEvents('alice', issuerAid);
+
+if (report.newEvents === 0) {
+  console.log('Alice is fully synced');
+} else {
+  // 2. Export only new events
+  const state = await syncDsl.getState('alice');
+  const lastSaid = state?.kelSync[issuerAid]?.lastSaid;
+
+  const export = await exportKelIncremental(store, issuerAid, {
+    afterSaid: lastSaid,
+    limit: 10, // Batch size
+  });
+
+  // 3. Send to alice (via network, file, etc.)
+  await export.toFile(`./sync/alice-${Date.now()}.json`);
+
+  // 4. After confirmation, update sync state
+  await syncDsl.markKelSynced('alice', issuerAid, report.lastSaid!, report.lastSeq!);
+
+  console.log(`✓ Synced ${report.exported} events, ${report.hasMore ? 'more available' : 'complete'}`);
+}
+```
+
+### Batch Sync with Limits
+
+```typescript
+// Sync in batches to avoid large transfers
+let hasMore = true;
+let batchNum = 0;
+
+while (hasMore) {
+  const report = await syncDsl.getNewKelEvents('alice', issuerAid, {
+    limit: 5, // 5 events per batch
+  });
+
+  if (report.exported === 0) break;
+
+  // Export batch
+  const state = await syncDsl.getState('alice');
+  const export = await exportKelIncremental(store, issuerAid, {
+    afterSaid: state?.kelSync[issuerAid]?.lastSaid,
+    limit: 5,
+  });
+
+  await export.toFile(`./sync/alice-batch-${batchNum++}.json`);
+
+  // Update sync pointer
+  await syncDsl.markKelSynced('alice', issuerAid, report.lastSaid!, report.lastSeq!);
+
+  hasMore = report.hasMore;
+}
+
+console.log(`✓ Synced in ${batchNum} batches`);
+```
+
+### Multi-Contact Sync
+
+```typescript
+// Sync multiple contacts with different states
+const contacts = await dsl.contacts().list();
+const syncDsl = dsl.sync();
+
+for (const contactAlias of contacts) {
+  const report = await syncDsl.getNewKelEvents(contactAlias, issuerAid);
+
+  if (report.newEvents > 0) {
+    console.log(`${contactAlias}: ${report.newEvents} new events`);
+
+    // Export for this contact
+    const state = await syncDsl.getState(contactAlias);
+    const export = await exportKelIncremental(store, issuerAid, {
+      afterSaid: state?.kelSync[issuerAid]?.lastSaid,
+    });
+
+    await export.toFile(`./sync/${contactAlias}-update.json`);
+  } else {
+    console.log(`${contactAlias}: fully synced`);
+  }
+}
+```
+
+### Reset Sync State
+
+```typescript
+// Reset if sync gets out of sync
+await syncDsl.resetState('alice');
+
+// Now alice will get all events on next sync
+const report = await syncDsl.getNewKelEvents('alice', issuerAid);
+console.log(`Full sync needed: ${report.newEvents} events`);
+```
+
+### Complete Bidirectional Sync
+
+```typescript
+// Issuer syncs with patient
+const issuerDsl = createKeritsDSL(issuerStore);
+const patientDsl = createKeritsDSL(patientStore);
+
+// 1. Check what patient needs from issuer
+const issuerSync = issuerDsl.sync();
+const toPatient = await issuerSync.getNewKelEvents('patient', issuerAid);
+
+if (toPatient.newEvents > 0) {
+  // 2. Export to patient
+  const export = await exportKelIncremental(issuerStore, issuerAid, {
+    afterSaid: (await issuerSync.getState('patient'))?.kelSync[issuerAid]?.lastSaid,
+  });
+
+  // 3. Patient imports
+  const imported = await patientDsl.import().fromBundle(export.asBundle());
+  console.log(`Patient imported ${imported.imported} events`);
+
+  // 4. Mark as synced on issuer side
+  await issuerSync.markKelSynced('patient', issuerAid, toPatient.lastSaid!, toPatient.lastSeq!);
+}
+
+// Reverse: patient syncs to issuer (if needed)
+const patientSync = patientDsl.sync();
+const patientAid = (await patientDsl.getAccount('patient'))!.aid;
+const toIssuer = await patientSync.getNewKelEvents('issuer', patientAid);
+// ... similar process
+```
+
+## Contact Sync API
+
+```typescript
+ContactSyncDSL
+├── getState(contactAlias) → ContactSyncState | null
+├── markKelSynced(contactAlias, aid, lastSaid, lastSeq)
+├── markTelSynced(contactAlias, registryId, lastSaid, lastSeq)
+├── getNewKelEvents(contactAlias, aid, opts?) → SyncReport
+├── getNewTelEvents(contactAlias, registryId, opts?) → SyncReport
+├── resetState(contactAlias)
+└── listSynced() → string[]
+
+// Incremental Export Functions
+exportKelIncremental(store, aid, opts?) → ExportDSL
+exportTelIncremental(store, registryId, issuerAid?, opts?) → ExportDSL
+```
+
+## Sync Types
+
+```typescript
+interface ContactSyncState {
+  contactAlias: string;
+  contactAid: string;
+  kelSync: Record<string, SyncPointer>;  // AID -> pointer
+  telSync: Record<string, SyncPointer>;  // Registry ID -> pointer
+  lastSync: string;
+}
+
+interface SyncPointer {
+  lastSaid: string;   // Last event SAID
+  lastSeq: string;    // Last sequence number or timestamp
+  syncedAt: string;   // When synced
+}
+
+interface SyncReport {
+  newEvents: number;   // Total new events available
+  exported: number;    // Events in this export
+  hasMore: boolean;    // More events to sync
+  lastSaid?: string;   // Last SAID in export
+  lastSeq?: string;    // Last sequence in export
+}
+
+interface IncrementalExportOptions {
+  afterSaid?: string;  // Export events after this SAID
+  afterSeq?: string;   // Export events after this sequence
+  limit?: number;      // Max events to export
+}
+```
+
 ## Next Steps
 
 - Witness coordination and receipts
 - Delegation and multi-sig support
 - Receipt verification and validation
-- Contact sync tracking (SAID/SeqNo pointers)

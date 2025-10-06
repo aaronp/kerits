@@ -4,6 +4,7 @@
 
 import type { KerStore } from '../../storage/types';
 import type { CESRBundle, ExportDSL, ExportOptions } from '../types/sync';
+import type { IncrementalExportOptions } from '../types/contact-sync';
 
 // Helper to ensure Uint8Array from various storage formats
 function ensureUint8Array(raw: any): Uint8Array {
@@ -149,6 +150,79 @@ export async function exportMixed(
     version: '1.0',
     events,
     metadata,
+  };
+
+  return new ExportDSLImpl(bundle);
+}
+
+/**
+ * Create incremental KEL export (only new events after a pointer)
+ */
+export async function exportKelIncremental(
+  store: KerStore,
+  aid: string,
+  options: IncrementalExportOptions = {}
+): Promise<ExportDSL> {
+  const allEvents = await store.listKel(aid);
+
+  // Find starting point
+  let startIndex = 0;
+  if (options.afterSaid) {
+    startIndex = allEvents.findIndex(e => e.meta.d === options.afterSaid) + 1;
+  } else if (options.afterSeq) {
+    startIndex = allEvents.findIndex(e => e.meta.s === options.afterSeq) + 1;
+  }
+
+  // Get new events
+  const newEvents = allEvents.slice(startIndex);
+  const limit = options.limit || newEvents.length;
+  const eventsToExport = newEvents.slice(0, limit);
+
+  const bundle: CESRBundle = {
+    type: 'kel',
+    version: '1.0',
+    events: eventsToExport.map(e => ensureUint8Array(e.event.raw)),
+    metadata: {
+      source: aid,
+      created: new Date().toISOString(),
+      scope: { aid },
+    },
+  };
+
+  return new ExportDSLImpl(bundle);
+}
+
+/**
+ * Create incremental TEL export (only new events after a pointer)
+ */
+export async function exportTelIncremental(
+  store: KerStore,
+  registryId: string,
+  issuerAid?: string,
+  options: IncrementalExportOptions = {}
+): Promise<ExportDSL> {
+  const allEvents = await store.listTel(registryId);
+
+  // Find starting point
+  let startIndex = 0;
+  if (options.afterSaid) {
+    startIndex = allEvents.findIndex(e => e.meta.d === options.afterSaid) + 1;
+  }
+
+  // Get new events
+  const newEvents = allEvents.slice(startIndex);
+  const limit = options.limit || newEvents.length;
+  const eventsToExport = newEvents.slice(0, limit);
+
+  const bundle: CESRBundle = {
+    type: 'tel',
+    version: '1.0',
+    events: eventsToExport.map(e => ensureUint8Array(e.event.raw)),
+    metadata: {
+      source: issuerAid,
+      created: new Date().toISOString(),
+      scope: { registryId },
+    },
   };
 
   return new ExportDSLImpl(bundle);

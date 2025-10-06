@@ -4,6 +4,7 @@
 
 export * from './common';
 export * from './sync';
+export * from './contact-sync';
 
 import type {
   Account,
@@ -21,6 +22,7 @@ import type {
 } from './common';
 import type { Graph } from '../../../storage/types';
 import type { ExportDSL, ImportDSL } from './sync';
+import type { ContactSyncDSL } from './contact-sync';
 
 /**
  * AccountDSL - Operations for a specific account
@@ -311,4 +313,10 @@ export interface KeritsDSL {
    * @returns ImportDSL instance
    */
   import(): ImportDSL;
+
+  /**
+   * Get ContactSyncDSL for tracking sync state with contacts
+   * @returns ContactSyncDSL instance
+   */
+  sync(): ContactSyncDSL;
 }

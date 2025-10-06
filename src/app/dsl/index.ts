@@ -17,9 +17,17 @@ export { createACDCDSL } from './builders/acdc';
 export { createSchemaDSL } from './builders/schema';
 export { createContactsDSL } from './builders/contacts';
 export { createImportDSL } from './builders/import';
+export { createContactSyncDSL } from './builders/contact-sync';
 
 // Export export/import functions
-export { exportKel, exportTel, exportAcdc, exportMixed } from './builders/export';
+export {
+  exportKel,
+  exportTel,
+  exportAcdc,
+  exportMixed,
+  exportKelIncremental,
+  exportTelIncremental,
+} from './builders/export';
 
 // Export utilities
 export { seedToMnemonic, mnemonicToSeed } from './utils';
