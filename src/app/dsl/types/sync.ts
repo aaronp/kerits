@@ -27,6 +27,7 @@ export interface ExportOptions {
 export interface ImportOptions {
   verify?: boolean;      // Verify signatures and SAIDs
   skipExisting?: boolean; // Skip events already in store
+  alias?: string;        // Alias for imported registry/credential (optional)
 }
 
 export interface ImportResult {
@@ -34,6 +35,9 @@ export interface ImportResult {
   skipped: number;
   failed: number;
   errors: string[];
+  registryId?: string;   // Registry ID if TEL was imported
+  credentialId?: string; // Credential ID if ACDC was imported
+  aid?: string;          // AID if KEL was imported
 }
 
 export interface ExportDSL {

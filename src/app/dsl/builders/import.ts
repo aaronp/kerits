@@ -16,36 +16,76 @@ export class ImportDSLImpl implements ImportDSL {
       errors: [],
     };
 
+    // Add metadata IDs to result
+    if (bundle.metadata.scope?.aid) {
+      result.aid = bundle.metadata.scope.aid;
+    }
+    if (bundle.metadata.scope?.registryId) {
+      result.registryId = bundle.metadata.scope.registryId;
+    }
+    if (bundle.metadata.scope?.credentialId) {
+      result.credentialId = bundle.metadata.scope.credentialId;
+    }
+
     for (const eventBytes of bundle.events) {
       try {
-        // Check if event already exists (if skipExisting is true)
-        if (options.skipExisting) {
-          // Extract SAID from event to check existence
-          const eventText = new TextDecoder().decode(eventBytes);
-          const jsonMatch = eventText.match(/\{.*\}/s);
-          if (jsonMatch) {
-            const eventData = JSON.parse(jsonMatch[0]);
-            const said = eventData.d;
+        // Extract event data for processing
+        const eventText = new TextDecoder().decode(eventBytes);
+        const jsonMatch = eventText.match(/\{.*\}/s);
+        if (!jsonMatch) {
+          result.failed++;
+          result.errors.push('Invalid event format: no JSON found');
+          continue;
+        }
 
-            if (said) {
-              const existing = await this.store.getEvent(said);
-              if (existing) {
-                result.skipped++;
-                continue;
-              }
+        const eventData = JSON.parse(jsonMatch[0]);
+        const said = eventData.d;
+
+        // Verify SAID if requested
+        if (options.verify && said) {
+          const { saidify } = await import('../../../saidify');
+          try {
+            const verified = saidify({ ...eventData, d: '' });
+            if (verified.d !== said) {
+              result.failed++;
+              result.errors.push(`SAID verification failed for event ${said}`);
+              continue;
             }
+          } catch (error) {
+            result.failed++;
+            result.errors.push(`SAID verification error: ${error instanceof Error ? error.message : String(error)}`);
+            continue;
+          }
+        }
+
+        // Check if event already exists (if skipExisting is true)
+        if (options.skipExisting && said) {
+          const existing = await this.store.getEvent(said);
+          if (existing) {
+            result.skipped++;
+            continue;
           }
         }
 
         // Import the event
         await this.store.putEvent(eventBytes);
         result.imported++;
-
-        // TODO: If verify option is true, verify signatures and SAIDs
-        // This would require signature verification logic
       } catch (error) {
         result.failed++;
         result.errors.push(error instanceof Error ? error.message : String(error));
+      }
+    }
+
+    // Create alias if provided and applicable
+    if (options.alias && bundle.metadata.scope) {
+      try {
+        if (bundle.type === 'tel' && result.registryId) {
+          await this.store.putAlias('tel', result.registryId, options.alias);
+        } else if (bundle.type === 'acdc' && result.credentialId) {
+          await this.store.putAlias('acdc', result.credentialId, options.alias);
+        }
+      } catch (error) {
+        result.errors.push(`Failed to create alias: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
