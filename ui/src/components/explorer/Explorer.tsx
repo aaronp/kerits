@@ -205,33 +205,33 @@ export function Explorer() {
   }, [accountDsl]);
 
   // Load ACDCs for a registry when it's expanded
-  const loadACDCsForRegistry = async (registryId: string) => {
+  const loadACDCsForRegistry = async (registryAlias: string) => {
     if (!accountDsl) return;
 
     try {
-      const registryDsl = await accountDsl.registry(registryId);
+      const registryDsl = await accountDsl.registry(registryAlias);
       if (!registryDsl) return;
 
       const credentials = await registryDsl.listCredentials();
-      setAcdcsByRegistry(prev => new Map(prev).set(registryId, credentials));
+      setAcdcsByRegistry(prev => new Map(prev).set(registryAlias, credentials));
     } catch (error) {
-      console.error(`Failed to load ACDCs for registry ${registryId}:`, error);
+      console.error(`Failed to load ACDCs for registry ${registryAlias}:`, error);
       showToast(`Failed to load credentials: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
   // Handlers
-  const toggleRegistry = (registryId: string) => {
+  const toggleRegistry = (registryAlias: string) => {
     setExpandedRegistries(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(registryId)) {
-        newSet.delete(registryId);
+      if (newSet.has(registryAlias)) {
+        newSet.delete(registryAlias);
       } else {
         // Load ACDCs first to check if there are any
-        loadACDCsForRegistry(registryId).then(() => {
-          const acdcs = acdcsByRegistry.get(registryId);
+        loadACDCsForRegistry(registryAlias).then(() => {
+          const acdcs = acdcsByRegistry.get(registryAlias);
           if (acdcs && acdcs.length > 0) {
-            setExpandedRegistries(prev => new Set(prev).add(registryId));
+            setExpandedRegistries(prev => new Set(prev).add(registryAlias));
           }
         });
       }
@@ -295,13 +295,13 @@ export function Explorer() {
     }
   };
 
-  const handleRegistryExport = async (e: React.MouseEvent, registryId: string) => {
+  const handleRegistryExport = async (e: React.MouseEvent, registryAlias: string) => {
     e.stopPropagation();
 
     if (!accountDsl) return;
 
     try {
-      const registryDsl = await accountDsl.registry(registryId);
+      const registryDsl = await accountDsl.registry(registryAlias);
       const exportDsl = await registryDsl.export();
       const cesr = await exportDsl.asCESR();
 
@@ -352,19 +352,19 @@ export function Explorer() {
     }
   };
 
-  const handleRegistryShare = async (e: React.MouseEvent, registryId: string) => {
+  const handleRegistryShare = async (e: React.MouseEvent, registryAlias: string) => {
     e.stopPropagation();
     // Same as export for now
-    await handleRegistryExport(e, registryId);
+    await handleRegistryExport(e, registryAlias);
     showToast('Registry CESR copied to clipboard - share it with others!');
   };
 
-  const handleACDCExport = async (e: React.MouseEvent, registryId: string, credentialId: string) => {
+  const handleACDCExport = async (e: React.MouseEvent, registryAlias: string, credentialId: string) => {
     e.stopPropagation();
     if (!accountDsl) return;
 
     try {
-      const registryDsl = await accountDsl.registry(registryId);
+      const registryDsl = await accountDsl.registry(registryAlias);
       if (!registryDsl) return;
 
       // Get all ACDC aliases to find the one matching this credentialId
@@ -396,7 +396,7 @@ export function Explorer() {
     }
   };
 
-  const handleACDCImport = async (e: React.MouseEvent, registryId: string) => {
+  const handleACDCImport = async (e: React.MouseEvent, registryAlias: string) => {
     e.stopPropagation();
     if (!accountDsl) return;
 
@@ -417,15 +417,15 @@ export function Explorer() {
       }
 
       // Reload ACDCs for this registry
-      await loadACDCsForRegistry(registryId);
+      await loadACDCsForRegistry(registryAlias);
     } catch (error) {
       console.error('Failed to import credential:', error);
       showToast(`Failed to import: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
-  const handleACDCAdd = async (registryId: string) => {
-    setSelectedRegistryId(registryId);
+  const handleACDCAdd = async (registryAlias: string) => {
+    setSelectedRegistryId(registryAlias);
     setSelectedSchemaAlias('');
     setSelectedSchema(null);
     setSelectedHolder('');
@@ -552,17 +552,17 @@ export function Explorer() {
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme === 'dark' ? 'rgb(51 65 85)' : 'rgb(226 232 240)'}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = theme === 'dark' ? 'rgb(30 41 59)' : 'rgb(241 245 249)'}
                   >
-                    {acdcsByRegistry.get(registry.registryId) && acdcsByRegistry.get(registry.registryId)!.length > 0 ? (
+                    {acdcsByRegistry.get(registry.alias) && acdcsByRegistry.get(registry.alias)!.length > 0 ? (
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-6 w-6 p-0"
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleRegistry(registry.registryId);
+                          toggleRegistry(registry.alias);
                         }}
                       >
-                        {expandedRegistries.has(registry.registryId) ? (
+                        {expandedRegistries.has(registry.alias) ? (
                           <ChevronDown className="h-4 w-4" />
                         ) : (
                           <ChevronRight className="h-4 w-4" />
@@ -593,7 +593,7 @@ export function Explorer() {
                         className="h-7 w-7 p-0"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleACDCAdd(registry.registryId);
+                          handleACDCAdd(registry.alias);
                         }}
                         title="Issue new credential"
                       >
@@ -603,7 +603,7 @@ export function Explorer() {
                         variant="ghost"
                         size="sm"
                         className="h-7 w-7 p-0"
-                        onClick={(e) => handleRegistryImport(e, registry.registryId)}
+                        onClick={(e) => handleRegistryImport(e, registry.alias)}
                         title="Import from clipboard (CESR)"
                       >
                         <Upload className="h-3.5 w-3.5" />
@@ -612,7 +612,7 @@ export function Explorer() {
                         variant="ghost"
                         size="sm"
                         className="h-7 w-7 p-0"
-                        onClick={(e) => handleRegistryExport(e, registry.registryId)}
+                        onClick={(e) => handleRegistryExport(e, registry.alias)}
                         title="Export to clipboard (CESR)"
                       >
                         <Download className="h-3.5 w-3.5" />
@@ -621,7 +621,7 @@ export function Explorer() {
                         variant="ghost"
                         size="sm"
                         className="h-7 w-7 p-0"
-                        onClick={(e) => handleRegistryShare(e, registry.registryId)}
+                        onClick={(e) => handleRegistryShare(e, registry.alias)}
                         title="Share (copy CESR)"
                       >
                         <Share2 className="h-3.5 w-3.5" />
@@ -629,13 +629,13 @@ export function Explorer() {
                     </div>
                   </div>
 
-                  {expandedRegistries.has(registry.registryId) &&
-                    acdcsByRegistry.get(registry.registryId) &&
-                    acdcsByRegistry.get(registry.registryId)!.length > 0 && (
+                  {expandedRegistries.has(registry.alias) &&
+                    acdcsByRegistry.get(registry.alias) &&
+                    acdcsByRegistry.get(registry.alias)!.length > 0 && (
                       <div className="border-t" style={{ backgroundColor: theme === 'dark' ? 'rgb(15 23 42)' : 'rgb(248 250 252)' }}>
                         {/* Credentials list */}
                         <div className="p-2 space-y-1">
-                          {acdcsByRegistry.get(registry.registryId)?.map((acdc) => (
+                          {acdcsByRegistry.get(registry.alias)?.map((acdc) => (
                             <div
                               key={acdc.credentialId}
                               className="border rounded relative group"
@@ -690,7 +690,7 @@ export function Explorer() {
                                     variant="ghost"
                                     size="sm"
                                     className="h-6 w-6 p-0"
-                                    onClick={(e) => handleACDCExport(e, registry.registryId, acdc.credentialId)}
+                                    onClick={(e) => handleACDCExport(e, registry.alias, acdc.credentialId)}
                                     title="Export credential (CESR)"
                                   >
                                     <Download className="h-3 w-3" />
@@ -953,6 +953,7 @@ export function Explorer() {
             <Button
               onClick={handleCreateACDC}
               disabled={!selectedSchemaAlias || !selectedHolder}
+              className="border-2"
             >
               Issue Credential
             </Button>
