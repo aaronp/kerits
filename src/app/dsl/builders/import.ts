@@ -45,10 +45,43 @@ export class ImportDSLImpl implements ImportDSL {
         if (options.verify && said) {
           const { saidify } = await import('../../../saidify');
           try {
-            const verified = saidify({ ...eventData, d: '' });
+            let eventForVerification: any;
+
+            // Check if version string includes size (has '_' terminator)
+            const hasVersionSize = eventData.v && eventData.v.includes('_');
+
+            if (hasVersionSize && (eventData.t === 'vcp' || eventData.t === 'iss' || eventData.t === 'rev' || eventData.t === 'bis' || eventData.t === 'brv' || eventData.t === 'vrt')) {
+              // TEL events with version strings require special handling
+              const { versify, Protocol, VERSION_1_0, Kind } = await import('../../../versify');
+
+              // Set d (and i for vcp) to placeholders for size calculation
+              eventForVerification = { ...eventData, d: '#'.repeat(44) };
+              if (eventData.t === 'vcp' && eventData.i === said) {
+                eventForVerification.i = '#'.repeat(44);
+              }
+
+              // Compute size with placeholders
+              const serialized = JSON.stringify(eventForVerification);
+              const size = serialized.length;
+
+              // Update version string with correct size
+              eventForVerification.v = versify(Protocol.KERI, VERSION_1_0, Kind.JSON, size);
+
+              // Keep d and i as placeholders for saidify (it will replace d internally)
+              // This matches the creation process in tel.ts:227
+            } else if (eventData.t === 'acdc') {
+              // ACDC - SAID is computed without the 't' field
+              const { t, ...withoutT } = eventData;
+              eventForVerification = { ...withoutT, d: '' };
+            } else {
+              // KEL events - simple case, set d to empty
+              eventForVerification = { ...eventData, d: '' };
+            }
+
+            const verified = saidify(eventForVerification, { label: 'd' });
             if (verified.d !== said) {
               result.failed++;
-              result.errors.push(`SAID verification failed for event ${said}`);
+              result.errors.push(`SAID verification failed for event ${said}: expected ${said}, got ${verified.d}`);
               continue;
             }
           } catch (error) {

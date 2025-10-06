@@ -46,7 +46,7 @@ describe('Cross-Entity Sync', () => {
 
     const kelResult = await aliceImport.fromBundle(bobKelExport.asBundle(), {
       skipExisting: true,
-      verify: true,
+      verify: true
     });
     expect(kelResult.imported).toBeGreaterThan(0);
     expect(kelResult.failed).toBe(0);
@@ -54,7 +54,7 @@ describe('Cross-Entity Sync', () => {
 
     const telResult = await aliceImport.fromBundle(bobTelExport.asBundle(), {
       skipExisting: true,
-      verify: false, // TODO: Fix TEL SAID verification
+      verify: true,
       alias: 'bobs-health-registry',
     });
     // TEL import count may be 0 if events were skipped, but should not fail
@@ -116,13 +116,13 @@ describe('Cross-Entity Sync', () => {
     // Import Bob's KEL
     await aliceImport.fromBundle(bobKelExport.asBundle(), {
       skipExisting: true,
-      verify: true,
+      verify: true
     });
 
     // Import Bob's TEL with alias
     await aliceImport.fromBundle(bobTelExport.asBundle(), {
       skipExisting: true,
-      verify: false, // TODO: Fix TEL SAID verification
+      verify: true,
       alias: 'bobs-health',
     });
 
@@ -132,7 +132,7 @@ describe('Cross-Entity Sync', () => {
     // Import Bob's credential with alias
     const acdcResult = await aliceImport.fromBundle(bobAcdcExport.asBundle(), {
       skipExisting: true,
-      verify: false, // TODO: Fix ACDC SAID verification
+      verify: true,
       alias: 'bobs-running-record',
     });
 
@@ -167,21 +167,45 @@ describe('Cross-Entity Sync', () => {
     // Alice imports Bob's KEL
     await aliceDSL.import().fromBundle(bobKelExport.asBundle(), {
       skipExisting: true,
-      verify: true,
+      verify: true
     });
+
+    // Verify Bob's KEL exists in Alice's store
+    const bobKelInAlice = await aliceStore.listKel(bob.aid);
+    expect(bobKelInAlice.length).toBe(2); // icp + rot
+    expect(bobKelInAlice[0].meta.t).toBe('icp');
+    expect(bobKelInAlice[1].meta.t).toBe('rot');
+    expect(bobKelInAlice[0].meta.i).toBe(bob.aid);
+    expect(bobKelInAlice[1].meta.i).toBe(bob.aid);
 
     // Alice views global graph (includes Bob's events)
     const graph = await aliceDSL.graph();
 
-    // Verify Bob's KEL exists in Alice's store
-    const bobKelInAlice = await aliceStore.listKel(bob.aid);
-    expect(bobKelInAlice.length).toBeGreaterThanOrEqual(2); // icp + rot
+    // Verify specific KEL event nodes exist
+    const kelEvtNodes = graph.nodes.filter((n: any) => n.kind === 'KEL_EVT');
+    expect(kelEvtNodes.length).toBeGreaterThanOrEqual(2);
 
-    // Graph should have nodes (may vary by implementation)
-    expect(graph.nodes.length).toBeGreaterThan(0);
+    // Find Bob's icp and rot event nodes
+    const bobIcpNode = kelEvtNodes.find((n: any) => n.meta?.t === 'icp');
+    const bobRotNode = kelEvtNodes.find((n: any) => n.meta?.t === 'rot');
 
-    console.log('✓ Bob\'s chain visible in Alice\'s store');
-    console.log(`  Bob's KEL events: ${bobKelInAlice.length}, Graph nodes: ${graph.nodes.length}`);
+    expect(bobIcpNode).toBeDefined();
+    expect(bobRotNode).toBeDefined();
+
+    // Verify AID node exists for Bob
+    const aidNodes = graph.nodes.filter((n: any) => n.kind === 'AID');
+    const bobAidNode = aidNodes.find((n: any) => n.id === bob.aid);
+    expect(bobAidNode).toBeDefined();
+
+    // Verify prior edge exists linking rot to icp
+    const priorEdges = graph.edges.filter((e: any) =>
+      e.kind === 'PRIOR' && e.to === bobRotNode?.id
+    );
+    expect(priorEdges.length).toBe(1);
+    expect(priorEdges[0].from).toBe(bobIcpNode?.id);
+
+    console.log('✓ Bob\'s chain visible in Alice\'s graph with correct structure');
+    console.log(`  KEL events: ${kelEvtNodes.length}, AID nodes: ${aidNodes.length}, Prior edges: ${priorEdges.length}`);
   });
 
   it('should re-import Bob\'s chain and skip existing events', async () => {
@@ -200,7 +224,7 @@ describe('Cross-Entity Sync', () => {
     const aliceImport = aliceDSL.import();
     const firstImport = await aliceImport.fromBundle(bobKelExport.asBundle(), {
       skipExisting: true,
-      verify: true,
+      verify: true
     });
     expect(firstImport.imported).toBeGreaterThan(0);
     expect(firstImport.skipped).toBe(0);
@@ -208,7 +232,7 @@ describe('Cross-Entity Sync', () => {
     // Alice re-imports same KEL - should skip all events
     const secondImport = await aliceImport.fromBundle(bobKelExport.asBundle(), {
       skipExisting: true,
-      verify: true,
+      verify: true
     });
     expect(secondImport.imported).toBe(0);
     expect(secondImport.skipped).toBe(firstImport.imported);
@@ -232,7 +256,7 @@ describe('Cross-Entity Sync', () => {
     // Alice imports with verification
     const aliceImport = aliceDSL.import();
     const result = await aliceImport.fromBundle(bobKelExport.asBundle(), {
-      verify: true,
+      verify: true
     });
 
     expect(result.failed).toBe(0);
@@ -267,7 +291,7 @@ describe('Cross-Entity Sync', () => {
     // Bob imports Alice's KEL
     await bobDSL.import().fromBundle(aliceKelExport.asBundle(), {
       skipExisting: true,
-      verify: true,
+      verify: true
     });
 
     // Bob issues credential to Alice
@@ -289,20 +313,82 @@ describe('Cross-Entity Sync', () => {
     await aliceDSL.createSchema('badge', { title: 'Badge', properties: { name: { type: 'string' } } });
     await aliceImport.fromBundle(bobAcdcExport.asBundle(), { skipExisting: true, verify: true });
 
-    // Verify data exists in Alice's store
+    // Verify TEL events in Alice's store
+    const bobTelInAlice = await aliceStore.listTel(bobRegistryDsl.registry.registryId);
+    expect(bobTelInAlice.length).toBeGreaterThanOrEqual(2); // vcp (registry inception) + iss (issuance)
+
+    const vcpEvent = bobTelInAlice.find((e: any) => e.meta.t === 'vcp');
+    const issEvent = bobTelInAlice.find((e: any) => e.meta.t === 'iss');
+    expect(vcpEvent).toBeDefined();
+    expect(issEvent).toBeDefined();
+    expect(issEvent?.meta.i).toBe(acdcDsl.acdc.credentialId); // iss event should reference credential
+
+    // Verify credential exists in Alice's store
     const credStored = await aliceStore.getEvent(acdcDsl.acdc.credentialId);
     expect(credStored).toBeDefined();
 
+    // Verify KEL events
     const bobKelInAlice = await aliceStore.listKel(bob.aid);
     const aliceKel = await aliceStore.listKel(alice.aid);
-    expect(bobKelInAlice.length).toBeGreaterThan(0);
-    expect(aliceKel.length).toBeGreaterThan(0);
+    expect(bobKelInAlice.length).toBeGreaterThanOrEqual(2); // icp + ixn (registry anchor)
+    expect(aliceKel.length).toBe(1); // icp
 
-    // Alice's graph should have nodes
+    // Find registry anchoring ixn in Bob's KEL
+    const bobIxnEvent = bobKelInAlice.find((e: any) => e.meta.t === 'ixn');
+    expect(bobIxnEvent).toBeDefined();
+
+    // Alice's graph should show complete structure
     const graph = await aliceDSL.graph();
-    expect(graph.nodes.length).toBeGreaterThan(0);
 
-    console.log('✓ Cross-entity credential issuance');
-    console.log(`  Bob KEL events: ${bobKelInAlice.length}, Alice KEL events: ${aliceKel.length}, Graph nodes: ${graph.nodes.length}`);
+    // Verify AID nodes for both Bob and Alice
+    const aidNodes = graph.nodes.filter((n: any) => n.kind === 'AID');
+    expect(aidNodes.some((n: any) => n.id === bob.aid)).toBe(true);
+    expect(aidNodes.some((n: any) => n.id === alice.aid)).toBe(true);
+
+    // Verify KEL event nodes
+    const kelEvtNodes = graph.nodes.filter((n: any) => n.kind === 'KEL_EVT');
+    expect(kelEvtNodes.length).toBeGreaterThanOrEqual(3); // Bob: icp+ixn, Alice: icp
+
+    // Verify Bob's ixn event exists (registry anchor)
+    const bobIxnNode = kelEvtNodes.find((n: any) => n.meta?.t === 'ixn');
+    expect(bobIxnNode).toBeDefined();
+
+    // Verify TEL registry node exists
+    const registryNodes = graph.nodes.filter((n: any) => n.kind === 'TEL_REGISTRY');
+    expect(registryNodes.length).toBeGreaterThanOrEqual(1);
+    const bobRegistryNode = registryNodes.find((n: any) =>
+      n.id === bobRegistryDsl.registry.registryId
+    );
+    expect(bobRegistryNode).toBeDefined();
+
+    // Verify TEL event nodes (iss event)
+    const telEvtNodes = graph.nodes.filter((n: any) => n.kind === 'TEL_EVT');
+    expect(telEvtNodes.length).toBeGreaterThanOrEqual(1);
+    const issNode = telEvtNodes.find((n: any) => n.meta?.t === 'iss');
+    expect(issNode).toBeDefined();
+
+    // Verify ACDC node exists
+    const acdcNodes = graph.nodes.filter((n: any) => n.kind === 'ACDC');
+    expect(acdcNodes.length).toBeGreaterThanOrEqual(1);
+    const credNode = acdcNodes.find((n: any) => n.id === acdcDsl.acdc.credentialId);
+    expect(credNode).toBeDefined();
+
+    // Verify ISSUES edge exists (iss -> acdc)
+    const issuesEdges = graph.edges.filter((e: any) =>
+      e.kind === 'ISSUES' && e.to === credNode?.id
+    );
+    expect(issuesEdges.length).toBe(1);
+
+    // Verify ANCHOR edge exists (AID -> registry)
+    const anchorEdges = graph.edges.filter((e: any) =>
+      e.kind === 'ANCHOR' && e.to === bobRegistryNode?.id
+    );
+    expect(anchorEdges.length).toBeGreaterThan(0);
+
+    console.log('✓ Cross-entity credential issuance with complete graph structure');
+    console.log(`  Bob KEL: ${bobKelInAlice.length} events, Alice KEL: ${aliceKel.length} events`);
+    console.log(`  TEL: ${bobTelInAlice.length} events (vcp + iss)`);
+    console.log(`  Graph: ${graph.nodes.length} nodes, ${graph.edges.length} edges`);
+    console.log(`  AID nodes: ${aidNodes.length}, KEL events: ${kelEvtNodes.length}, TEL events: ${telEvtNodes.length}, ACDCs: ${acdcNodes.length}`);
   });
 });
