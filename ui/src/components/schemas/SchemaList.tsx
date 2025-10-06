@@ -38,21 +38,26 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
   };
 
   const handleCopySchema = async (schema: SchemaDisplay) => {
-    // Export in KERI SAD format with alias metadata
-    const exportFormat = {
-      alias: schema.alias,
-      sed: {
-        $id: schema.schemaId, // SAID goes in $id
-        $schema: 'http://json-schema.org/draft-07/schema#',
-        title: schema.title,
-        type: 'object',
-        properties: schema.properties,
-        ...(schema.description && { description: schema.description }),
-      },
-      said: schema.schemaId,
-    };
-    await navigator.clipboard.writeText(JSON.stringify(exportFormat, null, 2));
-    showToast('Schema copied to clipboard (KERI SAD format)');
+    if (!dsl) {
+      showToast('System not initialized');
+      return;
+    }
+
+    try {
+      // Get the schema DSL and export in KERI SAD format
+      const schemaDsl = await dsl.schema(schema.alias);
+      if (!schemaDsl) {
+        showToast('Schema not found');
+        return;
+      }
+
+      const exportFormat = schemaDsl.export();
+      await navigator.clipboard.writeText(JSON.stringify(exportFormat, null, 2));
+      showToast('Schema copied to clipboard (KERI SAD format)');
+    } catch (error) {
+      console.error('Failed to export schema:', error);
+      showToast('Failed to export schema');
+    }
   };
 
   const toggleDefinition = (schemaId: string) => {
@@ -201,19 +206,10 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => copyToClipboard(JSON.stringify(schema, null, 2), `export-${schema.schemaId}`)}
+                onClick={() => handleCopySchema(schema)}
               >
-                {copiedField === `export-${schema.schemaId}` ? (
-                  <>
-                    <Check className="mr-2 h-4 w-4 text-green-500" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="mr-2 h-4 w-4" />
-                    Export Schema (JSON)
-                  </>
-                )}
+                <Copy className="mr-2 h-4 w-4" />
+                Export Schema (KERI SAD)
               </Button>
             </CardContent>
           )}
