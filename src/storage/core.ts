@@ -221,6 +221,22 @@ export function createKerStore(kv: Kv, opts?: StoreOptions): KerStore {
     return buildGraphFromStore(kv, { limit: opts?.limit });
   }
 
+  async function listAliases(scope: string): Promise<string[]> {
+    const aliases: string[] = [];
+    const prefix = `${NS.MAP_ALIAS_TO_ID}${scope}/`;
+    const results = await kv.list(prefix, { keysOnly: true });
+
+    for (const { key } of results) {
+      // Extract alias from key: map/alias2id/{scope}/{alias}
+      const parts = key.split('/');
+      if (parts.length === 4 && parts[3]) {
+        aliases.push(parts[3]);
+      }
+    }
+
+    return aliases.sort();
+  }
+
   return {
     putEvent,
     getEvent,
@@ -232,5 +248,7 @@ export function createKerStore(kv: Kv, opts?: StoreOptions): KerStore {
     aliasToId,
     idToAlias,
     buildGraph,
+    listAliases,
+    kv,
   };
 }

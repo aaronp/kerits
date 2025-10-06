@@ -22,6 +22,12 @@ import {
   listRegistryEvents,
   getByAlias,
 } from '../../src/app/helpers';
+import { generateKeypairFromSeed } from '../../src/signer';
+
+// Deterministic test seeds
+const TEST_SEED_ISSUER = new Uint8Array(32).fill(1);
+const TEST_SEED_HOLDER = new Uint8Array(32).fill(2);
+const TEST_SEED_3 = new Uint8Array(32).fill(3);
 
 describe('KERI Storage Integration', () => {
   it('should handle complete workflow: identity -> registry -> schema -> credential', async () => {
@@ -31,11 +37,14 @@ describe('KERI Storage Integration', () => {
     const parser = new DefaultJsonCesrParser(hasher);
     const store = createKerStore(kv, { hasher, parser });
 
+    // Generate deterministic keys
+    const issuerKp = await generateKeypairFromSeed(TEST_SEED_ISSUER);
+
     // Step 1: Create a new identifier with alias
     const { aid: issuerAid, icp } = await createIdentity(store, {
       alias: 'acme-corp',
-      keys: ['DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr'],
-      nextKeys: ['DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr'],
+      keys: [issuerKp.verfer],
+      nextKeys: [issuerKp.verfer],
     });
 
     expect(issuerAid).toBeDefined();
@@ -110,12 +119,11 @@ describe('KERI Storage Integration', () => {
     console.log('✓ Schema alias mapping works:', 'employee-badge-schema', '->', schemaId);
 
     // Step 4: Create a holder identity
+    const holderKp = await generateKeypairFromSeed(TEST_SEED_HOLDER);
     const { aid: holderAid } = await createIdentity(store, {
       alias: 'john-doe',
-      keys: ['DLWJrsKIHrrn1Q1jy3oRu2cVXXCu0JlShNFhKExdnHiD'],
-      nextKeys: ['DLWJrsKIHrrn1Q1jy3oRu2cVXXCu0JlShNFhKExdnHiD'],
-
-
+      keys: [holderKp.verfer],
+      nextKeys: [holderKp.verfer],
     });
 
     console.log('✓ Created holder identity:', holderAid);
@@ -183,11 +191,14 @@ describe('KERI Storage Integration', () => {
     const kv = new MemoryKv();
     const store = createKerStore(kv);
 
+    // Generate deterministic keys
+    const kp = await generateKeypairFromSeed(TEST_SEED_3);
+
     // Create entities in different scopes
     const { aid } = await createIdentity(store, {
       alias: 'test-identity',
-      keys: ['DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr'],
-      nextKeys: ['DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr'],
+      keys: [kp.verfer],
+      nextKeys: [kp.verfer],
     });
 
     const { registryId } = await createRegistry(store, {
@@ -220,11 +231,14 @@ describe('KERI Storage Integration', () => {
     const kv = new MemoryKv();
     const store = createKerStore(kv);
 
+    // Generate deterministic keys
+    const kp = await generateKeypairFromSeed(TEST_SEED_3);
+
     // Create identity
     const { aid } = await createIdentity(store, {
       alias: 'test',
-      keys: ['DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr'],
-      nextKeys: ['DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr'],
+      keys: [kp.verfer],
+      nextKeys: [kp.verfer],
     });
 
     // Create registry (adds interaction event)

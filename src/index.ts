@@ -6,3 +6,9 @@
  */
 
 export { saidify, type SaidifyOptions } from './saidify';
+
+// Storage system
+export * from './storage';
+
+// High-level application API
+export * from './app';

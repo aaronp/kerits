@@ -35,6 +35,8 @@ export { DefaultJsonCesrParser, CesrHasher, NonCryptoHasher } from './parser';
 
 // Adapters
 export { MemoryKv } from './adapters/memory';
+export { DiskKv } from './adapters/disk';
+export type { DiskKvOptions } from './adapters/disk';
 
 // Graph builder
 export { buildGraphFromStore } from './graph';

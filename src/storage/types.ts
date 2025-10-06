@@ -146,4 +146,10 @@ export interface KerStore {
 
   // Graph DSL
   buildGraph(opts?: { limit?: number; scopeAliases?: string[] }): Promise<Graph>;
+
+  // List aliases in a scope
+  listAliases(scope: string): Promise<string[]>;
+
+  // Expose KV for advanced usage
+  kv: Kv;
 }
