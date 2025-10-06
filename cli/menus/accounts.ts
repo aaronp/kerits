@@ -1,0 +1,309 @@
+/**
+ * Accounts Menu
+ */
+import * as p from '@clack/prompts';
+import { getCurrentAccount, setCurrentAccount, listAccounts, loadAccountDSL, getAccountDataDir } from '../utils/storage.js';
+import { showGraph } from '../utils/graph.js';
+import { writeFile, mkdir } from 'fs/promises';
+import { mnemonicToSeed, seedToMnemonic } from '../../src/app/dsl/utils/index.js';
+
+export async function accountsMenu(): Promise<void> {
+  const currentAccount = await getCurrentAccount();
+
+  p.intro('Account Management');
+
+  if (currentAccount) {
+    p.note(currentAccount, 'Current Account');
+  } else {
+    p.note('No account currently selected', 'Status');
+  }
+
+  const options: Array<{ value: string; label: string }> = [
+    { value: 'create', label: 'Create New Account' },
+    { value: 'switch', label: 'Switch Account' },
+  ];
+
+  if (currentAccount) {
+    options.push(
+      { value: 'rotate', label: 'Rotate Keys' },
+      { value: 'export', label: 'Export KEL to File' },
+      { value: 'graph', label: 'Show KEL Graph' }
+    );
+  }
+
+  options.push({ value: 'back', label: 'Back to Main Menu' });
+
+  const action = await p.select({
+    message: 'What would you like to do?',
+    options,
+  });
+
+  if (p.isCancel(action) || action === 'back') {
+    return;
+  }
+
+  switch (action) {
+    case 'create':
+      await createAccount();
+      break;
+    case 'switch':
+      await switchAccount();
+      break;
+    case 'rotate':
+      if (currentAccount) await rotateKeys(currentAccount);
+      break;
+    case 'export':
+      if (currentAccount) await exportKel(currentAccount);
+      break;
+    case 'graph':
+      if (currentAccount) await showKelGraph(currentAccount);
+      break;
+  }
+
+  // Return to accounts menu
+  await accountsMenu();
+}
+
+async function createAccount(): Promise<void> {
+  const alias = await p.text({
+    message: 'Enter account alias:',
+    validate: (value) => {
+      if (!value) return 'Alias is required';
+      if (!/^[a-z0-9-]+$/.test(value)) return 'Alias must contain only lowercase letters, numbers, and hyphens';
+    },
+  });
+
+  if (p.isCancel(alias)) return;
+
+  const mnemonicChoice = await p.select({
+    message: 'Mnemonic:',
+    options: [
+      { value: 'generate', label: 'Generate new mnemonic (recommended)' },
+      { value: 'existing', label: 'Enter existing mnemonic' },
+    ],
+  });
+
+  if (p.isCancel(mnemonicChoice)) return;
+
+  let mnemonic: string;
+
+  if (mnemonicChoice === 'generate') {
+    // Generate random seed
+    const seed = new Uint8Array(32);
+    crypto.getRandomValues(seed);
+    mnemonic = seedToMnemonic(seed);
+
+    p.note(
+      `IMPORTANT: Save this mnemonic securely!\n\n${mnemonic}\n\nThis is the ONLY time you'll see this mnemonic.\nYou'll need it to recover your account.`,
+      'Generated Mnemonic'
+    );
+
+    const confirmed = await p.select({
+      message: 'Have you saved the mnemonic?',
+      options: [
+        { value: 'yes', label: 'Yes, I\'ve saved it' },
+        { value: 'no', label: 'No, cancel account creation' },
+      ],
+    });
+
+    if (p.isCancel(confirmed) || confirmed === 'no') {
+      p.cancel('Account creation cancelled');
+      return;
+    }
+  } else {
+    const mnemonicInput = await p.text({
+      message: 'Enter 24-word mnemonic:',
+      validate: (value) => {
+        const words = value.trim().split(/\s+/);
+        if (words.length !== 24) return 'Mnemonic must be exactly 24 words';
+      },
+    });
+
+    if (p.isCancel(mnemonicInput)) return;
+    mnemonic = mnemonicInput;
+  }
+
+  const s = p.spinner();
+  s.start('Creating account...');
+
+  try {
+    // Create data directory
+    const dataDir = getAccountDataDir(alias);
+    await mkdir(dataDir, { recursive: true });
+
+    // Load DSL and create account
+    const { dsl } = await loadAccountDSL(alias);
+    const accountDsl = await dsl.newAccount(alias, mnemonic);
+
+    // Get the AID
+    const aid = await accountDsl.getAid();
+
+    // Set as current account
+    await setCurrentAccount(alias);
+
+    s.stop(`Account '${alias}' created successfully`);
+    p.note(`AID: ${aid}`, 'Success');
+  } catch (error) {
+    s.stop('Failed to create account');
+    p.log.error(error instanceof Error ? error.message : String(error));
+  }
+}
+
+async function switchAccount(): Promise<void> {
+  const accounts = await listAccounts();
+
+  if (accounts.length === 0) {
+    p.note('No accounts found. Create an account first.', 'Info');
+    return;
+  }
+
+  const options = accounts.map(account => ({
+    value: account,
+    label: account,
+  }));
+  options.push({ value: 'cancel', label: 'Cancel' });
+
+  const selected = await p.select({
+    message: 'Select account:',
+    options,
+  });
+
+  if (p.isCancel(selected) || selected === 'cancel') return;
+
+  await setCurrentAccount(selected);
+  p.note(`Switched to account '${selected}'`, 'Success');
+}
+
+async function rotateKeys(currentAccount: string): Promise<void> {
+  const { dsl } = await loadAccountDSL(currentAccount);
+  const accountDsl = dsl.account(currentAccount);
+
+  // Get current key info
+  const aid = await accountDsl.getAid();
+  const events = await accountDsl.getEvents();
+  const lastEvent = events[events.length - 1];
+
+  p.note(
+    `Current Account: ${currentAccount}\nCurrent Key: ${aid}\nSequence Number: ${events.length - 1}`,
+    'Rotate Keys'
+  );
+
+  const rotationType = await p.select({
+    message: 'Key Rotation:',
+    options: [
+      { value: 'generate', label: 'Generate new mnemonic (recommended)' },
+      { value: 'existing', label: 'Use existing mnemonic' },
+      { value: 'cancel', label: 'Cancel' },
+    ],
+  });
+
+  if (p.isCancel(rotationType) || rotationType === 'cancel') return;
+
+  let newMnemonic: string;
+
+  if (rotationType === 'generate') {
+    const seed = new Uint8Array(32);
+    crypto.getRandomValues(seed);
+    newMnemonic = seedToMnemonic(seed);
+
+    p.note(
+      `IMPORTANT: Save this mnemonic securely!\n\n${newMnemonic}\n\nThis is the ONLY time you'll see this mnemonic.`,
+      'Generated Mnemonic'
+    );
+
+    const confirmed = await p.select({
+      message: 'Have you saved the mnemonic?',
+      options: [
+        { value: 'yes', label: 'Yes, I\'ve saved it' },
+        { value: 'no', label: 'No, cancel rotation' },
+      ],
+    });
+
+    if (p.isCancel(confirmed) || confirmed === 'no') {
+      p.cancel('Key rotation cancelled');
+      return;
+    }
+  } else {
+    const mnemonicInput = await p.text({
+      message: 'Enter 24-word mnemonic:',
+      validate: (value) => {
+        const words = value.trim().split(/\s+/);
+        if (words.length !== 24) return 'Mnemonic must be exactly 24 words';
+      },
+    });
+
+    if (p.isCancel(mnemonicInput)) return;
+    newMnemonic = mnemonicInput;
+  }
+
+  const s = p.spinner();
+  s.start('Rotating keys...');
+
+  try {
+    await accountDsl.rotateKeys(newMnemonic);
+    const newEvents = await accountDsl.getEvents();
+    const newKey = newEvents[newEvents.length - 1];
+
+    s.stop('Keys rotated successfully');
+    p.note(
+      `New Key: ${aid}\nSequence Number: ${newEvents.length - 1}`,
+      'Success'
+    );
+  } catch (error) {
+    s.stop('Failed to rotate keys');
+    p.log.error(error instanceof Error ? error.message : String(error));
+  }
+}
+
+async function exportKel(currentAccount: string): Promise<void> {
+  const defaultPath = `./${currentAccount}-kel.cesr`;
+
+  const filePath = await p.text({
+    message: 'Export KEL to file:',
+    placeholder: defaultPath,
+    defaultValue: defaultPath,
+  });
+
+  if (p.isCancel(filePath)) return;
+
+  const s = p.spinner();
+  s.start('Exporting KEL...');
+
+  try {
+    const { dsl } = await loadAccountDSL(currentAccount);
+    const accountDsl = dsl.account(currentAccount);
+    const kelCesr = await accountDsl.exportKel();
+
+    await writeFile(filePath, kelCesr);
+
+    const events = await accountDsl.getEvents();
+    const fileSize = Buffer.byteLength(kelCesr, 'utf-8');
+
+    s.stop(`KEL exported to '${filePath}'`);
+    p.note(
+      `Events exported: ${events.length}\nFile size: ${(fileSize / 1024).toFixed(1)} KB`,
+      'Success'
+    );
+  } catch (error) {
+    s.stop('Failed to export KEL');
+    p.log.error(error instanceof Error ? error.message : String(error));
+  }
+}
+
+async function showKelGraph(currentAccount: string): Promise<void> {
+  const s = p.spinner();
+  s.start('Loading graph...');
+
+  try {
+    const { dsl } = await loadAccountDSL(currentAccount);
+    const graph = await dsl.graph();
+
+    s.stop('Graph loaded');
+
+    // Show graph using Ink
+    await showGraph(graph, `KEL Graph - ${currentAccount}`);
+  } catch (error) {
+    s.stop('Failed to load graph');
+    p.log.error(error instanceof Error ? error.message : String(error));
+  }
+}
