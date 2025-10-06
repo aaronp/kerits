@@ -94,4 +94,65 @@ describe('SchemaDSL', () => {
     // Clean up
     await schema.delete();
   });
+
+  test('should export and import schema with matching SAID', async () => {
+    // Create a schema
+    const schema = await dsl.createSchema('roundtrip-test', {
+      title: 'Round Trip Test',
+      description: 'Testing export/import round trip',
+      properties: {
+        name: { type: 'string' },
+        age: { type: 'number' },
+      },
+      required: ['name'],
+    });
+
+    const originalSaid = schema.schema.schemaId;
+
+    // Export the schema
+    const exported = schema.export();
+    expect(exported.said).toBe(originalSaid);
+
+    // Delete the original
+    await schema.delete();
+
+    // Import it back
+    const imported = await dsl.importSchema(exported);
+
+    // Verify SAID matches
+    expect(imported.schema.schemaId).toBe(originalSaid);
+    expect(imported.schema.alias).toBe('roundtrip-test');
+
+    // Clean up
+    await imported.delete();
+  });
+
+  test('should reject import when SAID does not match', async () => {
+    // Create a valid schema export
+    const schema = await dsl.createSchema('valid-schema', {
+      title: 'Valid Schema',
+      properties: {
+        field1: { type: 'string' },
+      },
+    });
+
+    const exported = schema.export();
+    await schema.delete();
+
+    // Tamper with the schema content to make SAID mismatch
+    const tamperedExport = {
+      ...exported,
+      sed: {
+        ...exported.sed,
+        title: 'Tampered Schema', // Change content but keep same SAID
+      },
+    };
+
+    // Import should fail with SAID verification error
+    await expect(dsl.importSchema(tamperedExport)).rejects.toThrow('SAID verification failed');
+
+    // Verify nothing was stored
+    const schemas = await dsl.listSchemas();
+    expect(schemas).not.toContain('valid-schema');
+  });
 });

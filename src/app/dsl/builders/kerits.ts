@@ -7,6 +7,7 @@ import type { KeritsDSL, Account, Mnemonic, AccountDSL, SchemaDSL, ContactsDSL, 
 import { generateKeypairFromSeed } from '../../../signer';
 import { createIdentity, createSchema as createSchemaHelper } from '../../helpers';
 import { seedToMnemonic, mnemonicToSeed, serializeEvent } from '../utils';
+import { saidify } from '../../../saidify';
 import { createAccountDSL } from './account';
 import { createSchemaDSL } from './schema';
 import { createContactsDSL } from './contacts';
@@ -193,21 +194,26 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
       // Remove $id and $schema fields, keep rest of the schema
       const { $id, $schema, ...schemaContent } = schemaData.sed;
 
-      // Create schema - this will re-SAIDify with 'd' field
-      const { schemaId, schema: saidified } = await createSchemaHelper(store, {
+      // First, compute what the SAID would be WITHOUT storing
+      const schemaWithD = { ...schemaContent, d: '' };
+      const saidified = saidify(schemaWithD);
+      const computedSaid = saidified.d;
+
+      // Verify the SAID matches what we imported BEFORE storing
+      if (computedSaid !== schemaData.said) {
+        throw new Error(`SAID verification failed: expected ${schemaData.said}, got ${computedSaid}`);
+      }
+
+      // Now that verification passed, store the schema
+      const { schemaId, schema: storedSchema } = await createSchemaHelper(store, {
         alias: schemaData.alias,
         schema: schemaContent,
       });
 
-      // Verify the SAID matches what we imported
-      if (schemaId !== schemaData.said) {
-        throw new Error(`SAID verification failed: expected ${schemaData.said}, got ${schemaId}`);
-      }
-
       const schemaObj = {
         alias: schemaData.alias,
         schemaId,
-        schema: saidified,
+        schema: storedSchema,
       };
 
       return createSchemaDSL(schemaObj, store);

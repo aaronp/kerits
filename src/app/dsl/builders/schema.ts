@@ -49,14 +49,13 @@ export function createSchemaDSL(schema: Schema, store: KerStore): SchemaDSL {
 
     export(): SchemaExport {
       // Export in KERI SAD format with alias
+      // Convert internal format (d) to KERI SAD format ($id, $schema)
+      const { d, ...schemaContent } = schema.schema;
+
       const sed = {
-        $id: schema.schemaId,
+        $id: schema.schemaId, // Use $id instead of d
         $schema: 'http://json-schema.org/draft-07/schema#',
-        title: schema.schema.title,
-        type: 'object' as const,
-        properties: schema.schema.properties,
-        ...(schema.schema.description && { description: schema.schema.description }),
-        ...(schema.schema.required && { required: schema.schema.required }),
+        ...schemaContent, // Include all other fields from the original schema
       };
 
       return {
