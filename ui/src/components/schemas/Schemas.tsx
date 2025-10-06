@@ -91,63 +91,24 @@ export function Schemas() {
     try {
       const parsed = JSON.parse(importText);
 
-      let alias: string;
-      let schemaDefinition: any;
-
-      // Check if it's a full StoredSchema format (has id, name, fields)
-      if (parsed.id && parsed.name && parsed.fields) {
-        alias = parsed.name;
-        // Reconstruct schema definition from fields
-        schemaDefinition = {
-          $id: `https://example.com/schemas/${parsed.name.toLowerCase().replace(/\s+/g, '-')}`,
-          $schema: 'http://json-schema.org/draft-07/schema#',
-          title: parsed.name,
-          type: 'object',
-          properties: {},
-          required: parsed.fields.filter((f: any) => f.required).map((f: any) => f.name),
-        };
-        if (parsed.description) {
-          schemaDefinition.description = parsed.description;
-        }
-        parsed.fields.forEach((field: any) => {
-          let fieldSchema: any = { type: field.type === 'number' ? 'number' : field.type === 'boolean' ? 'boolean' : 'string' };
-          if (field.type === 'email') fieldSchema.format = 'email';
-          if (field.type === 'url') fieldSchema.format = 'uri';
-          if (field.type === 'date') fieldSchema.format = 'date-time';
-          if (field.description) fieldSchema.description = field.description;
-          schemaDefinition.properties[field.name] = fieldSchema;
-        });
-      }
-      // Check if it's a SAD format (has sed, raw, said)
-      else if (parsed.sed && parsed.said) {
-        const sed = parsed.sed;
-
-        // Extract schema name and fields from the SED
-        if (!sed.title || !sed.properties) {
-          showToast('Invalid SAD format. Must include title and properties in sed.');
-          return;
-        }
-
-        alias = sed.title;
-        schemaDefinition = sed;
-      }
-      // Invalid format
-      else {
-        showToast('Invalid schema format. Must be either a StoredSchema or KERI SAD format.');
+      // Basic format check
+      if (!parsed.alias || !parsed.sed || !parsed.said) {
+        showToast('Invalid schema format. Expected KERI SAD format: { alias, sed, said }');
+        setImporting(false);
         return;
       }
 
       // Check if schema already exists
       const existingAliases = await dsl.listSchemas();
-      if (existingAliases.includes(alias)) {
-        if (!confirm(`A schema with alias "${alias}" already exists. Replace it?`)) {
+      if (existingAliases.includes(parsed.alias)) {
+        if (!confirm(`A schema with alias "${parsed.alias}" already exists. Replace it?`)) {
           setImporting(false);
           return;
         }
       }
 
-      // Create schema using DSL
-      await dsl.createSchema(alias, schemaDefinition);
+      // Import schema using DSL (validates SAID and structure)
+      await dsl.importSchema(parsed);
 
       // Reload schemas
       const aliases = await dsl.listSchemas();
@@ -171,7 +132,8 @@ export function Schemas() {
       showToast('Schema imported successfully');
     } catch (error) {
       console.error('Failed to import schema:', error);
-      showToast('Failed to import schema. Please check the format.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to import schema. Please check the format.';
+      showToast(errorMessage);
     } finally {
       setImporting(false);
     }

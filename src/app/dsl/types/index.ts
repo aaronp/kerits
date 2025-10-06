@@ -11,6 +11,7 @@ import type {
   Registry,
   ACDC,
   Schema,
+  SchemaExport,
   Contact,
   Mnemonic,
   GraphOptions,
@@ -223,6 +224,12 @@ export interface SchemaDSL {
    * @returns Schema object
    */
   getSchema(): any;
+
+  /**
+   * Export schema in KERI SAD format with alias metadata
+   * @returns Schema export in SchemaExport format
+   */
+  export(): SchemaExport;
 }
 
 /**
@@ -324,6 +331,13 @@ export interface KeritsDSL {
    * @returns SchemaDSL for the new schema
    */
   createSchema(alias: string, schema: any): Promise<SchemaDSL>;
+
+  /**
+   * Import a schema from KERI SAD format
+   * @param schemaData - Schema in SchemaExport format
+   * @returns SchemaDSL for the imported schema
+   */
+  importSchema(schemaData: SchemaExport): Promise<SchemaDSL>;
 
   /**
    * Get a schema by alias

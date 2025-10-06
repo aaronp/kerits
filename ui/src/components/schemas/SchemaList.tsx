@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Button } from '../ui/button';
 import { Copy, Check, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { Toast, useToast } from '../ui/toast';
+import { VisualId } from '../ui/visual-id';
 
 interface SchemaDisplay {
   alias: string;
@@ -30,8 +31,21 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
   };
 
   const handleCopySchema = async (schema: SchemaDisplay) => {
-    await navigator.clipboard.writeText(JSON.stringify(schema, null, 2));
-    showToast('Schema copied to clipboard');
+    // Export in KERI SAD format with alias metadata
+    const exportFormat = {
+      alias: schema.alias,
+      sed: {
+        $id: schema.schemaId, // SAID goes in $id
+        $schema: 'http://json-schema.org/draft-07/schema#',
+        title: schema.title,
+        type: 'object',
+        properties: schema.properties,
+        ...(schema.description && { description: schema.description }),
+      },
+      said: schema.schemaId,
+    };
+    await navigator.clipboard.writeText(JSON.stringify(exportFormat, null, 2));
+    showToast('Schema copied to clipboard (KERI SAD format)');
   };
 
   const toggleDefinition = (schemaId: string) => {
@@ -77,9 +91,16 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
                     {schema.description}
                   </CardDescription>
                 )}
-                <CardDescription className="font-mono text-xs mt-2">
-                  Alias: {schema.alias} • SAID: {schema.schemaId.substring(0, 16)}...
-                </CardDescription>
+                <div className="mt-3">
+                  <VisualId
+                    label={schema.alias}
+                    value={schema.schemaId}
+                    showCopy={true}
+                    size={32}
+                    maxCharacters={24}
+                    onCopy={() => showToast('Schema ID copied to clipboard')}
+                  />
+                </div>
               </div>
               <div className="flex gap-2">
                 <Button

@@ -2,7 +2,7 @@
  * SchemaDSL - Schema operations
  */
 
-import type { SchemaDSL, Schema } from '../types';
+import type { SchemaDSL, Schema, SchemaExport } from '../types';
 
 /**
  * Create a SchemaDSL for a specific schema
@@ -44,6 +44,25 @@ export function createSchemaDSL(schema: Schema): SchemaDSL {
 
     getSchema(): any {
       return schema.schema;
+    },
+
+    export(): SchemaExport {
+      // Export in KERI SAD format with alias
+      const sed = {
+        $id: schema.schemaId,
+        $schema: 'http://json-schema.org/draft-07/schema#',
+        title: schema.schema.title,
+        type: 'object' as const,
+        properties: schema.schema.properties,
+        ...(schema.schema.description && { description: schema.schema.description }),
+        ...(schema.schema.required && { required: schema.schema.required }),
+      };
+
+      return {
+        alias: schema.alias,
+        sed,
+        said: schema.schemaId,
+      };
     },
   };
 }

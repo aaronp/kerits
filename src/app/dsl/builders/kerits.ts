@@ -178,6 +178,37 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
       return createSchemaDSL(schemaObj);
     },
 
+    async importSchema(schemaData: SchemaExport): Promise<SchemaDSL> {
+      // Validate SAID matches
+      if (schemaData.sed.$id !== schemaData.said) {
+        throw new Error('SAID mismatch: sed.$id does not match said field');
+      }
+
+      // Validate required fields
+      if (!schemaData.sed.title || !schemaData.sed.properties) {
+        throw new Error('Invalid schema: must have title and properties');
+      }
+
+      // Create schema using the sed directly (it already has the SAID)
+      const { schemaId } = await createSchemaHelper(store, {
+        alias: schemaData.alias,
+        schema: schemaData.sed,
+      });
+
+      // Verify the SAID matches what we expect
+      if (schemaId !== schemaData.said) {
+        throw new Error(`SAID verification failed: expected ${schemaData.said}, got ${schemaId}`);
+      }
+
+      const schemaObj = {
+        alias: schemaData.alias,
+        schemaId,
+        schema: schemaData.sed,
+      };
+
+      return createSchemaDSL(schemaObj);
+    },
+
     async schema(alias: string): Promise<SchemaDSL | null> {
       const schemaId = await store.aliasToId('schema', alias);
       if (!schemaId) {

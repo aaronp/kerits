@@ -72,6 +72,27 @@ export interface Schema {
 }
 
 /**
+ * SchemaExport represents a schema in KERI SAD format with alias metadata
+ * This is the standard format for importing/exporting schemas
+ */
+export interface SchemaExport {
+  /** Human-readable alias */
+  alias: string;
+  /** Self-Addressing Data (SED) - schema definition with SAID in $id */
+  sed: {
+    $id: string; // SAID
+    $schema: string;
+    title: string;
+    type: 'object';
+    properties: Record<string, any>;
+    description?: string;
+    required?: string[];
+  };
+  /** Schema SAID (redundant with sed.$id but part of standard format) */
+  said: string;
+}
+
+/**
  * Contact represents a witness or other KERI participant
  */
 export interface Contact {
