@@ -1,21 +1,23 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { X } from "lucide-react"
 
 interface ToastProps {
   message: string;
   show: boolean;
   onClose: () => void;
+  duration?: number;
 }
 
-export function Toast({ message, show, onClose }: ToastProps) {
+export function Toast({ message, show, onClose, duration = 5000 }: ToastProps) {
   React.useEffect(() => {
-    if (show) {
+    if (show && duration > 0) {
       const timer = setTimeout(() => {
         onClose();
-      }, 2000);
+      }, duration);
       return () => clearTimeout(timer);
     }
-  }, [show, onClose]);
+  }, [show, onClose, duration]);
 
   if (!show) return null;
 
@@ -23,7 +25,7 @@ export function Toast({ message, show, onClose }: ToastProps) {
     <div className="fixed bottom-4 right-4 z-50 animate-in fade-in slide-in-from-bottom-2">
       <div className={cn(
         "bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg",
-        "flex items-center gap-2 min-w-[200px]"
+        "flex items-center gap-3 min-w-[250px] max-w-md"
       )}>
         <svg
           className="h-5 w-5 text-green-400 flex-shrink-0"
@@ -38,7 +40,14 @@ export function Toast({ message, show, onClose }: ToastProps) {
             d="M5 13l4 4L19 7"
           />
         </svg>
-        <span className="text-sm">{message}</span>
+        <span className="text-sm flex-1">{message}</span>
+        <button
+          onClick={onClose}
+          className="flex-shrink-0 hover:bg-gray-800 rounded p-1 transition-colors"
+          aria-label="Close notification"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
     </div>
   );

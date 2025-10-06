@@ -131,7 +131,7 @@ export function Dashboard() {
           return;
         }
         const exportDsl = await accountDsl.export();
-        const cesr = await exportDsl.asCESR();
+        const cesr = exportDsl.toCESR();
         const text = new TextDecoder().decode(cesr);
         await navigator.clipboard.writeText(text);
         showToast('Account KEL copied to clipboard (CESR format)');

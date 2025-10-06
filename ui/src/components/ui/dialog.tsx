@@ -16,7 +16,7 @@ const Dialog = React.forwardRef<
       <div
         ref={ref}
         className={cn(
-          "relative z-50 bg-card text-card-foreground border border-border rounded-lg shadow-2xl max-w-lg w-full p-6",
+          "relative z-50 bg-card text-card-foreground border border-border rounded-lg shadow-2xl max-w-2xl w-full p-6",
           className
         )}
         style={{ backgroundColor: 'var(--color-card)', color: 'var(--color-card-foreground)' }}

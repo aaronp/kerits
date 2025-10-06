@@ -336,7 +336,7 @@ export function CredentialIssuer() {
             <div className="space-y-4 pt-4 border-t">
               <Label className="text-base font-semibold">Credential Data</Label>
               {activeSchema.fields.map((field: SchemaField) => (
-                <div key={field.name} className="space-y-2">
+                <div key={field.name} className="space-y-2 px-1">
                   <Label htmlFor={field.name}>
                     {field.name} {field.required && '*'}
                     <span className="text-xs text-muted-foreground ml-2">

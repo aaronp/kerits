@@ -10,6 +10,7 @@ import { UserCircle, RotateCw, Shield, Eye, EyeOff, Key, Copy, Share, Trash2, Pa
 import { saveIdentity, clearAllData } from '../lib/storage';
 import { deriveSeed, formatMnemonic } from '../lib/mnemonic';
 import { generateKeypairFromSeed, rotate, diger } from '../lib/keri';
+import { getDSL } from '../lib/dsl';
 import type { StoredIdentity } from '../lib/storage';
 
 export function Profile() {
@@ -45,9 +46,37 @@ export function Profile() {
   };
 
   const handleShareKEL = async (identity: StoredIdentity) => {
-    const kelString = JSON.stringify(identity.kel, null, 2);
-    await navigator.clipboard.writeText(kelString);
-    showToast('KEL copied to clipboard');
+    try {
+      const dsl = await getDSL();
+      const accountNames = await dsl.listAccounts();
+
+      // Find the account matching this identity's AID
+      let accountDsl = null;
+      for (const accountName of accountNames) {
+        const acc = await dsl.account(accountName);
+        if (acc && acc.account.aid === identity.aid) {
+          accountDsl = acc;
+          break;
+        }
+      }
+
+      if (accountDsl) {
+        // Use DSL to export in CESR format
+        const exportDsl = await accountDsl.export();
+        const cesr = exportDsl.toCESR();
+        const text = new TextDecoder().decode(cesr);
+        await navigator.clipboard.writeText(text);
+        showToast('KEL copied to clipboard (CESR format)');
+      } else {
+        // Fallback to JSON if no DSL account found
+        const kelString = JSON.stringify(identity.kel, null, 2);
+        await navigator.clipboard.writeText(kelString);
+        showToast('KEL copied to clipboard (JSON format)');
+      }
+    } catch (error) {
+      console.error('Failed to share KEL:', error);
+      showToast(`Failed to share: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
 
   const handleClearData = async () => {

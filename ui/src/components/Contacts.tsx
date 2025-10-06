@@ -15,6 +15,7 @@ import {
 } from './ui/dialog';
 import { UserPlus, Users, Trash2, Copy } from 'lucide-react';
 import { saveContact, getContacts, deleteContact, getContactByPrefix } from '../lib/storage';
+import { getDSL } from '../lib/dsl';
 import { route } from '../config';
 import type { Contact } from '../lib/storage';
 
@@ -54,21 +55,121 @@ export function Contacts() {
 
     setLoading(true);
     try {
-      // Parse the KEL JSON
-      const kelData = JSON.parse(newContactKEL);
+      const dsl = await getDSL();
+      const importDsl = dsl.import();
+      let kelData: any[];
+      let prefix: string;
 
-      if (!Array.isArray(kelData) || kelData.length === 0) {
-        showToast('Invalid KEL format - must be a non-empty array');
-        return;
-      }
+      // Try to parse as CESR first (raw text format from export)
+      try {
+        const cesrBytes = new TextEncoder().encode(newContactKEL.trim());
+        const result = await importDsl.fromCESR(cesrBytes);
 
-      // Extract prefix (SAID/AID) from the first event
-      const firstEvent = kelData[0];
-      const prefix = firstEvent.pre || firstEvent.i || firstEvent.ked?.i;
+        if (result.imported === 0) {
+          throw new Error('No events imported from CESR');
+        }
 
-      if (!prefix) {
-        showToast('Could not find prefix in KEL data');
-        return;
+        // Extract AID from the result or from first event
+        if (result.aid) {
+          prefix = result.aid;
+        } else {
+          // Parse the first event to get the AID using balanced brace counting
+          const cesrText = newContactKEL.trim();
+          let braceCount = 0;
+          let start = -1;
+          let end = -1;
+
+          for (let i = 0; i < cesrText.length; i++) {
+            if (cesrText[i] === '{') {
+              if (braceCount === 0) start = i;
+              braceCount++;
+            } else if (cesrText[i] === '}') {
+              braceCount--;
+              if (braceCount === 0 && start !== -1) {
+                end = i + 1;
+                break;
+              }
+            }
+          }
+
+          if (start === -1 || end === -1) {
+            throw new Error('Could not extract JSON from CESR');
+          }
+
+          const firstEvent = JSON.parse(cesrText.slice(start, end));
+          prefix = firstEvent.i || firstEvent.pre;
+          if (!prefix) {
+            throw new Error('Could not find AID in first event');
+          }
+        }
+
+        // Parse events into array format for storage using balanced brace counting
+        kelData = [];
+        const cesrText = newContactKEL.trim();
+        let offset = 0;
+
+        while (offset < cesrText.length) {
+          // Skip non-JSON characters (version strings, whitespace)
+          while (offset < cesrText.length && cesrText[offset] !== '{') {
+            offset++;
+          }
+
+          if (offset >= cesrText.length) break;
+
+          // Find balanced JSON object
+          let braceCount = 0;
+          let start = offset;
+
+          for (let i = offset; i < cesrText.length; i++) {
+            if (cesrText[i] === '{') {
+              braceCount++;
+            } else if (cesrText[i] === '}') {
+              braceCount--;
+              if (braceCount === 0) {
+                const jsonText = cesrText.slice(start, i + 1);
+                try {
+                  const eventJson = JSON.parse(jsonText);
+                  kelData.push(eventJson);
+                } catch (e) {
+                  console.error('Failed to parse event JSON:', e);
+                }
+                offset = i + 1;
+                break;
+              }
+            }
+          }
+
+          if (braceCount !== 0) break; // Incomplete JSON
+        }
+
+        if (kelData.length === 0) {
+          throw new Error('No events parsed from CESR');
+        }
+      } catch (cesrError) {
+        // If CESR parsing fails, try JSON format
+        try {
+          kelData = JSON.parse(newContactKEL);
+
+          if (!Array.isArray(kelData) || kelData.length === 0) {
+            showToast('Invalid KEL format - must be a non-empty array');
+            setLoading(false);
+            return;
+          }
+
+          // Extract prefix from the first event
+          const firstEvent = kelData[0];
+          prefix = firstEvent.pre || firstEvent.i || firstEvent.ked?.i;
+
+          if (!prefix) {
+            showToast('Could not find prefix in KEL data');
+            setLoading(false);
+            return;
+          }
+        } catch (jsonError) {
+          showToast('Invalid format - must be CESR or JSON KEL data');
+          setLoading(false);
+          return;
+        }
       }
 
       // Check if contact with this AID already exists
@@ -97,11 +198,7 @@ export function Contacts() {
       showToast(`Contact "${contact.name}" added successfully`);
     } catch (error) {
       console.error('Failed to add contact:', error);
-      if (error instanceof SyntaxError) {
-        showToast('Invalid JSON format in KEL data');
-      } else {
-        showToast('Failed to add contact');
-      }
+      showToast(`Failed to add contact: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -243,10 +340,10 @@ export function Contacts() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="kel">KEL Data (JSON)</Label>
+              <Label htmlFor="kel">KEL Data (CESR or JSON)</Label>
               <Textarea
                 id="kel"
-                placeholder="Paste the KEL JSON data here..."
+                placeholder="Paste the KEL data here (CESR or JSON format)..."
                 value={newContactKEL}
                 onChange={(e) => setNewContactKEL(e.target.value)}
                 className="font-mono text-xs resize-none"
