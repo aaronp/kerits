@@ -1,0 +1,27 @@
+{
+  "name": "kerits-cli-ink",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "kerits-ink": "./index.tsx"
+  },
+  "scripts": {
+    "dev": "bun run index.tsx",
+    "start": "bun run index.tsx"
+  },
+  "dependencies": {
+    "ink": "^4.4.1",
+    "react": "^18.2.0",
+    "ink-gradient": "^3.0.0",
+    "ink-big-text": "^2.0.0",
+    "ink-spinner": "^5.0.0",
+    "ink-select-input": "^5.0.0",
+    "ink-text-input": "^5.0.1",
+    "chalk": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/bun": "latest"
+  }
+}
