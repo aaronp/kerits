@@ -236,13 +236,16 @@ async function exportCredential(
 ): Promise<void> {
   const defaultPath = `./${registryAlias}-${indexed.credentialId.substring(0, 8)}.cesr`;
 
-  const filePath = await p.text({
+  const filePathInput = await p.text({
     message: 'Export to file:',
     placeholder: defaultPath,
     defaultValue: defaultPath,
   });
 
-  if (p.isCancel(filePath)) return;
+  if (p.isCancel(filePathInput)) return;
+
+  // Use default if user just pressed enter
+  const filePath = filePathInput.trim() || defaultPath;
 
   const s = p.spinner();
   s.start('Exporting credential...');
@@ -261,7 +264,12 @@ async function exportCredential(
     const exportDsl = await acdcDsl.export();
     const cesr = await exportDsl.toCesr();
 
-    const { writeFile } = await import('fs/promises');
+    // Create parent directories if needed
+    const { writeFile, mkdir } = await import('fs/promises');
+    const { dirname } = await import('path');
+    const dir = dirname(filePath);
+    await mkdir(dir, { recursive: true });
+
     await writeFile(filePath, cesr);
 
     s.stop(`Credential exported to '${filePath}'`);

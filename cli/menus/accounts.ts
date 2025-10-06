@@ -259,13 +259,16 @@ async function rotateKeys(currentAccount: string): Promise<void> {
 async function exportKel(currentAccount: string): Promise<void> {
   const defaultPath = `./${currentAccount}-kel.cesr`;
 
-  const filePath = await p.text({
+  const filePathInput = await p.text({
     message: 'Export KEL to file:',
     placeholder: defaultPath,
     defaultValue: defaultPath,
   });
 
-  if (p.isCancel(filePath)) return;
+  if (p.isCancel(filePathInput)) return;
+
+  // Use default if user just pressed enter
+  const filePath = filePathInput.trim() || defaultPath;
 
   const s = p.spinner();
   s.start('Exporting KEL...');
@@ -282,6 +285,11 @@ async function exportKel(currentAccount: string): Promise<void> {
 
     const exportDsl = await accountDsl.export();
     const kelCesr = exportDsl.kel;
+
+    // Create parent directories if needed
+    const { dirname } = await import('path');
+    const dir = dirname(filePath);
+    await mkdir(dir, { recursive: true });
 
     await writeFile(filePath, kelCesr);
 

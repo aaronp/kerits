@@ -322,13 +322,16 @@ async function exportSchema(currentAccount: string): Promise<void> {
     if (p.isCancel(selected) || selected === 'cancel') return;
 
     const defaultPath = `./${selected}.json`;
-    const filePath = await p.text({
+    const filePathInput = await p.text({
       message: 'Export to file:',
       placeholder: defaultPath,
       defaultValue: defaultPath,
     });
 
-    if (p.isCancel(filePath)) return;
+    if (p.isCancel(filePathInput)) return;
+
+    // Use default if user just pressed enter
+    const filePath = filePathInput.trim() || defaultPath;
 
     const spinner = p.spinner();
     spinner.start('Exporting schema...');
@@ -342,6 +345,12 @@ async function exportSchema(currentAccount: string): Promise<void> {
     }
 
     const schemaData = schemaDsl.getSchema();
+
+    // Create parent directories if needed
+    const { mkdir } = await import('fs/promises');
+    const { dirname } = await import('path');
+    const dir = dirname(filePath);
+    await mkdir(dir, { recursive: true });
 
     await writeFile(filePath, JSON.stringify(schemaData, null, 2));
 

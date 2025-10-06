@@ -65,7 +65,8 @@ async function listContacts(currentAccount: string): Promise<void> {
       return;
     }
 
-    const contacts = await accountDsl.listContacts();
+    const contactsDsl = accountDsl.contacts();
+    const contacts = await contactsDsl.getAll();
 
     s.stop();
 
@@ -115,21 +116,34 @@ async function addContact(currentAccount: string): Promise<void> {
   s.start('Importing contact...');
 
   try {
-    const kelData = await readFile(filePath, 'utf-8');
-
     const { dsl } = await loadAccountDSL(currentAccount);
-    const accountDsl = await dsl.account(currentAccount);
 
+    // Import the KEL file
+    const importDsl = dsl.import();
+    const importResult = await importDsl.fromFile(filePath);
+
+    if (!importResult.imported || importResult.imported.length === 0) {
+      s.stop('Failed to add contact');
+      p.log.error('No events were imported from the KEL file');
+      return;
+    }
+
+    // Get the AID from the first imported event
+    const aid = importResult.imported[0].aid;
+
+    // Add to contacts
+    const accountDsl = await dsl.account(currentAccount);
     if (!accountDsl) {
       s.stop('Failed to add contact');
       p.log.error(`Account '${currentAccount}' not found`);
       return;
     }
 
-    const contact = await accountDsl.addContact(alias, kelData);
+    const contactsDsl = accountDsl.contacts();
+    const contact = await contactsDsl.add(alias, aid);
 
     s.stop(`Contact '${alias}' added`);
-    p.note(`AID: ${contact.aid}`, 'Success');
+    p.note(`AID: ${contact.aid}\nEvents imported: ${importResult.imported.length}`, 'Success');
   } catch (error) {
     s.stop('Failed to add contact');
     p.log.error(error instanceof Error ? error.message : String(error));
@@ -150,7 +164,8 @@ async function removeContact(currentAccount: string): Promise<void> {
       return;
     }
 
-    const contacts = await accountDsl.listContacts();
+    const contactsDsl = accountDsl.contacts();
+    const contacts = await contactsDsl.getAll();
 
     s.stop();
 
@@ -185,7 +200,7 @@ async function removeContact(currentAccount: string): Promise<void> {
     const spinner = p.spinner();
     spinner.start('Removing contact...');
 
-    await accountDsl.removeContact(selected);
+    await contactsDsl.remove(selected);
 
     spinner.stop(`Contact '${selected}' removed successfully`);
   } catch (error) {

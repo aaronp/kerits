@@ -302,7 +302,8 @@ async function createCredential(dsl: any, accountDsl: any, registryDsl: any, reg
     let recipientAid: string | undefined;
 
     if (recipientChoice === 'contacts') {
-      const contacts = await accountDsl.listContacts();
+      const contactsDsl = accountDsl.contacts();
+      const contacts = await contactsDsl.getAll();
       if (contacts.length === 0) {
         p.note('No contacts found.', 'Info');
       } else {
@@ -331,20 +332,28 @@ async function createCredential(dsl: any, accountDsl: any, registryDsl: any, reg
       }
     }
 
+    // If no recipient was selected, use self-signed (account's own AID)
+    const holder = recipientAid || accountDsl.account.aid;
+
     const spinner = p.spinner();
     spinner.start('Creating credential...');
 
-    const acdcDsl = await registryDsl.issue({
-      schema: selectedSchema,
-      data: credentialData,
-      recipient: recipientAid,
-    });
+    try {
+      const acdcDsl = await registryDsl.issue({
+        schema: selectedSchema,
+        holder: holder,
+        data: credentialData,
+      });
 
-    const said = await acdcDsl.getSaid();
-    const issued = new Date().toISOString();
+      const credentialId = acdcDsl.acdc.credentialId;
+      const issued = new Date().toISOString();
 
-    spinner.stop('Credential created');
-    p.note(`SAID: ${said}\nSchema: ${selectedSchema}\nIssued: ${issued}`, 'Success');
+      spinner.stop('Credential created');
+      p.note(`Credential ID: ${credentialId}\nSchema: ${selectedSchema}\nIssued: ${issued}`, 'Success');
+    } catch (error) {
+      spinner.stop('Failed to create credential');
+      throw error;
+    }
   } catch (error) {
     s.stop('Failed to create credential');
     p.log.error(error instanceof Error ? error.message : String(error));
@@ -442,19 +451,28 @@ async function exportCredential(registryDsl: any, registryAlias: string): Promis
     if (p.isCancel(selected) || selected === 'cancel') return;
 
     const defaultPath = `./${registryAlias}-credential.cesr`;
-    const filePath = await p.text({
+    const filePathInput = await p.text({
       message: 'Export to file:',
       placeholder: defaultPath,
       defaultValue: defaultPath,
     });
 
-    if (p.isCancel(filePath)) return;
+    if (p.isCancel(filePathInput)) return;
+
+    // Use default if user just pressed enter
+    const filePath = filePathInput.trim() || defaultPath;
 
     const spinner = p.spinner();
     spinner.start('Exporting credential...');
 
     const acdcDsl = registryDsl.credential(selected);
     const acdcCesr = await acdcDsl.export();
+
+    // Create parent directories if needed
+    const { mkdir } = await import('fs/promises');
+    const { dirname } = await import('path');
+    const dir = dirname(filePath);
+    await mkdir(dir, { recursive: true });
 
     await writeFile(filePath, acdcCesr);
 
