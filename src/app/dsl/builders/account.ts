@@ -107,7 +107,8 @@ export function createAccountDSL(account: Account, store: KerStore): AccountDSL 
         const registryId = await store.aliasToId('tel', alias);
         if (registryId) {
           const telEvents = await store.listTel(registryId);
-          if (telEvents.length > 0 && telEvents[0].meta.i === account.aid) {
+          // VCP (registry inception) has issuerAid field
+          if (telEvents.length > 0 && telEvents[0].meta.issuerAid === account.aid) {
             ownedRegistries.push(alias);
           }
         }

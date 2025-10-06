@@ -57,8 +57,37 @@ export function createContactsDSL(store: KerStore): ContactsDSL {
         return null;
       }
 
-      // Parse contact metadata from stored event
-      // In production, properly deserialize the event
+      // Parse the raw event to extract metadata
+      // The raw bytes contain the full CESR-framed event
+      // Convert to Uint8Array if it's a regular array or object (from JSON deserialization)
+      let rawBytes: Uint8Array;
+      if (stored.event.raw instanceof Uint8Array) {
+        rawBytes = stored.event.raw;
+      } else if (Array.isArray(stored.event.raw)) {
+        rawBytes = new Uint8Array(stored.event.raw);
+      } else {
+        // It's an object like {0: 45, 1: 75, ...}, convert to array
+        rawBytes = new Uint8Array(Object.values(stored.event.raw as any));
+      }
+
+      const rawText = new TextDecoder().decode(rawBytes);
+
+      // Extract JSON portion (after version string)
+      const jsonMatch = rawText.match(/\{.*\}/s);
+      if (jsonMatch) {
+        try {
+          const eventData = JSON.parse(jsonMatch[0]);
+          return {
+            alias,
+            aid,
+            metadata: eventData.metadata || {},
+            addedAt: eventData.addedAt || stored.meta.dt || new Date().toISOString(),
+          };
+        } catch (e) {
+          // Fall back to basic contact if parse fails
+        }
+      }
+
       return {
         alias,
         aid,

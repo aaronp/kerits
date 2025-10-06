@@ -84,6 +84,11 @@ export class DefaultJsonCesrParser implements Parser {
       ri: sad.t === 'vcp' ? sad.i : sad.ri,
     };
 
+    // VCP (registry inception) - extract issuer AID
+    if (sad.t === 'vcp' && sad.ii) {
+      meta.issuerAid = sad.ii;
+    }
+
     // TEL iss/rev carrier for ACDC SAID & parties
     if (sad.t === "iss" || sad.t === "rev") {
       if (sad.i) meta.acdcSaid = sad.i;

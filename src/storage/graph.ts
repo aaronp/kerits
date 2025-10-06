@@ -88,11 +88,12 @@ export async function buildGraphFromStore(
         meta: { t: meta.t },
       });
 
-      if (meta.i) {
-        addNode({ id: meta.i, kind: "AID", label: meta.i.substring(0, 12) + "..." });
+      // For VCP, the issuer is in meta.issuerAid (from 'ii' field)
+      if (meta.issuerAid) {
+        addNode({ id: meta.issuerAid, kind: "AID", label: meta.issuerAid.substring(0, 12) + "..." });
         addEdge({
-          id: `ANCHOR:${meta.i}->${meta.d}`,
-          from: meta.i,
+          id: `ANCHOR:${meta.issuerAid}->${meta.d}`,
+          from: meta.issuerAid,
           to: meta.d,
           kind: "ANCHOR",
           label: "anchors TEL",
