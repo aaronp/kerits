@@ -12,9 +12,11 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronRight, ChevronDown, PlusCircle, Download, Upload, Share2, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
+import { route } from '@/config';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +28,7 @@ import {
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Toast, useToast } from '../ui/toast';
+import { Combobox } from '../ui/combobox';
 import { useTheme } from '@/lib/theme-provider';
 import { getDSL } from '@/lib/dsl';
 import type { KeritsDSL, AccountDSL, RegistryDSL, ACDCDSL } from '@/../src/app/dsl/types';
@@ -40,6 +43,8 @@ interface Registry {
 export function Explorer() {
   const { theme } = useTheme();
   const { toast, showToast, hideToast } = useToast();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // State
   const [dsl, setDsl] = useState<KeritsDSL | null>(null);
@@ -57,6 +62,64 @@ export function Explorer() {
   // Dialog state
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newRegistryName, setNewRegistryName] = useState('');
+  const [showAddACDCDialog, setShowAddACDCDialog] = useState(false);
+  const [selectedRegistryId, setSelectedRegistryId] = useState<string | null>(null);
+  const [selectedSchemaAlias, setSelectedSchemaAlias] = useState('');
+  const [selectedSchema, setSelectedSchema] = useState<any>(null);
+  const [selectedHolder, setSelectedHolder] = useState('');
+  const [credentialData, setCredentialData] = useState<Record<string, any>>({});
+  const [availableSchemas, setAvailableSchemas] = useState<Array<{ alias: string; schema: any }>>([]);
+  const [contacts, setContacts] = useState<Array<{ alias: string; aid: string }>>([]);
+
+  // Handle return from schema creation
+  useEffect(() => {
+    const returnFromSchema = searchParams.get('returnFromSchema');
+    const newSchemaAlias = searchParams.get('schemaAlias');
+    const registryId = searchParams.get('registryId');
+
+    if (returnFromSchema === 'true' && newSchemaAlias && registryId && dsl) {
+      // Reload schemas and re-open the issue dialog
+      (async () => {
+        try {
+          // Reload schemas
+          const schemaAliases = await dsl.listSchemas();
+          const schemasWithData = await Promise.all(
+            schemaAliases.map(async (alias) => {
+              const schemaDsl = await dsl.schema(alias);
+              return schemaDsl ? { alias, schema: schemaDsl.schema } : null;
+            })
+          );
+          const schemas = schemasWithData.filter((s): s is NonNullable<typeof s> => s !== null);
+          setAvailableSchemas(schemas);
+
+          // Find and select the new schema
+          const newSchema = schemas.find(s => s.alias === newSchemaAlias);
+          if (newSchema) {
+            setSelectedRegistryId(registryId);
+            setSelectedSchemaAlias(newSchemaAlias);
+            setSelectedSchema(newSchema);
+
+            // Initialize form data
+            if (newSchema.schema?.schema?.properties) {
+              const initialData: Record<string, any> = {};
+              Object.keys(newSchema.schema.schema.properties).forEach(key => {
+                initialData[key] = '';
+              });
+              setCredentialData(initialData);
+            }
+
+            // Re-open the dialog
+            setShowAddACDCDialog(true);
+          }
+        } catch (error) {
+          console.error('Failed to reload schemas:', error);
+        }
+
+        // Clear the query params
+        navigate(route('/dashboard'), { replace: true });
+      })();
+    }
+  }, [searchParams, navigate, dsl]);
 
   // Initialize DSL
   useEffect(() => {
@@ -162,9 +225,13 @@ export function Explorer() {
       if (newSet.has(registryId)) {
         newSet.delete(registryId);
       } else {
-        newSet.add(registryId);
-        // Load ACDCs when expanding
-        loadACDCsForRegistry(registryId);
+        // Load ACDCs first to check if there are any
+        loadACDCsForRegistry(registryId).then(() => {
+          const acdcs = acdcsByRegistry.get(registryId);
+          if (acdcs && acdcs.length > 0) {
+            setExpandedRegistries(prev => new Set(prev).add(registryId));
+          }
+        });
       }
       return newSet;
     });
@@ -355,9 +422,89 @@ export function Explorer() {
     }
   };
 
-  const handleACDCAdd = (registryId: string) => {
-    // TODO: Open dialog to issue a new credential
-    showToast('Credential issuance UI coming soon - use CLI or import for now');
+  const handleACDCAdd = async (registryId: string) => {
+    setSelectedRegistryId(registryId);
+    setSelectedSchemaAlias('');
+    setSelectedSchema(null);
+    setSelectedHolder('');
+    setCredentialData({});
+
+    // Load available schemas and contacts
+    if (dsl) {
+      try {
+        // Load schemas with full schema objects
+        const schemaAliases = await dsl.listSchemas();
+        const schemasWithData = await Promise.all(
+          schemaAliases.map(async (alias) => {
+            const schemaDsl = await dsl.schema(alias);
+            return schemaDsl ? { alias, schema: schemaDsl.schema } : null;
+          })
+        );
+        setAvailableSchemas(schemasWithData.filter((s): s is NonNullable<typeof s> => s !== null));
+
+        // Load contacts
+        const contactsDsl = dsl.contacts();
+        const contactAliases = await contactsDsl.list();
+        const contactsData = await Promise.all(
+          contactAliases.map(async (alias) => {
+            const contact = await contactsDsl.get(alias);
+            return contact ? { alias, aid: contact.aid } : null;
+          })
+        );
+        setContacts(contactsData.filter((c): c is NonNullable<typeof c> => c !== null));
+      } catch (error) {
+        console.error('Failed to load schemas/contacts:', error);
+      }
+    }
+
+    setShowAddACDCDialog(true);
+  };
+
+  const handleCreateACDC = async () => {
+    if (!accountDsl || !selectedRegistryId || !selectedSchemaAlias || !selectedHolder) {
+      showToast('Please select schema and recipient');
+      return;
+    }
+
+    // Validate required fields if schema has them
+    if (selectedSchema?.schema?.required) {
+      const required = selectedSchema.schema.required as string[];
+      for (const field of required) {
+        if (!credentialData[field] || String(credentialData[field]).trim() === '') {
+          showToast(`Field "${field}" is required`);
+          return;
+        }
+      }
+    }
+
+    try {
+      const registryDsl = await accountDsl.registry(selectedRegistryId);
+      if (!registryDsl) {
+        showToast('Registry not found');
+        return;
+      }
+
+      // Issue credential with selected schema and holder
+      await registryDsl.issue({
+        schema: selectedSchemaAlias,
+        holder: selectedHolder,
+        data: credentialData,
+      });
+
+      // Reload ACDCs for this registry
+      await loadACDCsForRegistry(selectedRegistryId);
+
+      setShowAddACDCDialog(false);
+      setSelectedSchemaAlias('');
+      setSelectedSchema(null);
+      setSelectedHolder('');
+      setCredentialData({});
+      setSelectedRegistryId(null);
+      showToast('Credential issued successfully');
+    } catch (error) {
+      console.error('Failed to issue credential:', error);
+      showToast(`Failed to issue: ${error instanceof Error ? error.message : String(error)}`);
+    }
   };
 
   if (loading) {
@@ -405,27 +552,30 @@ export function Explorer() {
                   onMouseLeave={() => setHoveredRegistry(null)}
                 >
                   <div
-                    className="flex items-center gap-2 p-3 cursor-pointer transition-colors"
+                    className="flex items-center gap-2 p-3 transition-colors"
                     style={{ backgroundColor: theme === 'dark' ? 'rgb(30 41 59)' : 'rgb(241 245 249)' }}
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme === 'dark' ? 'rgb(51 65 85)' : 'rgb(226 232 240)'}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = theme === 'dark' ? 'rgb(30 41 59)' : 'rgb(241 245 249)'}
-                    onClick={() => toggleRegistry(registry.registryId)}
                   >
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleRegistry(registry.registryId);
-                      }}
-                    >
-                      {expandedRegistries.has(registry.registryId) ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                    </Button>
+                    {acdcsByRegistry.get(registry.registryId) && acdcsByRegistry.get(registry.registryId)!.length > 0 ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleRegistry(registry.registryId);
+                        }}
+                      >
+                        {expandedRegistries.has(registry.registryId) ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </Button>
+                    ) : (
+                      <div className="h-6 w-6" />
+                    )}
                     <div className="flex-1">
                       <div className="font-medium" title={registry.registryId}>
                         {registry.alias}
@@ -441,6 +591,18 @@ export function Explorer() {
                         hoveredRegistry === registry.registryId ? 'opacity-100' : 'opacity-0'
                       }`}
                     >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleACDCAdd(registry.registryId);
+                        }}
+                        title="Issue new credential"
+                      >
+                        <PlusCircle className="h-3.5 w-3.5" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -471,57 +633,12 @@ export function Explorer() {
                     </div>
                   </div>
 
-                  {expandedRegistries.has(registry.registryId) && (
+                  {expandedRegistries.has(registry.registryId) &&
+                   acdcsByRegistry.get(registry.registryId) &&
+                   acdcsByRegistry.get(registry.registryId)!.length > 0 && (
                     <div className="border-t" style={{ backgroundColor: theme === 'dark' ? 'rgb(15 23 42)' : 'rgb(248 250 252)' }}>
-                      {/* ACDC list */}
-                      {acdcsByRegistry.get(registry.registryId)?.length === 0 ? (
-                        <div className="p-2">
-                          <div className="flex flex-col items-center justify-center py-6 text-sm text-muted-foreground">
-                            <p className="mb-3">No credentials in this registry</p>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleACDCAdd(registry.registryId);
-                              }}
-                            >
-                              <PlusCircle className="h-4 w-4 mr-2" />
-                              Issue Credential
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          {/* Action buttons header */}
-                          <div className="p-2 flex items-center justify-end gap-1 border-b" style={{ backgroundColor: theme === 'dark' ? 'rgb(30 41 59)' : 'rgb(241 245 249)' }}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-xs"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleACDCAdd(registry.registryId);
-                              }}
-                              title="Issue new credential"
-                            >
-                              <PlusCircle className="h-3 w-3 mr-1" />
-                              Issue
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-xs"
-                              onClick={(e) => handleACDCImport(e, registry.registryId)}
-                              title="Import credential from clipboard"
-                            >
-                              <Upload className="h-3 w-3 mr-1" />
-                              Import
-                            </Button>
-                          </div>
-
-                          {/* Credentials list */}
-                          <div className="p-2 space-y-1">
+                      {/* Credentials list */}
+                      <div className="p-2 space-y-1">
                             {acdcsByRegistry.get(registry.registryId)?.map((acdc) => (
                               <div
                                 key={acdc.credentialId}
@@ -650,9 +767,7 @@ export function Explorer() {
                                 )}
                               </div>
                             ))}
-                          </div>
-                        </>
-                      )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -693,6 +808,159 @@ export function Explorer() {
             </Button>
             <Button onClick={handleCreateRegistry}>
               Create
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add ACDC Dialog */}
+      <Dialog open={showAddACDCDialog} onOpenChange={setShowAddACDCDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Issue Credential</DialogTitle>
+            <DialogDescription>
+              Select schema and recipient, then fill in the credential data.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Schema Selection */}
+            <div className="space-y-2">
+              <Label>Schema *</Label>
+              <select
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={selectedSchemaAlias}
+                onChange={(e) => {
+                  const value = e.target.value;
+
+                  // Handle "Create New Schema" option
+                  if (value === '__create_new__') {
+                    // Store the registry ID in localStorage to restore dialog state
+                    if (selectedRegistryId) {
+                      localStorage.setItem('kerits-pending-credential-registry', selectedRegistryId);
+                    }
+                    // Navigate to schema creation with return params
+                    navigate(route(`/dashboard/schemas/new?returnTo=explorer&registryId=${selectedRegistryId}`));
+                    setShowAddACDCDialog(false);
+                    return;
+                  }
+
+                  setSelectedSchemaAlias(value);
+                  const schema = availableSchemas.find(s => s.alias === value);
+                  setSelectedSchema(schema || null);
+                  // Initialize form data based on schema properties
+                  if (schema?.schema?.schema?.properties) {
+                    const initialData: Record<string, any> = {};
+                    Object.keys(schema.schema.schema.properties).forEach(key => {
+                      initialData[key] = '';
+                    });
+                    setCredentialData(initialData);
+                  } else {
+                    setCredentialData({});
+                  }
+                }}
+              >
+                <option value="">Select a schema...</option>
+                {availableSchemas.map((s) => (
+                  <option key={s.alias} value={s.alias}>
+                    {s.schema.schema?.title || s.alias}
+                  </option>
+                ))}
+                <option value="__create_new__">+ Create New Schema</option>
+              </select>
+              {selectedSchema?.schema?.schema?.description && (
+                <p className="text-xs text-muted-foreground">
+                  {selectedSchema.schema.schema.description}
+                </p>
+              )}
+            </div>
+
+            {/* Recipient Selection */}
+            <div className="space-y-2">
+              <Label>Recipient (Holder) *</Label>
+              <Combobox
+                options={contacts.map(c => ({
+                  value: c.alias,
+                  label: c.alias,
+                  description: c.aid.substring(0, 40) + '...',
+                }))}
+                value={selectedHolder}
+                onChange={setSelectedHolder}
+                placeholder="Select contact or enter AID..."
+                emptyMessage="No contacts found. Enter AID manually."
+                allowCustomValue={true}
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                Select from contacts or enter a custom AID directly
+              </p>
+            </div>
+
+            {/* Schema-based Form Fields */}
+            {selectedSchema && selectedSchema.schema?.schema?.properties && (
+              <div className="space-y-4 border-t pt-4">
+                <Label className="text-base font-semibold">Credential Data</Label>
+                {Object.entries(selectedSchema.schema.schema.properties).map(([fieldName, fieldSchema]: [string, any]) => (
+                  <div key={fieldName} className="space-y-2">
+                    <Label htmlFor={`field-${fieldName}`}>
+                      {fieldName}
+                      {selectedSchema.schema.schema.required?.includes(fieldName) && (
+                        <span className="text-red-500 ml-1">*</span>
+                      )}
+                    </Label>
+                    {fieldSchema.type === 'boolean' ? (
+                      <select
+                        id={`field-${fieldName}`}
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        value={credentialData[fieldName] || ''}
+                        onChange={(e) => setCredentialData(prev => ({
+                          ...prev,
+                          [fieldName]: e.target.value === 'true'
+                        }))}
+                      >
+                        <option value="">Select...</option>
+                        <option value="true">True</option>
+                        <option value="false">False</option>
+                      </select>
+                    ) : fieldSchema.type === 'number' || fieldSchema.type === 'integer' ? (
+                      <Input
+                        id={`field-${fieldName}`}
+                        type="number"
+                        placeholder={fieldSchema.description || `Enter ${fieldName}`}
+                        value={credentialData[fieldName] || ''}
+                        onChange={(e) => setCredentialData(prev => ({
+                          ...prev,
+                          [fieldName]: fieldSchema.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value)
+                        }))}
+                      />
+                    ) : (
+                      <Input
+                        id={`field-${fieldName}`}
+                        type="text"
+                        placeholder={fieldSchema.description || `Enter ${fieldName}`}
+                        value={credentialData[fieldName] || ''}
+                        onChange={(e) => setCredentialData(prev => ({
+                          ...prev,
+                          [fieldName]: e.target.value
+                        }))}
+                      />
+                    )}
+                    {fieldSchema.description && (
+                      <p className="text-xs text-muted-foreground">{fieldSchema.description}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setShowAddACDCDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateACDC}
+              disabled={!selectedSchemaAlias || !selectedHolder}
+            >
+              Issue Credential
             </Button>
           </div>
         </DialogContent>

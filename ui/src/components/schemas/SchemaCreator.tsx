@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -8,24 +8,42 @@ import { Select } from '../ui/select';
 import { Textarea } from '../ui/textarea';
 import { Toast, useToast } from '../ui/toast';
 import { Plus, Trash2, ArrowLeft } from 'lucide-react';
-import { schema } from '@/lib/keri';
-import { saveSchema } from '@/lib/storage';
-import { useStore } from '@/store/useStore';
-import type { SchemaField, StoredSchema } from '@/lib/storage';
+import { getDSL } from '@/lib/dsl';
+import type { KeritsDSL } from '@/../src/app/dsl/types';
+import type { SchemaField } from '@/lib/storage';
 import { route } from '@/config';
 
 const FIELD_TYPES: Array<SchemaField['type']> = ['string', 'number', 'boolean', 'date', 'email', 'url'];
 
 export function SchemaCreator() {
   const navigate = useNavigate();
-  const { refreshSchemas } = useStore();
+  const [searchParams] = useSearchParams();
   const { toast, showToast, hideToast } = useToast();
+  const [dsl, setDsl] = useState<KeritsDSL | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [fields, setFields] = useState<SchemaField[]>([
     { name: '', type: 'string', required: true }
   ]);
   const [creating, setCreating] = useState(false);
+
+  // Check if we came from the Explorer credential issuance flow
+  const returnTo = searchParams.get('returnTo');
+  const registryId = searchParams.get('registryId');
+
+  // Initialize DSL
+  useEffect(() => {
+    async function init() {
+      try {
+        const dslInstance = await getDSL();
+        setDsl(dslInstance);
+      } catch (error) {
+        console.error('Failed to initialize DSL:', error);
+        showToast('Failed to initialize');
+      }
+    }
+    init();
+  }, []);
 
   const addField = () => {
     setFields([...fields, { name: '', type: 'string', required: true }]);
@@ -42,6 +60,10 @@ export function SchemaCreator() {
   };
 
   const handleCreate = async () => {
+    if (!dsl) {
+      showToast('System not initialized');
+      return;
+    }
 
     if (!name || fields.length === 0 || fields.some(f => !f.name)) {
       showToast('Please fill in all required fields');
@@ -59,7 +81,6 @@ export function SchemaCreator() {
         properties: {},
         required: fields.filter(f => f.required).map(f => f.name),
       };
-
 
       // Only add description if it's not empty
       if (description) {
@@ -98,27 +119,19 @@ export function SchemaCreator() {
         schemaDefinition.properties[field.name] = fieldSchema;
       });
 
-      // Create KERI schema (with SAID)
-      const schemaSad = schema(schemaDefinition as any);
-      console.log('Created schema SAID:', schemaSad.said);
+      // Create schema using DSL
+      console.log('Creating schema with DSL:', name);
+      await dsl.createSchema(name, schemaDefinition);
+      console.log('Schema created successfully');
 
-      // Save schema
-      const storedSchema: StoredSchema = {
-        id: schemaSad.said,
-        name,
-        description,
-        fields,
-        sad: schemaSad,
-        createdAt: new Date().toISOString(),
-      };
-
-      console.log('Saving schema to IndexedDB:', storedSchema);
-      await saveSchema(storedSchema);
-      console.log('Schema saved successfully');
-
-      await refreshSchemas();
-      console.log('Schemas refreshed, navigating to /dashboard/schemas');
-      navigate(route('/dashboard/schemas'));
+      // If we came from Explorer, return there with the new schema
+      if (returnTo === 'explorer' && registryId) {
+        console.log('Returning to Explorer with new schema:', name);
+        navigate(route(`/dashboard?returnFromSchema=true&schemaAlias=${encodeURIComponent(name)}&registryId=${registryId}`));
+      } else {
+        console.log('Schemas refreshed, navigating to /dashboard/schemas');
+        navigate(route('/dashboard/schemas'));
+      }
     } catch (error) {
       console.error('Failed to create schema:', error);
       showToast('Failed to create schema. See console for details.');

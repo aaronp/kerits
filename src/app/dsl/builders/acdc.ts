@@ -3,7 +3,7 @@
  */
 
 import type { KerStore } from '../../../storage/types';
-import type { ACDCDSL, ACDC, Registry, CredentialStatus, ExportDSL, IndexedACDC, SchemaUsage, CounterpartyInfo, TELEventSummary } from '../types';
+import { type ACDCDSL, type ACDC, type Registry, CredentialStatus, type ExportDSL, type IndexedACDC, type SchemaUsage, type CounterpartyInfo, type TELEventSummary } from '../types';
 import { revokeCredential } from '../../helpers';
 import { exportAcdc } from './export';
 import { TELIndexer } from '../../indexer/index.js';
