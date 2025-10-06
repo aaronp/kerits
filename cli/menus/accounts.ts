@@ -133,16 +133,13 @@ async function createAccount(): Promise<void> {
 
     // Load DSL and create account
     const { dsl } = await loadAccountDSL(alias);
-    const accountDsl = await dsl.newAccount(alias, mnemonic);
-
-    // Get the AID
-    const aid = await accountDsl.getAid();
+    const account = await dsl.newAccount(alias, mnemonic);
 
     // Set as current account
     await setCurrentAccount(alias);
 
     s.stop(`Account '${alias}' created successfully`);
-    p.note(`AID: ${aid}`, 'Success');
+    p.note(`AID: ${account.aid}`, 'Success');
   } catch (error) {
     s.stop('Failed to create account');
     p.log.error(error instanceof Error ? error.message : String(error));
@@ -176,15 +173,20 @@ async function switchAccount(): Promise<void> {
 
 async function rotateKeys(currentAccount: string): Promise<void> {
   const { dsl } = await loadAccountDSL(currentAccount);
-  const accountDsl = dsl.account(currentAccount);
+  const accountDsl = await dsl.account(currentAccount);
+
+  if (!accountDsl) {
+    p.log.error(`Account '${currentAccount}' not found`);
+    return;
+  }
 
   // Get current key info
-  const aid = await accountDsl.getAid();
-  const events = await accountDsl.getEvents();
-  const lastEvent = events[events.length - 1];
+  const aid = accountDsl.account.aid;
+  const events = await accountDsl.getKel();
+  const sequenceNumber = events.length - 1;
 
   p.note(
-    `Current Account: ${currentAccount}\nCurrent Key: ${aid}\nSequence Number: ${events.length - 1}`,
+    `Current Account: ${currentAccount}\nAID: ${aid}\nSequence Number: ${sequenceNumber}`,
     'Rotate Keys'
   );
 
@@ -241,12 +243,11 @@ async function rotateKeys(currentAccount: string): Promise<void> {
 
   try {
     await accountDsl.rotateKeys(newMnemonic);
-    const newEvents = await accountDsl.getEvents();
-    const newKey = newEvents[newEvents.length - 1];
+    const newEvents = await accountDsl.getKel();
 
     s.stop('Keys rotated successfully');
     p.note(
-      `New Key: ${aid}\nSequence Number: ${newEvents.length - 1}`,
+      `AID: ${aid}\nNew Sequence Number: ${newEvents.length - 1}`,
       'Success'
     );
   } catch (error) {
@@ -271,12 +272,20 @@ async function exportKel(currentAccount: string): Promise<void> {
 
   try {
     const { dsl } = await loadAccountDSL(currentAccount);
-    const accountDsl = dsl.account(currentAccount);
-    const kelCesr = await accountDsl.exportKel();
+    const accountDsl = await dsl.account(currentAccount);
+
+    if (!accountDsl) {
+      s.stop('Failed to export KEL');
+      p.log.error(`Account '${currentAccount}' not found`);
+      return;
+    }
+
+    const exportDsl = await accountDsl.export();
+    const kelCesr = exportDsl.kel;
 
     await writeFile(filePath, kelCesr);
 
-    const events = await accountDsl.getEvents();
+    const events = await accountDsl.getKel();
     const fileSize = Buffer.byteLength(kelCesr, 'utf-8');
 
     s.stop(`KEL exported to '${filePath}'`);

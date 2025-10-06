@@ -57,7 +57,14 @@ async function listContacts(currentAccount: string): Promise<void> {
 
   try {
     const { dsl } = await loadAccountDSL(currentAccount);
-    const accountDsl = dsl.account(currentAccount);
+    const accountDsl = await dsl.account(currentAccount);
+
+    if (!accountDsl) {
+      s.stop('Failed to load contacts');
+      p.log.error(`Account '${currentAccount}' not found`);
+      return;
+    }
+
     const contacts = await accountDsl.listContacts();
 
     s.stop();
@@ -111,14 +118,18 @@ async function addContact(currentAccount: string): Promise<void> {
     const kelData = await readFile(filePath, 'utf-8');
 
     const { dsl } = await loadAccountDSL(currentAccount);
-    const accountDsl = dsl.account(currentAccount);
-    const contactDsl = await accountDsl.addContact(alias, kelData);
+    const accountDsl = await dsl.account(currentAccount);
 
-    const aid = await contactDsl.getAid();
-    const events = await contactDsl.getEvents();
+    if (!accountDsl) {
+      s.stop('Failed to add contact');
+      p.log.error(`Account '${currentAccount}' not found`);
+      return;
+    }
+
+    const contact = await accountDsl.addContact(alias, kelData);
 
     s.stop(`Contact '${alias}' added`);
-    p.note(`AID: ${aid}\nEvents imported: ${events.length}`, 'Success');
+    p.note(`AID: ${contact.aid}`, 'Success');
   } catch (error) {
     s.stop('Failed to add contact');
     p.log.error(error instanceof Error ? error.message : String(error));
@@ -131,7 +142,14 @@ async function removeContact(currentAccount: string): Promise<void> {
 
   try {
     const { dsl } = await loadAccountDSL(currentAccount);
-    const accountDsl = dsl.account(currentAccount);
+    const accountDsl = await dsl.account(currentAccount);
+
+    if (!accountDsl) {
+      s.stop('Failed to load contacts');
+      p.log.error(`Account '${currentAccount}' not found`);
+      return;
+    }
+
     const contacts = await accountDsl.listContacts();
 
     s.stop();

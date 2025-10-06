@@ -40,12 +40,29 @@ export async function listAccounts(): Promise<string[]> {
   const keritsDir = getKeritsDir();
 
   try {
-    const { readdir } = await import('fs/promises');
+    const { readdir, stat } = await import('fs/promises');
     const entries = await readdir(keritsDir, { withFileTypes: true });
-    return entries
-      .filter(entry => entry.isDirectory())
-      .map(entry => entry.name)
-      .sort();
+    const accounts: string[] = [];
+
+    for (const entry of entries) {
+      if (!entry.isDirectory() || entry.name.startsWith('.')) {
+        continue;
+      }
+
+      // Check if this directory has a 'data' subdirectory (account structure)
+      const dataDir = join(keritsDir, entry.name, 'data');
+      try {
+        const stats = await stat(dataDir);
+        if (stats.isDirectory()) {
+          accounts.push(entry.name);
+        }
+      } catch {
+        // No data directory, not an account
+        continue;
+      }
+    }
+
+    return accounts.sort();
   } catch (error) {
     // Directory doesn't exist yet
     return [];

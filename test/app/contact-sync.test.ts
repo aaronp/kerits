@@ -10,8 +10,8 @@ import { createKeritsDSL } from '../../src/app/dsl';
 import { exportKelIncremental, exportTelIncremental } from '../../src/app/dsl/builders/export';
 
 describe('Contact Sync Tracking', () => {
-  const parser = new DefaultJsonCesrParser();
   const hasher = new CesrHasher();
+  const parser = new DefaultJsonCesrParser(hasher);
 
   const seed1 = new Uint8Array(32).fill(1);
   const seed2 = new Uint8Array(32).fill(2);
@@ -21,7 +21,7 @@ describe('Contact Sync Tracking', () => {
   let issuerDsl: ReturnType<typeof createKeritsDSL>;
 
   beforeEach(async () => {
-    issuerStore = createKerStore(new MemoryKv(), parser, hasher);
+    issuerStore = createKerStore(new MemoryKv(), { parser, hasher });
     issuerDsl = createKeritsDSL(issuerStore);
 
     // Setup issuer account

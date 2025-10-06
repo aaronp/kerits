@@ -26,9 +26,9 @@ export function getAccountDataDir(alias: string): string {
  */
 export async function loadAccountDSL(alias: string) {
   const dataDir = getAccountDataDir(alias);
-  const parser = new DefaultJsonCesrParser();
   const hasher = new CesrHasher();
-  const store = createKerStore(new DiskKv(dataDir), parser, hasher);
+  const parser = new DefaultJsonCesrParser(hasher);
+  const store = createKerStore(new DiskKv({ baseDir: dataDir }), { parser, hasher });
   const dsl = createKeritsDSL(store);
 
   return { store, dsl, dataDir };
@@ -41,11 +41,29 @@ export async function listAccounts(): Promise<string[]> {
   const keritsDir = getKeritsDir();
 
   try {
+    const { stat } = await import('fs/promises');
     const entries = await readdir(keritsDir, { withFileTypes: true });
-    return entries
-      .filter(entry => entry.isDirectory() && !entry.name.startsWith('.'))
-      .map(entry => entry.name)
-      .sort();
+    const accounts: string[] = [];
+
+    for (const entry of entries) {
+      if (!entry.isDirectory() || entry.name.startsWith('.')) {
+        continue;
+      }
+
+      // Check if this directory has a 'data' subdirectory (account structure)
+      const dataDir = join(keritsDir, entry.name, 'data');
+      try {
+        const stats = await stat(dataDir);
+        if (stats.isDirectory()) {
+          accounts.push(entry.name);
+        }
+      } catch {
+        // No data directory, not an account
+        continue;
+      }
+    }
+
+    return accounts.sort();
   } catch (error) {
     // Directory doesn't exist yet
     return [];

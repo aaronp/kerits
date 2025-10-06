@@ -9,8 +9,8 @@ import { MemoryKv, createKerStore, DefaultJsonCesrParser, CesrHasher } from '../
 import { createKeritsDSL } from '../../src/app/dsl';
 
 describe('Export/Import DSL', () => {
-  const parser = new DefaultJsonCesrParser();
   const hasher = new CesrHasher();
+  const parser = new DefaultJsonCesrParser(hasher);
 
   const seed1 = new Uint8Array(32).fill(1);
   const seed2 = new Uint8Array(32).fill(2);
@@ -20,8 +20,8 @@ describe('Export/Import DSL', () => {
 
   beforeEach(() => {
     // Create separate stores for issuer and holder
-    issuerStore = createKerStore(new MemoryKv(), parser, hasher);
-    holderStore = createKerStore(new MemoryKv(), parser, hasher);
+    issuerStore = createKerStore(new MemoryKv(), { parser, hasher });
+    holderStore = createKerStore(new MemoryKv(), { parser, hasher });
   });
 
   it('should export and import KEL events', async () => {
