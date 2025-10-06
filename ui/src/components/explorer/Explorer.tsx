@@ -69,6 +69,7 @@ export function Explorer() {
   const [selectedSchemaAlias, setSelectedSchemaAlias] = useState('');
   const [selectedSchema, setSelectedSchema] = useState<any>(null);
   const [selectedHolder, setSelectedHolder] = useState('');
+  const [credentialAlias, setCredentialAlias] = useState('');
   const [credentialData, setCredentialData] = useState<Record<string, any>>({});
   const [availableSchemas, setAvailableSchemas] = useState<Array<{ alias: string; schema: any }>>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -445,6 +446,7 @@ export function Explorer() {
     setSelectedSchemaAlias('');
     setSelectedSchema(null);
     setSelectedHolder('');
+    setCredentialAlias('');
     setCredentialData({});
 
     // Load available schemas and contacts
@@ -500,6 +502,7 @@ export function Explorer() {
         schema: selectedSchemaAlias,
         holder: selectedHolder,
         data: credentialData,
+        ...(credentialAlias && { alias: credentialAlias }),
       });
 
       // Reload ACDCs for this registry
@@ -509,6 +512,7 @@ export function Explorer() {
       setSelectedSchemaAlias('');
       setSelectedSchema(null);
       setSelectedHolder('');
+      setCredentialAlias('');
       setCredentialData({});
       setSelectedRegistryId(null);
       showToast('Credential issued successfully');

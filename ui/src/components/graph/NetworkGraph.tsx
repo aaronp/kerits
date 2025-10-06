@@ -99,35 +99,133 @@ const nodeTypes = {
   SCHEMA: SchemaNode,
 };
 
-// Convert DSL graph to ReactFlow format
+// Convert DSL graph to ReactFlow format with hierarchical layout
 function convertGraphToReactFlow(graph: Graph): { nodes: Node[]; edges: Edge[] } {
-  const nodes: Node[] = graph.nodes.map((node: GraphNode, index: number) => ({
-    id: node.id,
-    type: node.kind,
-    data: {
-      label: node.label,
-      kind: node.kind,
+  // Group nodes by type
+  const aidNodes = graph.nodes.filter(n => n.kind === 'AID');
+  const registryNodes = graph.nodes.filter(n => n.kind === 'TEL_REGISTRY');
+  const eventNodes = graph.nodes.filter(n => n.kind === 'KEL_EVT' || n.kind === 'TEL_EVT');
+  const acdcNodes = graph.nodes.filter(n => n.kind === 'ACDC');
+  const schemaNodes = graph.nodes.filter(n => n.kind === 'SCHEMA');
+
+  const nodes: Node[] = [];
+  const rowHeight = 200;
+  const colWidth = 350;
+  const eventSpacing = 300;
+
+  // Create a map of AID -> row index (current user in center)
+  const aidRowMap = new Map<string, number>();
+  const centerRow = Math.floor(aidNodes.length / 2);
+  aidNodes.forEach((aid, index) => {
+    aidRowMap.set(aid.id, index === 0 ? centerRow : index < centerRow ? index : index + 1);
+  });
+
+  // Place AID nodes in column 0
+  aidNodes.forEach((node: GraphNode) => {
+    const row = aidRowMap.get(node.id) ?? 0;
+    nodes.push({
       id: node.id,
-      ...node.meta,
-    },
-    position: {
-      x: (index % 5) * 300,
-      y: Math.floor(index / 5) * 150,
-    },
-  }));
+      type: node.kind,
+      data: { label: node.label, kind: node.kind, id: node.id, ...node.meta },
+      position: { x: 0, y: row * rowHeight },
+    });
+  });
+
+  // Place KEL events in sequence for each AID
+  const kelEventsByAid = new Map<string, GraphNode[]>();
+  eventNodes.filter(n => n.kind === 'KEL_EVT').forEach(evt => {
+    const aid = evt.meta?.eventMeta?.i;
+    if (aid) {
+      if (!kelEventsByAid.has(aid)) kelEventsByAid.set(aid, []);
+      kelEventsByAid.get(aid)!.push(evt);
+    }
+  });
+
+  kelEventsByAid.forEach((events, aid) => {
+    const row = aidRowMap.get(aid) ?? 0;
+    events.sort((a, b) => (a.meta?.s ?? 0) - (b.meta?.s ?? 0));
+    events.forEach((evt, idx) => {
+      nodes.push({
+        id: evt.id,
+        type: evt.kind,
+        data: { label: evt.label, kind: evt.kind, id: evt.id, ...evt.meta },
+        position: { x: colWidth + (idx * eventSpacing), y: row * rowHeight },
+      });
+    });
+  });
+
+  // Place registry nodes below AIDs
+  const registryRowStart = aidNodes.length + 1;
+  registryNodes.forEach((node: GraphNode, index: number) => {
+    nodes.push({
+      id: node.id,
+      type: node.kind,
+      data: { label: node.label, kind: node.kind, id: node.id, ...node.meta },
+      position: { x: 0, y: (registryRowStart + index) * rowHeight },
+    });
+  });
+
+  // Place TEL events for each registry
+  const telEventsByRegistry = new Map<string, GraphNode[]>();
+  eventNodes.filter(n => n.kind === 'TEL_EVT').forEach(evt => {
+    const ri = evt.meta?.ri;
+    if (ri) {
+      if (!telEventsByRegistry.has(ri)) telEventsByRegistry.set(ri, []);
+      telEventsByRegistry.get(ri)!.push(evt);
+    }
+  });
+
+  telEventsByRegistry.forEach((events, registryId) => {
+    const registryIndex = registryNodes.findIndex(r => r.id === registryId);
+    const row = registryRowStart + registryIndex;
+    events.sort((a, b) => (a.meta?.s ?? 0) - (b.meta?.s ?? 0));
+    events.forEach((evt, idx) => {
+      nodes.push({
+        id: evt.id,
+        type: evt.kind,
+        data: { label: evt.label, kind: evt.kind, id: evt.id, ...evt.meta },
+        position: { x: colWidth + (idx * eventSpacing), y: row * rowHeight },
+      });
+    });
+  });
+
+  // Place ACDC and schema nodes to the right
+  const maxEvents = Math.max(...Array.from(kelEventsByAid.values()).map(v => v.length), ...Array.from(telEventsByRegistry.values()).map(v => v.length), 1);
+  const rightColX = colWidth + (maxEvents * eventSpacing) + 200;
+
+  acdcNodes.forEach((node: GraphNode, index: number) => {
+    nodes.push({
+      id: node.id,
+      type: node.kind,
+      data: { label: node.label, kind: node.kind, id: node.id, ...node.meta },
+      position: { x: rightColX, y: index * 150 },
+    });
+  });
+
+  schemaNodes.forEach((node: GraphNode, index: number) => {
+    nodes.push({
+      id: node.id,
+      type: node.kind,
+      data: { label: node.label, kind: node.kind, id: node.id, ...node.meta },
+      position: { x: rightColX + 300, y: index * 150 },
+    });
+  });
 
   const edges: Edge[] = graph.edges.map((edge: GraphEdge) => ({
     id: edge.id,
     source: edge.from,
     target: edge.to,
     label: edge.label || edge.kind,
-    type: 'smoothstep',
+    type: edge.kind === 'PRIOR' ? 'default' : 'smoothstep',
     animated: edge.kind === 'ANCHOR' || edge.kind === 'PRIOR',
     style: {
       stroke: edge.kind === 'ISSUES' ? '#10b981' :
               edge.kind === 'REVOKES' ? '#ef4444' :
               edge.kind === 'USES_SCHEMA' ? '#a855f7' :
+              edge.kind === 'ANCHOR' ? '#f59e0b' :
+              edge.kind === 'PRIOR' ? '#3b82f6' :
               '#6b7280',
+      strokeWidth: edge.kind === 'PRIOR' ? 2 : 1.5,
     },
   }));
 
@@ -271,8 +369,18 @@ export function NetworkGraph() {
                 </div>
               </div>
 
-              {/* Metadata */}
-              {selectedNode.data.meta && Object.keys(selectedNode.data.meta).length > 0 && (
+              {/* Event Details */}
+              {selectedNode.data.event && (
+                <div>
+                  <div className="text-sm font-semibold mb-2">Event Data (CESR)</div>
+                  <pre className="text-xs font-mono bg-secondary p-3 rounded overflow-x-auto max-h-96 overflow-y-auto">
+                    {JSON.stringify(selectedNode.data.event, null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              {/* Metadata (non-event data) */}
+              {selectedNode.data.meta && Object.keys(selectedNode.data.meta).length > 0 && !selectedNode.data.event && (
                 <div>
                   <div className="text-sm font-semibold mb-2">Metadata</div>
                   <div className="space-y-2">

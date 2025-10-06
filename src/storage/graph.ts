@@ -64,7 +64,7 @@ export async function buildGraphFromStore(
         id: meta.d,
         kind: "KEL_EVT",
         label: `${meta.t.toUpperCase()} #${meta.s}`,
-        meta: { t: meta.t, s: meta.s },
+        meta: { t: meta.t, s: meta.s, event, eventMeta: meta },
       });
 
       // Prior link
@@ -85,7 +85,7 @@ export async function buildGraphFromStore(
         id: meta.d,
         kind: "TEL_REGISTRY",
         label: `Registry ${meta.d.substring(0, 8)}`,
-        meta: { t: meta.t },
+        meta: { t: meta.t, event, eventMeta: meta },
       });
 
       // For VCP, the issuer is in meta.issuerAid (from 'ii' field)
@@ -106,7 +106,7 @@ export async function buildGraphFromStore(
         id: meta.d,
         kind: "TEL_EVT",
         label: `${meta.t.toUpperCase()} #${meta.s}`,
-        meta: { t: meta.t, s: meta.s, ri: meta.ri },
+        meta: { t: meta.t, s: meta.s, ri: meta.ri, event, eventMeta: meta },
       });
 
       if (meta.ri) {
