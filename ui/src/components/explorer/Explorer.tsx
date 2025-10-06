@@ -22,7 +22,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
@@ -32,8 +31,10 @@ import { Toast, useToast } from '../ui/toast';
 import { Combobox } from '../ui/combobox';
 import { useTheme } from '@/lib/theme-provider';
 import { getDSL } from '@/lib/dsl';
+import { getContacts } from '@/lib/storage';
 import type { KeritsDSL, AccountDSL, RegistryDSL, ACDCDSL } from '@/../src/app/dsl/types';
 import type { IndexedACDC } from '@/../src/app/indexer/types';
+import type { Contact } from '@/lib/storage';
 
 interface Registry {
   registryId: string;
@@ -70,7 +71,7 @@ export function Explorer() {
   const [selectedHolder, setSelectedHolder] = useState('');
   const [credentialData, setCredentialData] = useState<Record<string, any>>({});
   const [availableSchemas, setAvailableSchemas] = useState<Array<{ alias: string; schema: any }>>([]);
-  const [contacts, setContacts] = useState<Array<{ alias: string; aid: string }>>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
 
   // Handle return from schema creation
   useEffect(() => {
@@ -443,16 +444,9 @@ export function Explorer() {
         );
         setAvailableSchemas(schemasWithData.filter((s): s is NonNullable<typeof s> => s !== null));
 
-        // Load contacts
-        const contactsDsl = dsl.contacts();
-        const contactAliases = await contactsDsl.list();
-        const contactsData = await Promise.all(
-          contactAliases.map(async (alias) => {
-            const contact = await contactsDsl.get(alias);
-            return contact ? { alias, aid: contact.aid } : null;
-          })
-        );
-        setContacts(contactsData.filter((c): c is NonNullable<typeof c> => c !== null));
+        // Load contacts from old storage system
+        const contactsData = await getContacts();
+        setContacts(contactsData);
       } catch (error) {
         console.error('Failed to load schemas/contacts:', error);
       }
@@ -590,9 +584,8 @@ export function Explorer() {
 
                     {/* Button bar - fades in on hover */}
                     <div
-                      className={`flex gap-1 transition-opacity duration-200 ${
-                        hoveredRegistry === registry.registryId ? 'opacity-100' : 'opacity-0'
-                      }`}
+                      className={`flex gap-1 transition-opacity duration-200 ${hoveredRegistry === registry.registryId ? 'opacity-100' : 'opacity-0'
+                        }`}
                     >
                       <Button
                         variant="ghost"
@@ -637,142 +630,140 @@ export function Explorer() {
                   </div>
 
                   {expandedRegistries.has(registry.registryId) &&
-                   acdcsByRegistry.get(registry.registryId) &&
-                   acdcsByRegistry.get(registry.registryId)!.length > 0 && (
-                    <div className="border-t" style={{ backgroundColor: theme === 'dark' ? 'rgb(15 23 42)' : 'rgb(248 250 252)' }}>
-                      {/* Credentials list */}
-                      <div className="p-2 space-y-1">
-                            {acdcsByRegistry.get(registry.registryId)?.map((acdc) => (
+                    acdcsByRegistry.get(registry.registryId) &&
+                    acdcsByRegistry.get(registry.registryId)!.length > 0 && (
+                      <div className="border-t" style={{ backgroundColor: theme === 'dark' ? 'rgb(15 23 42)' : 'rgb(248 250 252)' }}>
+                        {/* Credentials list */}
+                        <div className="p-2 space-y-1">
+                          {acdcsByRegistry.get(registry.registryId)?.map((acdc) => (
+                            <div
+                              key={acdc.credentialId}
+                              className="border rounded relative group"
+                              style={{ backgroundColor: theme === 'dark' ? 'rgb(51 65 85)' : 'rgb(226 232 240)' }}
+                              onMouseEnter={() => setHoveredACDC(acdc.credentialId)}
+                              onMouseLeave={() => setHoveredACDC(null)}
+                            >
                               <div
-                                key={acdc.credentialId}
-                                className="border rounded relative group"
-                                style={{ backgroundColor: theme === 'dark' ? 'rgb(51 65 85)' : 'rgb(226 232 240)' }}
-                                onMouseEnter={() => setHoveredACDC(acdc.credentialId)}
-                                onMouseLeave={() => setHoveredACDC(null)}
+                                className="flex items-center gap-2 p-2 cursor-pointer"
+                                onClick={() => toggleACDC(acdc.credentialId)}
                               >
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleACDC(acdc.credentialId);
+                                  }}
+                                >
+                                  {expandedACDCs.has(acdc.credentialId) ? (
+                                    <ChevronDown className="h-3 w-3" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3" />
+                                  )}
+                                </Button>
+                                <FileText className="h-4 w-4 text-muted-foreground" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-medium truncate" title={acdc.credentialId}>
+                                    {acdc.credentialId.substring(0, 12)}...
+                                  </div>
+                                  <div className="text-xs text-muted-foreground flex items-center gap-2">
+                                    <span className={`px-1.5 py-0.5 rounded text-xs ${acdc.status === 'issued'
+                                      ? theme === 'dark' ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-800'
+                                      : theme === 'dark' ? 'bg-red-900/30 text-red-300' : 'bg-red-100 text-red-800'
+                                      }`}>
+                                      {acdc.status}
+                                    </span>
+                                    {acdc.holderAid && (
+                                      <span>→ {acdc.holderAid.substring(0, 8)}...</span>
+                                    )}
+                                    <span>{new Date(acdc.issuedAt).toLocaleDateString()}</span>
+                                  </div>
+                                </div>
+
+                                {/* ACDC action buttons */}
                                 <div
-                                  className="flex items-center gap-2 p-2 cursor-pointer"
-                                  onClick={() => toggleACDC(acdc.credentialId)}
+                                  className={`flex gap-1 transition-opacity duration-200 ${hoveredACDC === acdc.credentialId ? 'opacity-100' : 'opacity-0'
+                                    }`}
                                 >
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-5 w-5 p-0"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleACDC(acdc.credentialId);
-                                    }}
+                                    className="h-6 w-6 p-0"
+                                    onClick={(e) => handleACDCExport(e, registry.registryId, acdc.credentialId)}
+                                    title="Export credential (CESR)"
                                   >
-                                    {expandedACDCs.has(acdc.credentialId) ? (
-                                      <ChevronDown className="h-3 w-3" />
-                                    ) : (
-                                      <ChevronRight className="h-3 w-3" />
-                                    )}
+                                    <Download className="h-3 w-3" />
                                   </Button>
-                                  <FileText className="h-4 w-4 text-muted-foreground" />
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-medium truncate" title={acdc.credentialId}>
-                                      {acdc.credentialId.substring(0, 12)}...
-                                    </div>
-                                    <div className="text-xs text-muted-foreground flex items-center gap-2">
-                                      <span className={`px-1.5 py-0.5 rounded text-xs ${
-                                        acdc.status === 'issued'
-                                          ? theme === 'dark' ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-800'
-                                          : theme === 'dark' ? 'bg-red-900/30 text-red-300' : 'bg-red-100 text-red-800'
-                                      }`}>
-                                        {acdc.status}
-                                      </span>
-                                      {acdc.holderAid && (
-                                        <span>→ {acdc.holderAid.substring(0, 8)}...</span>
-                                      )}
-                                      <span>{new Date(acdc.issuedAt).toLocaleDateString()}</span>
-                                    </div>
-                                  </div>
-
-                                  {/* ACDC action buttons */}
-                                  <div
-                                    className={`flex gap-1 transition-opacity duration-200 ${
-                                      hoveredACDC === acdc.credentialId ? 'opacity-100' : 'opacity-0'
-                                    }`}
-                                  >
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 w-6 p-0"
-                                      onClick={(e) => handleACDCExport(e, registry.registryId, acdc.credentialId)}
-                                      title="Export credential (CESR)"
-                                    >
-                                      <Download className="h-3 w-3" />
-                                    </Button>
-                                  </div>
                                 </div>
-
-                                {/* Expanded ACDC details */}
-                                {expandedACDCs.has(acdc.credentialId) && (
-                                  <div className="border-t p-3 space-y-2" style={{ backgroundColor: theme === 'dark' ? 'rgb(30 41 59)' : 'rgb(241 245 249)' }}>
-                                    {/* Schema info */}
-                                    {acdc.schemas.length > 0 && (
-                                      <div>
-                                        <div className="text-xs font-medium mb-1">Schemas:</div>
-                                        <div className="space-y-1">
-                                          {acdc.schemas.map((schema, idx) => (
-                                            <div key={idx} className="text-xs text-muted-foreground pl-2">
-                                              {schema.schemaSaid.substring(0, 20)}...
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {/* Credential data */}
-                                    {Object.keys(acdc.latestData).length > 0 && (
-                                      <div>
-                                        <div className="text-xs font-medium mb-1">Data:</div>
-                                        <div className="space-y-1">
-                                          {Object.entries(acdc.latestData).map(([key, value]) => (
-                                            <div key={key} className="text-xs pl-2 flex gap-2">
-                                              <span className="font-mono text-muted-foreground">{key}:</span>
-                                              <span className="font-mono">{JSON.stringify(value)}</span>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {/* Counterparties */}
-                                    {acdc.counterparties.length > 0 && (
-                                      <div>
-                                        <div className="text-xs font-medium mb-1">Counterparties:</div>
-                                        <div className="space-y-1">
-                                          {acdc.counterparties.map((party, idx) => (
-                                            <div key={idx} className="text-xs text-muted-foreground pl-2">
-                                              {party.role}: {party.aid.substring(0, 16)}...
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {/* TEL History */}
-                                    {acdc.telEvents.length > 0 && (
-                                      <div>
-                                        <div className="text-xs font-medium mb-1">Event History:</div>
-                                        <div className="space-y-1">
-                                          {acdc.telEvents.map((event, idx) => (
-                                            <div key={idx} className="text-xs text-muted-foreground pl-2">
-                                              #{event.sequenceNumber} {event.eventType}: {event.summary}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
                               </div>
-                            ))}
+
+                              {/* Expanded ACDC details */}
+                              {expandedACDCs.has(acdc.credentialId) && (
+                                <div className="border-t p-3 space-y-2" style={{ backgroundColor: theme === 'dark' ? 'rgb(30 41 59)' : 'rgb(241 245 249)' }}>
+                                  {/* Schema info */}
+                                  {acdc.schemas.length > 0 && (
+                                    <div>
+                                      <div className="text-xs font-medium mb-1">Schemas:</div>
+                                      <div className="space-y-1">
+                                        {acdc.schemas.map((schema, idx) => (
+                                          <div key={idx} className="text-xs text-muted-foreground pl-2">
+                                            {schema.schemaSaid.substring(0, 20)}...
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Credential data */}
+                                  {Object.keys(acdc.latestData).length > 0 && (
+                                    <div>
+                                      <div className="text-xs font-medium mb-1">Data:</div>
+                                      <div className="space-y-1">
+                                        {Object.entries(acdc.latestData).map(([key, value]) => (
+                                          <div key={key} className="text-xs pl-2 flex gap-2">
+                                            <span className="font-mono text-muted-foreground">{key}:</span>
+                                            <span className="font-mono">{JSON.stringify(value)}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Counterparties */}
+                                  {acdc.counterparties.length > 0 && (
+                                    <div>
+                                      <div className="text-xs font-medium mb-1">Counterparties:</div>
+                                      <div className="space-y-1">
+                                        {acdc.counterparties.map((party, idx) => (
+                                          <div key={idx} className="text-xs text-muted-foreground pl-2">
+                                            {party.role}: {party.aid.substring(0, 16)}...
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* TEL History */}
+                                  {acdc.telEvents.length > 0 && (
+                                    <div>
+                                      <div className="text-xs font-medium mb-1">Event History:</div>
+                                      <div className="space-y-1">
+                                        {acdc.telEvents.map((event, idx) => (
+                                          <div key={idx} className="text-xs text-muted-foreground pl-2">
+                                            #{event.sequenceNumber} {event.eventType}: {event.summary}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
                 </div>
               ))}
             </div>
@@ -882,9 +873,9 @@ export function Explorer() {
               <Label>Recipient (Holder) *</Label>
               <Combobox
                 options={contacts.map(c => ({
-                  value: c.alias,
-                  label: c.alias,
-                  description: c.aid.substring(0, 40) + '...',
+                  value: c.prefix,
+                  label: c.name,
+                  description: c.prefix.substring(0, 40) + '...',
                 }))}
                 value={selectedHolder}
                 onChange={setSelectedHolder}
@@ -903,7 +894,7 @@ export function Explorer() {
               <div className="space-y-4 border-t pt-4">
                 <Label className="text-base font-semibold">Credential Data</Label>
                 {Object.entries(selectedSchema.schema.schema.properties).map(([fieldName, fieldSchema]: [string, any]) => (
-                  <div key={fieldName} className="space-y-2">
+                  <div key={fieldName} className="space-y-2 px-2">
                     <Label htmlFor={`field-${fieldName}`}>
                       {fieldName}
                       {selectedSchema.schema.schema.required?.includes(fieldName) && (
