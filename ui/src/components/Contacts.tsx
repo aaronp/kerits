@@ -18,6 +18,7 @@ import { saveContact, getContacts, deleteContact, getContactByPrefix } from '../
 import { getDSL } from '../lib/dsl';
 import { route } from '../config';
 import type { Contact } from '../lib/storage';
+import { VisualId } from './ui/visual-id';
 
 export function Contacts() {
   const navigate = useNavigate();
@@ -269,25 +270,18 @@ export function Contacts() {
                     <div className="space-y-3">
                       <div className="flex items-start justify-between">
                         <div className="space-y-2 flex-1">
-                          <h3
-                            className="text-lg font-semibold text-primary hover:underline cursor-pointer"
+                          <div
+                            className="cursor-pointer"
                             onClick={() => navigate(route(`/dashboard/contacts/${contact.prefix}`))}
                           >
-                            {contact.name}
-                          </h3>
-                          <div className="flex items-center gap-2">
-                            <div className="text-xs font-mono text-muted-foreground break-all">
-                              {contact.prefix}
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleCopyPrefix(contact.prefix)}
-                              className="h-6 w-6 p-0 flex-shrink-0"
-                              title="Copy Prefix"
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
+                            <VisualId
+                              label={contact.name}
+                              value={contact.prefix}
+                              showCopy={false}
+                              bold={true}
+                              size={40}
+                              maxCharacters={12}
+                            />
                           </div>
                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
                             <span>Added: {new Date(contact.createdAt).toLocaleDateString()}</span>

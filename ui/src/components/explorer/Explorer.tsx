@@ -17,6 +17,7 @@ import { ChevronRight, ChevronDown, PlusCircle, Download, Upload, Share2, FileTe
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { route } from '@/config';
+import { VisualId } from '../ui/visual-id';
 import {
   Dialog,
   DialogContent,
@@ -577,12 +578,14 @@ export function Explorer() {
                       <div className="h-6 w-6" />
                     )}
                     <div className="flex-1">
-                      <div className="font-medium" title={registry.registryId}>
-                        {registry.alias}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {registry.registryId.substring(0, 16)}...
-                      </div>
+                      <VisualId
+                        label={registry.alias}
+                        value={registry.registryId}
+                        showCopy={false}
+                        bold={true}
+                        size={32}
+                        maxCharacters={24}
+                      />
                     </div>
 
                     {/* Button bar - fades in on hover */}

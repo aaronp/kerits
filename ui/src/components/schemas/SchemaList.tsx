@@ -113,7 +113,7 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
                   showCopy={false}
                   bold={true}
                   size={40}
-                  maxCharacters={32}
+                  maxCharacters={12}
                 />
                 {schema.description && (
                   <CardDescription className="mt-2">
