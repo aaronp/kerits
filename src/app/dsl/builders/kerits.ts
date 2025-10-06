@@ -175,7 +175,7 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
         schema: saidified,
       };
 
-      return createSchemaDSL(schemaObj);
+      return createSchemaDSL(schemaObj, store);
     },
 
     async importSchema(schemaData: SchemaExport): Promise<SchemaDSL> {
@@ -210,7 +210,12 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
         schema: saidified,
       };
 
-      return createSchemaDSL(schemaObj);
+      return createSchemaDSL(schemaObj, store);
+    },
+
+    async deleteSchema(alias: string): Promise<void> {
+      // Delete the schema by deleting its alias mapping
+      await store.delAlias('schema', alias, true);
     },
 
     async schema(alias: string): Promise<SchemaDSL | null> {
@@ -247,7 +252,7 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
         schema: schemaFields,
       };
 
-      return createSchemaDSL(schemaObj);
+      return createSchemaDSL(schemaObj, store);
     },
 
     async listSchemas(): Promise<string[]> {

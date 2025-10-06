@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Copy, Check, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { Toast, useToast } from '../ui/toast';
 import { VisualId } from '../ui/visual-id';
+import { getDSL } from '@/lib/dsl';
+import type { KeritsDSL } from '@/../src/app/dsl/types';
 
 interface SchemaDisplay {
   alias: string;
@@ -22,7 +24,12 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedDefinitions, setExpandedDefinitions] = useState<Set<string>>(new Set());
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [dsl, setDsl] = useState<KeritsDSL | null>(null);
   const { toast, showToast, hideToast } = useToast();
+
+  useEffect(() => {
+    getDSL().then(setDsl);
+  }, []);
 
   const copyToClipboard = async (text: string, field: string) => {
     await navigator.clipboard.writeText(text);
@@ -61,10 +68,20 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
   };
 
   const handleDelete = async (alias: string) => {
+    if (!dsl) {
+      showToast('System not initialized');
+      return;
+    }
+
     if (confirm(`Are you sure you want to delete schema "${alias}"?`)) {
-      // TODO: Implement schema deletion in DSL
-      showToast('Schema deletion not yet implemented in DSL');
-      // if (onDelete) onDelete();
+      try {
+        await dsl.deleteSchema(alias);
+        showToast('Schema deleted successfully');
+        if (onDelete) onDelete();
+      } catch (error) {
+        console.error('Failed to delete schema:', error);
+        showToast('Failed to delete schema');
+      }
     }
   };
 

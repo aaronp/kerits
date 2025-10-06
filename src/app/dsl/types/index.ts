@@ -230,6 +230,12 @@ export interface SchemaDSL {
    * @returns Schema export in SchemaExport format
    */
   export(): SchemaExport;
+
+  /**
+   * Delete this schema
+   * @returns Promise that resolves when schema is deleted
+   */
+  delete(): Promise<void>;
 }
 
 /**
@@ -351,6 +357,13 @@ export interface KeritsDSL {
    * @returns Array of schema aliases
    */
   listSchemas(): Promise<string[]>;
+
+  /**
+   * Delete a schema by alias
+   * @param alias - Schema alias to delete
+   * @returns Promise that resolves when schema is deleted
+   */
+  deleteSchema(alias: string): Promise<void>;
 
   /**
    * Get ContactsDSL for managing contacts

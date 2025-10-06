@@ -2,12 +2,13 @@
  * SchemaDSL - Schema operations
  */
 
+import type { KerStore } from '../../../storage/types';
 import type { SchemaDSL, Schema, SchemaExport } from '../types';
 
 /**
  * Create a SchemaDSL for a specific schema
  */
-export function createSchemaDSL(schema: Schema): SchemaDSL {
+export function createSchemaDSL(schema: Schema, store: KerStore): SchemaDSL {
   return {
     schema,
 
@@ -63,6 +64,12 @@ export function createSchemaDSL(schema: Schema): SchemaDSL {
         sed,
         said: schema.schemaId,
       };
+    },
+
+    async delete(): Promise<void> {
+      // Delete the schema alias mapping
+      await store.delAlias('schema', schema.alias, true);
+      // Note: The event itself remains in storage (immutable), but is no longer accessible by alias
     },
   };
 }

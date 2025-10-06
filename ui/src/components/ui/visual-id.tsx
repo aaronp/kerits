@@ -77,7 +77,7 @@ export function VisualId({
         colors={['#92A1C6', '#146A7C', '#F0AB3D', '#C271B4', '#C20D90']}
       />
       <div className="flex-1 min-w-0">
-        <div className={`text-xs font-medium ${bold ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}>{label}</div>
+        <div className={`${bold ? 'text-foreground font-semibold font-2xl' : 'font-medium text-muted-foreground'}`}>{label}</div>
         <div
           className="text-sm font-mono "
           title={value}
