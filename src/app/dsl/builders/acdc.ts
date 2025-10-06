@@ -3,8 +3,9 @@
  */
 
 import type { KerStore } from '../../../storage/types';
-import type { ACDCDSL, ACDC, Registry, CredentialStatus } from '../types';
+import type { ACDCDSL, ACDC, Registry, CredentialStatus, ExportDSL } from '../types';
 import { revokeCredential } from '../../helpers';
+import { exportAcdc } from './export';
 
 /**
  * Create an ACDCDSL for a specific ACDC
@@ -48,6 +49,15 @@ export function createACDCDSL(
       // For now, return global graph
       // TODO: Filter to only this ACDC's events
       return store.buildGraph();
+    },
+
+    async export(): Promise<ExportDSL> {
+      return exportAcdc(
+        store,
+        acdc.credentialId,
+        registry.registryId,
+        acdc.issuerAid
+      );
     },
   };
 }

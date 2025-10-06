@@ -3,7 +3,7 @@
  */
 
 import type { KerStore } from '../../../storage/types';
-import type { AccountDSL, Account, Mnemonic, KelEvent, GraphOptions, RegistryOptions } from '../types';
+import type { AccountDSL, Account, Mnemonic, KelEvent, GraphOptions, RegistryOptions, ExportDSL } from '../types';
 import type { RegistryDSL } from '../types';
 import { generateKeypairFromSeed } from '../../../signer';
 import { rotate } from '../../../rotate';
@@ -11,6 +11,7 @@ import { diger } from '../../../diger';
 import { mnemonicToSeed } from '../utils';
 import { serializeEvent } from '../utils';
 import { createRegistryDSL } from './registry';
+import { exportKel } from './export';
 
 /**
  * Create an AccountDSL for a specific account
@@ -134,6 +135,10 @@ export function createAccountDSL(account: Account, store: KerStore): AccountDSL 
       // For now, return global graph
       // TODO: Filter to only this account's events
       return store.buildGraph(opts);
+    },
+
+    async export(): Promise<ExportDSL> {
+      return exportKel(store, account.aid);
     },
   };
 }

@@ -3,6 +3,7 @@
  */
 
 export * from './common';
+export * from './sync';
 
 import type {
   Account,
@@ -19,6 +20,7 @@ import type {
   CredentialStatus,
 } from './common';
 import type { Graph } from '../../../storage/types';
+import type { ExportDSL, ImportDSL } from './sync';
 
 /**
  * AccountDSL - Operations for a specific account
@@ -67,6 +69,12 @@ export interface AccountDSL {
    * @returns Graph for this account
    */
   graph(opts?: GraphOptions): Promise<Graph>;
+
+  /**
+   * Export KEL events for this account
+   * @returns ExportDSL for creating CESR bundle
+   */
+  export(): Promise<ExportDSL>;
 }
 
 /**
@@ -110,6 +118,12 @@ export interface RegistryDSL {
    * @returns Graph for this registry
    */
   graph(opts?: GraphOptions): Promise<Graph>;
+
+  /**
+   * Export TEL events for this registry
+   * @returns ExportDSL for creating CESR bundle
+   */
+  export(): Promise<ExportDSL>;
 }
 
 /**
@@ -137,6 +151,12 @@ export interface ACDCDSL {
    * @returns Graph for this credential
    */
   graph(): Promise<Graph>;
+
+  /**
+   * Export this credential and its issuance event
+   * @returns ExportDSL for creating CESR bundle
+   */
+  export(): Promise<ExportDSL>;
 }
 
 /**
@@ -285,4 +305,10 @@ export interface KeritsDSL {
    * @returns Graph with nodes and edges
    */
   graph(opts?: GraphOptions): Promise<Graph>;
+
+  /**
+   * Get ImportDSL for importing CESR bundles
+   * @returns ImportDSL instance
+   */
+  import(): ImportDSL;
 }

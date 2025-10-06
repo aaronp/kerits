@@ -347,9 +347,212 @@ const diskStore = createKerStore(new DiskKv({ baseDir: './data/keri' }));
 const dsl = createKeritsDSL(diskStore);
 ```
 
+## Use Case 6: Export/Import KEL and TEL Data
+
+**Scenario**: Share credentials between different systems or contacts using CESR bundles.
+
+### Export KEL (Key Event Log)
+
+```typescript
+// Export account's KEL
+const issuerDsl = await dsl.account('issuer');
+const kelExport = await issuerDsl.export();
+
+// Get as CESR bundle
+const bundle = kelExport.asBundle();
+console.log('Bundle type:', bundle.type); // 'kel'
+console.log('Events:', bundle.events.length);
+
+// Export as JSON for transfer
+const json = kelExport.toJSON();
+await kelExport.toFile('./exports/issuer-kel.json');
+
+// Or get raw CESR events
+const rawEvents = kelExport.asRaw(); // Uint8Array[]
+```
+
+### Export TEL (Transaction Event Log)
+
+```typescript
+// Export registry's TEL
+const registryDsl = await issuerDsl.registry('health-records');
+const telExport = await registryDsl.export();
+
+// Save to file
+await telExport.toFile('./exports/health-registry-tel.json');
+```
+
+### Export ACDC (Credential + Issuance Event)
+
+```typescript
+// Export specific credential with its issuance event
+const acdcDsl = await registryDsl.acdc('patient-blood-pressure');
+const acdcExport = await acdcDsl.export();
+
+const bundle = acdcExport.asBundle();
+console.log('ACDC bundle:', bundle.metadata.scope?.credentialId);
+
+// Save for sharing
+await acdcExport.toFile('./exports/bp-credential.json');
+```
+
+### Import from Another System
+
+```typescript
+// Create separate store for recipient
+const recipientStore = createKerStore(new MemoryKv());
+const recipientDsl = createKeritsDSL(recipientStore);
+
+// Import KEL first (must exist before TEL)
+const importDsl = recipientDsl.import();
+const kelResult = await importDsl.fromFile('./exports/issuer-kel.json');
+console.log('Imported KEL events:', kelResult.imported);
+
+// Import TEL
+const telResult = await importDsl.fromFile('./exports/health-registry-tel.json');
+console.log('Imported TEL events:', telResult.imported);
+
+// Import ACDC
+const acdcResult = await importDsl.fromFile('./exports/bp-credential.json');
+console.log('Imported credentials:', acdcResult.imported);
+
+// Verify imported data
+const kelEvents = await recipientStore.listKel(issuerAid);
+console.log('Recipient now has KEL events:', kelEvents.length);
+```
+
+### Import Options
+
+```typescript
+// Skip events that already exist
+await importDsl.fromBundle(bundle, { skipExisting: true });
+
+// Verify signatures (future feature)
+await importDsl.fromBundle(bundle, { verify: true });
+```
+
+### Import from Different Formats
+
+```typescript
+// From JSON string
+const result1 = await importDsl.fromJSON(jsonString);
+
+// From CESR bundle object
+const result2 = await importDsl.fromBundle(cesrBundle);
+
+// From raw CESR events
+const result3 = await importDsl.fromRaw([event1, event2, event3]);
+
+// From file
+const result4 = await importDsl.fromFile('./data/export.json');
+```
+
+### Complete Sync Example
+
+```typescript
+// Issuer exports complete credential package
+const issuerDsl = await dsl.account('health-provider');
+const registryDsl = await issuerDsl.registry('patient-records');
+const credentialDsl = await registryDsl.acdc('patient-123-vitals');
+
+// Export all related data
+const kelBundle = (await issuerDsl.export()).asBundle();
+const telBundle = (await registryDsl.export()).asBundle();
+const acdcBundle = (await credentialDsl.export()).asBundle();
+
+// Patient imports into their system
+const patientDsl = createKeritsDSL(patientStore);
+const importer = patientDsl.import();
+
+// Import in order: KEL → TEL → ACDC
+await importer.fromBundle(kelBundle);
+await importer.fromBundle(telBundle);
+const result = await importer.fromBundle(acdcBundle);
+
+console.log(`✓ Imported ${result.imported} events, ${result.skipped} skipped, ${result.failed} failed`);
+
+// Patient can now query the credential
+const imported = await patientStore.getEvent(credentialDsl.acdc.credentialId);
+console.log('Credential available:', !!imported);
+```
+
+## API Hierarchy
+
+```
+KeritsDSL
+├── newMnemonic(seed) → Mnemonic
+├── newAccount(alias, mnemonic) → Account
+├── account(alias) → AccountDSL
+│   ├── rotateKeys(mnemonic) → Account
+│   ├── createRegistry(alias) → RegistryDSL
+│   │   ├── issue(params) → ACDCDSL
+│   │   │   ├── status() → CredentialStatus
+│   │   │   ├── revoke()
+│   │   │   ├── graph() → Graph
+│   │   │   └── export() → ExportDSL
+│   │   ├── listACDCs() → string[]
+│   │   ├── getTel() → TelEvent[]
+│   │   ├── graph() → Graph
+│   │   └── export() → ExportDSL
+│   ├── registry(alias) → RegistryDSL
+│   ├── listRegistries() → string[]
+│   ├── getKel() → KelEvent[]
+│   ├── graph() → Graph
+│   └── export() → ExportDSL
+├── createSchema(alias, schema) → SchemaDSL
+│   ├── validate(data) → boolean
+│   └── getSchema() → any
+├── schema(alias) → SchemaDSL
+├── contacts() → ContactsDSL
+│   ├── add(alias, aid, metadata) → Contact
+│   ├── get(alias) → Contact
+│   ├── remove(alias)
+│   ├── list() → string[]
+│   └── getAll() → Contact[]
+├── import() → ImportDSL
+│   ├── fromBundle(bundle, opts) → ImportResult
+│   ├── fromJSON(json, opts) → ImportResult
+│   ├── fromRaw(events, opts) → ImportResult
+│   └── fromFile(path, opts) → ImportResult
+└── graph() → Graph
+```
+
+## Export/Import Types
+
+```typescript
+interface CESRBundle {
+  type: 'kel' | 'tel' | 'acdc' | 'mixed';
+  version: string;
+  events: Uint8Array[];  // CESR-framed events
+  metadata: {
+    source?: string;      // AID of exporter
+    created: string;      // ISO timestamp
+    scope?: {
+      aid?: string;       // For KEL bundles
+      registryId?: string; // For TEL bundles
+      credentialId?: string; // For ACDC bundles
+    };
+  };
+}
+
+interface ImportResult {
+  imported: number;
+  skipped: number;
+  failed: number;
+  errors: string[];
+}
+
+interface ExportDSL {
+  asBundle(): CESRBundle;
+  asRaw(): Uint8Array[];
+  toJSON(): string;
+  toFile(path: string): Promise<void>;
+}
+```
+
 ## Next Steps
 
-- Import/export KEL and TEL data as CESR events
 - Witness coordination and receipts
 - Delegation and multi-sig support
 - Receipt verification and validation
+- Contact sync tracking (SAID/SeqNo pointers)

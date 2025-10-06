@@ -16,6 +16,10 @@ export { createRegistryDSL } from './builders/registry';
 export { createACDCDSL } from './builders/acdc';
 export { createSchemaDSL } from './builders/schema';
 export { createContactsDSL } from './builders/contacts';
+export { createImportDSL } from './builders/import';
+
+// Export export/import functions
+export { exportKel, exportTel, exportAcdc, exportMixed } from './builders/export';
 
 // Export utilities
 export { seedToMnemonic, mnemonicToSeed } from './utils';

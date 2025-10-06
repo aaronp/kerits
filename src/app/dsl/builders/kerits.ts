@@ -3,13 +3,14 @@
  */
 
 import type { KerStore } from '../../../storage/types';
-import type { KeritsDSL, Account, Mnemonic, AccountDSL, SchemaDSL, ContactsDSL, GraphOptions } from '../types';
+import type { KeritsDSL, Account, Mnemonic, AccountDSL, SchemaDSL, ContactsDSL, GraphOptions, ImportDSL } from '../types';
 import { generateKeypairFromSeed } from '../../../signer';
 import { createIdentity, createSchema as createSchemaHelper } from '../../helpers';
 import { seedToMnemonic, mnemonicToSeed, serializeEvent } from '../utils';
 import { createAccountDSL } from './account';
 import { createSchemaDSL } from './schema';
 import { createContactsDSL } from './contacts';
+import { createImportDSL } from './import';
 
 /**
  * Create a new KeritsDSL instance
@@ -211,6 +212,10 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
 
     async graph(opts?: GraphOptions): Promise<any> {
       return store.buildGraph(opts);
+    },
+
+    import(): ImportDSL {
+      return createImportDSL(store);
     },
   };
 }

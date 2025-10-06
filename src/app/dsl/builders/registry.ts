@@ -3,9 +3,10 @@
  */
 
 import type { KerStore } from '../../../storage/types';
-import type { RegistryDSL, Registry, Account, IssueParams, TelEvent, GraphOptions } from '../types';
+import type { RegistryDSL, Registry, Account, IssueParams, TelEvent, GraphOptions, ExportDSL } from '../types';
 import type { ACDCDSL } from '../types';
 import { createACDCDSL } from './acdc';
+import { exportTel } from './export';
 
 /**
  * Create a RegistryDSL for a specific registry
@@ -119,6 +120,10 @@ export function createRegistryDSL(
       // For now, return global graph
       // TODO: Filter to only this registry's events
       return store.buildGraph(opts);
+    },
+
+    async export(): Promise<ExportDSL> {
+      return exportTel(store, registry.registryId, account.aid);
     },
   };
 }
