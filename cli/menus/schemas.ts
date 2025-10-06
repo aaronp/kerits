@@ -174,6 +174,21 @@ async function createSchema(currentAccount: string): Promise<void> {
 }
 
 async function createSchemaInteractive(): Promise<any> {
+  const title = await p.text({
+    message: 'Schema title:',
+    validate: (value) => {
+      if (!value) return 'Title is required';
+    },
+  });
+
+  if (p.isCancel(title)) return null;
+
+  const description = await p.text({
+    message: 'Schema description (optional):',
+  });
+
+  if (p.isCancel(description)) return null;
+
   const properties: any = {};
   const required: string[] = [];
 
@@ -230,11 +245,21 @@ async function createSchemaInteractive(): Promise<any> {
     }
   }
 
-  return {
+  const schema: any = {
+    title,
     type: 'object',
     properties,
-    required,
   };
+
+  if (description && description.trim()) {
+    schema.description = description.trim();
+  }
+
+  if (required.length > 0) {
+    schema.required = required;
+  }
+
+  return schema;
 }
 
 async function viewSchema(currentAccount: string): Promise<void> {

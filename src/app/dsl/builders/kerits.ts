@@ -190,14 +190,26 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
         return null;
       }
 
-      // In production, properly deserialize schema
+      // Deserialize the schema from the stored event
+      const rawBytes = stored.event.raw instanceof Uint8Array
+        ? stored.event.raw
+        : new Uint8Array(Object.values(stored.event.raw as any));
+
+      const eventText = new TextDecoder().decode(rawBytes);
+      const jsonMatch = eventText.match(/\{.*\}/s);
+      if (!jsonMatch) {
+        return null;
+      }
+
+      const eventData = JSON.parse(jsonMatch[0]);
+
+      // Extract schema fields (everything except KERI metadata)
+      const { v, t, d, ...schemaFields } = eventData;
+
       const schemaObj = {
         alias,
         schemaId,
-        schema: {
-          title: '',
-          properties: {},
-        },
+        schema: schemaFields,
       };
 
       return createSchemaDSL(schemaObj);

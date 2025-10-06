@@ -323,6 +323,44 @@ describe('Schema DSL', () => {
 
     console.log('✓ Schema validation works');
   });
+
+  it('should store and retrieve schema with all fields', async () => {
+    const kv = new MemoryKv();
+    const store = createKerStore(kv);
+    const dsl = createKeritsDSL(store);
+
+    // Create schema with title, description, and properties
+    const schemaDsl = await dsl.createSchema('employee', {
+      title: 'Employee Record',
+      description: 'Schema for employee information',
+      properties: {
+        name: { type: 'string' },
+        department: { type: 'string' },
+        salary: { type: 'number' },
+      },
+      required: ['name', 'department'],
+    });
+
+    expect(schemaDsl.schema.schema.title).toBe('Employee Record');
+    expect(schemaDsl.schema.schema.description).toBe('Schema for employee information');
+    expect(Object.keys(schemaDsl.schema.schema.properties).length).toBe(3);
+
+    // Retrieve schema by alias
+    const retrievedSchemaDsl = await dsl.schema('employee');
+    expect(retrievedSchemaDsl).not.toBeNull();
+
+    // Verify retrieved schema has all fields
+    expect(retrievedSchemaDsl!.schema.schema.title).toBe('Employee Record');
+    expect(retrievedSchemaDsl!.schema.schema.description).toBe('Schema for employee information');
+    expect(retrievedSchemaDsl!.schema.schema.properties).toEqual({
+      name: { type: 'string' },
+      department: { type: 'string' },
+      salary: { type: 'number' },
+    });
+    expect(retrievedSchemaDsl!.schema.schema.required).toEqual(['name', 'department']);
+
+    console.log('✓ Schema stored and retrieved with all fields');
+  });
 });
 
 describe('Multiple Registries', () => {

@@ -210,10 +210,10 @@ async function listCredentials(registryDsl: any, registryAlias: string): Promise
     table.push('───────────────────────────────────────────────────────');
 
     credentials.forEach((cred: any) => {
-      const said = cred.said.substring(0, 16) + '...';
-      const schema = cred.schema || 'unknown';
-      const issued = cred.issued ? new Date(cred.issued).toISOString().split('T')[0] : 'unknown';
-      const status = cred.revoked ? 'revoked' : 'active';
+      const said = cred.credentialId.substring(0, 16) + '...';
+      const schema = cred.schemas?.[0]?.alias || 'unknown';
+      const issued = cred.issuedAt ? new Date(cred.issuedAt).toISOString().split('T')[0] : 'unknown';
+      const status = cred.status;
 
       table.push(`${said.padEnd(18)} ${schema.padEnd(16)} ${issued.padEnd(12)} ${status}`);
     });
@@ -318,9 +318,11 @@ async function createCredential(dsl: any, accountDsl: any, registryDsl: any, reg
           options: contactOptions,
         });
 
-        if (!p.isCancel(selectedContact) && selectedContact !== 'cancel') {
-          recipientAid = selectedContact;
+        if (p.isCancel(selectedContact) || selectedContact === 'cancel') {
+          return;
         }
+
+        recipientAid = selectedContact;
       }
     } else if (recipientChoice === 'manual') {
       const aidInput = await p.text({
@@ -374,8 +376,8 @@ async function revokeCredential(registryDsl: any, registryAlias: string): Promis
     }
 
     const options = credentials.map((cred: any) => ({
-      value: cred.said,
-      label: `${cred.said.substring(0, 16)}... (${cred.schema}, ${cred.issued ? new Date(cred.issued).toISOString().split('T')[0] : 'unknown'})`,
+      value: cred.credentialId,
+      label: `${cred.credentialId.substring(0, 16)}... (${cred.schemas?.[0]?.alias || 'unknown'}, ${cred.issuedAt ? new Date(cred.issuedAt).toISOString().split('T')[0] : 'unknown'})`,
     }));
     options.push({ value: 'cancel', label: 'Cancel' });
 
@@ -438,8 +440,8 @@ async function exportCredential(registryDsl: any, registryAlias: string): Promis
     }
 
     const options = credentials.map((cred: any) => ({
-      value: cred.said,
-      label: `${cred.said.substring(0, 16)}... (${cred.schema})`,
+      value: cred.credentialId,
+      label: `${cred.credentialId.substring(0, 16)}... (${cred.schemas?.[0]?.alias || 'unknown'})`,
     }));
     options.push({ value: 'cancel', label: 'Cancel' });
 
