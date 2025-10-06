@@ -23,6 +23,7 @@ import type {
 import type { Graph } from '../../../storage/types';
 import type { ExportDSL, ImportDSL } from './sync';
 import type { ContactSyncDSL } from './contact-sync';
+import type { IndexedRegistry, IndexedACDC, SchemaUsage, CounterpartyInfo, TELEventSummary } from '../../indexer/types';
 
 /**
  * AccountDSL - Operations for a specific account
@@ -126,6 +127,18 @@ export interface RegistryDSL {
    * @returns ExportDSL for creating CESR bundle
    */
   export(): Promise<ExportDSL>;
+
+  /**
+   * Get indexed view of this registry
+   * @returns Aggregated registry state with all credentials
+   */
+  index(): Promise<IndexedRegistry>;
+
+  /**
+   * List all credentials with their current state
+   * @returns Array of indexed credentials
+   */
+  listCredentials(): Promise<IndexedACDC[]>;
 }
 
 /**
@@ -159,6 +172,36 @@ export interface ACDCDSL {
    * @returns ExportDSL for creating CESR bundle
    */
   export(): Promise<ExportDSL>;
+
+  /**
+   * Get indexed view of this credential
+   * @returns Aggregated credential state
+   */
+  index(): Promise<IndexedACDC>;
+
+  /**
+   * Get latest credential data (current field values)
+   * @returns Credential data attributes
+   */
+  getLatestData(): Promise<Record<string, any>>;
+
+  /**
+   * Get all schemas used by this credential
+   * @returns Schema usage history
+   */
+  getSchemas(): Promise<SchemaUsage[]>;
+
+  /**
+   * Get all counterparties that have interacted with this credential
+   * @returns List of counterparties
+   */
+  getCounterparties(): Promise<CounterpartyInfo[]>;
+
+  /**
+   * Get full TEL history for this credential
+   * @returns Timeline of TEL events
+   */
+  getHistory(): Promise<TELEventSummary[]>;
 }
 
 /**

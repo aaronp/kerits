@@ -3,10 +3,11 @@
  */
 
 import type { KerStore } from '../../../storage/types';
-import type { RegistryDSL, Registry, Account, IssueParams, TelEvent, GraphOptions, ExportDSL } from '../types';
+import type { RegistryDSL, Registry, Account, IssueParams, TelEvent, GraphOptions, ExportDSL, IndexedRegistry, IndexedACDC } from '../types';
 import type { ACDCDSL } from '../types';
 import { createACDCDSL } from './acdc';
 import { exportTel } from './export';
+import { TELIndexer } from '../../indexer/index.js';
 
 /**
  * Create a RegistryDSL for a specific registry
@@ -22,6 +23,14 @@ export function createRegistryDSL(
 
     async issue(params: IssueParams): Promise<ACDCDSL> {
       const { issueCredential } = await import('../../helpers');
+
+      // Validate params
+      if (!params.schema) {
+        throw new Error('Schema is required');
+      }
+      if (!params.holder) {
+        throw new Error('Holder is required');
+      }
 
       // Resolve schema
       let schemaId = params.schema;
@@ -124,6 +133,17 @@ export function createRegistryDSL(
 
     async export(): Promise<ExportDSL> {
       return exportTel(store, registry.registryId, account.aid);
+    },
+
+    async index(): Promise<IndexedRegistry> {
+      const indexer = new TELIndexer(store);
+      return indexer.indexRegistry(registry.registryId);
+    },
+
+    async listCredentials(): Promise<IndexedACDC[]> {
+      const indexer = new TELIndexer(store);
+      const indexed = await indexer.indexRegistry(registry.registryId);
+      return indexed.credentials;
     },
   };
 }

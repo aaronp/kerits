@@ -3,9 +3,10 @@
  */
 
 import type { KerStore } from '../../../storage/types';
-import type { ACDCDSL, ACDC, Registry, CredentialStatus, ExportDSL } from '../types';
+import type { ACDCDSL, ACDC, Registry, CredentialStatus, ExportDSL, IndexedACDC, SchemaUsage, CounterpartyInfo, TELEventSummary } from '../types';
 import { revokeCredential } from '../../helpers';
 import { exportAcdc } from './export';
+import { TELIndexer } from '../../indexer/index.js';
 
 /**
  * Create an ACDCDSL for a specific ACDC
@@ -58,6 +59,35 @@ export function createACDCDSL(
         registry.registryId,
         acdc.issuerAid
       );
+    },
+
+    async index(): Promise<IndexedACDC> {
+      const indexer = new TELIndexer(store);
+      return indexer.indexACDC(acdc.credentialId, registry.registryId);
+    },
+
+    async getLatestData(): Promise<Record<string, any>> {
+      const indexer = new TELIndexer(store);
+      const indexed = await indexer.indexACDC(acdc.credentialId, registry.registryId);
+      return indexed.latestData;
+    },
+
+    async getSchemas(): Promise<SchemaUsage[]> {
+      const indexer = new TELIndexer(store);
+      const indexed = await indexer.indexACDC(acdc.credentialId, registry.registryId);
+      return indexed.schemas;
+    },
+
+    async getCounterparties(): Promise<CounterpartyInfo[]> {
+      const indexer = new TELIndexer(store);
+      const indexed = await indexer.indexACDC(acdc.credentialId, registry.registryId);
+      return indexed.counterparties;
+    },
+
+    async getHistory(): Promise<TELEventSummary[]> {
+      const indexer = new TELIndexer(store);
+      const indexed = await indexer.indexACDC(acdc.credentialId, registry.registryId);
+      return indexed.telEvents;
     },
   };
 }

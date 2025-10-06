@@ -5,6 +5,7 @@ import * as p from '@clack/prompts';
 import { getCurrentAccount, loadAccountDSL } from '../utils/storage.js';
 import { showGraph } from '../utils/graph.js';
 import { writeFile } from 'fs/promises';
+import { selectRegistryToExplore } from './explorer.js';
 
 export async function registriesMenu(): Promise<void> {
   const currentAccount = await getCurrentAccount();
@@ -27,6 +28,7 @@ export async function registriesMenu(): Promise<void> {
     options: [
       { value: 'create', label: 'Create New Registry' },
       { value: 'select', label: 'Select Registry (manage credentials)' },
+      { value: 'explore', label: '🔍 Explore Registry (tree view)' },
       { value: 'back', label: 'Back to Main Menu' },
     ],
   });
@@ -41,6 +43,9 @@ export async function registriesMenu(): Promise<void> {
       break;
     case 'select':
       await selectRegistry(currentAccount);
+      break;
+    case 'explore':
+      await selectRegistryToExplore(currentAccount);
       break;
   }
 

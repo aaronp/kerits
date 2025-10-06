@@ -228,10 +228,21 @@ export async function revokeCredential(
 ): Promise<{ rev: any }> {
   const { registryId, credentialId } = params;
 
+  // Find the issuance event to get its SAID (dig)
+  const telEvents = await store.listTel(registryId);
+  const issEvent = telEvents.find(
+    e => e.meta.t === 'iss' && e.meta.acdcSaid === credentialId
+  );
+
+  if (!issEvent) {
+    throw new Error(`Issuance event not found for credential: ${credentialId}`);
+  }
+
   // Create revocation event
   const rev = revoke({
     vcdig: credentialId,
     regk: registryId,
+    dig: issEvent.meta.d, // Prior event digest is the issuance event SAID
   });
 
   // Store revocation event
