@@ -65,27 +65,33 @@ async function listSchemas(currentAccount: string): Promise<void> {
 
   try {
     const { dsl } = await loadAccountDSL(currentAccount);
-    const schemas = await dsl.listSchemas();
+    const schemaAliases = await dsl.listSchemas();
 
     s.stop();
 
-    if (schemas.length === 0) {
+    if (schemaAliases.length === 0) {
       p.note('No schemas found.', 'Info');
       return;
     }
 
     const table: string[] = [];
-    table.push('Name              SAID              Fields');
+    table.push('Name              Schema ID         Fields');
     table.push('──────────────────────────────────────────────');
 
-    schemas.forEach((schema: any) => {
-      const name = schema.name.padEnd(18);
-      const said = (schema.said || schema.id || 'unknown').substring(0, 16) + '...';
-      const fieldsCount = schema.properties ? Object.keys(schema.properties).length : 0;
-      table.push(`${name} ${said.padEnd(18)} ${fieldsCount}`);
-    });
+    // Fetch details for each schema
+    for (const alias of schemaAliases) {
+      const schemaDsl = await dsl.schema(alias);
+      if (!schemaDsl) continue;
 
-    p.note(table.join('\n') + `\n\nTotal: ${schemas.length} schemas`, `Schemas for ${currentAccount}`);
+      const name = alias.padEnd(18);
+      const schemaId = schemaDsl.schema.schemaId.substring(0, 16) + '...';
+      const schemaData = schemaDsl.getSchema();
+      const fieldsCount = schemaData.properties ? Object.keys(schemaData.properties).length : 0;
+
+      table.push(`${name} ${schemaId.padEnd(18)} ${fieldsCount}`);
+    }
+
+    p.note(table.join('\n') + `\n\nTotal: ${schemaAliases.length} schemas`, `Schemas for ${currentAccount}`);
   } catch (error) {
     s.stop('Failed to load schemas');
     p.log.error(error instanceof Error ? error.message : String(error));
@@ -156,11 +162,11 @@ async function createSchema(currentAccount: string): Promise<void> {
     const { dsl } = await loadAccountDSL(currentAccount);
     const schemaDsl = await dsl.createSchema(name, schemaDefinition);
 
-    const said = await schemaDsl.getSaid();
+    const schemaId = schemaDsl.schema.schemaId;
     const fieldsCount = schemaDefinition.properties ? Object.keys(schemaDefinition.properties).length : 0;
 
     s.stop(`Schema '${name}' created`);
-    p.note(`SAID: ${said}\nFields: ${fieldsCount}`, 'Success');
+    p.note(`Schema ID: ${schemaId}\nFields: ${fieldsCount}`, 'Success');
   } catch (error) {
     s.stop('Failed to create schema');
     p.log.error(error instanceof Error ? error.message : String(error));
@@ -246,9 +252,10 @@ async function viewSchema(currentAccount: string): Promise<void> {
       return;
     }
 
-    const options = schemas.map((schema: any) => ({
-      value: schema.name,
-      label: schema.name,
+    // schemas is an array of aliases (strings)
+    const options = schemas.map((alias: string) => ({
+      value: alias,
+      label: alias,
     }));
     options.push({ value: 'cancel', label: 'Cancel' });
 
@@ -259,13 +266,18 @@ async function viewSchema(currentAccount: string): Promise<void> {
 
     if (p.isCancel(selected) || selected === 'cancel') return;
 
-    const schemaDsl = dsl.schema(selected);
-    const schemaData = await schemaDsl.get();
+    const schemaDsl = await dsl.schema(selected);
 
-    const said = await schemaDsl.getSaid();
+    if (!schemaDsl) {
+      p.log.error(`Schema '${selected}' not found`);
+      return;
+    }
+
+    const schemaData = schemaDsl.getSchema();
+    const schemaId = schemaDsl.schema.schemaId;
 
     p.note(
-      `SAID: ${said}\n\n${JSON.stringify(schemaData, null, 2)}\n\nPress any key to continue`,
+      `Schema ID: ${schemaId}\n\n${JSON.stringify(schemaData, null, 2)}\n\nPress any key to continue`,
       `Schema: ${selected}`
     );
 
@@ -295,9 +307,10 @@ async function exportSchema(currentAccount: string): Promise<void> {
       return;
     }
 
-    const options = schemas.map((schema: any) => ({
-      value: schema.name,
-      label: schema.name,
+    // schemas is an array of aliases (strings)
+    const options = schemas.map((alias: string) => ({
+      value: alias,
+      label: alias,
     }));
     options.push({ value: 'cancel', label: 'Cancel' });
 
@@ -320,8 +333,15 @@ async function exportSchema(currentAccount: string): Promise<void> {
     const spinner = p.spinner();
     spinner.start('Exporting schema...');
 
-    const schemaDsl = dsl.schema(selected);
-    const schemaData = await schemaDsl.export();
+    const schemaDsl = await dsl.schema(selected);
+
+    if (!schemaDsl) {
+      spinner.stop('Failed to export schema');
+      p.log.error(`Schema '${selected}' not found`);
+      return;
+    }
+
+    const schemaData = schemaDsl.getSchema();
 
     await writeFile(filePath, JSON.stringify(schemaData, null, 2));
 
@@ -362,10 +382,10 @@ async function importSchema(currentAccount: string): Promise<void> {
     const { dsl } = await loadAccountDSL(currentAccount);
     const schemaDsl = await dsl.createSchema(alias, schemaData);
 
-    const said = await schemaDsl.getSaid();
+    const schemaId = schemaDsl.schema.schemaId;
 
     s.stop(`Schema '${alias}' imported`);
-    p.note(`SAID: ${said}\nFile: ${filePath}`, 'Success');
+    p.note(`Schema ID: ${schemaId}\nFile: ${filePath}`, 'Success');
   } catch (error) {
     s.stop('Failed to import schema');
     p.log.error(error instanceof Error ? error.message : String(error));

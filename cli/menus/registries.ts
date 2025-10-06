@@ -69,10 +69,16 @@ async function createRegistry(currentAccount: string): Promise<void> {
 
   try {
     const { dsl } = await loadAccountDSL(currentAccount);
-    const accountDsl = dsl.account(currentAccount);
-    const registryDsl = await accountDsl.createRegistry(alias);
+    const accountDsl = await dsl.account(currentAccount);
 
-    const registryId = await registryDsl.getRegistryId();
+    if (!accountDsl) {
+      s.stop('Failed to create registry');
+      p.log.error(`Account '${currentAccount}' not found`);
+      return;
+    }
+
+    const registryDsl = await accountDsl.createRegistry(alias);
+    const registryId = registryDsl.registry.registryId;
 
     s.stop(`Registry '${alias}' created`);
     p.note(`Registry ID: ${registryId}`, 'Success');
@@ -88,7 +94,14 @@ async function selectRegistry(currentAccount: string): Promise<void> {
 
   try {
     const { dsl } = await loadAccountDSL(currentAccount);
-    const accountDsl = dsl.account(currentAccount);
+    const accountDsl = await dsl.account(currentAccount);
+
+    if (!accountDsl) {
+      s.stop('Failed to load registries');
+      p.log.error(`Account '${currentAccount}' not found`);
+      return;
+    }
+
     const registries = await accountDsl.listRegistries();
 
     s.stop();
@@ -98,9 +111,10 @@ async function selectRegistry(currentAccount: string): Promise<void> {
       return;
     }
 
-    const options = registries.map(reg => ({
-      value: reg.alias,
-      label: `${reg.alias} (${reg.id.substring(0, 16)}...)`,
+    // registries is an array of aliases (strings)
+    const options = registries.map(alias => ({
+      value: alias,
+      label: alias,
     }));
     options.push({ value: 'cancel', label: 'Cancel' });
 
@@ -121,9 +135,21 @@ async function selectRegistry(currentAccount: string): Promise<void> {
 
 async function credentialsMenu(accountAlias: string, registryAlias: string): Promise<void> {
   const { dsl } = await loadAccountDSL(accountAlias);
-  const accountDsl = dsl.account(accountAlias);
-  const registryDsl = accountDsl.registry(registryAlias);
-  const registryId = await registryDsl.getRegistryId();
+  const accountDsl = await dsl.account(accountAlias);
+
+  if (!accountDsl) {
+    p.log.error(`Account '${accountAlias}' not found`);
+    return;
+  }
+
+  const registryDsl = await accountDsl.registry(registryAlias);
+
+  if (!registryDsl) {
+    p.log.error(`Registry '${registryAlias}' not found`);
+    return;
+  }
+
+  const registryId = registryDsl.registry.registryId;
 
   p.intro(`Credentials - ${registryAlias}`);
   p.note(registryId, 'Registry ID');
@@ -212,9 +238,10 @@ async function createCredential(dsl: any, accountDsl: any, registryDsl: any, reg
       return;
     }
 
-    const schemaOptions = schemas.map((schema: any) => ({
-      value: schema.name,
-      label: schema.name,
+    // schemas is an array of aliases (strings)
+    const schemaOptions = schemas.map((alias: string) => ({
+      value: alias,
+      label: alias,
     }));
     schemaOptions.push({ value: 'cancel', label: 'Cancel' });
 
@@ -226,8 +253,14 @@ async function createCredential(dsl: any, accountDsl: any, registryDsl: any, reg
     if (p.isCancel(selectedSchema) || selectedSchema === 'cancel') return;
 
     // Get schema details
-    const schemaDsl = dsl.schema(selectedSchema);
-    const schemaData = await schemaDsl.get();
+    const schemaDsl = await dsl.schema(selectedSchema);
+
+    if (!schemaDsl) {
+      p.log.error(`Schema '${selectedSchema}' not found`);
+      return;
+    }
+
+    const schemaData = schemaDsl.getSchema();
 
     p.note(selectedSchema, 'Schema');
 
