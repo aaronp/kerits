@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore } from '@/store/useStore';
 import { Button } from '../ui/button';
 import { SchemaList } from './SchemaList';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
@@ -8,21 +7,81 @@ import { Textarea } from '../ui/textarea';
 import { Toast, useToast } from '../ui/toast';
 import { Plus, Upload } from 'lucide-react';
 import { route } from '@/config';
-import { saveSchema, type StoredSchema } from '@/lib/storage';
+import { getDSL } from '@/lib/dsl';
+import type { KeritsDSL } from '@/../src/app/dsl/types';
+
+interface SchemaDisplay {
+  alias: string;
+  title: string;
+  description?: string;
+  schemaId: string;
+  properties: Record<string, any>;
+}
 
 export function Schemas() {
   const navigate = useNavigate();
-  const { schemas, refreshSchemas } = useStore();
   const { toast, showToast, hideToast } = useToast();
+  const [dsl, setDsl] = useState<KeritsDSL | null>(null);
+  const [schemas, setSchemas] = useState<SchemaDisplay[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importText, setImportText] = useState('');
   const [importing, setImporting] = useState(false);
 
+  // Initialize DSL
   useEffect(() => {
-    refreshSchemas();
-  }, [refreshSchemas]);
+    async function init() {
+      try {
+        const dslInstance = await getDSL();
+        setDsl(dslInstance);
+      } catch (error) {
+        console.error('Failed to initialize DSL:', error);
+        showToast('Failed to initialize');
+      }
+    }
+    init();
+  }, []);
+
+  // Load schemas
+  useEffect(() => {
+    if (!dsl) return;
+
+    async function loadSchemas() {
+      try {
+        const aliases = await dsl.listSchemas();
+        const schemaList: SchemaDisplay[] = [];
+
+        for (const alias of aliases) {
+          const schemaDsl = await dsl.schema(alias);
+          if (schemaDsl) {
+            schemaList.push({
+              alias,
+              title: schemaDsl.schema.schema?.title || alias,
+              description: schemaDsl.schema.schema?.description,
+              schemaId: schemaDsl.schema.schemaId,
+              properties: schemaDsl.schema.schema?.properties || {},
+            });
+          }
+        }
+
+        setSchemas(schemaList);
+        setLoading(false);
+      } catch (error) {
+        console.error('Failed to load schemas:', error);
+        showToast('Failed to load schemas');
+        setLoading(false);
+      }
+    }
+
+    loadSchemas();
+  }, [dsl]);
 
   const handleImport = async () => {
+    if (!dsl) {
+      showToast('System not initialized');
+      return;
+    }
+
     if (!importText.trim()) {
       showToast('Please paste a schema');
       return;
@@ -32,14 +91,32 @@ export function Schemas() {
     try {
       const parsed = JSON.parse(importText);
 
-      let schemaToSave: StoredSchema;
+      let alias: string;
+      let schemaDefinition: any;
 
       // Check if it's a full StoredSchema format (has id, name, fields)
       if (parsed.id && parsed.name && parsed.fields) {
-        schemaToSave = {
-          ...parsed,
-          createdAt: parsed.createdAt || new Date().toISOString(),
+        alias = parsed.name;
+        // Reconstruct schema definition from fields
+        schemaDefinition = {
+          $id: `https://example.com/schemas/${parsed.name.toLowerCase().replace(/\s+/g, '-')}`,
+          $schema: 'http://json-schema.org/draft-07/schema#',
+          title: parsed.name,
+          type: 'object',
+          properties: {},
+          required: parsed.fields.filter((f: any) => f.required).map((f: any) => f.name),
         };
+        if (parsed.description) {
+          schemaDefinition.description = parsed.description;
+        }
+        parsed.fields.forEach((field: any) => {
+          let fieldSchema: any = { type: field.type === 'number' ? 'number' : field.type === 'boolean' ? 'boolean' : 'string' };
+          if (field.type === 'email') fieldSchema.format = 'email';
+          if (field.type === 'url') fieldSchema.format = 'uri';
+          if (field.type === 'date') fieldSchema.format = 'date-time';
+          if (field.description) fieldSchema.description = field.description;
+          schemaDefinition.properties[field.name] = fieldSchema;
+        });
       }
       // Check if it's a SAD format (has sed, raw, said)
       else if (parsed.sed && parsed.said) {
@@ -51,30 +128,8 @@ export function Schemas() {
           return;
         }
 
-        // Convert SED properties to fields array
-        const fields = Object.entries(sed.properties).map(([name, prop]: [string, any]) => {
-          let type: string = prop.type || 'string';
-
-          // Map JSON schema types to our field types
-          if (prop.format === 'email') type = 'email';
-          else if (prop.format === 'uri') type = 'url';
-          else if (prop.format === 'date-time') type = 'date';
-
-          return {
-            name,
-            type: type as any,
-            required: sed.required?.includes(name) || false,
-          };
-        });
-
-        schemaToSave = {
-          id: parsed.said,
-          name: sed.title,
-          description: sed.description,
-          fields,
-          sad: parsed,
-          createdAt: new Date().toISOString(),
-        };
+        alias = sed.title;
+        schemaDefinition = sed;
       }
       // Invalid format
       else {
@@ -83,14 +138,33 @@ export function Schemas() {
       }
 
       // Check if schema already exists
-      if (schemas.some(s => s.id === schemaToSave.id)) {
-        if (!confirm('A schema with this ID already exists. Replace it?')) {
+      const existingAliases = await dsl.listSchemas();
+      if (existingAliases.includes(alias)) {
+        if (!confirm(`A schema with alias "${alias}" already exists. Replace it?`)) {
+          setImporting(false);
           return;
         }
       }
 
-      await saveSchema(schemaToSave);
-      await refreshSchemas();
+      // Create schema using DSL
+      await dsl.createSchema(alias, schemaDefinition);
+
+      // Reload schemas
+      const aliases = await dsl.listSchemas();
+      const schemaList: SchemaDisplay[] = [];
+      for (const a of aliases) {
+        const schemaDsl = await dsl.schema(a);
+        if (schemaDsl) {
+          schemaList.push({
+            alias: a,
+            title: schemaDsl.schema.schema?.title || a,
+            description: schemaDsl.schema.schema?.description,
+            schemaId: schemaDsl.schema.schemaId,
+            properties: schemaDsl.schema.schema?.properties || {},
+          });
+        }
+      }
+      setSchemas(schemaList);
 
       setShowImportDialog(false);
       setImportText('');
@@ -127,7 +201,33 @@ export function Schemas() {
         </div>
       </div>
 
-      <SchemaList schemas={schemas} onDelete={refreshSchemas} />
+      {loading ? (
+        <div className="text-center py-12 text-muted-foreground">Loading schemas...</div>
+      ) : (
+        <SchemaList
+          schemas={schemas}
+          onDelete={async () => {
+            // Reload schemas after deletion
+            if (dsl) {
+              const aliases = await dsl.listSchemas();
+              const schemaList: SchemaDisplay[] = [];
+              for (const a of aliases) {
+                const schemaDsl = await dsl.schema(a);
+                if (schemaDsl) {
+                  schemaList.push({
+                    alias: a,
+                    title: schemaDsl.schema.schema?.title || a,
+                    description: schemaDsl.schema.schema?.description,
+                    schemaId: schemaDsl.schema.schemaId,
+                    properties: schemaDsl.schema.schema?.properties || {},
+                  });
+                }
+              }
+              setSchemas(schemaList);
+            }
+          }}
+        />
+      )}
 
       {/* Import Dialog */}
       <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>

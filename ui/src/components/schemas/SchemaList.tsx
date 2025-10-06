@@ -3,11 +3,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Button } from '../ui/button';
 import { Copy, Check, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { Toast, useToast } from '../ui/toast';
-import type { StoredSchema } from '@/lib/storage';
-import { deleteSchema } from '@/lib/storage';
+
+interface SchemaDisplay {
+  alias: string;
+  title: string;
+  description?: string;
+  schemaId: string;
+  properties: Record<string, any>;
+}
 
 interface SchemaListProps {
-  schemas: StoredSchema[];
+  schemas: SchemaDisplay[];
   onDelete?: () => void;
 }
 
@@ -23,7 +29,7 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  const handleCopySchema = async (schema: StoredSchema) => {
+  const handleCopySchema = async (schema: SchemaDisplay) => {
     await navigator.clipboard.writeText(JSON.stringify(schema, null, 2));
     showToast('Schema copied to clipboard');
   };
@@ -40,10 +46,11 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
     });
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (confirm(`Are you sure you want to delete schema "${name}"?`)) {
-      await deleteSchema(id);
-      if (onDelete) onDelete();
+  const handleDelete = async (alias: string) => {
+    if (confirm(`Are you sure you want to delete schema "${alias}"?`)) {
+      // TODO: Implement schema deletion in DSL
+      showToast('Schema deletion not yet implemented in DSL');
+      // if (onDelete) onDelete();
     }
   };
 
@@ -60,27 +67,27 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
   return (
     <div className="space-y-4">
       {schemas.map((schema) => (
-        <Card key={schema.id}>
+        <Card key={schema.schemaId}>
           <CardHeader>
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <CardTitle>{schema.name}</CardTitle>
+                <CardTitle>{schema.title}</CardTitle>
                 {schema.description && (
                   <CardDescription className="mt-1">
                     {schema.description}
                   </CardDescription>
                 )}
                 <CardDescription className="font-mono text-xs mt-2">
-                  {schema.id}
+                  Alias: {schema.alias} • SAID: {schema.schemaId.substring(0, 16)}...
                 </CardDescription>
               </div>
               <div className="flex gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setExpandedId(expandedId === schema.id ? null : schema.id)}
+                  onClick={() => setExpandedId(expandedId === schema.schemaId ? null : schema.schemaId)}
                 >
-                  {expandedId === schema.id ? 'Hide' : 'Details'}
+                  {expandedId === schema.schemaId ? 'Hide' : 'Details'}
                 </Button>
                 <Button
                   variant="ghost"
@@ -93,7 +100,7 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleDelete(schema.id, schema.name)}
+                  onClick={() => handleDelete(schema.alias)}
                 >
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
@@ -101,26 +108,26 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
             </div>
           </CardHeader>
 
-          {expandedId === schema.id && (
+          {expandedId === schema.schemaId && (
             <CardContent className="space-y-4 pt-0">
-              {/* Fields Table */}
+              {/* Properties Table */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Fields ({schema.fields.length})</Label>
+                <Label className="text-sm font-medium">Properties ({Object.keys(schema.properties).length})</Label>
                 <div className="border rounded-md overflow-hidden">
                   <table className="w-full text-sm">
                     <thead className="bg-muted">
                       <tr>
-                        <th className="text-left p-2 font-medium">Name</th>
+                        <th className="text-left p-2 font-medium">Property</th>
                         <th className="text-left p-2 font-medium">Type</th>
-                        <th className="text-left p-2 font-medium">Required</th>
+                        <th className="text-left p-2 font-medium">Format</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {schema.fields.map((field, idx) => (
+                      {Object.entries(schema.properties).map(([name, prop]: [string, any], idx) => (
                         <tr key={idx} className="border-t">
-                          <td className="p-2 font-mono text-xs">{field.name}</td>
-                          <td className="p-2">{field.type}</td>
-                          <td className="p-2">{field.required ? '✓' : '—'}</td>
+                          <td className="p-2 font-mono text-xs">{name}</td>
+                          <td className="p-2">{prop.type || 'any'}</td>
+                          <td className="p-2 text-muted-foreground">{prop.format || '—'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -133,10 +140,10 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => toggleDefinition(schema.id)}
+                  onClick={() => toggleDefinition(schema.schemaId)}
                   className="h-auto p-0 text-sm font-medium hover:bg-transparent text-primary hover:text-primary/80"
                 >
-                  {expandedDefinitions.has(schema.id) ? (
+                  {expandedDefinitions.has(schema.schemaId) ? (
                     <>
                       <ChevronDown className="h-4 w-4 mr-1" />
                       Hide Schema Definition (JSON)
@@ -148,9 +155,9 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
                     </>
                   )}
                 </Button>
-                {expandedDefinitions.has(schema.id) && (
+                {expandedDefinitions.has(schema.schemaId) && (
                   <pre className="text-xs font-mono bg-muted p-3 rounded-md overflow-x-auto max-h-64">
-                    {JSON.stringify(schema.sad, null, 2)}
+                    {JSON.stringify(schema, null, 2)}
                   </pre>
                 )}
               </div>
@@ -159,9 +166,9 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => copyToClipboard(JSON.stringify(schema, null, 2), `export-${schema.id}`)}
+                onClick={() => copyToClipboard(JSON.stringify(schema, null, 2), `export-${schema.schemaId}`)}
               >
-                {copiedField === `export-${schema.id}` ? (
+                {copiedField === `export-${schema.schemaId}` ? (
                   <>
                     <Check className="mr-2 h-4 w-4 text-green-500" />
                     Copied!
