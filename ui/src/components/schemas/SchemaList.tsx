@@ -85,22 +85,19 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
           <CardHeader>
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <CardTitle>{schema.title}</CardTitle>
+                <VisualId
+                  label={schema.alias}
+                  value={schema.schemaId}
+                  showCopy={false}
+                  bold={true}
+                  size={40}
+                  maxCharacters={32}
+                />
                 {schema.description && (
-                  <CardDescription className="mt-1">
+                  <CardDescription className="mt-2">
                     {schema.description}
                   </CardDescription>
                 )}
-                <div className="mt-3">
-                  <VisualId
-                    label={schema.alias}
-                    value={schema.schemaId}
-                    showCopy={true}
-                    size={32}
-                    maxCharacters={24}
-                    onCopy={() => showToast('Schema ID copied to clipboard')}
-                  />
-                </div>
               </div>
               <div className="flex gap-2">
                 <Button

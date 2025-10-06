@@ -189,13 +189,17 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
         throw new Error('Invalid schema: must have title and properties');
       }
 
-      // Create schema using the sed directly (it already has the SAID)
-      const { schemaId } = await createSchemaHelper(store, {
+      // Convert KERI SAD format ($id) to internal format (d)
+      // Remove $id and $schema fields, keep rest of the schema
+      const { $id, $schema, ...schemaContent } = schemaData.sed;
+
+      // Create schema - this will re-SAIDify with 'd' field
+      const { schemaId, schema: saidified } = await createSchemaHelper(store, {
         alias: schemaData.alias,
-        schema: schemaData.sed,
+        schema: schemaContent,
       });
 
-      // Verify the SAID matches what we expect
+      // Verify the SAID matches what we imported
       if (schemaId !== schemaData.said) {
         throw new Error(`SAID verification failed: expected ${schemaData.said}, got ${schemaId}`);
       }
@@ -203,7 +207,7 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
       const schemaObj = {
         alias: schemaData.alias,
         schemaId,
-        schema: schemaData.sed,
+        schema: saidified,
       };
 
       return createSchemaDSL(schemaObj);

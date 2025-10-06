@@ -10,7 +10,7 @@ import { useState, useEffect } from 'react';
 import { createKerStore } from '../../../src/storage/core';
 import { IndexedDBKv } from '../../../src/storage/adapters/indexeddb';
 import { createKeritsDSL } from '../../../src/app/dsl';
-import type { KeritsDSL } from '../../../src/app/dsl/types/core';
+import type { KeritsDSL } from '../../../src/app/dsl/types';
 
 /**
  * Global DSL instance

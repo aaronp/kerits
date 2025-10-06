@@ -6,6 +6,7 @@ interface VisualIdProps {
   label: string;
   value: string;
   showCopy?: boolean;
+  bold?: boolean;
   variant?: 'marble' | 'beam' | 'pixel' | 'sunset' | 'ring' | 'bauhaus';
   size?: number;
   maxCharacters?: number;
@@ -17,9 +18,10 @@ export function VisualId({
   label,
   value,
   showCopy = true,
+  bold = false,
   variant,
   size = 40,
-  maxCharacters = 12,
+  maxCharacters = 8,
   className = '',
   onCopy
 }: VisualIdProps) {
@@ -49,12 +51,17 @@ export function VisualId({
   };
 
   // Truncate value with ellipsis in the middle if longer than maxCharacters
+  // Total length including "..." should equal max characters
   const truncateValue = (val: string, max: number): string => {
     if (val.length <= max) return val;
 
-    const halfMax = Math.floor(max / 2);
-    const start = val.slice(0, halfMax);
-    const end = val.slice(-halfMax);
+    // Reserve 3 characters for "..."
+    const availableChars = max - 3;
+    const startChars = Math.floor(availableChars / 2);
+    const endChars = Math.ceil(availableChars / 2);
+
+    const start = val.slice(0, startChars);
+    const end = val.slice(-endChars);
     return `${start}...${end}`;
   };
 
@@ -70,9 +77,9 @@ export function VisualId({
         colors={['#92A1C6', '#146A7C', '#F0AB3D', '#C271B4', '#C20D90']}
       />
       <div className="flex-1 min-w-0">
-        <div className="text-xs font-medium text-muted-foreground">{label}</div>
+        <div className={`text-xs font-medium ${bold ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}>{label}</div>
         <div
-          className="text-sm font-mono cursor-help"
+          className="text-sm font-mono "
           title={value}
         >
           {displayValue}
