@@ -4,6 +4,7 @@ import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Toast, useToast } from './ui/toast';
 import { useStore } from '../store/useStore';
+import { getDSL } from '../lib/dsl';
 import { Network, FileText, Award, Moon, Sun, LogOut, UserCircle, User, Pencil, Users, Share2, ChevronRight, ChevronLeft, Home } from 'lucide-react';
 import {
   DropdownMenu,
@@ -39,10 +40,26 @@ export function Dashboard() {
   const { toast, showToast, hideToast } = useToast();
   const [bannerColor, setBannerColor] = useState<string>('#3b82f6');
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [hasAccounts, setHasAccounts] = useState(false);
 
   useEffect(() => {
     init();
   }, [init]);
+
+  // Check for accounts in the new DSL system
+  useEffect(() => {
+    async function checkAccounts() {
+      try {
+        const dsl = await getDSL();
+        const accountNames = await dsl.accountNames();
+        setHasAccounts(accountNames.length > 0);
+      } catch (error) {
+        console.error('Failed to check for accounts:', error);
+        setHasAccounts(false);
+      }
+    }
+    checkAccounts();
+  }, []);
 
   useEffect(() => {
     // Redirect to root if no user is logged in
@@ -99,15 +116,38 @@ export function Dashboard() {
   const activeTab = getActiveTab();
 
   const handleShareKEL = async () => {
-    if (identities.length === 0) {
-      showToast('No identity to share');
-      return;
+    try {
+      if (hasAccounts) {
+        // Use DSL to export account KEL
+        const dsl = await getDSL();
+        const accountNames = await dsl.accountNames();
+        if (accountNames.length === 0) {
+          showToast('No account to share');
+          return;
+        }
+        const accountDsl = await dsl.account(accountNames[0]);
+        if (!accountDsl) {
+          showToast('Failed to load account');
+          return;
+        }
+        const exportDsl = await accountDsl.export();
+        const cesr = await exportDsl.asCESR();
+        const text = new TextDecoder().decode(cesr);
+        await navigator.clipboard.writeText(text);
+        showToast('Account KEL copied to clipboard (CESR format)');
+      } else if (identities.length > 0) {
+        // Use old system
+        const identity = identities[0];
+        const kelString = JSON.stringify(identity.kel, null, 2);
+        await navigator.clipboard.writeText(kelString);
+        showToast('KEL copied to clipboard');
+      } else {
+        showToast('No identity to share');
+      }
+    } catch (error) {
+      console.error('Failed to share KEL:', error);
+      showToast(`Failed to share: ${error instanceof Error ? error.message : String(error)}`);
     }
-
-    const identity = identities[0];
-    const kelString = JSON.stringify(identity.kel, null, 2);
-    await navigator.clipboard.writeText(kelString);
-    showToast('KEL copied to clipboard');
   };
 
   const handleLogout = async () => {
@@ -145,7 +185,7 @@ export function Dashboard() {
             </div>
             <div className="flex items-center gap-4">
               <div className="text-sm text-white/80">
-                {identities.length} Identities · {schemas.length} Schemas · {credentials.length} Credentials
+                {hasAccounts ? 'Accounts ready' : identities.length + ' Identities'} · {schemas.length} Schemas · {credentials.length} Credentials
               </div>
               <div className="flex items-center gap-2 border-l border-white/20 pl-4">
                 <DropdownMenu>

@@ -13,6 +13,10 @@ export default defineConfig({
       'node:crypto': path.resolve(__dirname, './src/lib/crypto-polyfill.ts'),
       'crypto': path.resolve(__dirname, './src/lib/crypto-polyfill.ts'),
       'buffer': 'buffer',
+      // Stub out Node.js modules that aren't used in browser
+      'util': path.resolve(__dirname, './src/lib/util-stub.ts'),
+      'fs': path.resolve(__dirname, './src/lib/fs-stub.ts'),
+      'path': path.resolve(__dirname, './src/lib/path-stub.ts'),
     },
   },
   build: {
