@@ -5,10 +5,12 @@
  * Strongly typed, functional style.
  */
 
-import type { KerStore } from '../storage/types';
+import type { KerStore, Graph } from '../storage/types';
 import { generateKeypairFromSeed } from '../signer';
 import { createIdentity } from './helpers';
 import { blake3 } from '@noble/hashes/blake3.js';
+import { rotate } from '../rotate';
+import { diger } from '../diger';
 
 /**
  * Account represents a KERI identifier with human-friendly metadata
@@ -145,6 +147,27 @@ function mnemonicToSeed(mnemonic: Mnemonic): Uint8Array {
 }
 
 /**
+ * AccountDSL - Operations for a specific account
+ */
+export interface AccountDSL {
+  /** The account this DSL operates on */
+  readonly account: Account;
+
+  /**
+   * Rotate the account's keys
+   * @param newMnemonic - New mnemonic for generating next keys
+   * @returns Updated account with new keys
+   */
+  rotateKeys(newMnemonic: Mnemonic): Promise<Account>;
+
+  /**
+   * Get the key event log for this account
+   * @returns Array of all KEL events
+   */
+  getKel(): Promise<any[]>;
+}
+
+/**
  * KeritsDSL - High-level account management API
  */
 export interface KeritsDSL {
@@ -182,6 +205,101 @@ export interface KeritsDSL {
    * @returns Account or null if not found
    */
   getAccountByAid(aid: string): Promise<Account | null>;
+
+  /**
+   * Get AccountDSL for a specific account
+   * @param alias - Account alias
+   * @returns AccountDSL or null if account not found
+   */
+  account(alias: string): Promise<AccountDSL | null>;
+
+  /**
+   * Get AccountDSL for a specific account by AID
+   * @param aid - Account AID
+   * @returns AccountDSL or null if account not found
+   */
+  accountByAid(aid: string): Promise<AccountDSL | null>;
+
+  /**
+   * Build a graph representation of all stored events
+   * @param opts - Optional graph building options
+   * @returns Graph with nodes and edges
+   */
+  graph(opts?: { limit?: number }): Promise<Graph>;
+}
+
+/**
+ * Create an AccountDSL for a specific account
+ */
+function createAccountDSL(account: Account, store: KerStore): AccountDSL {
+  // Utility to serialize events as CESR-framed bytes
+  function serializeEvent(event: any): Uint8Array {
+    const json = JSON.stringify(event);
+    const versionString = event.v || 'KERI10JSON';
+    const frameSize = json.length.toString(16).padStart(6, '0');
+    const framed = `-${versionString}${frameSize}_${json}`;
+    return new TextEncoder().encode(framed);
+  }
+
+  return {
+    account,
+
+    async rotateKeys(newMnemonic: Mnemonic): Promise<Account> {
+      // Convert mnemonic to seed
+      const seed = mnemonicToSeed(newMnemonic);
+
+      // Generate new keypair
+      const newKp = await generateKeypairFromSeed(seed);
+
+      // Get current KEL
+      const kelEvents = await store.listKel(account.aid);
+      if (kelEvents.length === 0) {
+        throw new Error(`No KEL found for account: ${account.aid}`);
+      }
+
+      // Get the last event
+      const lastEvent = kelEvents[kelEvents.length - 1];
+      const sn = kelEvents.length; // Next sequence number
+      const priorSaid = lastEvent.meta.d;
+
+      // Compute next key digest
+      const nextKeyDigest = diger(newKp.verfer);
+
+      // Create rotation event
+      const rot = rotate({
+        pre: account.aid,
+        keys: [newKp.verfer],
+        dig: priorSaid,
+        sn,
+        ndigs: [nextKeyDigest],
+      });
+
+      // Store rotation event
+      const rawRot = serializeEvent(rot.ked);
+      await store.putEvent(rawRot);
+
+      // Update account object with new key
+      const updatedAccount: Account = {
+        ...account,
+        verfer: newKp.verfer,
+      };
+
+      return updatedAccount;
+    },
+
+    async getKel(): Promise<any[]> {
+      const events = await store.listKel(account.aid);
+      // Return the metadata which contains the event type and fields
+      return events.map(e => ({
+        t: e.meta.t,
+        d: e.meta.d,
+        i: e.meta.i,
+        s: e.meta.s,
+        p: e.meta.p,
+        ...e.meta,
+      }));
+    },
+  };
 }
 
 /**
@@ -318,6 +436,26 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
 
       accountCache.set(aid, account);
       return account;
+    },
+
+    async account(alias: string): Promise<AccountDSL | null> {
+      const acc = await this.getAccount(alias);
+      if (!acc) {
+        return null;
+      }
+      return createAccountDSL(acc, store);
+    },
+
+    async accountByAid(aid: string): Promise<AccountDSL | null> {
+      const acc = await this.getAccountByAid(aid);
+      if (!acc) {
+        return null;
+      }
+      return createAccountDSL(acc, store);
+    },
+
+    async graph(opts?: { limit?: number }): Promise<Graph> {
+      return store.buildGraph(opts);
     },
   };
 }
