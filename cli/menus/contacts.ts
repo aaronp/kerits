@@ -116,20 +116,56 @@ async function addContact(currentAccount: string): Promise<void> {
   s.start('Importing contact...');
 
   try {
+    // Read the KEL file to extract AID
+    const fileBuffer = await readFile(filePath);
+    const fileBytes = new Uint8Array(fileBuffer);
+    const fileText = new TextDecoder().decode(fileBytes.slice(0, 500)); // Check first 500 bytes
+
+    let aid: string | undefined;
+
+    if (fileText.trim().startsWith('{')) {
+      // JSON bundle format
+      const bundle = JSON.parse(new TextDecoder().decode(fileBytes));
+
+      if (bundle.metadata?.scope?.aid) {
+        aid = bundle.metadata.scope.aid;
+      } else if (bundle.events && bundle.events.length > 0) {
+        // Fallback: parse first event to get AID from inception event's 'i' field
+        const firstEventBytes = Uint8Array.from(atob(bundle.events[0]), c => c.charCodeAt(0));
+        const firstEventText = new TextDecoder().decode(firstEventBytes);
+        const jsonMatch = firstEventText.match(/\{.*\}/s);
+        if (jsonMatch) {
+          const eventData = JSON.parse(jsonMatch[0]);
+          aid = eventData.i; // AID is in the 'i' field of inception event
+        }
+      }
+    } else {
+      // Raw CESR format - parse first event
+      const firstEventText = new TextDecoder().decode(fileBytes);
+      const jsonMatch = firstEventText.match(/\{.*?\}/s);
+      if (jsonMatch) {
+        const eventData = JSON.parse(jsonMatch[0]);
+        aid = eventData.i; // AID is in the 'i' field of inception event
+      }
+    }
+
+    if (!aid) {
+      s.stop('Failed to add contact');
+      p.log.error('Could not extract AID from KEL file');
+      return;
+    }
+
     const { dsl } = await loadAccountDSL(currentAccount);
 
     // Import the KEL file
     const importDsl = dsl.import();
     const importResult = await importDsl.fromFile(filePath);
 
-    if (!importResult.imported || importResult.imported.length === 0) {
+    if (importResult.imported === 0) {
       s.stop('Failed to add contact');
       p.log.error('No events were imported from the KEL file');
       return;
     }
-
-    // Get the AID from the first imported event
-    const aid = importResult.imported[0].aid;
 
     // Add to contacts
     const accountDsl = await dsl.account(currentAccount);
@@ -143,7 +179,7 @@ async function addContact(currentAccount: string): Promise<void> {
     const contact = await contactsDsl.add(alias, aid);
 
     s.stop(`Contact '${alias}' added`);
-    p.note(`AID: ${contact.aid}\nEvents imported: ${importResult.imported.length}`, 'Success');
+    p.note(`AID: ${contact.aid}\nEvents imported: ${importResult.imported}`, 'Success');
   } catch (error) {
     s.stop('Failed to add contact');
     p.log.error(error instanceof Error ? error.message : String(error));

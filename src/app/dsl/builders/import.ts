@@ -89,11 +89,75 @@ export class ImportDSLImpl implements ImportDSL {
     }
   }
 
+  async fromCESR(cesr: Uint8Array, options: ImportOptions = {}): Promise<ImportResult> {
+    // Parse CESR stream into individual events
+    // CESR events are self-framing - each event contains its own length
+    const events: Uint8Array[] = [];
+    let offset = 0;
+
+    while (offset < cesr.length) {
+      // Find the end of current event by looking for the next event start
+      // CESR events are separated by looking for JSON start '{' or CESR version string
+      let eventEnd = offset + 1;
+      let foundStart = false;
+
+      // Look for next event starting with '-' (version string) or finding balanced JSON
+      const decoder = new TextDecoder();
+      const text = decoder.decode(cesr.slice(offset));
+
+      // Find JSON object boundaries
+      let braceCount = 0;
+      let inJson = false;
+      for (let i = 0; i < text.length; i++) {
+        if (text[i] === '{') {
+          braceCount++;
+          inJson = true;
+        } else if (text[i] === '}') {
+          braceCount--;
+          if (braceCount === 0 && inJson) {
+            // Found end of JSON, continue to find attachments
+            let j = i + 1;
+            // Skip whitespace
+            while (j < text.length && /\s/.test(text[j])) j++;
+            // Check if next char is start of new event (-)
+            if (j >= text.length || text[j] === '-') {
+              eventEnd = offset + j;
+              foundStart = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!foundStart) {
+        // Last event in stream
+        eventEnd = cesr.length;
+      }
+
+      const eventBytes = cesr.slice(offset, eventEnd);
+      events.push(eventBytes);
+      offset = eventEnd;
+    }
+
+    return this.fromRaw(events, options);
+  }
+
   async fromFile(path: string, options: ImportOptions = {}): Promise<ImportResult> {
     try {
       const file = Bun.file(path);
-      const json = await file.text();
-      return this.fromJSON(json, options);
+      const content = await file.arrayBuffer();
+      const bytes = new Uint8Array(content);
+
+      // Try to detect if it's JSON or raw CESR
+      const text = new TextDecoder().decode(bytes.slice(0, 100)); // Check first 100 bytes
+
+      if (text.trim().startsWith('{')) {
+        // JSON format
+        return this.fromJSON(new TextDecoder().decode(bytes), options);
+      } else {
+        // Raw CESR format
+        return this.fromCESR(bytes, options);
+      }
     } catch (error) {
       return {
         imported: 0,

@@ -257,7 +257,18 @@ async function rotateKeys(currentAccount: string): Promise<void> {
 }
 
 async function exportKel(currentAccount: string): Promise<void> {
-  const defaultPath = `./${currentAccount}-kel.cesr`;
+  const format = await p.select({
+    message: 'Export format:',
+    options: [
+      { value: 'cesr', label: 'CESR (raw, standard KERI format)' },
+      { value: 'json', label: 'JSON (with metadata)' },
+    ],
+  }) as 'cesr' | 'json';
+
+  if (p.isCancel(format)) return;
+
+  const extension = format === 'json' ? 'json' : 'cesr';
+  const defaultPath = `./${currentAccount}-kel.${extension}`;
 
   const filePathInput = await p.text({
     message: 'Export KEL to file:',
@@ -284,21 +295,25 @@ async function exportKel(currentAccount: string): Promise<void> {
     }
 
     const exportDsl = await accountDsl.export();
-    const kelCesr = exportDsl.kel;
 
     // Create parent directories if needed
     const { dirname } = await import('path');
     const dir = dirname(filePath);
     await mkdir(dir, { recursive: true });
 
-    await writeFile(filePath, kelCesr);
+    // Export with specified format
+    await exportDsl.toFile(filePath, format);
 
     const events = await accountDsl.getKel();
-    const fileSize = Buffer.byteLength(kelCesr, 'utf-8');
+
+    // Get file size after writing
+    const { stat } = await import('fs/promises');
+    const stats = await stat(filePath);
+    const fileSize = stats.size;
 
     s.stop(`KEL exported to '${filePath}'`);
     p.note(
-      `Events exported: ${events.length}\nFile size: ${(fileSize / 1024).toFixed(1)} KB`,
+      `Format: ${format.toUpperCase()}\nEvents exported: ${events.length}\nFile size: ${(fileSize / 1024).toFixed(1)} KB`,
       'Success'
     );
   } catch (error) {

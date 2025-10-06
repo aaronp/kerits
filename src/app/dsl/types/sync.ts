@@ -40,12 +40,14 @@ export interface ExportDSL {
   asBundle(): CESRBundle;
   asRaw(): Uint8Array[];
   toJSON(): string;
-  toFile(path: string): Promise<void>;
+  toCESR(): Uint8Array;
+  toFile(path: string, format?: 'json' | 'cesr'): Promise<void>;
 }
 
 export interface ImportDSL {
-  fromBundle(bundle: CESRBundle): Promise<ImportResult>;
-  fromRaw(events: Uint8Array[]): Promise<ImportResult>;
-  fromJSON(json: string): Promise<ImportResult>;
-  fromFile(path: string): Promise<ImportResult>;
+  fromBundle(bundle: CESRBundle, options?: ImportOptions): Promise<ImportResult>;
+  fromRaw(events: Uint8Array[], options?: ImportOptions): Promise<ImportResult>;
+  fromJSON(json: string, options?: ImportOptions): Promise<ImportResult>;
+  fromCESR(cesr: Uint8Array, options?: ImportOptions): Promise<ImportResult>;
+  fromFile(path: string, options?: ImportOptions): Promise<ImportResult>;
 }

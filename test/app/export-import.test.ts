@@ -267,4 +267,104 @@ describe('Export/Import DSL', () => {
     expect(kelEvents[1].meta.t).toBe('rot');
     expect(kelEvents[1].meta.s).toBe('1'); // Sequence number 1 (hex string)
   });
+
+  it('should export as CESR stream and import from CESR', async () => {
+    const issuerDSL = createKeritsDSL(issuerStore);
+    const holderDSL = createKeritsDSL(holderStore);
+
+    // Create account with rotation
+    const mnemonic1 = issuerDSL.newMnemonic(seed1);
+    const mnemonic2 = issuerDSL.newMnemonic(seed2);
+    const issuer = await issuerDSL.newAccount('issuer', mnemonic1);
+    const accountDsl = await issuerDSL.account('issuer');
+    await accountDsl!.rotateKeys(mnemonic2);
+
+    // Export as concatenated CESR stream
+    const exportDsl = await accountDsl!.export();
+    const cesrStream = exportDsl.toCESR();
+
+    expect(cesrStream).toBeInstanceOf(Uint8Array);
+    expect(cesrStream.length).toBeGreaterThan(0);
+
+    // Verify it's raw CESR (not JSON)
+    const text = new TextDecoder().decode(cesrStream.slice(0, 10));
+    expect(text.startsWith('{')).toBe(false); // Should not start with JSON
+
+    // Import from CESR stream
+    const importDsl = holderDSL.import();
+    const result = await importDsl.fromCESR(cesrStream);
+
+    expect(result.imported).toBe(2); // icp + rot
+    expect(result.failed).toBe(0);
+
+    // Verify KEL exists
+    const kelEvents = await holderStore.listKel(issuer.aid);
+    expect(kelEvents.length).toBe(2);
+    expect(kelEvents[0].meta.t).toBe('icp');
+    expect(kelEvents[1].meta.t).toBe('rot');
+  });
+
+  it('should write and read CESR file format', async () => {
+    const issuerDSL = createKeritsDSL(issuerStore);
+    const holderDSL = createKeritsDSL(holderStore);
+
+    // Create account
+    const mnemonic = issuerDSL.newMnemonic(seed1);
+    const issuer = await issuerDSL.newAccount('issuer', mnemonic);
+
+    // Export to CESR file
+    const accountDsl = await issuerDSL.account('issuer');
+    const exportDsl = await accountDsl!.export();
+    const tempFile = '/tmp/test-kel.cesr';
+    await exportDsl.toFile(tempFile, 'cesr');
+
+    // Verify file contains CESR (not JSON)
+    const fileContent = await Bun.file(tempFile).arrayBuffer();
+    const bytes = new Uint8Array(fileContent);
+    const text = new TextDecoder().decode(bytes.slice(0, 10));
+    expect(text.startsWith('{')).toBe(false);
+
+    // Import from CESR file
+    const importDsl = holderDSL.import();
+    const result = await importDsl.fromFile(tempFile);
+
+    expect(result.imported).toBe(1);
+    expect(result.failed).toBe(0);
+
+    // Verify KEL exists
+    const kelEvents = await holderStore.listKel(issuer.aid);
+    expect(kelEvents.length).toBe(1);
+    expect(kelEvents[0].meta.i).toBe(issuer.aid);
+  });
+
+  it('should auto-detect JSON vs CESR format in fromFile', async () => {
+    const issuerDSL = createKeritsDSL(issuerStore);
+    const holderDSL = createKeritsDSL(holderStore);
+
+    // Create account
+    const mnemonic = issuerDSL.newMnemonic(seed1);
+    const issuer = await issuerDSL.newAccount('issuer', mnemonic);
+    const accountDsl = await issuerDSL.account('issuer');
+    const exportDsl = await accountDsl!.export();
+
+    // Test JSON format
+    const jsonFile = '/tmp/test-kel.json';
+    await exportDsl.toFile(jsonFile, 'json');
+    const jsonResult = await holderDSL.import().fromFile(jsonFile);
+    expect(jsonResult.imported).toBe(1);
+
+    // Clear holder store
+    holderStore = createKerStore(new MemoryKv(), { parser, hasher });
+    const holderDSL2 = createKeritsDSL(holderStore);
+
+    // Test CESR format
+    const cesrFile = '/tmp/test-kel.cesr';
+    await exportDsl.toFile(cesrFile, 'cesr');
+    const cesrResult = await holderDSL2.import().fromFile(cesrFile);
+    expect(cesrResult.imported).toBe(1);
+
+    // Verify both imported correctly
+    const kelEvents = await holderStore.listKel(issuer.aid);
+    expect(kelEvents.length).toBe(1);
+  });
 });

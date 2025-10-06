@@ -42,9 +42,26 @@ export class ExportDSLImpl implements ExportDSL {
     }, null, 2);
   }
 
-  async toFile(path: string): Promise<void> {
-    const json = this.toJSON();
-    await Bun.write(path, json);
+  toCESR(): Uint8Array {
+    // Concatenate all raw CESR event bytes
+    const totalLength = this.bundle.events.reduce((sum, e) => sum + e.length, 0);
+    const result = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const event of this.bundle.events) {
+      result.set(event, offset);
+      offset += event.length;
+    }
+    return result;
+  }
+
+  async toFile(path: string, format: 'json' | 'cesr' = 'cesr'): Promise<void> {
+    if (format === 'json') {
+      const json = this.toJSON();
+      await Bun.write(path, json);
+    } else {
+      const cesr = this.toCESR();
+      await Bun.write(path, cesr);
+    }
   }
 }
 

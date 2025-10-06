@@ -450,7 +450,18 @@ async function exportCredential(registryDsl: any, registryAlias: string): Promis
 
     if (p.isCancel(selected) || selected === 'cancel') return;
 
-    const defaultPath = `./${registryAlias}-credential.cesr`;
+    const format = await p.select({
+      message: 'Export format:',
+      options: [
+        { value: 'cesr', label: 'CESR (raw, standard KERI format)' },
+        { value: 'json', label: 'JSON (with metadata)' },
+      ],
+    }) as 'cesr' | 'json';
+
+    if (p.isCancel(format)) return;
+
+    const extension = format === 'json' ? 'json' : 'cesr';
+    const defaultPath = `./${registryAlias}-credential.${extension}`;
     const filePathInput = await p.text({
       message: 'Export to file:',
       placeholder: defaultPath,
@@ -466,17 +477,22 @@ async function exportCredential(registryDsl: any, registryAlias: string): Promis
     spinner.start('Exporting credential...');
 
     const acdcDsl = registryDsl.credential(selected);
-    const acdcCesr = await acdcDsl.export();
+    const exportDsl = await acdcDsl.export();
 
     // Create parent directories if needed
-    const { mkdir } = await import('fs/promises');
+    const { mkdir, stat } = await import('fs/promises');
     const { dirname } = await import('path');
     const dir = dirname(filePath);
     await mkdir(dir, { recursive: true });
 
-    await writeFile(filePath, acdcCesr);
+    // Export with specified format
+    await exportDsl.toFile(filePath, format);
+
+    // Get file size
+    const stats = await stat(filePath);
 
     spinner.stop(`Credential exported to '${filePath}'`);
+    p.note(`Format: ${format.toUpperCase()}\nFile size: ${(stats.size / 1024).toFixed(1)} KB`, 'Success');
   } catch (error) {
     s.stop('Failed to export credential');
     p.log.error(error instanceof Error ? error.message : String(error));
