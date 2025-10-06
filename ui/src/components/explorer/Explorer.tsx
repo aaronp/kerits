@@ -13,7 +13,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronRight, ChevronDown, PlusCircle, Download, Upload, Share2, FileText } from 'lucide-react';
+import { ChevronRight, ChevronDown, PlusCircle, Download, Upload, Share2, FileText, Copy } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { route } from '@/config';
@@ -72,6 +72,42 @@ export function Explorer() {
   const [credentialData, setCredentialData] = useState<Record<string, any>>({});
   const [availableSchemas, setAvailableSchemas] = useState<Array<{ alias: string; schema: any }>>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+
+  // Alias resolution maps
+  const [schemaAliasMap, setSchemaAliasMap] = useState<Map<string, string>>(new Map()); // SAID -> alias
+  const [contactAliasMap, setContactAliasMap] = useState<Map<string, string>>(new Map()); // AID -> name
+
+  // Build alias resolution maps
+  useEffect(() => {
+    async function buildAliasMaps() {
+      if (!dsl) return;
+
+      try {
+        // Build schema SAID -> alias map
+        const schemaAliases = await dsl.listSchemas();
+        const schemaMap = new Map<string, string>();
+        for (const alias of schemaAliases) {
+          const schemaDsl = await dsl.schema(alias);
+          if (schemaDsl) {
+            schemaMap.set(schemaDsl.schema.schemaId, alias);
+          }
+        }
+        setSchemaAliasMap(schemaMap);
+
+        // Build contact AID -> name map from old storage
+        const contactsData = await getContacts();
+        const contactMap = new Map<string, string>();
+        for (const contact of contactsData) {
+          contactMap.set(contact.prefix, contact.name);
+        }
+        setContactAliasMap(contactMap);
+      } catch (error) {
+        console.error('Failed to build alias maps:', error);
+      }
+    }
+
+    buildAliasMaps();
+  }, [dsl]);
 
   // Handle return from schema creation
   useEffect(() => {
@@ -195,6 +231,11 @@ export function Explorer() {
           alias: r.alias,
           issuerAid: r.issuerAid,
         })));
+
+        // Proactively load ACDCs for all registries to enable expand buttons
+        for (const registry of validRegistries) {
+          await loadACDCsForRegistry(registry.alias);
+        }
       } catch (error) {
         console.error('Failed to load registries:', error);
         showToast(`Failed to load registries: ${error instanceof Error ? error.message : String(error)}`);
@@ -359,40 +400,15 @@ export function Explorer() {
     showToast('Registry CESR copied to clipboard - share it with others!');
   };
 
-  const handleACDCExport = async (e: React.MouseEvent, registryAlias: string, credentialId: string) => {
+  const handleACDCCopy = async (e: React.MouseEvent, credentialId: string) => {
     e.stopPropagation();
-    if (!accountDsl) return;
 
     try {
-      const registryDsl = await accountDsl.registry(registryAlias);
-      if (!registryDsl) return;
-
-      // Get all ACDC aliases to find the one matching this credentialId
-      const aliases = await registryDsl.listACDCs();
-
-      // We need to find which alias corresponds to this credentialId
-      // For now, we'll try each one until we find a match
-      for (const alias of aliases) {
-        const acdcDsl = await registryDsl.acdc(alias);
-        if (!acdcDsl) continue;
-
-        const indexed = await acdcDsl.index();
-        if (indexed.credentialId === credentialId) {
-          const exportDsl = await acdcDsl.export();
-          const cesr = await exportDsl.asCESR();
-
-          const text = new TextDecoder().decode(cesr);
-          await navigator.clipboard.writeText(text);
-
-          showToast('Credential exported to clipboard (CESR format)');
-          return;
-        }
-      }
-
-      showToast('Credential not found');
+      await navigator.clipboard.writeText(credentialId);
+      showToast('Credential SAID copied to clipboard');
     } catch (error) {
-      console.error('Failed to export credential:', error);
-      showToast(`Failed to export: ${error instanceof Error ? error.message : String(error)}`);
+      console.error('Failed to copy credential SAID:', error);
+      showToast(`Failed to copy: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -662,23 +678,25 @@ export function Explorer() {
                                     <ChevronRight className="h-3 w-3" />
                                   )}
                                 </Button>
-                                <FileText className="h-4 w-4 text-muted-foreground" />
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-medium truncate" title={acdc.credentialId}>
-                                    {acdc.credentialId.substring(0, 12)}...
-                                  </div>
-                                  <div className="text-xs text-muted-foreground flex items-center gap-2">
-                                    <span className={`px-1.5 py-0.5 rounded text-xs ${acdc.status === 'issued'
+                                <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                <div className="flex-1 min-w-0 space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <div className="text-sm font-medium truncate" title={acdc.credentialId}>
+                                      {acdc.credentialId.substring(0, 12)}...
+                                    </div>
+                                    <span className={`px-1.5 py-0.5 rounded text-xs flex-shrink-0 ${acdc.status === 'issued'
                                       ? theme === 'dark' ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-800'
                                       : theme === 'dark' ? 'bg-red-900/30 text-red-300' : 'bg-red-100 text-red-800'
                                       }`}>
                                       {acdc.status}
                                     </span>
-                                    {acdc.holderAid && (
-                                      <span>→ {acdc.holderAid.substring(0, 8)}...</span>
-                                    )}
-                                    <span>{new Date(acdc.issuedAt).toLocaleDateString()}</span>
+                                    <span className="text-xs text-muted-foreground flex-shrink-0">{new Date(acdc.issuedAt).toLocaleDateString()}</span>
                                   </div>
+                                  {acdc.holderAid && (
+                                    <div className="text-xs text-muted-foreground">
+                                      Holder: {contactAliasMap.get(acdc.holderAid) || acdc.holderAid.substring(0, 12) + '...'}
+                                    </div>
+                                  )}
                                 </div>
 
                                 {/* ACDC action buttons */}
@@ -690,26 +708,57 @@ export function Explorer() {
                                     variant="ghost"
                                     size="sm"
                                     className="h-6 w-6 p-0"
-                                    onClick={(e) => handleACDCExport(e, registry.alias, acdc.credentialId)}
-                                    title="Export credential (CESR)"
+                                    onClick={(e) => handleACDCCopy(e, acdc.credentialId)}
+                                    title="Copy credential SAID"
                                   >
-                                    <Download className="h-3 w-3" />
+                                    <Copy className="h-3 w-3" />
                                   </Button>
                                 </div>
                               </div>
 
                               {/* Expanded ACDC details */}
                               {expandedACDCs.has(acdc.credentialId) && (
-                                <div className="border-t p-3 space-y-2" style={{ backgroundColor: theme === 'dark' ? 'rgb(30 41 59)' : 'rgb(241 245 249)' }}>
+                                <div className="border-t p-3 space-y-3" style={{ backgroundColor: theme === 'dark' ? 'rgb(30 41 59)' : 'rgb(241 245 249)' }}>
+                                  {/* Issuer and Holder */}
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <div className="text-xs font-medium mb-1">Issuer:</div>
+                                      <VisualId
+                                        label={contactAliasMap.get(acdc.issuerAid) || 'Me'}
+                                        value={acdc.issuerAid}
+                                        showCopy={false}
+                                        small={true}
+                                        maxCharacters={16}
+                                      />
+                                    </div>
+                                    {acdc.holderAid && (
+                                      <div>
+                                        <div className="text-xs font-medium mb-1">Holder:</div>
+                                        <VisualId
+                                          label={contactAliasMap.get(acdc.holderAid) || acdc.holderAid.substring(0, 8) + '...'}
+                                          value={acdc.holderAid}
+                                          showCopy={false}
+                                          small={true}
+                                          maxCharacters={16}
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+
                                   {/* Schema info */}
                                   {acdc.schemas.length > 0 && (
                                     <div>
-                                      <div className="text-xs font-medium mb-1">Schemas:</div>
-                                      <div className="space-y-1">
+                                      <div className="text-xs font-medium mb-1">Schema:</div>
+                                      <div className="space-y-2">
                                         {acdc.schemas.map((schema, idx) => (
-                                          <div key={idx} className="text-xs text-muted-foreground pl-2">
-                                            {schema.schemaSaid.substring(0, 20)}...
-                                          </div>
+                                          <VisualId
+                                            key={idx}
+                                            label={schemaAliasMap.get(schema.schemaSaid) || 'Unknown Schema'}
+                                            value={schema.schemaSaid}
+                                            showCopy={false}
+                                            small={true}
+                                            maxCharacters={20}
+                                          />
                                         ))}
                                       </div>
                                     </div>
@@ -724,20 +773,6 @@ export function Explorer() {
                                           <div key={key} className="text-xs pl-2 flex gap-2">
                                             <span className="font-mono text-muted-foreground">{key}:</span>
                                             <span className="font-mono">{JSON.stringify(value)}</span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* Counterparties */}
-                                  {acdc.counterparties.length > 0 && (
-                                    <div>
-                                      <div className="text-xs font-medium mb-1">Counterparties:</div>
-                                      <div className="space-y-1">
-                                        {acdc.counterparties.map((party, idx) => (
-                                          <div key={idx} className="text-xs text-muted-foreground pl-2">
-                                            {party.role}: {party.aid.substring(0, 16)}...
                                           </div>
                                         ))}
                                       </div>

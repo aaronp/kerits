@@ -7,6 +7,7 @@ interface VisualIdProps {
   value: string;
   showCopy?: boolean;
   bold?: boolean;
+  small?: boolean;
   variant?: 'marble' | 'beam' | 'pixel' | 'sunset' | 'ring' | 'bauhaus';
   size?: number;
   maxCharacters?: number;
@@ -19,6 +20,7 @@ export function VisualId({
   value,
   showCopy = true,
   bold = false,
+  small = false,
   variant,
   size = 40,
   maxCharacters = 8,
@@ -68,18 +70,27 @@ export function VisualId({
   const selectedVariant = getVariant();
   const displayValue = truncateValue(value, maxCharacters);
 
+  const avatarSize = small ? 24 : size;
+  const gapClass = small ? 'gap-2' : 'gap-3';
+  const labelClass = small
+    ? 'text-xs font-medium text-muted-foreground'
+    : bold
+      ? 'text-foreground font-semibold font-2xl'
+      : 'font-medium text-muted-foreground';
+  const valueClass = small ? 'text-xs font-mono' : 'text-sm font-mono';
+
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
+    <div className={`flex items-center ${gapClass} ${className}`}>
       <Avatar
-        size={size}
+        size={avatarSize}
         name={value}
         variant={selectedVariant}
         colors={['#92A1C6', '#146A7C', '#F0AB3D', '#C271B4', '#C20D90']}
       />
       <div className="flex-1 min-w-0">
-        <div className={`${bold ? 'text-foreground font-semibold font-2xl' : 'font-medium text-muted-foreground'}`}>{label}</div>
+        <div className={labelClass}>{label}</div>
         <div
-          className="text-sm font-mono "
+          className={valueClass}
           title={value}
         >
           {displayValue}
