@@ -61,8 +61,9 @@ export function createKerStore(kv: Kv, opts?: StoreOptions): KerStore {
     const now = clock();
 
     // Determine if KEL or TEL event
-    const isKel = ['icp', 'rot', 'ixn'].includes(meta.t);
-    const isTel = ['vcp', 'iss', 'rev', 'upg', 'vtc', 'nrx'].includes(meta.t);
+    // Priority: check for ri (TEL) first, then i (KEL)
+    const isTel = meta.ri !== undefined;
+    const isKel = !isTel && meta.i !== undefined;
 
     // Build storage key for raw CESR
     let eventKey: StorageKey;
@@ -163,8 +164,9 @@ export function createKerStore(kv: Kv, opts?: StoreOptions): KerStore {
     const meta = decodeJson<EventMeta>(metaBytes);
 
     // Determine path based on event type
-    const isKel = ['icp', 'rot', 'ixn'].includes(meta.t);
-    const isTel = ['vcp', 'iss', 'rev', 'upg', 'vtc', 'nrx'].includes(meta.t);
+    // Priority: check for ri (TEL) first, then i (KEL)
+    const isTel = meta.ri !== undefined;
+    const isKel = !isTel && meta.i !== undefined;
 
     let eventKey: StorageKey;
     if (isKel && meta.i) {
@@ -574,6 +576,7 @@ export function createKerStore(kv: Kv, opts?: StoreOptions): KerStore {
   }
 
   return {
+    kv,
     putEvent,
     getEvent,
     putKelEvent,

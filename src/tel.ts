@@ -22,8 +22,10 @@ export interface RegistryInceptionOptions {
   issuer: string;           // Issuer AID
   nonce?: string;          // Unique nonce (auto-generated if not provided)
   baks?: string[];         // Backer AIDs (optional)
+  backers?: string[];      // Alias for baks
   toad?: number;           // Backer threshold (optional, auto-computed if not provided)
   cnfg?: string[];         // Configuration traits (optional)
+  parent?: string;         // Parent registry/KEL ID for nested registries (optional)
 }
 
 /**
@@ -162,7 +164,10 @@ function ample(count: number): number {
  * @returns Registry inception event with SAID
  */
 export function registryIncept(options: RegistryInceptionOptions): RegistryInception {
-  const { issuer, baks = [], cnfg = [] } = options;
+  const { issuer, cnfg = [], parent } = options;
+
+  // Support both 'baks' and 'backers' naming
+  const baks = options.baks || options.backers || [];
 
   let { nonce, toad } = options;
 
@@ -213,6 +218,15 @@ export function registryIncept(options: RegistryInceptionOptions): RegistryIncep
     b: baks,           // Backer AIDs
     n: nonce,          // Nonce
   };
+
+  // Add parent edge if this is a nested registry
+  if (parent) {
+    ked.e = {
+      parent: {
+        n: parent,   // Parent registry or KEL identifier
+      },
+    };
+  }
 
   // Compute size with placeholder SAID
   ked.d = '#'.repeat(44);

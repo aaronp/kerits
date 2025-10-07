@@ -71,11 +71,12 @@ export async function createRegistry(
 ): Promise<{ registryId: string; vcp: any; ixn: any }> {
   const { alias, issuerAid, backers = [], parentRegistryId } = params;
 
-  // Create registry inception (vcp)
+  // Create registry inception (vcp) with optional parent edge
   const vcp = registryIncept({
     issuer: issuerAid,
     backers,
     nonce: '',
+    parent: parentRegistryId,  // Add parent edge if nested
   });
 
   const registryId = vcp.sad.i;
@@ -84,50 +85,69 @@ export async function createRegistry(
   const rawVcp = serializeEvent(vcp.sad);
   await store.putEvent(rawVcp);
 
-  // If there's a parent registry, anchor in parent TEL instead of KEL
+  // ALWAYS anchor in KEL with interaction event (even for nested registries)
+  const kelEvents = await store.listKel(issuerAid);
+  const lastEvent = kelEvents[kelEvents.length - 1];
+
+  if (!lastEvent) {
+    throw new Error(`No KEL found for issuer: ${issuerAid}`);
+  }
+
+  const sn = kelEvents.length; // Next sequence number
+  const priorSaid = lastEvent.meta.d;
+
+  // Create interaction event that anchors the registry
+  const ixn = interaction({
+    pre: issuerAid,
+    sn,
+    dig: priorSaid,
+    seals: [{
+      i: registryId,
+      d: vcp.sad.d,
+    }],
+  });
+
+  // Store interaction event
+  const rawIxn = serializeEvent(ixn.ked);
+  await store.putEvent(rawIxn);
+
+  // If there's a parent registry, also anchor in parent TEL with IXN
   if (parentRegistryId) {
     // Get parent registry's TEL to create anchoring event
-    const { issue } = await import('../tel');
+    const { interact } = await import('../tel');
 
-    const issData = issue({
-      vcdig: registryId,  // The sub-registry is treated like a credential
-      regk: parentRegistryId,  // Anchor in parent registry
-    });
+    // Get parent TEL to find prior event and sequence number
+    const parentTel = await store.listTel(parentRegistryId);
 
-    const rawIss = serializeEvent(issData.sad);
-    await store.putEvent(rawIss);
-  } else {
-    // Original behavior: anchor in KEL with interaction event
-    const kelEvents = await store.listKel(issuerAid);
-    const lastEvent = kelEvents[kelEvents.length - 1];
-
-    if (!lastEvent) {
-      throw new Error(`No KEL found for issuer: ${issuerAid}`);
+    if (parentTel.length === 0) {
+      throw new Error(`Parent registry TEL is empty: ${parentRegistryId}`);
     }
 
-    const sn = kelEvents.length; // Next sequence number
-    const priorSaid = lastEvent.meta.d;
+    const lastEvent = parentTel[parentTel.length - 1];
+    const sn = parentTel.length; // Next sequence number
+    const priorDigest = lastEvent.meta.d;
 
-    // Create interaction event that anchors the registry
-    const ixn = interaction({
-      pre: issuerAid,
-      sn,
-      dig: priorSaid,
-      seals: [{
-        i: registryId,
-        d: vcp.sad.d,
-      }],
+    // Create TEL interaction event that anchors the child registry
+    const ixnData = interact({
+      vcdig: registryId,  // Child registry SAID (treated as credential SAID)
+      regk: parentRegistryId,  // Parent registry identifier
+      dig: priorDigest,  // Prior event in parent TEL
+      sn,  // Sequence number in parent TEL
+      data: {
+        // Metadata indicating this is a registry anchor, not a credential
+        registryAnchor: true,
+        childRegistry: registryId,
+      },
     });
 
-    // Store interaction event
-    const rawIxn = serializeEvent(ixn.ked);
+    const rawIxn = serializeEvent(ixnData.sad);
     await store.putEvent(rawIxn);
   }
 
   // Store alias mapping
   await store.putAlias('tel', registryId, alias);
 
-  return { registryId, vcp, ixn: null };
+  return { registryId, vcp, ixn };
 }
 
 /**

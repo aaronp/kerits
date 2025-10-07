@@ -5,6 +5,24 @@
 import type { Graph } from '../../../storage/types';
 
 /**
+ * Branded type for human-readable aliases
+ * Use this instead of bare strings for alias parameters
+ */
+export type Alias = string & { readonly __brand: 'Alias' };
+
+/**
+ * Branded type for Self-Addressing Identifiers (SAIDs)
+ * Use this instead of bare strings for SAID parameters
+ */
+export type SAID = string & { readonly __brand: 'SAID' };
+
+/**
+ * Branded type for Autonomic Identifiers (AIDs)
+ * Use this instead of bare strings for AID parameters
+ */
+export type AID = string & { readonly __brand: 'AID' };
+
+/**
  * JSONSchema7 - JSON Schema Draft 7 definition
  * Represents the structure of a credential schema
  */
@@ -217,6 +235,8 @@ export interface RegistryOptions {
   backers?: string[];
   /** Nonce for registry inception */
   nonce?: string;
+  /** Parent registry ID for nested registries */
+  parentRegistryId?: string;
 }
 
 /**

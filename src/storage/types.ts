@@ -166,6 +166,9 @@ export interface TelEvent {
  * Modern KerStore interface using structured keys exclusively
  */
 export interface KerStore {
+  // Underlying KV store (for graph building and other low-level operations)
+  readonly kv: Kv;
+
   // Event storage (raw CESR + metadata)
   putEvent(raw: Uint8Array, encoding?: CesrEncoding): Promise<PutResult>;
   getEvent(said: SAID): Promise<{ raw: Uint8Array; meta: EventMeta } | null>;

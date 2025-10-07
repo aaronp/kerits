@@ -71,6 +71,7 @@ export function createAccountDSL(account: Account, store: KerStore): AccountDSL 
         alias,
         issuerAid: account.aid,
         backers: opts?.backers || [],
+        parentRegistryId: opts?.parentRegistryId,
       });
 
       const registry = {
@@ -89,25 +90,24 @@ export function createAccountDSL(account: Account, store: KerStore): AccountDSL 
         return null;
       }
 
-      // Check if this registry has a parent by looking for iss events
-      // that reference this registry as vcdig (in the 'i' field)
+      // Check if this registry has a parent by reading the e.parent edge in VCP
       let parentRegistryId: string | undefined;
 
       try {
-        // Get all TEL events and check for issue events referencing this registry
-        const allAliases = await store.listAliases('tel');
-        for (const telAlias of allAliases) {
-          const candidateRegId = await store.aliasToId('tel', telAlias);
-          if (candidateRegId) {
-            const telEvents = await store.listTel(candidateRegId);
-            for (const event of telEvents) {
-              if (event.meta.t === 'iss' && event.meta.i === registryId) {
-                // This registry was issued in candidateRegId's TEL, so candidateRegId is the parent
-                parentRegistryId = candidateRegId;
-                break;
-              }
+        // Get the VCP event for this registry
+        const vcpEvent = await store.getEvent(registryId);
+        if (vcpEvent) {
+          // Parse the event to extract parent edge
+          const text = new TextDecoder().decode(vcpEvent.raw);
+          const jsonStart = text.indexOf('{');
+          if (jsonStart >= 0) {
+            const json = text.substring(jsonStart);
+            const event = JSON.parse(json);
+
+            // Check for e.parent.n field
+            if (event.e?.parent?.n) {
+              parentRegistryId = event.e.parent.n;
             }
-            if (parentRegistryId) break;
           }
         }
       } catch (error) {
@@ -126,23 +126,52 @@ export function createAccountDSL(account: Account, store: KerStore): AccountDSL 
     },
 
     async listRegistries(): Promise<string[]> {
-      // Get all TEL aliases
-      const allAliases = await store.listAliases('tel');
+      // Get registries from KEL seals
+      const kelEvents = await store.listKel(account.aid);
+      const registryIds = new Set<string>();
 
-      // Filter to only registries owned by this account
-      const ownedRegistries: string[] = [];
-      for (const alias of allAliases) {
-        const registryId = await store.aliasToId('tel', alias);
-        if (registryId) {
-          const telEvents = await store.listTel(registryId);
-          // VCP (registry inception) has issuerAid field
-          if (telEvents.length > 0 && telEvents[0].meta.issuerAid === account.aid) {
-            ownedRegistries.push(alias);
+      // Walk KEL and extract registry seals from IXN events
+      for (const kelEvent of kelEvents) {
+        if (kelEvent.meta.t === 'ixn') {
+          // Check for seals in event
+          const rawEvent = await store.getEvent(kelEvent.meta.d);
+          if (rawEvent) {
+            try {
+              // Parse the CESR-framed event
+              const text = new TextDecoder().decode(rawEvent.raw);
+              const jsonStart = text.indexOf('{');
+              if (jsonStart >= 0) {
+                const json = text.substring(jsonStart);
+                const event = JSON.parse(json);
+
+                // Extract seals
+                if (event.a && Array.isArray(event.a)) {
+                  for (const seal of event.a) {
+                    if (seal.i) {
+                      // This is a registry seal (identifier in 'i' field)
+                      registryIds.add(seal.i);
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              // Skip malformed events
+              console.warn('Failed to parse KEL event for seals:', e);
+            }
           }
         }
       }
 
-      return ownedRegistries;
+      // Convert registry IDs to aliases
+      const aliases: string[] = [];
+      for (const registryId of registryIds) {
+        const alias = await store.idToAlias('tel', registryId);
+        if (alias) {
+          aliases.push(alias);
+        }
+      }
+
+      return aliases;
     },
 
     async getKel(): Promise<KelEvent[]> {
