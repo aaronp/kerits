@@ -193,7 +193,7 @@ describe('IPEX Credential Exchange with Graph Visualizations', () => {
     // Alice's data
     console.log('📁 Alice\'s KERI Data:');
     const aliceStore = aliceDSL.getStore(); // Access internal store
-    const aliceTextGraph = createTextGraph(aliceStore);
+    const aliceTextGraph = createTextGraph(aliceStore, aliceDSL);
     const aliceTree = await aliceTextGraph.toTree();
     console.log(aliceTree);
     console.log('');
@@ -205,7 +205,7 @@ describe('IPEX Credential Exchange with Graph Visualizations', () => {
     // Bob's data
     console.log('📁 Bob\'s KERI Data:');
     const bobStore = bobDSL.getStore(); // Access internal store
-    const bobTextGraph = createTextGraph(bobStore);
+    const bobTextGraph = createTextGraph(bobStore, bobDSL);
     const bobTree = await bobTextGraph.toTree();
     console.log(bobTree);
     console.log('');
@@ -219,13 +219,13 @@ describe('IPEX Credential Exchange with Graph Visualizations', () => {
     console.log('└─────────────────────────────────────────────────────────┘\n');
 
     console.log('Alice\'s GitGraph:');
-    const aliceGitGraph = createKeriGitGraph(aliceStore);
+    const aliceGitGraph = createKeriGitGraph(aliceStore, aliceDSL);
     const aliceMermaid = await aliceGitGraph.toMermaid({ includeTel: true });
     console.log(aliceMermaid);
     console.log('');
 
     console.log('Bob\'s GitGraph:');
-    const bobGitGraph = createKeriGitGraph(bobStore);
+    const bobGitGraph = createKeriGitGraph(bobStore, bobDSL);
     const bobMermaid = await bobGitGraph.toMermaid({ includeTel: true });
     console.log(bobMermaid);
 

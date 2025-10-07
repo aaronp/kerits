@@ -6,6 +6,7 @@
  */
 
 import type { KerStore } from '../../storage/types';
+import type { KeritsDSL } from '../dsl/types';
 
 export interface GitCommit {
   id: string;
@@ -35,7 +36,7 @@ export interface KeriGitGraphOptions {
  * KeriGitGraph - Convert KERI events to Mermaid gitGraph format
  */
 export class KeriGitGraph {
-  constructor(private store: KerStore) {}
+  constructor(private store: KerStore, private dsl?: KeritsDSL) {}
 
   /**
    * Generate Mermaid gitGraph from KERI events
@@ -248,6 +249,6 @@ export class KeriGitGraph {
 /**
  * Create a KeriGitGraph instance
  */
-export function createKeriGitGraph(store: KerStore): KeriGitGraph {
-  return new KeriGitGraph(store);
+export function createKeriGitGraph(store: KerStore, dsl?: KeritsDSL): KeriGitGraph {
+  return new KeriGitGraph(store, dsl);
 }
