@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { createKerStore } from '../../src/storage/core2';
+import { createKerStore } from '../../src/storage/core';
 import { DiskKv } from '../../src/storage/adapters/disk';
 import type { KerStore } from '../../src/storage/types';
 import * as path from 'path';

@@ -1,8 +1,8 @@
 /**
- * Graph builder DSL for visualizing KEL/TEL relationships
+ * Graph builder for KerStore2 (structured keys)
  */
 
-import type { Kv, Graph, GraphNode, GraphEdge, EventMeta, StoredEvent } from './types';
+import type { Kv, StorageKey, Graph, GraphNode, GraphEdge, EventMeta, GraphOptions } from './types';
 
 // Utility functions
 function utf8Decode(b: Uint8Array): string {
@@ -13,20 +13,12 @@ function decodeJson<T>(bytes: Uint8Array): T {
   return JSON.parse(utf8Decode(bytes)) as T;
 }
 
-const NS = {
-  EVENT: "ev/",
-  META: "meta/",
-} as const;
-
-function kEvent(said: string) { return `${NS.EVENT}${said}`; }
-function kMeta(said: string) { return `${NS.META}${said}`; }
-
 /**
- * Build a graph representation from stored events
+ * Build graph from structured keys
  */
-export async function buildGraphFromStore(
+export async function buildGraphFromStructuredKeys(
   kv: Kv,
-  opts?: { limit?: number }
+  opts?: GraphOptions
 ): Promise<Graph> {
   const limit = opts?.limit ?? 5000;
   const nodes = new Map<string, GraphNode>();
@@ -40,32 +32,58 @@ export async function buildGraphFromStore(
     edges.set(e.id, e);
   }
 
-  // Gather all events (bounded)
-  const allMeta = await kv.list(NS.META, { limit });
+  // List all metadata entries
+  const metaPrefix: StorageKey = {
+    path: ['meta'],
+    type: 'json'
+  };
+
+  const allMeta = await kv.listStructured!(metaPrefix, { limit });
 
   for (const { key, value } of allMeta) {
     if (!value) continue;
     const meta = decodeJson<EventMeta>(value);
-    const evRec = await kv.get(kEvent(meta.d));
-    if (!evRec) continue;
-    const event = decodeJson<StoredEvent>(evRec);
+    const said = meta.d;
 
-    // Parse the raw event to get SAD fields like 'a' (seals)
+    // Get the raw event to extract SAD fields
     let sad: any = null;
     try {
-      // Convert raw to Uint8Array if it's a plain object (from JSON deserialization)
-      let rawBytes = event.raw;
-      if (!(rawBytes instanceof Uint8Array)) {
-        // Convert object to Uint8Array
-        rawBytes = new Uint8Array(Object.values(rawBytes as any));
+      // Try to get the event from KEL, TEL, or generic events
+      const isKEL = meta.t === "icp" || meta.t === "rot" || meta.t === "ixn";
+      const isTEL = meta.t === "vcp" || meta.t === "iss" || meta.t === "rev" || meta.t === "upg" || meta.t === "vtc" || meta.t === "nrx";
+
+      let eventKey: StorageKey | null = null;
+      if (isKEL && meta.i) {
+        eventKey = {
+          path: ['kel', meta.i, said],
+          type: 'cesr',
+          meta: { eventType: meta.t, cesrEncoding: meta.cesrEncoding || 'binary' }
+        };
+      } else if (isTEL && meta.ri) {
+        eventKey = {
+          path: ['tel', meta.ri, said],
+          type: 'cesr',
+          meta: { eventType: meta.t, cesrEncoding: meta.cesrEncoding || 'binary' }
+        };
+      } else {
+        eventKey = {
+          path: ['events', said],
+          type: 'cesr',
+          meta: { eventType: meta.t, cesrEncoding: meta.cesrEncoding || 'binary' }
+        };
       }
 
-      const rawStr = utf8Decode(rawBytes);
-      // Extract JSON from CESR frame (find first '{' to last '}')
-      const start = rawStr.indexOf('{');
-      const end = rawStr.lastIndexOf('}');
-      if (start >= 0 && end > start) {
-        sad = JSON.parse(rawStr.substring(start, end + 1));
+      if (eventKey) {
+        const rawBytes = await kv.getStructured!(eventKey);
+        if (rawBytes) {
+          const rawStr = utf8Decode(rawBytes);
+          // Extract JSON from CESR frame (find first '{' to last '}')
+          const start = rawStr.indexOf('{');
+          const end = rawStr.lastIndexOf('}');
+          if (start >= 0 && end > start) {
+            sad = JSON.parse(rawStr.substring(start, end + 1));
+          }
+        }
       }
     } catch (e) {
       // If parsing fails, continue without SAD
@@ -85,7 +103,7 @@ export async function buildGraphFromStore(
         id: meta.d,
         kind: "KEL_EVT",
         label: `${meta.t.toUpperCase()} #${meta.s}`,
-        meta: { t: meta.t, s: meta.s, event, eventMeta: meta },
+        meta: { t: meta.t, s: meta.s, eventMeta: meta },
       });
 
       // Prior link
@@ -99,109 +117,147 @@ export async function buildGraphFromStore(
         });
       }
 
-      // For ixn events, parse seals from 'a' field to create ANCHOR edges
-      if (meta.t === "ixn" && sad && Array.isArray(sad.a)) {
+      // Edge from AID to event
+      addEdge({
+        id: `AID_EVENT:${meta.i}->${meta.d}`,
+        from: meta.i,
+        to: meta.d,
+        kind: "MEMBER",
+        label: "event",
+      });
+
+      // Handle seals (anchors to other events/registries)
+      if (sad?.a && Array.isArray(sad.a)) {
         for (const seal of sad.a) {
-          if (seal && typeof seal === 'object' && seal.i && seal.d) {
-            // This is a registry anchor seal: { i: registryId, d: vcpSaid }
+          if (seal.i) {
+            // Registry anchor
+            addNode({
+              id: seal.i,
+              kind: "TEL_REGISTRY",
+              label: seal.i.substring(0, 12) + "...",
+            });
             addEdge({
               id: `ANCHOR:${meta.d}->${seal.i}`,
               from: meta.d,
               to: seal.i,
               kind: "ANCHOR",
-              label: "anchors TEL",
+              label: "anchors",
             });
           }
         }
       }
     }
 
-    if (isVCP) {
-      // Registry node is the VCP SAID itself
+    if (isVCP && meta.ri) {
+      // TEL Registry node
       addNode({
-        id: meta.d,
+        id: meta.ri,
         kind: "TEL_REGISTRY",
-        label: `Registry ${meta.d.substring(0, 8)}`,
-        meta: { t: meta.t, event, eventMeta: meta },
+        label: meta.ri.substring(0, 12) + "...",
       });
 
-      // Registry is anchored via ixn event seals, not directly from AID
-      // Just ensure the AID node exists
-      if (meta.issuerAid) {
-        addNode({ id: meta.issuerAid, kind: "AID", label: meta.issuerAid.substring(0, 12) + "..." });
-      }
-    }
-
-    if (isTEL) {
+      // VCP event node
       addNode({
         id: meta.d,
         kind: "TEL_EVT",
-        label: `${meta.t.toUpperCase()} #${meta.s}`,
-        meta: { t: meta.t, s: meta.s, ri: meta.ri, event, eventMeta: meta },
+        label: `VCP #${meta.s}`,
+        meta: { t: meta.t, s: meta.s, eventMeta: meta },
       });
 
-      if (meta.ri) {
-        addNode({
-          id: meta.ri,
-          kind: "TEL_REGISTRY",
-          label: `Registry ${meta.ri.substring(0, 8)}`,
-        });
-        addEdge({
-          id: `REF:${meta.ri}->${meta.d}`,
-          from: meta.ri,
-          to: meta.d,
-          kind: "REFS",
-          label: "event",
-        });
-      }
+      // Edge from registry to VCP
+      addEdge({
+        id: `TEL_REG_EVENT:${meta.ri}->${meta.d}`,
+        from: meta.ri,
+        to: meta.d,
+        kind: "MEMBER",
+        label: "inception",
+      });
 
-      if (meta.t === "iss" && meta.acdcSaid) {
-        addNode({
-          id: meta.acdcSaid,
-          kind: "ACDC",
-          label: `ACDC ${meta.acdcSaid.substring(0, 8)}`,
-        });
+      // Link to issuer AID
+      if (meta.i) {
+        addNode({ id: meta.i, kind: "AID", label: meta.i.substring(0, 12) + "..." });
         addEdge({
-          id: `ISSUES:${meta.d}->${meta.acdcSaid}`,
-          from: meta.d,
-          to: meta.acdcSaid,
+          id: `ISSUER:${meta.i}->${meta.ri}`,
+          from: meta.i,
+          to: meta.ri,
           kind: "ISSUES",
           label: "issues",
         });
       }
+    }
 
-      if (meta.t === "rev" && meta.acdcSaid) {
+    if (isTEL && !isVCP && meta.ri) {
+      // TEL event node (iss, rev, etc.)
+      addNode({
+        id: meta.d,
+        kind: "TEL_EVT",
+        label: `${meta.t.toUpperCase()} #${meta.s}`,
+        meta: { t: meta.t, s: meta.s, eventMeta: meta },
+      });
+
+      // Edge from registry to event
+      if (meta.ri) {
+        addNode({
+          id: meta.ri,
+          kind: "TEL_REGISTRY",
+          label: meta.ri.substring(0, 12) + "...",
+        });
+        addEdge({
+          id: `TEL_EVENT:${meta.ri}->${meta.d}`,
+          from: meta.ri,
+          to: meta.d,
+          kind: "MEMBER",
+          label: "event",
+        });
+      }
+
+      // Prior link
+      if (meta.p) {
+        addEdge({
+          id: `TEL_PRIOR:${meta.p}->${meta.d}`,
+          from: meta.p,
+          to: meta.d,
+          kind: "PRIOR",
+          label: "prior",
+        });
+      }
+
+      // ACDC reference
+      if (meta.acdcSaid) {
         addNode({
           id: meta.acdcSaid,
           kind: "ACDC",
-          label: `ACDC ${meta.acdcSaid.substring(0, 8)}`,
+          label: meta.acdcSaid.substring(0, 12) + "...",
         });
         addEdge({
-          id: `REVOKES:${meta.d}->${meta.acdcSaid}`,
+          id: `ACDC_REF:${meta.d}->${meta.acdcSaid}`,
           from: meta.d,
           to: meta.acdcSaid,
-          kind: "REVOKES",
-          label: "revokes",
+          kind: "REFERENCES",
+          label: meta.t === "iss" ? "issues" : "revokes",
+        });
+      }
+
+      // Holder reference
+      if (meta.holderAid) {
+        addNode({
+          id: meta.holderAid,
+          kind: "AID",
+          label: meta.holderAid.substring(0, 12) + "...",
+        });
+        addEdge({
+          id: `HOLDER:${meta.acdcSaid || meta.d}->${meta.holderAid}`,
+          from: meta.acdcSaid || meta.d,
+          to: meta.holderAid,
+          kind: "HELD_BY",
+          label: "held by",
         });
       }
     }
-
-    // Add AID nodes for issuerAid/holderAid when present
-    if (meta.issuerAid) {
-      addNode({
-        id: meta.issuerAid,
-        kind: "AID",
-        label: meta.issuerAid.substring(0, 12) + "...",
-      });
-    }
-    if (meta.holderAid) {
-      addNode({
-        id: meta.holderAid,
-        kind: "AID",
-        label: meta.holderAid.substring(0, 12) + "...",
-      });
-    }
   }
 
-  return { nodes: [...nodes.values()], edges: [...edges.values()] };
+  return {
+    nodes: Array.from(nodes.values()),
+    edges: Array.from(edges.values()),
+  };
 }

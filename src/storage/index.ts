@@ -40,4 +40,4 @@ export type { DiskKvOptions } from './adapters/disk';
 export { IndexedDBKv } from './adapters/indexeddb';
 
 // Graph builder
-export { buildGraphFromStore } from './graph';
+export { buildGraphFromStructuredKeys } from './graph';
