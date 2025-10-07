@@ -16,11 +16,19 @@ echo "📁 Creating deployment directory..."
 rm -rf deploy
 mkdir -p deploy
 
+# Install root dependencies (needed for src/ imports)
+echo "📦 Installing root dependencies..."
+bun install
+if [ $? -ne 0 ]; then
+    echo "❌ Root dependency installation failed"
+    exit 1
+fi
+
 # Navigate to UI directory
 cd ui
 
-# Install dependencies
-echo "📦 Installing dependencies..."
+# Install UI dependencies
+echo "📦 Installing UI dependencies..."
 bun install
 if [ $? -ne 0 ]; then
     echo "❌ Dependency installation failed"
