@@ -184,7 +184,7 @@ export function createAccountDSL(account: Account, store: KerStore): AccountDSL 
         let signatures: Array<{index: number; signature: string}> | undefined;
         let eventData: any = {};
 
-        // Try to parse signatures and event JSON from raw CESR
+        // Parse signatures and event JSON from raw CESR
         try {
           const parsed = parseCesrStream(e.raw);
 
@@ -200,7 +200,8 @@ export function createAccountDSL(account: Account, store: KerStore): AccountDSL 
             eventData = JSON.parse(eventText.substring(jsonStart));
           }
         } catch (err) {
-          // Event might not have signatures or be malformed (backward compatibility)
+          console.error(`Failed to parse KEL event ${e.meta.d}:`, err);
+          throw err;
         }
 
         return {

@@ -231,14 +231,6 @@ export function RegistryDetailView({
             maxCharacters={16}
             bold={true}
           />
-          {registryDsl.registry.parentRegistryId && (
-            <VisualId
-              label="Parent Registry"
-              value={registryDsl.registry.parentRegistryId}
-              size={28}
-              maxCharacters={14}
-            />
-          )}
         </div>
 
         <div className="flex gap-2">

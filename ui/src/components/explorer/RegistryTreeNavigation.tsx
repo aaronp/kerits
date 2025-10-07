@@ -161,7 +161,7 @@ export function RegistryTreeNavigation({ dsl, accountAlias, selectedRegistryId, 
           )}
           {!hasChildren && <div className="w-5" />}
 
-          {isExpanded || hasChildren ? (
+          {isExpanded && hasChildren ? (
             <FolderOpen className="h-4 w-4 text-muted-foreground" />
           ) : (
             <Folder className="h-4 w-4 text-muted-foreground" />
