@@ -74,7 +74,19 @@ export async function signEvent(
   // Sign with each signer
   const indexedSigs: IndexedSignature[] = [];
   for (let i = 0; i < signers.length; i++) {
+    if (globalThis.DEBUG_SIGNING) {
+      console.log(`[DEBUG signEvent] Signing with signer ${i}:`);
+      console.log('  Event bytes length:', eventBytes.length);
+      console.log('  Event text (first 100):', new TextDecoder().decode(eventBytes).substring(0, 100));
+      console.log('  Verfer:', signers[i].verfer.qb64);
+    }
+
     const signature = signers[i].sign(eventBytes);
+
+    if (globalThis.DEBUG_SIGNING) {
+      console.log('  Generated signature:', signature.qb64);
+    }
+
     indexedSigs.push({ index: indices[i], signature });
   }
 

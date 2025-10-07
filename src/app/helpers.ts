@@ -39,14 +39,13 @@ export async function createIdentity(
 ): Promise<{ aid: string; icp: any }> {
   const { alias, keys, nextKeys, witnesses = [], config = [] } = params;
 
+  // Compute next key digests from next keys
+  const nextDigests = nextKeys.map(key => diger(key));
+
   // Create inception event
   const icp = incept({
     keys,
-    nextKeys,
-    witnesses,
-    wits: witnesses.length,
-    toad: 0,
-    config,
+    ndigs: nextDigests,
   });
 
   const aid = icp.pre;
@@ -62,8 +61,19 @@ export async function createIdentity(
       throw new Error(`Account not unlocked: ${aid}. Call keyManager.unlock() first.`);
     }
 
+    // DEBUG: Log what we're signing
+    if (globalThis.DEBUG_SIGNING) {
+      console.log('[DEBUG createIdentity] Signing event:');
+      console.log('  Event bytes length:', eventBytes.length);
+      console.log('  Event text:', new TextDecoder().decode(eventBytes).substring(0, 150));
+    }
+
     const signed = await signKelEvent(eventBytes, signer);
     finalBytes = signed.combined;
+
+    if (globalThis.DEBUG_SIGNING) {
+      console.log('  Signed combined length:', signed.combined.length);
+    }
   }
 
   // Store signed event

@@ -37,19 +37,25 @@ export class KeyManager {
   }
 
   /**
-   * Unlock an account by loading its signing key from mnemonic
+   * Unlock an account by loading its signing key from mnemonic or seed
    *
    * @param aid - Account identifier (AID)
-   * @param mnemonic - BIP39 mnemonic phrase
+   * @param mnemonic - BIP39 mnemonic phrase OR raw 32-byte seed
    */
-  async unlock(aid: string, mnemonic: Mnemonic): Promise<void> {
+  async unlock(aid: string, mnemonic: Mnemonic | Uint8Array): Promise<void> {
     if (this.signers.has(aid)) {
       if (this.debug) console.log(`[KeyManager] Account already unlocked: ${aid}`);
       return;
     }
 
-    // Convert mnemonic to seed
-    const seed = mnemonicToSeed(mnemonic);
+    // Convert mnemonic to seed (or use seed directly if Uint8Array)
+    const seed = mnemonic instanceof Uint8Array ? mnemonic : mnemonicToSeed(mnemonic);
+
+    if (globalThis.DEBUG_SIGNING) {
+      console.log('[DEBUG KeyManager.unlock]');
+      console.log('  Requested AID:', aid);
+      console.log('  Seed (first 8 bytes):', Array.from(seed.slice(0, 8)));
+    }
 
     // Create signer from seed
     const signer = new Signer({
@@ -57,6 +63,11 @@ export class KeyManager {
       code: MatterCodex.Ed25519_Seed,
       transferable: true,
     });
+
+    if (globalThis.DEBUG_SIGNING) {
+      console.log('  Generated verfer:', signer.verfer.qb64);
+      console.log('  Match:', signer.verfer.qb64 === aid);
+    }
 
     this.signers.set(aid, signer);
 

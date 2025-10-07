@@ -8,7 +8,7 @@ import { MemoryKv } from '../../src/storage/adapters/memory';
 import { KeyManager } from '../../src/app/keymanager';
 import { createIdentity, createRegistry } from '../../src/app/helpers';
 import { generateKeypairFromSeed } from '../../src/signer';
-import { seedToMnemonic } from '../../src/app/dsl/utils/mnemonic';
+// import { seedToMnemonic } from '../../src/app/dsl/utils/mnemonic'; // Not needed, use seed directly
 import { hasSignatures, verifyEvent } from '../../src/app/verification';
 import { parseCesrStream } from '../../src/app/signing';
 
@@ -26,34 +26,33 @@ describe('Event Signing and Verification', () => {
     // Generate keypair
     const seed = new Uint8Array(32).fill(1);
     const keypair = await generateKeypairFromSeed(seed);
-    const mnemonic = seedToMnemonic(seed);
+
+    // For ICP, the AID equals the first verfer (identity is self-certifying)
+    const aid = keypair.verfer;
+    await keyManager.unlock(aid, seed);  // Use seed directly
 
     // Create identity with signing
-    const { aid } = await createIdentity(
+    const result = await createIdentity(
       store,
       {
         alias: 'alice',
         keys: [keypair.verfer],
         nextKeys: [keypair.verfer],
       },
-      keyManager  // Pass keyManager but don't unlock yet
+      keyManager
     );
 
-    // Unlock the account (this would normally happen before createIdentity)
-    // For this test, we need to unlock BEFORE creating identity
-    // Let me fix this test...
+    expect(result.aid).toBe(aid);
   });
 
   test('should sign ICP event with KeyManager', async () => {
-    // Generate seed and mnemonic
+    // Generate seed
     const seed = new Uint8Array(32).fill(1);
-    const mnemonic = seedToMnemonic(seed);
     const keypair = await generateKeypairFromSeed(seed);
 
     // For ICP, the AID equals the first verfer (identity is self-certifying)
-    // So we can unlock the keyManager with the verfer as the AID
-    const aid = keypair.verfer;  // AID = first key for single-sig ICP
-    await keyManager.unlock(aid, mnemonic);
+    const aid = keypair.verfer;
+    await keyManager.unlock(aid, seed);  // Use seed directly
 
     // Create signed identity
     const result = await createIdentity(
@@ -93,12 +92,11 @@ describe('Event Signing and Verification', () => {
   test('should verify signed ICP event', async () => {
     // Generate seed and keypair
     const seed = new Uint8Array(32).fill(1);
-    const mnemonic = seedToMnemonic(seed);
     const keypair = await generateKeypairFromSeed(seed);
 
     // Unlock with the verfer as AID (for ICP, AID = first key)
     const aid = keypair.verfer;
-    await keyManager.unlock(aid, mnemonic);
+    await keyManager.unlock(aid, seed);  // Use seed directly
 
     // Create signed identity
     await createIdentity(
@@ -146,11 +144,10 @@ describe('Event Signing and Verification', () => {
   test('should create signed registry with VCP and IXN events', async () => {
     // Setup account
     const seed = new Uint8Array(32).fill(1);
-    const mnemonic = seedToMnemonic(seed);
     const keypair = await generateKeypairFromSeed(seed);
 
     const aid = keypair.verfer;
-    await keyManager.unlock(aid, mnemonic);
+    await keyManager.unlock(aid, seed);  // Use seed directly
 
     await createIdentity(
       store,
