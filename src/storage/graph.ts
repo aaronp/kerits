@@ -53,7 +53,14 @@ export async function buildGraphFromStore(
     // Parse the raw event to get SAD fields like 'a' (seals)
     let sad: any = null;
     try {
-      const rawStr = utf8Decode(event.raw);
+      // Convert raw to Uint8Array if it's a plain object (from JSON deserialization)
+      let rawBytes = event.raw;
+      if (!(rawBytes instanceof Uint8Array)) {
+        // Convert object to Uint8Array
+        rawBytes = new Uint8Array(Object.values(rawBytes as any));
+      }
+
+      const rawStr = utf8Decode(rawBytes);
       // Extract JSON from CESR frame (find first '{' to last '}')
       const start = rawStr.indexOf('{');
       const end = rawStr.lastIndexOf('}');
