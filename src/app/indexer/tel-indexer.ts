@@ -37,7 +37,7 @@ export class TELIndexer {
     const registry: IndexedRegistry = {
       registryId,
       issuerAid: vcp.meta.i!,
-      inceptionAt: vcp.meta.dt || vcp.event.ingestedAt,
+      inceptionAt: vcp.meta.dt || new Date().toISOString(),
       backers: this.extractBackers(vcp),
       credentialCount: 0,
       issuedCount: 0,
@@ -50,7 +50,7 @@ export class TELIndexer {
 
     // Replay TEL events in order
     for (const telEvent of telEvents) {
-      const { meta, event } = telEvent;
+      const { meta, said, raw } = telEvent;
 
       if (meta.t === 'iss') {
         // Issuance event
@@ -63,7 +63,7 @@ export class TELIndexer {
 
         // Parse ACDC data - handle both Uint8Array and already-parsed cases
         let acdcData: any;
-        const raw = acdcEvent.event.raw;
+        const raw = acdcEvent.raw;
 
         // Helper function to extract JSON from CESR-framed text
         const parseCesrFramed = (text: string): any => {
@@ -96,20 +96,20 @@ export class TELIndexer {
           registryId,
           issuerAid: acdcData.i || meta.issuerAid || vcp.meta.i!,
           holderAid: acdcData.a?.i, // Recipient from subject
-          issuedAt: meta.dt || event.ingestedAt,
-          issuanceEventSaid: event.said,
+          issuedAt: meta.dt || new Date().toISOString(),
+          issuanceEventSaid: said,
           schemas: acdcData.s ? [{
             schemaSaid: acdcData.s,
-            firstUsedAt: meta.dt || event.ingestedAt,
-            eventSaid: event.said,
+            firstUsedAt: meta.dt || new Date().toISOString(),
+            eventSaid: said,
           }] : [],
           status: 'issued',
           latestData: this.extractCredentialData(acdcData),
           counterparties: this.extractCounterparties(acdcData, meta),
           telEvents: [{
-            eventSaid: event.said,
+            eventSaid: said,
             eventType: 'iss',
-            timestamp: meta.dt || event.ingestedAt,
+            timestamp: meta.dt || new Date().toISOString(),
             sequenceNumber: parseInt(meta.s || '0'),
             actor: meta.issuerAid || acdcData.i,
             summary: `Issued by ${(meta.issuerAid || acdcData.i || 'unknown').substring(0, 12)}...`,
@@ -129,12 +129,12 @@ export class TELIndexer {
 
         if (indexed) {
           indexed.status = 'revoked';
-          indexed.revokedAt = meta.dt || event.ingestedAt;
-          indexed.revocationEventSaid = event.said;
+          indexed.revokedAt = meta.dt || new Date().toISOString();
+          indexed.revocationEventSaid = said;
           indexed.telEvents.push({
-            eventSaid: event.said,
+            eventSaid: said,
             eventType: 'rev',
-            timestamp: meta.dt || event.ingestedAt,
+            timestamp: meta.dt || new Date().toISOString(),
             sequenceNumber: parseInt(meta.s || '0'),
             actor: meta.issuerAid,
             summary: `Revoked by ${(meta.issuerAid || 'unknown').substring(0, 12)}...`,
@@ -152,9 +152,9 @@ export class TELIndexer {
 
         if (indexed) {
           indexed.telEvents.push({
-            eventSaid: event.said,
+            eventSaid: said,
             eventType: 'ixn',
-            timestamp: meta.dt || event.ingestedAt,
+            timestamp: meta.dt || new Date().toISOString(),
             sequenceNumber: parseInt(meta.s || '0'),
             actor: meta.issuerAid,
             summary: `Interaction by ${(meta.issuerAid || 'unknown').substring(0, 12)}...`,
@@ -166,8 +166,8 @@ export class TELIndexer {
               indexed,
               meta.issuerAid,
               'endorser',
-              meta.dt || event.ingestedAt,
-              event.said
+              meta.dt || new Date().toISOString(),
+              said
             );
           }
         }

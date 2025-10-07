@@ -78,7 +78,7 @@ export async function exportKel(
   const bundle: CESRBundle = {
     type: 'kel',
     version: '1.0',
-    events: kelEvents.map(e => ensureUint8Array(e.event.raw)),
+    events: kelEvents.map(e => ensureUint8Array(e.raw)),
     metadata: {
       source: aid,
       created: new Date().toISOString(),
@@ -103,7 +103,7 @@ export async function exportTel(
   const bundle: CESRBundle = {
     type: 'tel',
     version: '1.0',
-    events: telEvents.map(e => ensureUint8Array(e.event.raw)),
+    events: telEvents.map(e => ensureUint8Array(e.raw)),
     metadata: {
       source: issuerAid,
       created: new Date().toISOString(),
@@ -136,9 +136,9 @@ export async function exportAcdc(
     e.meta.t === 'iss' && e.meta.i === credentialId
   );
 
-  const events: Uint8Array[] = [ensureUint8Array(credStored.event.raw)];
+  const events: Uint8Array[] = [ensureUint8Array(credStored.raw)];
   if (issEvent) {
-    events.push(ensureUint8Array(issEvent.event.raw));
+    events.push(ensureUint8Array(issEvent.raw));
   }
 
   const bundle: CESRBundle = {
@@ -198,7 +198,7 @@ export async function exportKelIncremental(
   const bundle: CESRBundle = {
     type: 'kel',
     version: '1.0',
-    events: eventsToExport.map(e => ensureUint8Array(e.event.raw)),
+    events: eventsToExport.map(e => ensureUint8Array(e.raw)),
     metadata: {
       source: aid,
       created: new Date().toISOString(),
@@ -234,7 +234,7 @@ export async function exportTelIncremental(
   const bundle: CESRBundle = {
     type: 'tel',
     version: '1.0',
-    events: eventsToExport.map(e => ensureUint8Array(e.event.raw)),
+    events: eventsToExport.map(e => ensureUint8Array(e.raw)),
     metadata: {
       source: issuerAid,
       created: new Date().toISOString(),

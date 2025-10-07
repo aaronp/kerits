@@ -1,16 +1,15 @@
 /**
- * KerStore2 - Modern storage layer using structured keys
+ * KerStore - Modern storage layer using structured keys
  *
- * Key improvements over KerStore:
+ * Key features:
  * - Raw CESR bytes stored separately from metadata
  * - Structured keys throughout (no string concatenation)
  * - HEAD tracking for latest events
  * - Content-addressable ACDC storage
- * - Simplified alias API
+ * - Clean alias API
  */
 
-import type { Kv, StorageKey, EventMeta, SAID, AID, CesrEncoding, Graph, GraphOptions } from './types';
-import type { KerStore2, PutResult, KelEvent, TelEvent, StoreOptions2 } from './types2';
+import type { Kv, StorageKey, EventMeta, SAID, AID, CesrEncoding, Graph, GraphOptions, KerStore, StoreOptions, PutResult, KelEvent, TelEvent } from './types';
 import { CesrHasher, DefaultJsonCesrParser } from './parser';
 import { buildGraphFromStructuredKeys } from './graph2';
 
@@ -32,9 +31,9 @@ function decodeJson<T>(bytes: Uint8Array): T {
 }
 
 /**
- * Create a new KerStore2 instance
+ * Create a new KerStore instance
  */
-export function createKerStore2(kv: Kv, opts?: StoreOptions2): KerStore2 {
+export function createKerStore(kv: Kv, opts?: StoreOptions): KerStore {
   const hasher = opts?.hasher ?? new CesrHasher();
   const parser = opts?.parser ?? new DefaultJsonCesrParser(hasher);
   const clock = opts?.clock ?? (() => new Date().toISOString());
@@ -573,6 +572,15 @@ export function createKerStore2(kv: Kv, opts?: StoreOptions2): KerStore2 {
     return events;
   }
 
+  // Backward-compatible alias methods
+  async function aliasToId(scope: string, alias: string): Promise<string | null> {
+    return getAliasSaid(scope as any, alias);
+  }
+
+  async function idToAlias(scope: string, id: string): Promise<string | null> {
+    return getSaidAlias(scope as any, id);
+  }
+
   return {
     putEvent,
     getEvent,
@@ -595,6 +603,9 @@ export function createKerStore2(kv: Kv, opts?: StoreOptions2): KerStore2 {
     delAlias,
     getByPrior,
     buildGraph,
-    clear
+    clear,
+    // Backward-compatible methods
+    aliasToId,
+    idToAlias
   };
 }

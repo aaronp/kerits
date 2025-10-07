@@ -120,6 +120,8 @@ export interface Hasher {
  * Store options
  */
 export interface StoreOptions {
+  /** Default CESR encoding to use */
+  defaultEncoding?: CesrEncoding;
   parser?: Parser;
   hasher?: Hasher;
   clock?: () => string; // ISO time source
@@ -164,30 +166,71 @@ export interface Graph {
 }
 
 /**
+ * KEL event with raw CESR and metadata
+ */
+export interface KelEvent {
+  said: SAID;
+  raw: Uint8Array;
+  meta: EventMeta;
+}
+
+/**
+ * TEL event with raw CESR and metadata
+ */
+export interface TelEvent {
+  said: SAID;
+  raw: Uint8Array;
+  meta: EventMeta;
+}
+
+/**
  * KerStore - main storage API
  */
+/**
+ * Modern KerStore interface using structured keys exclusively
+ */
 export interface KerStore {
-  // Write path
-  putEvent(rawCesr: Uint8Array): Promise<PutResult>;
-  putAlias(scope: string, id: string, alias: string): Promise<void>;
-  delAlias(scope: string, idOrAlias: string, byAlias?: boolean): Promise<void>;
+  // Event storage (raw CESR + metadata)
+  putEvent(raw: Uint8Array, encoding?: CesrEncoding): Promise<PutResult>;
+  getEvent(said: SAID): Promise<{ raw: Uint8Array; meta: EventMeta } | null>;
 
-  // Read path
-  getEvent(said: SAID): Promise<StoredWithMeta | null>;
-  listKel(aid: AID, fromS?: number, toS?: number): Promise<StoredWithMeta[]>;
-  listTel(ri: SAID, fromS?: number, toS?: number): Promise<StoredWithMeta[]>;
-  getByPrior(p: SAID): Promise<StoredWithMeta[]>;
+  // KEL operations
+  putKelEvent(raw: Uint8Array, encoding?: CesrEncoding): Promise<PutResult>;
+  listKel(aid: AID, fromS?: number, toS?: number): Promise<KelEvent[]>;
+  getKelHead(aid: AID): Promise<SAID | null>;
+  setKelHead(aid: AID, said: SAID): Promise<void>;
 
-  // Alias lookup
-  aliasToId(scope: string, alias: string): Promise<string | null>;
-  idToAlias(scope: string, id: string): Promise<string | null>;
+  // TEL operations
+  putTelEvent(raw: Uint8Array, encoding?: CesrEncoding): Promise<PutResult>;
+  listTel(ri: SAID, fromS?: number): Promise<TelEvent[]>;
+  getTelHead(ri: SAID): Promise<SAID | null>;
+  setTelHead(ri: SAID, said: SAID): Promise<void>;
 
-  // Graph DSL
-  buildGraph(opts?: { limit?: number; scopeAliases?: string[] }): Promise<Graph>;
+  // ACDC operations (content-addressable)
+  putACDC(acdc: any): Promise<SAID>;
+  getACDC(said: SAID): Promise<any | null>;
 
-  // List aliases in a scope
-  listAliases(scope: string): Promise<string[]>;
+  // Schema operations
+  putSchema(schema: any): Promise<SAID>;
+  getSchema(said: SAID): Promise<any | null>;
 
-  // Expose KV for advanced usage
-  kv: Kv;
+  // Alias operations
+  putAlias(scope: 'kel' | 'tel' | 'schema' | 'acdc', said: SAID, alias: string): Promise<void>;
+  getAliasSaid(scope: 'kel' | 'tel' | 'schema' | 'acdc', alias: string): Promise<SAID | null>;
+  getSaidAlias(scope: 'kel' | 'tel' | 'schema' | 'acdc', said: SAID): Promise<string | null>;
+  listAliases(scope: 'kel' | 'tel' | 'schema' | 'acdc'): Promise<string[]>;
+  delAlias(scope: 'kel' | 'tel' | 'schema' | 'acdc', alias: string): Promise<void>;
+
+  // Event queries
+  getByPrior(priorSaid: SAID): Promise<Array<{ raw: Uint8Array; meta: EventMeta }>>;
+
+  // Graph building
+  buildGraph(opts?: GraphOptions): Promise<Graph>;
+
+  // Utility
+  clear?(): Promise<void>;
+
+  // Backward-compatible methods (deprecated, use getAliasSaid/getSaidAlias instead)
+  aliasToId?(scope: string, alias: string): Promise<string | null>;
+  idToAlias?(scope: string, id: string): Promise<string | null>;
 }

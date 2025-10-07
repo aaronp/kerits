@@ -61,13 +61,13 @@ export function createContactsDSL(store: KerStore): ContactsDSL {
       // The raw bytes contain the full CESR-framed event
       // Convert to Uint8Array if it's a regular array or object (from JSON deserialization)
       let rawBytes: Uint8Array;
-      if (stored.event.raw instanceof Uint8Array) {
-        rawBytes = stored.event.raw;
-      } else if (Array.isArray(stored.event.raw)) {
-        rawBytes = new Uint8Array(stored.event.raw);
+      if (stored.raw instanceof Uint8Array) {
+        rawBytes = stored.raw;
+      } else if (Array.isArray(stored.raw)) {
+        rawBytes = new Uint8Array(stored.raw);
       } else {
         // It's an object like {0: 45, 1: 75, ...}, convert to array
-        rawBytes = new Uint8Array(Object.values(stored.event.raw as any));
+        rawBytes = new Uint8Array(Object.values(stored.raw as any));
       }
 
       const rawText = new TextDecoder().decode(rawBytes);

@@ -424,7 +424,7 @@ describe('Complete Application Flow', () => {
       // Verify in indexed view
       const indexed = await holderRegistry!.index();
       expect(indexed.credentials.length).toBe(1);
-      expect(indexed.credentials[0].credentialId).toBe(issuedCred.acdc.credentialId);
+      expect(indexed.credentials[0]!.credentialId).toBe(issuedCred.acdc.credentialId);
     });
   });
 
@@ -488,7 +488,7 @@ describe('Complete Application Flow', () => {
       const tel = await registryDsl!.getTel();
       const revEvents = tel.filter(e => e.t === 'rev');
       expect(revEvents.length).toBe(1);
-      expect(revEvents[0].acdcSaid).toBe(cred.acdc.credentialId);
+      expect(revEvents[0]!.acdcSaid).toBe(cred.acdc.credentialId);
     });
   });
 

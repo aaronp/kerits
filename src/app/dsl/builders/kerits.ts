@@ -239,9 +239,9 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
       }
 
       // Deserialize the schema from the stored event
-      const rawBytes = stored.event.raw instanceof Uint8Array
-        ? stored.event.raw
-        : new Uint8Array(Object.values(stored.event.raw as any));
+      const rawBytes = stored.raw instanceof Uint8Array
+        ? stored.raw
+        : new Uint8Array(Object.values(stored.raw as any));
 
       const eventText = new TextDecoder().decode(rawBytes);
       const jsonMatch = eventText.match(/\{.*\}/s);

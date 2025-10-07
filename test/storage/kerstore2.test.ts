@@ -1,20 +1,20 @@
 /**
- * Tests for KerStore2 - Modern storage layer
+ * Tests for KerStore - Modern storage layer
  */
 
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { createKerStore2 } from '../../src/storage/core2';
+import { createKerStore } from '../../src/storage/core2';
 import { DiskKv } from '../../src/storage/adapters/disk';
-import type { KerStore2 } from '../../src/storage/types2';
+import type { KerStore } from '../../src/storage/types';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 
 // Import test helpers
 import { createTestInception, createTestRegistryInception, createTestKelWithRegistry } from '../helpers/events';
 
-describe('KerStore2', () => {
+describe('KerStore', () => {
   const TEST_DIR = path.join('target', 'test-kerstore2');
-  let store: KerStore2;
+  let store: KerStore;
 
   beforeEach(async () => {
     // Clean up test directory
@@ -25,7 +25,7 @@ describe('KerStore2', () => {
     }
 
     const kv = new DiskKv({ baseDir: TEST_DIR });
-    store = createKerStore2(kv, { defaultEncoding: 'binary' });
+    store = createKerStore(kv, { defaultEncoding: 'binary' });
   });
 
   describe('Event Storage', () => {

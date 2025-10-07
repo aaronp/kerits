@@ -42,7 +42,7 @@ export function createContactSyncDSL(store: KerStore): ContactSyncDSL {
       }
 
       // Parse stored state
-      const rawBytes = ensureUint8Array(stored.event.raw);
+      const rawBytes = ensureUint8Array(stored.raw);
       const rawText = new TextDecoder().decode(rawBytes);
       const jsonMatch = rawText.match(/\{.*\}/s);
       if (jsonMatch) {
