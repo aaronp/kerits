@@ -22,36 +22,43 @@ const stat = promisify(fs.stat);
 /**
  * Encode a key into a safe filesystem path
  * Replaces special characters to ensure cross-platform compatibility
+ * Note: Forward slashes (/) are preserved to create directory hierarchy
  */
 function encodeKey(key: string): string {
-  return key
-    .replace(/%/g, '%25')    // Escape % first
-    .replace(/\//g, '%2F')   // Escape /
-    .replace(/\\/g, '%5C')   // Escape \
-    .replace(/:/g, '%3A')    // Escape :
-    .replace(/\*/g, '%2A')   // Escape *
-    .replace(/\?/g, '%3F')   // Escape ?
-    .replace(/"/g, '%22')    // Escape "
-    .replace(/</g, '%3C')    // Escape <
-    .replace(/>/g, '%3E')    // Escape >
-    .replace(/\|/g, '%7C');  // Escape |
+  // Split by / to preserve directory structure
+  const parts = key.split('/');
+  return parts.map(part =>
+    part
+      .replace(/%/g, '%25')    // Escape % first
+      .replace(/\\/g, '%5C')   // Escape \
+      .replace(/:/g, '%3A')    // Escape :
+      .replace(/\*/g, '%2A')   // Escape *
+      .replace(/\?/g, '%3F')   // Escape ?
+      .replace(/"/g, '%22')    // Escape "
+      .replace(/</g, '%3C')    // Escape <
+      .replace(/>/g, '%3E')    // Escape >
+      .replace(/\|/g, '%7C')   // Escape |
+  ).join('/');
 }
 
 /**
  * Decode a filesystem path back to a key
  */
 function decodeKey(encodedKey: string): string {
-  return encodedKey
-    .replace(/%7C/g, '|')
-    .replace(/%3E/g, '>')
-    .replace(/%3C/g, '<')
-    .replace(/%22/g, '"')
-    .replace(/%3F/g, '?')
-    .replace(/%2A/g, '*')
-    .replace(/%3A/g, ':')
-    .replace(/%5C/g, '\\')
-    .replace(/%2F/g, '/')
-    .replace(/%25/g, '%');
+  // Split by / to preserve directory structure
+  const parts = encodedKey.split(path.sep);
+  return parts.map(part =>
+    part
+      .replace(/%7C/g, '|')
+      .replace(/%3E/g, '>')
+      .replace(/%3C/g, '<')
+      .replace(/%22/g, '"')
+      .replace(/%3F/g, '?')
+      .replace(/%2A/g, '*')
+      .replace(/%3A/g, ':')
+      .replace(/%5C/g, '\\')
+      .replace(/%25/g, '%')
+  ).join('/');
 }
 
 /**

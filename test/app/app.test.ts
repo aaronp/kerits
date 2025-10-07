@@ -16,6 +16,8 @@ import { createKerStore } from '../../src/storage/core';
 import { MemoryKv } from '../../src/storage/adapters/memory';
 import { createKeritsDSL } from '../../src/app/dsl';
 import type { KeritsDSL } from '../../src/app/dsl/types';
+import { DiskKv } from '../../src';
+import * as path from 'path';
 
 const SEED_ALICE = new Uint8Array(32).fill(1);
 const SEED_BOB = new Uint8Array(32).fill(2);
@@ -25,7 +27,18 @@ describe('Complete Application Flow', () => {
   let dsl: KeritsDSL;
 
   beforeEach(async () => {
-    const kv = new MemoryKv();
+    // const kv = new MemoryKv();
+    const TEST_DIR = path.join('target', 'app-integration');
+
+    // Clean up any existing data
+    const fs = await import('fs/promises');
+    try {
+      await fs.rm(TEST_DIR, { recursive: true, force: true });
+    } catch (e) {
+      // Directory doesn't exist, that's fine
+    }
+
+    const kv = new DiskKv({ baseDir: TEST_DIR });
     const store = createKerStore(kv);
     dsl = createKeritsDSL(store);
   });
