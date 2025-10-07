@@ -218,11 +218,17 @@ export function createRegistryDSL(
       const rawAcdc = serializeEvent(acdcEvent);
       await store.putEvent(rawAcdc);
 
-      // Store issuance event if provided
-      if (issEvent) {
-        const rawIss = serializeEvent(issEvent);
-        await store.putEvent(rawIss);
-      }
+      // Create an issuance event in the holder's registry so the credential shows up in their TEL
+      // This represents the holder accepting/anchoring the credential in their registry
+      const { issue } = await import('../../../tel');
+
+      const issData = issue({
+        vcdig: credentialId,
+        regk: registry.registryId,
+      });
+
+      const rawIss = serializeEvent(issData.sad);
+      await store.putEvent(rawIss);
 
       // Store alias if provided
       if (alias) {
@@ -238,7 +244,7 @@ export function createRegistryDSL(
         issuerAid: credentialObj.i || '',
         holderAid: credentialObj.a?.i || account.aid,
         data: credentialObj.a || {},
-        issuedAt: issEvent?.dt || new Date().toISOString(),
+        issuedAt: issData.sad.dt || new Date().toISOString(),
       };
 
       return createACDCDSL(acdcObj, registry, store);

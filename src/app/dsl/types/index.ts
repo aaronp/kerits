@@ -6,6 +6,9 @@ export * from './common';
 export * from './sync';
 export * from './contact-sync';
 
+// Re-export indexer types for convenience
+export type { IndexedRegistry, IndexedACDC, SchemaUsage, CounterpartyInfo, TELEventSummary } from '../../indexer/types';
+
 import type {
   Account,
   Registry,
