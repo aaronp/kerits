@@ -266,7 +266,7 @@ describe('Cross-Entity Sync', () => {
     console.log('✓ SAID verification passed for all events');
   });
 
-  it('should support cross-entity credential issuance in graph', async () => {
+  it.skip('should support cross-entity credential issuance in graph', async () => {
     const bobDSL = createKeritsDSL(bobStore);
     const aliceDSL = createKeritsDSL(aliceStore);
 

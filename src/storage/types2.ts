@@ -3,7 +3,7 @@
  * Clean, structured key-based storage layer
  */
 
-import type { SAID, AID, EventType, EventMeta, Graph, GraphOptions, CesrEncoding } from './types';
+import type { SAID, AID, EventType, EventMeta, Graph, CesrEncoding } from './types';
 
 /**
  * Result from storing an event
@@ -66,6 +66,9 @@ export interface KerStore2 {
   getSaidAlias(scope: 'kel' | 'tel' | 'schema' | 'acdc', said: SAID): Promise<string | null>;
   listAliases(scope: 'kel' | 'tel' | 'schema' | 'acdc'): Promise<string[]>;
   delAlias(scope: 'kel' | 'tel' | 'schema' | 'acdc', alias: string): Promise<void>;
+
+  // Event queries
+  getByPrior(priorSaid: SAID): Promise<Array<{ raw: Uint8Array; meta: EventMeta }>>;
 
   // Graph building (unchanged)
   buildGraph(opts?: GraphOptions): Promise<Graph>;

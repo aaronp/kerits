@@ -91,7 +91,16 @@ export function createKerStore2(kv: Kv, opts?: StoreOptions2): KerStore2 {
         }
       };
     } else {
-      throw new Error(`Unknown event type: ${meta.t}`);
+      // Unknown/generic event type - store in generic events directory
+      eventKey = {
+        path: ['events', said],
+        type: 'cesr',
+        meta: {
+          eventType: meta.t,
+          cesrEncoding: encoding,
+          immutable: true
+        }
+      };
     }
 
     // Store raw CESR
@@ -179,7 +188,15 @@ export function createKerStore2(kv: Kv, opts?: StoreOptions2): KerStore2 {
         }
       };
     } else {
-      throw new Error(`Cannot determine path for event ${said}`);
+      // Generic/unknown event type
+      eventKey = {
+        path: ['events', said],
+        type: 'cesr',
+        meta: {
+          eventType: meta.t,
+          cesrEncoding: meta.cesrEncoding || 'binary'
+        }
+      };
     }
 
     const raw = await kv.getStructured!(eventKey);
@@ -242,7 +259,7 @@ export function createKerStore2(kv: Kv, opts?: StoreOptions2): KerStore2 {
       if (!metaBytes) continue;
 
       const meta = decodeJson<EventMeta>(metaBytes);
-      const seq = parseInt(meta.s || '0', 10);
+      const seq = parseInt(meta.s || '0', 16);  // Hex, not decimal!
 
       if (seq >= fromS && seq <= toS) {
         events.push({ said, raw: value, meta });
@@ -532,6 +549,30 @@ export function createKerStore2(kv: Kv, opts?: StoreOptions2): KerStore2 {
     }
   }
 
+  /**
+   * Get events by prior SAID
+   */
+  async function getByPrior(priorSaid: SAID): Promise<Array<{ raw: Uint8Array; meta: EventMeta }>> {
+    const prefix: StorageKey = {
+      path: ['idx', 'prev', priorSaid],
+      type: 'text'
+    };
+
+    const results = await kv.listStructured!(prefix);
+    const events: Array<{ raw: Uint8Array; meta: EventMeta }> = [];
+
+    for (const { value } of results) {
+      if (!value) continue;
+      const said = utf8Decode(value);
+      const event = await getEvent(said);
+      if (event) {
+        events.push(event);
+      }
+    }
+
+    return events;
+  }
+
   return {
     putEvent,
     getEvent,
@@ -552,6 +593,7 @@ export function createKerStore2(kv: Kv, opts?: StoreOptions2): KerStore2 {
     getSaidAlias,
     listAliases,
     delAlias,
+    getByPrior,
     buildGraph,
     clear
   };
