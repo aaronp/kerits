@@ -25,18 +25,11 @@ const SEED_UNIVERSITY = new Uint8Array(32).fill(3);
 
 describe('Complete Application Flow', () => {
   let dsl: KeritsDSL;
+  let testCounter = 0;
 
   beforeEach(async () => {
-    // const kv = new MemoryKv();
-    const TEST_DIR = path.join('target', 'app-integration');
-
-    // Clean up any existing data
-    const fs = await import('fs/promises');
-    try {
-      await fs.rm(TEST_DIR, { recursive: true, force: true });
-    } catch (e) {
-      // Directory doesn't exist, that's fine
-    }
+    // Use unique directory for each test to avoid state leakage
+    const TEST_DIR = path.join('target', 'app-integration', `test-${Date.now()}-${testCounter++}`);
 
     const kv = new DiskKv({ baseDir: TEST_DIR });
     const store = createKerStore(kv);

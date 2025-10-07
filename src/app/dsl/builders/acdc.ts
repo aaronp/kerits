@@ -31,16 +31,23 @@ export function createACDCDSL(
       // Get TEL events for this registry
       const telEvents = await store.listTel(registry.registryId);
 
-      // Find events related to this credential
-      for (const event of telEvents.reverse()) {
-        if (event.meta.acdcSaid === acdc.credentialId) {
-          if (event.meta.t === 'rev') {
-            return { revoked: true, status: 'revoked' };
-          }
-          if (event.meta.t === 'iss') {
-            return { revoked: false, status: 'issued' };
-          }
-        }
+      // Find events related to this credential, sorted by sequence number (newest last)
+      const credEvents = telEvents
+        .filter(e => e.meta.acdcSaid === acdc.credentialId)
+        .sort((a, b) => {
+          const sA = parseInt(a.meta.s || '0', 16);
+          const sB = parseInt(b.meta.s || '0', 16);
+          return sA - sB;
+        });
+
+      // Check the latest event
+      const latestEvent = credEvents[credEvents.length - 1];
+      if (!latestEvent) {
+        return { revoked: false, status: 'issued' };
+      }
+
+      if (latestEvent.meta.t === 'rev') {
+        return { revoked: true, status: 'revoked' };
       }
 
       return { revoked: false, status: 'issued' };
