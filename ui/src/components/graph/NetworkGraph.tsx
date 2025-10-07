@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import { getDSL } from '@/lib/dsl';
 import { VisualId } from '../ui/visual-id';
+import { GraphTableView } from './GraphTableView';
 import type { Graph, GraphNode, GraphEdge } from '@/../src/storage/types';
 
 // Node types for the KERI graph
@@ -457,30 +459,37 @@ export function NetworkGraph() {
   }
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-200px)]">
-      {/* Graph visualization */}
-      <Card className="flex-1 overflow-hidden relative">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Network Graph</CardTitle>
-              <CardDescription>
-                {nodes.length} nodes, {edges.length} edges • Git-style commit graph
-              </CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleZoomIn}>
-                <ZoomIn className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleZoomOut}>
-                <ZoomOut className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleResetView}>
-                <Maximize2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
+    <Tabs defaultValue="graph" className="w-full">
+      <TabsList className="mb-4">
+        <TabsTrigger value="graph">Graph View</TabsTrigger>
+        <TabsTrigger value="table">Table View</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="graph">
+        <div className="flex gap-4 h-[calc(100vh-200px)]">
+          {/* Graph visualization */}
+          <Card className="flex-1 overflow-hidden relative">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Network Graph</CardTitle>
+                  <CardDescription>
+                    {nodes.length} nodes, {edges.length} edges • Git-style commit graph
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleZoomIn}>
+                    <ZoomIn className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleZoomOut}>
+                    <ZoomOut className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleResetView}>
+                    <Maximize2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
         <CardContent className="h-[calc(100%-100px)] overflow-hidden">
           <svg
             ref={svgRef}
@@ -635,6 +644,12 @@ export function NetworkGraph() {
           )}
         </CardContent>
       </Card>
-    </div>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="table">
+        <GraphTableView />
+      </TabsContent>
+    </Tabs>
   );
 }
