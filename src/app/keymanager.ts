@@ -51,23 +51,12 @@ export class KeyManager {
     // Convert mnemonic to seed (or use seed directly if Uint8Array)
     const seed = mnemonic instanceof Uint8Array ? mnemonic : mnemonicToSeed(mnemonic);
 
-    if (globalThis.DEBUG_SIGNING) {
-      console.log('[DEBUG KeyManager.unlock]');
-      console.log('  Requested AID:', aid);
-      console.log('  Seed (first 8 bytes):', Array.from(seed.slice(0, 8)));
-    }
-
     // Create signer from seed
     const signer = new Signer({
       raw: seed,
       code: MatterCodex.Ed25519_Seed,
       transferable: true,
     });
-
-    if (globalThis.DEBUG_SIGNING) {
-      console.log('  Generated verfer:', signer.verfer.qb64);
-      console.log('  Match:', signer.verfer.qb64 === aid);
-    }
 
     this.signers.set(aid, signer);
 

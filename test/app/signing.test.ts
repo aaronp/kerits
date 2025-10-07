@@ -8,7 +8,7 @@ import { MemoryKv } from '../../src/storage/adapters/memory';
 import { KeyManager } from '../../src/app/keymanager';
 import { createIdentity, createRegistry } from '../../src/app/helpers';
 import { generateKeypairFromSeed } from '../../src/signer';
-// import { seedToMnemonic } from '../../src/app/dsl/utils/mnemonic'; // Not needed, use seed directly
+import { seedToMnemonic } from '../../src/app/dsl/utils/mnemonic';
 import { hasSignatures, verifyEvent } from '../../src/app/verification';
 import { parseCesrStream } from '../../src/app/signing';
 
@@ -25,11 +25,12 @@ describe('Event Signing and Verification', () => {
   test('should create signed ICP event', async () => {
     // Generate keypair
     const seed = new Uint8Array(32).fill(1);
+    const mnemonic = seedToMnemonic(seed);
     const keypair = await generateKeypairFromSeed(seed);
 
     // For ICP, the AID equals the first verfer (identity is self-certifying)
     const aid = keypair.verfer;
-    await keyManager.unlock(aid, seed);  // Use seed directly
+    await keyManager.unlock(aid, mnemonic);  // Now using proper BIP39
 
     // Create identity with signing
     const result = await createIdentity(
@@ -48,11 +49,12 @@ describe('Event Signing and Verification', () => {
   test('should sign ICP event with KeyManager', async () => {
     // Generate seed
     const seed = new Uint8Array(32).fill(1);
+    const mnemonic = seedToMnemonic(seed);
     const keypair = await generateKeypairFromSeed(seed);
 
     // For ICP, the AID equals the first verfer (identity is self-certifying)
     const aid = keypair.verfer;
-    await keyManager.unlock(aid, seed);  // Use seed directly
+    await keyManager.unlock(aid, mnemonic);  // Using BIP39 mnemonic
 
     // Create signed identity
     const result = await createIdentity(
@@ -92,11 +94,12 @@ describe('Event Signing and Verification', () => {
   test('should verify signed ICP event', async () => {
     // Generate seed and keypair
     const seed = new Uint8Array(32).fill(1);
+    const mnemonic = seedToMnemonic(seed);
     const keypair = await generateKeypairFromSeed(seed);
 
     // Unlock with the verfer as AID (for ICP, AID = first key)
     const aid = keypair.verfer;
-    await keyManager.unlock(aid, seed);  // Use seed directly
+    await keyManager.unlock(aid, mnemonic);  // Using BIP39 mnemonic
 
     // Create signed identity
     await createIdentity(
@@ -144,10 +147,11 @@ describe('Event Signing and Verification', () => {
   test('should create signed registry with VCP and IXN events', async () => {
     // Setup account
     const seed = new Uint8Array(32).fill(1);
+    const mnemonic = seedToMnemonic(seed);
     const keypair = await generateKeypairFromSeed(seed);
 
     const aid = keypair.verfer;
-    await keyManager.unlock(aid, seed);  // Use seed directly
+    await keyManager.unlock(aid, mnemonic);  // Using BIP39 mnemonic
 
     await createIdentity(
       store,
