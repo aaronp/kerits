@@ -147,6 +147,21 @@ export interface RegistryDSL {
    * @returns Promise that resolves when revocation is complete
    */
   revoke(credentialId: string): Promise<void>;
+
+  /**
+   * Accept and anchor a received credential
+   * Imports a credential from another party and stores it as 'received'
+   * @param params - Acceptance parameters
+   * @returns ACDCDSL for the accepted credential
+   */
+  accept(params: {
+    /** Full ACDC credential object or credential SAID */
+    credential: any;
+    /** Optional TEL issuance event */
+    issEvent?: any;
+    /** Optional human-readable alias for the credential */
+    alias?: string;
+  }): Promise<ACDCDSL>;
 }
 
 /**

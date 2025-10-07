@@ -130,6 +130,185 @@ if (needsRevocation) {
 }
 ```
 
+## Use Case 2b: Credential Revocation and Import Flow
+
+**Scenario**: KYC authority issues credential, user imports it, then authority revokes it.
+
+### Issue and Share Credential
+
+```typescript
+// KYC Authority issues credential
+const kycDsl = await dsl.account('kyc-authority-ca');
+const kycRegistry = await kycDsl.registry('jurisdiction-credentials');
+
+const jurisdictionCred = await kycRegistry.issue({
+  schema: 'jurisdiction-kyc',
+  holder: userAid,
+  data: {
+    jurisdiction: 'US-CA',
+    verified: true,
+    verificationDate: new Date().toISOString(),
+    documentNumber: 'CA-DL-12345678',
+  },
+  alias: 'user-bob-jurisdiction',
+});
+
+// Get credential SAID for sharing
+const credentialId = jurisdictionCred.acdc.credentialId;
+console.log('Share this SAID:', credentialId);
+
+// Verify initial status
+console.log('Status:', await jurisdictionCred.status()); // 'issued'
+```
+
+### User Imports Credential
+
+```typescript
+// User creates their own registry to track received credentials
+const userDsl = await dsl.account('user-bob');
+const userRegistry = await userDsl.createRegistry('my-credentials');
+
+// User imports the credential using the shared SAID
+await userRegistry.accept({
+  credential: credentialId,
+  alias: 'my-kyc-credential',
+});
+
+// Verify imported credential appears in user's registry
+const credentials = await userRegistry.listCredentials();
+console.log('User has credentials:', credentials.length); // 1
+
+// Check status of imported credential
+const indexed = await userRegistry.index();
+const imported = indexed.credentials.find(c => c.credentialId === credentialId);
+console.log('Imported credential status:', imported?.status); // 'issued'
+```
+
+### Alternative: Import Full Credential Object
+
+```typescript
+// KYC authority can export full credential with issuance event
+const credExport = await jurisdictionCred.export();
+const credentialData = credExport.asBundle();
+
+// User imports the full credential object
+await userRegistry.accept({
+  credential: {
+    v: 'ACDC10JSON',
+    d: credentialId,
+    i: kycIssuerAid,
+    ri: kycRegistryId,
+    s: schemaId,
+    a: {
+      d: '...',
+      i: userAid,
+      jurisdiction: 'US-CA',
+      verified: true,
+      // ... other fields
+    },
+  },
+  alias: 'my-kyc-credential',
+});
+```
+
+### Authority Revokes Credential
+
+```typescript
+// KYC authority detects fraud and revokes
+await kycRegistry.revoke(credentialId);
+
+// Verify revocation in authority's registry
+const kycIndexed = await kycRegistry.index();
+const revoked = kycIndexed.credentials.find(c => c.credentialId === credentialId);
+console.log('Status in issuer registry:', revoked?.status); // 'revoked'
+console.log('Revoked at:', revoked?.revokedAt);
+
+// View revocation in TEL
+const tel = await kycRegistry.getTel();
+const revEvent = tel.find(e => e.t === 'rev');
+console.log('Revocation event:', revEvent);
+```
+
+### Verify Revocation in Graph
+
+```typescript
+// View revocation in graph visualization
+const graph = await kycRegistry.graph();
+
+// Find revocation edge
+const revokeEdge = graph.edges.find(e =>
+  e.kind === 'REVOKES' && e.to === credentialId
+);
+console.log('Revocation edge:', revokeEdge?.label); // 'revokes'
+
+// Find revocation event node
+const revNode = graph.nodes.find(n =>
+  n.kind === 'TEL_EVT' && n.meta?.t === 'rev'
+);
+console.log('Revocation event SAID:', revNode?.id);
+```
+
+### Registry-Level Revocation (Alternative)
+
+```typescript
+// Revoke directly from registry instead of credential DSL
+await kycRegistry.revoke(credentialId);
+
+// This is equivalent to:
+// await jurisdictionCred.revoke();
+```
+
+### Batch Revocation
+
+```typescript
+// Revoke multiple credentials
+const credentials = await kycRegistry.listCredentials();
+const expiredCreds = credentials.filter(c =>
+  c.status === 'issued' && isExpired(c.data)
+);
+
+for (const cred of expiredCreds) {
+  await kycRegistry.revoke(cred.credentialId);
+  console.log(`Revoked ${cred.alias || cred.credentialId}`);
+}
+
+// Verify all revoked
+const updated = await kycRegistry.index();
+console.log('Revoked count:', updated.revokedCount);
+```
+
+### TEL Event Structure
+
+```typescript
+// Revocation creates a TEL event with this structure:
+{
+  v: 'KERI10JSON000120_',
+  t: 'rev',                              // Revocation event type
+  d: 'EBvyQ432IfVPXJGb...',              // Event SAID
+  i: 'EOpMbWcZVemhMev...',               // Credential SAID
+  s: '1',                                 // Sequence number (always 1 after issuance)
+  ri: 'EMbueaMR7Sn63BBr...',             // Registry identifier
+  p: 'ELZpzaM7ZaXo9HLv...',              // Prior event SAID (issuance)
+  dt: '2024-10-07T12:00:00.000000+00:00' // Revocation datetime
+}
+```
+
+### Error Handling
+
+```typescript
+try {
+  await kycRegistry.revoke(credentialId);
+} catch (error) {
+  if (error.message.includes('not found')) {
+    console.error('Credential does not exist in this registry');
+  } else if (error.message.includes('already revoked')) {
+    console.error('Credential was already revoked');
+  } else {
+    console.error('Revocation failed:', error.message);
+  }
+}
+```
+
 ## Use Case 3: Multi-Step Credential Flow
 
 **Scenario**: University issues degree, employer verifies, issues employment credential.

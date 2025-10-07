@@ -463,18 +463,27 @@ export function Explorer() {
     if (!accountDsl || !importRegistryAlias) return;
 
     try {
-      // Parse the credential data (could be JSON or CESR)
-      let credentialSaid: string;
+      // Parse the credential data (could be JSON, CESR, or just SAID)
+      let credential: any;
+      let issEvent: any = undefined;
+
       try {
         const parsed = JSON.parse(importCredentialData);
-        credentialSaid = parsed.d || parsed.SAID || parsed.credentialId;
+
+        // Check if this is a full credential object
+        if (parsed.d && parsed.i) {
+          credential = parsed;
+        } else {
+          // Maybe it's just wrapped with SAID/credentialId
+          credential = parsed.d || parsed.SAID || parsed.credentialId || importCredentialData.trim();
+        }
       } catch {
-        // Assume it's a SAID directly
-        credentialSaid = importCredentialData.trim();
+        // Not JSON - assume it's a SAID directly
+        credential = importCredentialData.trim();
       }
 
-      if (!credentialSaid) {
-        showToast('Could not determine credential SAID from input');
+      if (!credential) {
+        showToast('Could not parse credential data');
         return;
       }
 
@@ -484,21 +493,23 @@ export function Explorer() {
         return;
       }
 
-      // TODO: Implement accept/anchor method on registry DSL
-      // This should:
-      // 1. Verify the credential
-      // 2. Create an ACP (accept) event
-      // 3. Anchor it in the TEL
-      // await registryDsl.accept({
-      //   credentialSaid,
-      //   alias: importCredentialAlias || undefined,
-      // });
+      // Accept and import the credential
+      await registryDsl.accept({
+        credential,
+        issEvent,
+        alias: importCredentialAlias || undefined,
+      });
 
-      showToast('Accept/anchor functionality not yet implemented in DSL');
+      // Reload credentials to show the imported one
+      await loadACDCsForRegistry(importRegistryAlias);
 
-      // When implemented, reload credentials:
-      // await loadACDCsForRegistry(importRegistryAlias);
-      // setShowImportACDCDialog(false);
+      // Close dialog and reset
+      setShowImportACDCDialog(false);
+      setImportCredentialData('');
+      setImportCredentialAlias('');
+      setImportRegistryAlias(null);
+
+      showToast('Credential imported successfully');
 
     } catch (error) {
       console.error('Failed to import credential:', error);

@@ -171,5 +171,77 @@ export function createRegistryDSL(
       // Note: Credential status will be updated automatically when re-indexed
       // The TEL indexer reads the revocation event and sets status='revoked'
     },
+
+    async accept(params: { credential: any; issEvent?: any; alias?: string }): Promise<ACDCDSL> {
+      const { credential, issEvent, alias } = params;
+
+      // Parse credential if it's a string (SAID only)
+      let credentialObj: any;
+      let credentialId: string;
+
+      if (typeof credential === 'string') {
+        // Just a SAID - we need the full credential object
+        // For now, we'll create a minimal placeholder
+        credentialId = credential;
+        credentialObj = {
+          d: credentialId,
+          v: 'ACDC10JSON',
+          i: '', // Unknown issuer
+          ri: registry.registryId,
+          s: '', // Unknown schema
+          a: { d: '', i: account.aid }, // Holder is current account
+        };
+      } else {
+        // Full credential object
+        credentialObj = credential;
+        credentialId = credential.d;
+
+        if (!credentialId) {
+          throw new Error('Invalid credential: missing SAID (d field)');
+        }
+      }
+
+      // Serialize and store the ACDC
+      const serializeEvent = (event: any): Uint8Array => {
+        const json = JSON.stringify(event);
+        const versionString = event.v || 'ACDC10JSON';
+        const frameSize = json.length.toString(16).padStart(6, '0');
+        const framed = `-${versionString}${frameSize}_${json}`;
+        return new TextEncoder().encode(framed);
+      };
+
+      const acdcEvent = {
+        ...credentialObj,
+        t: 'acdc',
+      };
+
+      const rawAcdc = serializeEvent(acdcEvent);
+      await store.putEvent(rawAcdc);
+
+      // Store issuance event if provided
+      if (issEvent) {
+        const rawIss = serializeEvent(issEvent);
+        await store.putEvent(rawIss);
+      }
+
+      // Store alias if provided
+      if (alias) {
+        await store.putAlias('acdc', credentialId, alias);
+      }
+
+      // Create ACDC DSL object
+      const acdcObj = {
+        alias,
+        credentialId,
+        registryId: registry.registryId,
+        schemaId: credentialObj.s || '',
+        issuerAid: credentialObj.i || '',
+        holderAid: credentialObj.a?.i || account.aid,
+        data: credentialObj.a || {},
+        issuedAt: issEvent?.dt || new Date().toISOString(),
+      };
+
+      return createACDCDSL(acdcObj, registry, store);
+    },
   };
 }
