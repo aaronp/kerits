@@ -347,6 +347,7 @@ export function Dashboard() {
               ) : (
                 <Routes>
                   <Route path="/" element={<Explorer />} />
+                  <Route path="/explorer/:accountAlias/*" element={<Explorer />} />
                   <Route path="/schemas" element={<Schemas />} />
                   <Route path="/schemas/new" element={<SchemaCreator />} />
                   <Route path="/issue" element={<IssueSchemaList />} />

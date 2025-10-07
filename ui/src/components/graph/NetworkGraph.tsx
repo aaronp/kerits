@@ -6,7 +6,10 @@ import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import { getDSL } from '@/lib/dsl';
 import { VisualId } from '../ui/visual-id';
 import { GraphTableView } from './GraphTableView';
-import type { Graph, GraphNode, GraphEdge } from '@/../src/storage/types';
+import { MermaidRenderer } from './MermaidRenderer';
+import { createKeriGitGraph } from '@/../../src/app/graph/keri-git-graph';
+import type { Graph, GraphNode, GraphEdge } from '@/../../src/storage/types';
+import type { KeritsDSL } from '@/../../src/app/dsl/types';
 
 // Node types for the KERI graph
 export type NodeKind = 'AID' | 'KEL_EVT' | 'TEL_REGISTRY' | 'TEL_EVT' | 'ACDC' | 'SCHEMA';
@@ -273,6 +276,8 @@ export function NetworkGraph() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const svgRef = useRef<SVGSVGElement>(null);
+  const [dsl, setDsl] = useState<KeritsDSL | null>(null);
+  const [mermaidChart, setMermaidChart] = useState<string>('');
 
   useEffect(() => {
     async function loadGraph() {
@@ -280,16 +285,17 @@ export function NetworkGraph() {
         setLoading(true);
         setError(null);
 
-        const dsl = await getDSL();
-        const graphData = await dsl.graph();
+        const dslInstance = await getDSL();
+        setDsl(dslInstance);
+        const graphData = await dslInstance.graph();
 
         // Build alias map from DSL
         const aliasMap = new Map<string, string>();
 
         // Resolve account aliases
-        const accountNames = await dsl.accountNames();
+        const accountNames = await dslInstance.accountNames();
         for (const alias of accountNames) {
-          const account = await dsl.getAccount(alias);
+          const account = await dslInstance.getAccount(alias);
           if (account) {
             aliasMap.set(account.aid, alias);
           }
@@ -297,7 +303,7 @@ export function NetworkGraph() {
 
         // Resolve registry aliases
         for (const accountAlias of accountNames) {
-          const accountDsl = await dsl.account(accountAlias);
+          const accountDsl = await dslInstance.account(accountAlias);
           if (accountDsl) {
             const registryAliases = await accountDsl.listRegistries();
             for (const regAlias of registryAliases) {
@@ -319,9 +325,9 @@ export function NetworkGraph() {
         }
 
         // Resolve schema aliases
-        const schemaAliases = await dsl.listSchemas();
+        const schemaAliases = await dslInstance.listSchemas();
         for (const schemaAlias of schemaAliases) {
-          const schemaDsl = await dsl.schema(schemaAlias);
+          const schemaDsl = await dslInstance.schema(schemaAlias);
           if (schemaDsl) {
             aliasMap.set(schemaDsl.schema.schemaSaid, schemaAlias);
           }
@@ -334,6 +340,12 @@ export function NetworkGraph() {
         }));
 
         setGraph(graphData);
+
+        // Generate Mermaid gitGraph
+        const store = dslInstance.getStore();
+        const gitGraph = createKeriGitGraph(store, dslInstance);
+        const mermaid = await gitGraph.toMermaid({ includeTel: true });
+        setMermaidChart(mermaid);
       } catch (err) {
         console.error('Failed to load graph:', err);
         setError(err instanceof Error ? err.message : 'Unknown error');
@@ -462,6 +474,7 @@ export function NetworkGraph() {
     <Tabs defaultValue="graph" className="w-full">
       <TabsList className="mb-4">
         <TabsTrigger value="graph">Graph View</TabsTrigger>
+        <TabsTrigger value="gitgraph">Git Graph</TabsTrigger>
         <TabsTrigger value="table">Table View</TabsTrigger>
       </TabsList>
 
@@ -645,6 +658,26 @@ export function NetworkGraph() {
         </CardContent>
       </Card>
         </div>
+      </TabsContent>
+
+      <TabsContent value="gitgraph">
+        <Card>
+          <CardHeader>
+            <CardTitle>Git Graph View</CardTitle>
+            <CardDescription>
+              KERI event chains visualized as git-style commit graphs
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="min-h-[600px]">
+            {mermaidChart ? (
+              <MermaidRenderer chart={mermaidChart} className="w-full" />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                No data available - create identities and registries to view the git graph
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </TabsContent>
 
       <TabsContent value="table">
