@@ -47,6 +47,13 @@ export interface Attachment {
 }
 
 /**
+ * CESR encoding format
+ * - binary: Raw binary CESR bytes (.bin.cesr)
+ * - text: CESR encoded as text (.text.cesr)
+ */
+export type CesrEncoding = 'binary' | 'text';
+
+/**
  * Structured storage key for KV implementations
  * Enables proper file extensions, SQL table routing, and IndexedDB stores
  */
@@ -61,6 +68,8 @@ export interface StorageKey {
   meta?: {
     /** Event type for CESR files (icp, rot, ixn, vcp, iss, rev) */
     eventType?: EventType;
+    /** CESR encoding format (binary or text) */
+    cesrEncoding?: CesrEncoding;
     /** Whether this is immutable content-addressed data */
     immutable?: boolean;
     /** Suggested index keys for query optimization */

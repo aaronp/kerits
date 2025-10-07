@@ -83,7 +83,9 @@ function storageKeyToPath(baseDir: string, key: StorageKey): string {
     ext += `.${key.meta.eventType}`;
   }
   if (key.type === 'cesr') {
-    ext += '.cesr';
+    // Add encoding suffix for CESR
+    const encoding = key.meta?.cesrEncoding || 'binary';
+    ext += `.${encoding}.cesr`;
   } else if (key.type === 'json') {
     ext += '.json';
   }
@@ -103,13 +105,23 @@ function pathToStorageKey(baseDir: string, filePath: string): StorageKey {
   let fileName = lastPart;
   let type: 'cesr' | 'json' | 'text' | undefined;
   let eventType: string | undefined;
+  let cesrEncoding: 'binary' | 'text' | undefined;
 
   // Check for .cesr or .json extension
   if (lastPart.endsWith('.cesr')) {
     type = 'cesr';
     fileName = lastPart.slice(0, -5); // Remove .cesr
 
-    // Check for event type before .cesr
+    // Check for encoding (.binary.cesr or .text.cesr)
+    if (fileName.endsWith('.binary')) {
+      cesrEncoding = 'binary';
+      fileName = fileName.slice(0, -7);
+    } else if (fileName.endsWith('.text')) {
+      cesrEncoding = 'text';
+      fileName = fileName.slice(0, -5);
+    }
+
+    // Check for event type before encoding
     const eventTypes = ['icp', 'rot', 'ixn', 'vcp', 'iss', 'rev', 'upg', 'vtc', 'nrx'];
     for (const et of eventTypes) {
       if (fileName.endsWith(`.${et}`)) {
@@ -128,7 +140,10 @@ function pathToStorageKey(baseDir: string, filePath: string): StorageKey {
   return {
     path: parts,
     type,
-    meta: eventType ? { eventType: eventType as any } : undefined
+    meta: eventType || cesrEncoding ? {
+      eventType: eventType as any,
+      cesrEncoding
+    } : undefined
   };
 }
 

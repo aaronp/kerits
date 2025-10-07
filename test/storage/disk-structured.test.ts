@@ -27,14 +27,14 @@ describe('DiskKv Structured Keys', () => {
     const key: StorageKey = {
       path: ['kel', 'EAID123', 'ESAID456'],
       type: 'cesr',
-      meta: { eventType: 'icp', immutable: true }
+      meta: { eventType: 'icp', cesrEncoding: 'binary', immutable: true }
     };
 
     const data = new Uint8Array([1, 2, 3, 4]);
     await kv.putStructured(key, data);
 
-    // Check file exists with proper extension
-    const expectedPath = path.join(TEST_DIR, 'kel', 'EAID123', 'ESAID456.icp.cesr');
+    // Check file exists with proper extension (includes encoding)
+    const expectedPath = path.join(TEST_DIR, 'kel', 'EAID123', 'ESAID456.icp.binary.cesr');
     const exists = await fs.stat(expectedPath).then(() => true).catch(() => false);
     expect(exists).toBe(true);
 
@@ -90,14 +90,14 @@ describe('DiskKv Structured Keys', () => {
       const key: StorageKey = {
         path: ['kel', 'EAID123', `ESAID_${eventType}`],
         type: 'cesr',
-        meta: { eventType, immutable: true }
+        meta: { eventType, cesrEncoding: 'binary', immutable: true }
       };
 
       const data = new TextEncoder().encode(`event-${eventType}`);
       await kv.putStructured(key, data);
 
-      // Check file has correct extension
-      const expectedPath = path.join(TEST_DIR, 'kel', 'EAID123', `ESAID_${eventType}.${eventType}.cesr`);
+      // Check file has correct extension (includes encoding)
+      const expectedPath = path.join(TEST_DIR, 'kel', 'EAID123', `ESAID_${eventType}.${eventType}.binary.cesr`);
       const exists = await fs.stat(expectedPath).then(() => true).catch(() => false);
       expect(exists).toBe(true);
     }
@@ -106,9 +106,9 @@ describe('DiskKv Structured Keys', () => {
   it('should list structured keys', async () => {
     // Create multiple files
     const keys: StorageKey[] = [
-      { path: ['kel', 'EAID1', 'ESAID1'], type: 'cesr', meta: { eventType: 'icp' } },
-      { path: ['kel', 'EAID1', 'ESAID2'], type: 'cesr', meta: { eventType: 'rot' } },
-      { path: ['kel', 'EAID2', 'ESAID3'], type: 'cesr', meta: { eventType: 'icp' } },
+      { path: ['kel', 'EAID1', 'ESAID1'], type: 'cesr', meta: { eventType: 'icp', cesrEncoding: 'binary' } },
+      { path: ['kel', 'EAID1', 'ESAID2'], type: 'cesr', meta: { eventType: 'rot', cesrEncoding: 'binary' } },
+      { path: ['kel', 'EAID2', 'ESAID3'], type: 'cesr', meta: { eventType: 'icp', cesrEncoding: 'binary' } },
     ];
 
     for (const key of keys) {
@@ -122,13 +122,14 @@ describe('DiskKv Structured Keys', () => {
     expect(results.length).toBe(3);
     expect(results[0].key.path).toEqual(['kel', 'EAID1', 'ESAID1']);
     expect(results[0].key.meta?.eventType).toBe('icp');
+    expect(results[0].key.meta?.cesrEncoding).toBe('binary');
   });
 
   it('should delete structured keys', async () => {
     const key: StorageKey = {
       path: ['kel', 'EAID123', 'ESAID456'],
       type: 'cesr',
-      meta: { eventType: 'icp' }
+      meta: { eventType: 'icp', cesrEncoding: 'binary' }
     };
 
     await kv.putStructured(key, new Uint8Array([1, 2, 3]));
@@ -155,11 +156,11 @@ describe('DiskKv Structured Keys', () => {
   it('should handle hierarchical directory structure', async () => {
     // Create nested structure
     await kv.putStructured(
-      { path: ['kel', 'EAID1', 'ESAID1'], type: 'cesr', meta: { eventType: 'icp' } },
+      { path: ['kel', 'EAID1', 'ESAID1'], type: 'cesr', meta: { eventType: 'icp', cesrEncoding: 'binary' } },
       new Uint8Array([1])
     );
     await kv.putStructured(
-      { path: ['tel', 'EREG1', 'ESAID2'], type: 'cesr', meta: { eventType: 'vcp' } },
+      { path: ['tel', 'EREG1', 'ESAID2'], type: 'cesr', meta: { eventType: 'vcp', cesrEncoding: 'binary' } },
       new Uint8Array([2])
     );
     await kv.putStructured(
