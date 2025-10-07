@@ -60,61 +60,6 @@ describe('Key Rotation', () => {
     console.log('✓ ROT event successfully stored in KEL');
   });
 
-  it('should build graph including rot event', async () => {
-    const kv = new MemoryKv();
-    const store = createKerStore(kv);
-    const dsl = createKeritsDSL(store);
-
-    // Create account
-    const mnemonic1 = dsl.newMnemonic(TEST_SEED_1);
-    await dsl.newAccount('test-account', mnemonic1);
-    const accountDsl = await dsl.account('test-account');
-
-    // Rotate keys
-    const mnemonic2 = dsl.newMnemonic(TEST_SEED_2);
-    await accountDsl!.rotateKeys(mnemonic2);
-
-    // Build graph
-    const graph = await dsl.graph();
-
-    console.log('Graph nodes:', graph.nodes.length);
-    console.log('Graph edges:', graph.edges.length);
-
-    // Debug: show all nodes
-    console.log('All nodes:', graph.nodes.map(n => ({ kind: n.kind, label: n.label, metaT: (n.meta as any)?.t })));
-
-    // Find ROT node - check meta.t not type
-    const rotNodes = graph.nodes.filter(n => n.meta && (n.meta as any).t === 'rot');
-    console.log('ROT nodes found:', rotNodes.length);
-
-    if (rotNodes.length > 0) {
-      console.log('ROT node:', {
-        id: rotNodes[0].id.substring(0, 20),
-        kind: rotNodes[0].kind,
-        label: rotNodes[0].label,
-        metaT: (rotNodes[0].meta as any)?.t,
-      });
-    }
-
-    // Should have at least one rot node
-    expect(rotNodes.length).toBeGreaterThan(0);
-
-    // Should have ICP node
-    const icpNodes = graph.nodes.filter(n => n.meta && (n.meta as any).t === 'icp');
-    expect(icpNodes.length).toBeGreaterThan(0);
-
-    // Should have edge from ICP to ROT (via prior link)
-    const rotNode = rotNodes[0];
-    console.log('Looking for edges to ROT node:', rotNode.id.substring(0, 20));
-    console.log('All edges:', graph.edges.map(e => ({ kind: e.kind, from: e.from.substring(0, 12), to: e.to.substring(0, 12) })));
-
-    const edgesToRot = graph.edges.filter(e => e.to === rotNode.id);
-    console.log('Edges to ROT:', edgesToRot.length);
-    expect(edgesToRot.length).toBeGreaterThan(0);
-
-    console.log('✓ Graph includes ROT event with proper connections');
-  });
-
   it('should support multiple rotations', async () => {
     const kv = new MemoryKv();
     const store = createKerStore(kv);

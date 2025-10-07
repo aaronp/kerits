@@ -19,7 +19,6 @@ import type {
   SchemaExport,
   Contact,
   Mnemonic,
-  GraphOptions,
   KelEvent,
   TelEvent,
   RegistryOptions,
@@ -28,7 +27,6 @@ import type {
   JSONSchema7,
   JSONSchema7Property,
 } from './common';
-import type { Graph } from '../../../storage/types';
 import type { ExportDSL, ImportDSL } from './sync';
 import type { ContactSyncDSL } from './contact-sync';
 import type { IndexedRegistry, IndexedACDC, SchemaUsage, CounterpartyInfo, TELEventSummary } from '../../indexer/types';
@@ -75,13 +73,6 @@ export interface AccountDSL {
   getKel(): Promise<KelEvent[]>;
 
   /**
-   * Build account-scoped graph
-   * @param opts - Graph options
-   * @returns Graph for this account
-   */
-  graph(opts?: GraphOptions): Promise<Graph>;
-
-  /**
    * Export KEL events for this account
    * @returns ExportDSL for creating CESR bundle
    */
@@ -122,13 +113,6 @@ export interface RegistryDSL {
    * @returns Array of all TEL events
    */
   getTel(): Promise<TelEvent[]>;
-
-  /**
-   * Build registry-scoped graph
-   * @param opts - Graph options
-   * @returns Graph for this registry
-   */
-  graph(opts?: GraphOptions): Promise<Graph>;
 
   /**
    * Export TEL events for this registry
@@ -199,12 +183,6 @@ export interface ACDCDSL {
    * @returns Current credential status
    */
   status(): Promise<CredentialStatus>;
-
-  /**
-   * Build ACDC-scoped graph
-   * @returns Graph for this credential
-   */
-  graph(): Promise<Graph>;
 
   /**
    * Export this credential and its issuance event
@@ -408,13 +386,6 @@ export interface KeritsDSL {
    * @returns ContactsDSL instance
    */
   contacts(): ContactsDSL;
-
-  /**
-   * Build a graph representation of all stored events
-   * @param opts - Optional graph building options
-   * @returns Graph with nodes and edges
-   */
-  graph(opts?: GraphOptions): Promise<Graph>;
 
   /**
    * Get ImportDSL for importing CESR bundles

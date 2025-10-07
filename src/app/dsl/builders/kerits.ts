@@ -2,13 +2,12 @@
  * KeritsDSL - Top-level DSL for KERI operations
  */
 
-import type { KerStore, Graph } from '../../../storage/types';
-import type { KeritsDSL, Account, Mnemonic, AccountDSL, SchemaDSL, ContactsDSL, GraphOptions, ImportDSL, ContactSyncDSL } from '../types';
+import type { KerStore } from '../../../storage/types';
+import type { KeritsDSL, Account, Mnemonic, AccountDSL, SchemaDSL, ContactsDSL, ImportDSL, ContactSyncDSL } from '../types';
 import { generateKeypairFromSeed } from '../../../signer';
 import { createIdentity, createSchema as createSchemaHelper } from '../../helpers';
 import { seedToMnemonic, mnemonicToSeed, serializeEvent } from '../utils';
 import { saidify } from '../../../saidify';
-import { buildGraphFromStructuredKeys } from '../../../storage/graph';
 import { createAccountDSL } from './account';
 import { createSchemaDSL } from './schema';
 import { createContactsDSL } from './contacts';
@@ -278,10 +277,6 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
 
     sync(): ContactSyncDSL {
       return createContactSyncDSL(store);
-    },
-
-    async graph(opts?: GraphOptions): Promise<Graph> {
-      return buildGraphFromStructuredKeys(store.kv, opts);
     },
 
     getStore(): KerStore {

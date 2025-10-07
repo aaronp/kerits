@@ -3,7 +3,6 @@
  */
 import * as p from '@clack/prompts';
 import { getCurrentAccount, setCurrentAccount, listAccounts, loadAccountDSL, getAccountDataDir } from '../utils/storage.js';
-import { showGraph } from '../utils/graph.js';
 import { writeFile, mkdir } from 'fs/promises';
 import { mnemonicToSeed, seedToMnemonic } from '../../src/app/dsl/utils/index.js';
 
@@ -323,19 +322,7 @@ async function exportKel(currentAccount: string): Promise<void> {
 }
 
 async function showKelGraph(currentAccount: string): Promise<void> {
-  const s = p.spinner();
-  s.start('Loading graph...');
-
-  try {
-    const { dsl } = await loadAccountDSL(currentAccount);
-    const graph = await dsl.graph();
-
-    s.stop('Graph loaded');
-
-    // Show graph using Ink
-    await showGraph(graph, `KEL Graph - ${currentAccount}`);
-  } catch (error) {
-    s.stop('Failed to load graph');
-    p.log.error(error instanceof Error ? error.message : String(error));
-  }
+  p.log.warn('Graph functionality has been removed');
+  // Graph building has been removed from the DSL
+  // This function is kept for backwards compatibility but does nothing
 }

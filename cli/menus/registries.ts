@@ -3,7 +3,6 @@
  */
 import * as p from '@clack/prompts';
 import { getCurrentAccount, loadAccountDSL } from '../utils/storage.js';
-import { showGraph } from '../utils/graph.js';
 import { writeFile } from 'fs/promises';
 import { selectRegistryToExplore } from './explorer.js';
 
@@ -412,18 +411,9 @@ async function revokeCredential(registryDsl: any, registryAlias: string): Promis
 }
 
 async function showCredentialsGraph(registryDsl: any, registryAlias: string): Promise<void> {
-  const s = p.spinner();
-  s.start('Loading graph...');
-
-  try {
-    const graph = await registryDsl.graph();
-    s.stop();
-
-    await showGraph(graph, `Credentials Graph - ${registryAlias}`);
-  } catch (error) {
-    s.stop('Failed to load graph');
-    p.log.error(error instanceof Error ? error.message : String(error));
-  }
+  p.log.warn('Graph functionality has been removed');
+  // Graph building has been removed from the DSL
+  // This function is kept for backwards compatibility but does nothing
 }
 
 async function exportCredential(registryDsl: any, registryAlias: string): Promise<void> {

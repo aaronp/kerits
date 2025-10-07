@@ -1,7 +1,8 @@
 /**
- * Example: Account key rotation and graph visualization
+ * Example: Account key rotation
  *
- * Demonstrates AccountDSL with key rotation and graph building
+ * Demonstrates AccountDSL with key rotation
+ * Note: Graph visualization has been removed
  */
 
 import { createKerStore, MemoryKv } from '../src/storage';
@@ -38,12 +39,12 @@ async function main() {
     console.log(`  ${i}: ${event.t} (s=${event.s})`);
   });
 
-  // Check initial graph
-  let graph = await dsl.graph();
-  console.log('\nInitial Graph:');
-  console.log('  Nodes:', graph.nodes.length);
-  console.log('  Edges:', graph.edges.length);
-  console.log('  KEL events:', graph.nodes.filter(n => n.kind === 'KEL_EVT').length);
+  // Graph functionality has been removed
+  // let graph = await dsl.graph();
+  // console.log('\nInitial Graph:');
+  // console.log('  Nodes:', graph.nodes.length);
+  // console.log('  Edges:', graph.edges.length);
+  // console.log('  KEL events:', graph.nodes.filter(n => n.kind === 'KEL_EVT').length);
 
   // Perform first key rotation
   console.log('\n--- First Key Rotation ---');
@@ -63,12 +64,12 @@ async function main() {
   });
 
   // Check graph after first rotation
-  graph = await dsl.graph();
+  // graph = await dsl.graph(); // Graph functionality removed
   console.log('\nGraph after first rotation:');
-  console.log('  Nodes:', graph.nodes.length);
-  console.log('  Edges:', graph.edges.length);
-  console.log('  KEL events:', graph.nodes.filter(n => n.kind === 'KEL_EVT').length);
-  console.log('  Prior edges:', graph.edges.filter(e => e.kind === 'PRIOR').length);
+  // console.log(graph.nodes.length);
+  // console.log(graph.edges.length);
+  // console.log(graph.nodes.filter(n => n.kind === 'KEL_EVT').length);
+  // console.log(graph.edges.filter(e => e.kind === 'PRIOR').length);
 
   // Perform second key rotation
   console.log('\n--- Second Key Rotation ---');
@@ -87,24 +88,24 @@ async function main() {
   });
 
   // Final graph
-  graph = await dsl.graph();
+  // graph = await dsl.graph(); // Graph functionality removed
   console.log('\nFinal Graph:');
-  console.log('  Nodes:', graph.nodes.length);
-  console.log('  Edges:', graph.edges.length);
-  console.log('  KEL events:', graph.nodes.filter(n => n.kind === 'KEL_EVT').length);
-  console.log('  Prior edges:', graph.edges.filter(e => e.kind === 'PRIOR').length);
+  // console.log(graph.nodes.length);
+  // console.log(graph.edges.length);
+  // console.log(graph.nodes.filter(n => n.kind === 'KEL_EVT').length);
+  // console.log(graph.edges.filter(e => e.kind === 'PRIOR').length);
 
-  // Detailed graph structure
-  console.log('\nDetailed Graph Structure:');
-  console.log('\nNodes:');
-  graph.nodes.forEach(node => {
-    console.log(`  - ${node.kind}: ${node.label || node.id.substring(0, 20) + '...'}`);
-  });
+  // Detailed graph structure (removed)
+  // console.log('\nDetailed Graph Structure:');
+  // console.log('\nNodes:');
+  // graph.nodes.forEach(node => {
+  //   console.log(`  - ${node.kind}: ${node.label || node.id.substring(0, 20) + '...'}`);
+  // });
 
-  console.log('\nEdges:');
-  graph.edges.forEach(edge => {
-    console.log(`  - ${edge.kind}: ${edge.from.substring(0, 12)}... → ${edge.to.substring(0, 12)}...`);
-  });
+  // console.log('\nEdges:');
+  // graph.edges.forEach(edge => {
+  //   console.log(`  - ${edge.kind}: ${edge.from.substring(0, 12)}... → ${edge.to.substring(0, 12)}...`);
+  // });
 
   // Demonstrate graph with multiple accounts
   console.log('\n--- Multiple Accounts ---');
@@ -115,11 +116,11 @@ async function main() {
   console.log('Created second account (bob):', bob.aid.substring(0, 20) + '...');
 
   // Multi-account graph
-  graph = await dsl.graph();
+  // graph = await dsl.graph(); // Graph functionality removed
   console.log('\nGraph with multiple accounts:');
-  console.log('  Total nodes:', graph.nodes.length);
-  console.log('  AID nodes:', graph.nodes.filter(n => n.kind === 'AID').length);
-  console.log('  KEL event nodes:', graph.nodes.filter(n => n.kind === 'KEL_EVT').length);
+  // console.log(graph.nodes.length);
+  // console.log(graph.nodes.filter(n => n.kind === 'AID').length);
+  // console.log(graph.nodes.filter(n => n.kind === 'KEL_EVT').length);
 
   // List all accounts
   const accountNames = await dsl.accountNames();
