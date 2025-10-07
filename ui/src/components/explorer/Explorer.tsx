@@ -411,15 +411,40 @@ export function Explorer() {
     showToast('Registry CESR copied to clipboard - share it with others!');
   };
 
-  const handleACDCCopy = async (e: React.MouseEvent, credentialId: string) => {
+  const handleACDCShare = async (e: React.MouseEvent, registryAlias: string, acdc: IndexedACDC) => {
     e.stopPropagation();
 
+    if (!accountDsl) return;
+
     try {
-      await navigator.clipboard.writeText(credentialId);
-      showToast('Credential SAID copied to clipboard');
+      const registryDsl = await accountDsl.registry(registryAlias);
+      if (!registryDsl) {
+        showToast('Registry not found');
+        return;
+      }
+
+      // Get the full ACDC and issuance event from storage
+      const credentialId = acdc.credentialId;
+
+      // Export the credential data needed for the holder to accept
+      // This includes the ACDC and the issuance event
+      const exportData = {
+        credentialId,
+        issuerAid: acdc.issuerAid,
+        holderAid: acdc.holderAid,
+        registryId: registryAlias,
+        schemas: acdc.schemas,
+        data: acdc.latestData,
+        issuedAt: acdc.issuedAt,
+      };
+
+      await navigator.clipboard.writeText(JSON.stringify(exportData, null, 2));
+
+      const holderLabel = contactAliasMap.get(acdc.holderAid) || acdc.holderAid.substring(0, 12) + '...';
+      showToast(`Credential shared with ${holderLabel} - copied to clipboard`);
     } catch (error) {
-      console.error('Failed to copy credential SAID:', error);
-      showToast(`Failed to copy: ${error instanceof Error ? error.message : String(error)}`);
+      console.error('Failed to share credential:', error);
+      showToast(`Failed to share: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -463,27 +488,19 @@ export function Explorer() {
     if (!accountDsl || !importRegistryAlias) return;
 
     try {
-      // Parse the credential data (could be JSON, CESR, or just SAID)
-      let credential: any;
-      let issEvent: any = undefined;
+      // Parse the credential data
+      let credentialObj: any;
 
       try {
-        const parsed = JSON.parse(importCredentialData);
-
-        // Check if this is a full credential object
-        if (parsed.d && parsed.i) {
-          credential = parsed;
-        } else {
-          // Maybe it's just wrapped with SAID/credentialId
-          credential = parsed.d || parsed.SAID || parsed.credentialId || importCredentialData.trim();
-        }
+        credentialObj = JSON.parse(importCredentialData);
       } catch {
-        // Not JSON - assume it's a SAID directly
-        credential = importCredentialData.trim();
+        showToast('Invalid JSON format');
+        return;
       }
 
-      if (!credential) {
-        showToast('Could not parse credential data');
+      // Validate required fields
+      if (!credentialObj.credentialId || !credentialObj.issuerAid) {
+        showToast('Invalid credential: missing required fields (credentialId, issuerAid)');
         return;
       }
 
@@ -493,14 +510,27 @@ export function Explorer() {
         return;
       }
 
-      // Accept and import the credential
+      // Build the ACDC structure for the accept method
+      const acdc = {
+        v: 'ACDC10JSON',
+        d: credentialObj.credentialId,
+        i: credentialObj.issuerAid,
+        ri: credentialObj.registryId || importRegistryAlias,
+        s: credentialObj.schemas?.[0]?.schemaSaid || '',
+        a: {
+          d: '', // Will be computed
+          i: credentialObj.holderAid,
+          ...credentialObj.data,
+        },
+      };
+
+      // Accept and verify the credential using DSL
       await registryDsl.accept({
-        credential,
-        issEvent,
+        credential: acdc,
         alias: importCredentialAlias || undefined,
       });
 
-      // Reload credentials to show the imported one
+      // Reload credentials to show the accepted one
       await loadACDCsForRegistry(importRegistryAlias);
 
       // Close dialog and reset
@@ -509,11 +539,11 @@ export function Explorer() {
       setImportCredentialAlias('');
       setImportRegistryAlias(null);
 
-      showToast('Credential imported successfully');
+      showToast('Credential accepted and anchored successfully');
 
     } catch (error) {
-      console.error('Failed to import credential:', error);
-      showToast(`Failed to import: ${error instanceof Error ? error.message : String(error)}`);
+      console.error('Failed to accept credential:', error);
+      showToast(`Failed to accept: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -695,6 +725,15 @@ export function Explorer() {
                       >
                         <PlusCircle className="h-3.5 w-3.5" />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={(e) => handleACDCImportOpen(e, registry.alias)}
+                        title="Accept credential"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -708,10 +747,6 @@ export function Explorer() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={(e) => handleACDCImportOpen(e, registry.alias)}>
-                            <Download className="h-4 w-4 mr-2" />
-                            Import Credential
-                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={(e) => handleRegistryExport(e, registry.alias)}>
                             <Copy className="h-4 w-4 mr-2" />
                             Copy Registry
@@ -784,8 +819,8 @@ export function Explorer() {
                                     variant="ghost"
                                     size="sm"
                                     className="h-6 w-6 p-0"
-                                    onClick={(e) => handleACDCCopy(e, acdc.credentialId)}
-                                    title="Share (copy SAID)"
+                                    onClick={(e) => handleACDCShare(e, registry.alias, acdc)}
+                                    title={`Share credential with ${contactAliasMap.get(acdc.holderAid) || acdc.holderAid.substring(0, 12) + '...'}`}
                                   >
                                     <Upload className="h-3 w-3" />
                                   </Button>
@@ -1111,23 +1146,23 @@ export function Explorer() {
       <Dialog open={showImportACDCDialog} onOpenChange={setShowImportACDCDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Import Credential</DialogTitle>
+            <DialogTitle>Accept Credential</DialogTitle>
             <DialogDescription>
-              Paste the credential data (JSON or SAID) and optionally provide an alias to anchor it in your registry.
+              Paste the credential shared with you to accept and anchor it in your registry.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {/* Credential Data Input */}
             <div className="space-y-2">
-              <Label>Credential Data (JSON or SAID) *</Label>
+              <Label>Credential Data (JSON) *</Label>
               <textarea
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono min-h-[200px]"
-                placeholder='{"d":"EBWNHdSXCJnFJL5OuQPyM5K0neuniccMBdXt3gIXOf2B",...} or just SAID'
+                placeholder='{"credentialId":"EBWNHdSXCJnFJL5OuQPyM5K0neuniccMBdXt3gIXOf2B","issuerAid":"...","holderAid":"...","data":{...}}'
                 value={importCredentialData}
                 onChange={(e) => setImportCredentialData(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Paste the full credential JSON or just the SAID/credentialId
+                Paste the credential JSON shared by the issuer
               </p>
             </div>
 
@@ -1161,7 +1196,7 @@ export function Explorer() {
               onClick={handleACDCImportSubmit}
               disabled={!importCredentialData.trim()}
             >
-              Import
+              Accept Credential
             </Button>
           </div>
         </DialogContent>
