@@ -15,6 +15,7 @@ import { Button } from '../ui/button';
 import { route } from '@/config';
 import { CreateRegistryDialog } from './CreateRegistryDialog';
 import { buildRegistryTree, type RegistryNode } from '@/lib/registry-tree';
+import { useTheme } from '@/lib/theme-provider';
 import type { KeritsDSL } from '@kerits/app/dsl';
 
 interface RegistryTreeNavigationProps {
@@ -26,6 +27,7 @@ interface RegistryTreeNavigationProps {
 
 export function RegistryTreeNavigation({ dsl, accountAlias, selectedRegistryId, onRegistryCreated }: RegistryTreeNavigationProps) {
   const navigate = useNavigate();
+  const { theme } = useTheme();
   const [registryTree, setRegistryTree] = useState<RegistryNode[]>([]);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -114,16 +116,20 @@ export function RegistryTreeNavigation({ dsl, accountAlias, selectedRegistryId, 
     const hasChildren = node.children.length > 0;
     const currentPath = [...path, node.registryId];
 
-    // Get selected state styling - use explicit classes for Tailwind JIT
+    // Get selected state styling based on current theme
     const getSelectedClasses = () => {
       if (!isSelected) return 'hover:bg-muted/50';
 
-      // Depth-based colors for selected state
-      const lightColors = ['bg-blue-100', 'bg-indigo-100', 'bg-purple-100', 'bg-pink-100'];
-      const lightBorders = ['border-blue-300', 'border-indigo-300', 'border-purple-300', 'border-pink-300'];
-
-      const idx = node.depth % lightColors.length;
-      return `${lightColors[idx]} dark:bg-slate-800 ${lightBorders[idx]} dark:border-slate-600 border`;
+      if (theme === 'dark') {
+        // Dark theme: use slate colors
+        return 'bg-slate-800 border-slate-600 border';
+      } else {
+        // Light theme: use depth-based colors
+        const lightColors = ['bg-blue-100', 'bg-indigo-100', 'bg-purple-100', 'bg-pink-100'];
+        const lightBorders = ['border-blue-300', 'border-indigo-300', 'border-purple-300', 'border-pink-300'];
+        const idx = node.depth % lightColors.length;
+        return `${lightColors[idx]} ${lightBorders[idx]} border`;
+      }
     };
 
     return (
