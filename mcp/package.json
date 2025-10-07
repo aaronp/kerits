@@ -1,0 +1,24 @@
+{
+  "name": "kerits-mcp",
+  "version": "0.1.0",
+  "description": "Model Context Protocol server for KERITS credential system",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "kerits-mcp": "./index.ts"
+  },
+  "scripts": {
+    "start": "bun run index.ts",
+    "dev": "bun --watch index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.19.1"
+  }
+}
