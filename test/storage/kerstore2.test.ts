@@ -9,9 +9,8 @@ import type { KerStore2 } from '../../src/storage/types2';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 
-// Import KEL/TEL helpers
-import { incept } from '../../src/incept';
-import { registryIncept, issue, revoke } from '../../src/tel';
+// Import test helpers
+import { createTestInception, createTestRegistryInception, createTestKelWithRegistry } from '../helpers/events';
 
 describe('KerStore2', () => {
   const TEST_DIR = path.join('target', 'test-kerstore2');
@@ -32,7 +31,7 @@ describe('KerStore2', () => {
   describe('Event Storage', () => {
     it('should store and retrieve KEL events with binary encoding', async () => {
       // Create inception event
-      const { sad, raw } = incept({ baks: [] });
+      const { sad, raw } = createTestInception('1');
 
       // Store event
       const result = await store.putKelEvent(raw, 'binary');
@@ -60,11 +59,11 @@ describe('KerStore2', () => {
 
     it('should store and retrieve TEL events', async () => {
       // First create a KEL event
-      const { sad: icp, raw: icpRaw } = incept({ baks: [] });
+      const { sad: icp, raw: icpRaw } = createTestInception();
       await store.putKelEvent(icpRaw);
 
       // Create TEL registry
-      const { sad: vcpSad, raw: vcpRaw } = registryIncept({ regk: icp.i });
+      const { sad: vcpSad, raw: vcpRaw } = createTestRegistryInception(icp.i);
       const result = await store.putTelEvent(vcpRaw, 'binary');
 
       expect(result.said).toBe(vcpSad.d);
@@ -78,7 +77,7 @@ describe('KerStore2', () => {
     });
 
     it('should support text encoding', async () => {
-      const { sad, raw } = incept({ baks: [] });
+      const { sad, raw } = createTestInception('2');
 
       await store.putKelEvent(raw, 'text');
 
@@ -91,7 +90,7 @@ describe('KerStore2', () => {
 
   describe('HEAD Tracking', () => {
     it('should track KEL HEAD', async () => {
-      const { sad: icp, raw: icpRaw } = incept({ baks: [] });
+      const { sad: icp, raw: icpRaw } = createTestInception();
       await store.putKelEvent(icpRaw);
 
       // HEAD should be updated automatically
@@ -108,10 +107,10 @@ describe('KerStore2', () => {
     });
 
     it('should track TEL HEAD', async () => {
-      const { sad: icp, raw: icpRaw } = incept({ baks: [] });
+      const { sad: icp, raw: icpRaw } = createTestInception();
       await store.putKelEvent(icpRaw);
 
-      const { sad: vcpSad, raw: vcpRaw } = registryIncept({ regk: icp.i });
+      const { sad: vcpSad, raw: vcpRaw } = createTestRegistryInception(icp.i);
       await store.putTelEvent(vcpRaw);
 
       const head = await store.getTelHead(vcpSad.ri);
@@ -126,7 +125,7 @@ describe('KerStore2', () => {
 
   describe('KEL Operations', () => {
     it('should list KEL events in order', async () => {
-      const { sad: icp, raw: icpRaw } = incept({ baks: [] });
+      const { sad: icp, raw: icpRaw } = createTestInception();
       await store.putKelEvent(icpRaw);
 
       // TODO: Add rotation events once we have rotation helper
@@ -140,10 +139,10 @@ describe('KerStore2', () => {
 
   describe('TEL Operations', () => {
     it('should list TEL events', async () => {
-      const { sad: icp, raw: icpRaw } = incept({ baks: [] });
+      const { sad: icp, raw: icpRaw } = createTestInception();
       await store.putKelEvent(icpRaw);
 
-      const { sad: vcpSad, raw: vcpRaw } = registryIncept({ regk: icp.i });
+      const { sad: vcpSad, raw: vcpRaw } = createTestRegistryInception(icp.i);
       await store.putTelEvent(vcpRaw);
 
       const events = await store.listTel(vcpSad.ri);
@@ -268,10 +267,10 @@ describe('KerStore2', () => {
   describe('File Structure', () => {
     it('should create proper directory hierarchy', async () => {
       // Create various entities
-      const { sad: icp, raw: icpRaw } = incept({ baks: [] });
+      const { sad: icp, raw: icpRaw } = createTestInception();
       await store.putKelEvent(icpRaw);
 
-      const { sad: vcpSad, raw: vcpRaw } = registryIncept({ regk: icp.i });
+      const { sad: vcpSad, raw: vcpRaw } = createTestRegistryInception(icp.i);
       await store.putTelEvent(vcpRaw);
 
       await store.putACDC({ d: 'EACDC1', v: 'ACDC10JSON' });

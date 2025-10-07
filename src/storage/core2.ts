@@ -97,13 +97,13 @@ export function createKerStore2(kv: Kv, opts?: StoreOptions2): KerStore2 {
     // Store raw CESR
     await kv.putStructured!(eventKey, rawCesr);
 
-    // Store metadata separately
+    // Store metadata separately (include encoding so we know how to retrieve the raw CESR)
     const metaKey: StorageKey = {
       path: ['meta', said],
       type: 'json',
       meta: { immutable: true }
     };
-    await kv.putStructured!(metaKey, encodeJson({ ...meta, ingestedAt: now }));
+    await kv.putStructured!(metaKey, encodeJson({ ...meta, cesrEncoding: encoding, ingestedAt: now }));
 
     // Update HEAD pointer
     if (isKel && meta.i) {
@@ -163,13 +163,20 @@ export function createKerStore2(kv: Kv, opts?: StoreOptions2): KerStore2 {
     if (isKel && meta.i) {
       eventKey = {
         path: ['kel', meta.i, said],
-        type: 'cesr'
-        // encoding will be detected from filename
+        type: 'cesr',
+        meta: {
+          eventType: meta.t,
+          cesrEncoding: meta.cesrEncoding || 'binary'  // Use encoding from metadata
+        }
       };
     } else if (isTel && meta.ri) {
       eventKey = {
         path: ['tel', meta.ri, said],
-        type: 'cesr'
+        type: 'cesr',
+        meta: {
+          eventType: meta.t,
+          cesrEncoding: meta.cesrEncoding || 'binary'
+        }
       };
     } else {
       throw new Error(`Cannot determine path for event ${said}`);

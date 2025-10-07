@@ -81,7 +81,8 @@ export class DefaultJsonCesrParser implements Parser {
       s: sad.s,
       p: sad.p,
       dt: sad.dt,
-      ri: sad.t === 'vcp' ? sad.i : sad.ri,
+      // For VCP, registry ID is the `i` field (same as SAID); for other TEL events, it's in the `ri` field
+      ri: sad.t === 'vcp' ? (sad.i ?? sad.d ?? said) : sad.ri,
     };
 
     // VCP (registry inception) - extract issuer AID

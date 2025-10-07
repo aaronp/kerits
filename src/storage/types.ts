@@ -33,6 +33,8 @@ export interface EventMeta {
   acdcSaid?: SAID;        // ACDC SAID (if referenced)
   issuerAid?: AID;
   holderAid?: AID;
+  // Storage metadata
+  cesrEncoding?: CesrEncoding;  // Which encoding was used to store the raw CESR
 }
 
 export type AttachmentType = "AAB" | "FAB" | "VRC" | "SEAL" | "OTHER";
