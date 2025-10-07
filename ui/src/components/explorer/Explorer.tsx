@@ -648,8 +648,8 @@ export function Explorer() {
   }
 
   return (
-    <div className="space-y-6 -m-6 p-6 min-h-full" style={{ backgroundColor: theme === 'dark' ? 'rgb(2 6 23)' : 'rgb(248 250 252)' }}>
-      <Card style={{ backgroundColor: theme === 'dark' ? 'rgb(15 23 42)' : 'rgb(255 255 255)' }}>
+    <div className="space-y-6 -m-6 p-6 min-h-full">
+      <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Credential Registries</CardTitle>
           <Button onClick={handleAddRegistry} size="sm">
@@ -668,15 +668,11 @@ export function Explorer() {
                 <div
                   key={registry.registryId}
                   className="border rounded-lg relative group"
-                  style={{ backgroundColor: theme === 'dark' ? 'rgb(30 41 59)' : 'rgb(241 245 249)' }}
                   onMouseEnter={() => setHoveredRegistry(registry.registryId)}
                   onMouseLeave={() => setHoveredRegistry(null)}
                 >
                   <div
-                    className="flex items-center gap-2 p-3 transition-colors"
-                    style={{ backgroundColor: theme === 'dark' ? 'rgb(30 41 59)' : 'rgb(241 245 249)' }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme === 'dark' ? 'rgb(51 65 85)' : 'rgb(226 232 240)'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = theme === 'dark' ? 'rgb(30 41 59)' : 'rgb(241 245 249)'}
+                    className="flex items-center gap-2 p-3 transition-colors hover:bg-accent"
                   >
                     {acdcsByRegistry.get(registry.alias) && acdcsByRegistry.get(registry.alias)!.length > 0 ? (
                       <Button
