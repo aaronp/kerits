@@ -7,7 +7,7 @@ import { getDSL } from '@/lib/dsl';
 import { VisualId } from '../ui/visual-id';
 import { GraphTableView } from './GraphTableView';
 import { MermaidRenderer } from './MermaidRenderer';
-import { createKeriGitGraph } from '@/../../src/app/graph/keri-git-graph';
+import { createKeriGitGraph, createKeriGraph } from '@/../../src/app/graph';
 import type { Graph, GraphNode, GraphEdge } from '@/../../src/storage/types';
 import type { KeritsDSL } from '@/../../src/app/dsl/types';
 
@@ -287,7 +287,10 @@ export function NetworkGraph() {
 
         const dslInstance = await getDSL();
         setDsl(dslInstance);
-        const graphData = await dslInstance.graph();
+
+        // Build graph using createKeriGraph
+        const graphBuilder = createKeriGraph(dslInstance.getStore(), dslInstance);
+        const graphData = await graphBuilder.build();
 
         // Build alias map from DSL
         const aliasMap = new Map<string, string>();

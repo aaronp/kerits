@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { VisualId } from '../ui/visual-id';
 import { ChevronDown, ChevronRight, Eye } from 'lucide-react';
 import { getDSL } from '@/lib/dsl';
+import { createKeriGraph } from '@/../../src/app/graph';
 import type { Graph, GraphNode, GraphEdge } from '@/../src/storage/types';
 
 interface EventCard {
@@ -173,7 +174,10 @@ export function GraphTableView() {
         setError(null);
 
         const dsl = await getDSL();
-        const graph = await dsl.graph();
+
+        // Build graph using createKeriGraph
+        const graphBuilder = createKeriGraph(dsl.getStore(), dsl);
+        const graph = await graphBuilder.build();
 
         // Build alias map
         const aliasMap = new Map<string, string>();

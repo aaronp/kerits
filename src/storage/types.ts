@@ -210,3 +210,37 @@ export interface KerStore {
   aliasToId?(scope: string, alias: string): Promise<string | null>;
   idToAlias?(scope: string, id: string): Promise<string | null>;
 }
+
+/**
+ * Graph node types for visualization
+ */
+export type GraphNodeKind = 'AID' | 'KEL_EVT' | 'TEL_REGISTRY' | 'TEL_EVT' | 'ACDC' | 'SCHEMA';
+
+/**
+ * Graph node representing an entity in the KERI data structure
+ */
+export interface GraphNode {
+  id: string;
+  kind: GraphNodeKind;
+  label?: string;
+  meta?: any;
+}
+
+/**
+ * Graph edge representing a relationship between nodes
+ */
+export interface GraphEdge {
+  id: string;
+  from: string;
+  to: string;
+  kind: 'PRIOR' | 'ANCHOR' | 'ISSUES' | 'REVOKES' | 'USES_SCHEMA' | 'BELONGS_TO';
+  meta?: any;
+}
+
+/**
+ * Graph structure for KERI data visualization
+ */
+export interface Graph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}

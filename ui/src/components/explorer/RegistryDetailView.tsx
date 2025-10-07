@@ -70,6 +70,9 @@ export function RegistryDetailView({
 
       try {
         setLoading(true);
+        // Clear previous registry data when switching registries
+        setRegistryDsl(null);
+        setAcdcs([]);
 
         // Get account DSL
         const accountDsl = await dsl.account(accountAlias);
@@ -349,7 +352,7 @@ export function RegistryDetailView({
                           {acdc.status}
                         </span>
                         <span className="text-muted-foreground">
-                          Issued: {new Date(acdc.issuedAt).toLocaleDateString()}
+                          Issued: {acdc.issuedAt ? new Date(acdc.issuedAt).toLocaleDateString() : 'Unknown'}
                         </span>
                       </div>
                     </div>
@@ -378,7 +381,7 @@ export function RegistryDetailView({
               Issue a new ACDC in the "{registryDsl.registry.alias}" registry
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4 px-2">
             {/* Credential Alias */}
             <div className="grid gap-2">
               <Label htmlFor="credentialAlias">Credential Alias *</Label>

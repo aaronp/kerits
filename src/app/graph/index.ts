@@ -10,3 +10,6 @@ export type { GitCommit, GitBranch, KeriGitGraphOptions } from './keri-git-graph
 
 export { TextGraph, createTextGraph } from './text-graph';
 export type { TextGraphOptions } from './text-graph';
+
+export { KeriGraph, createKeriGraph } from './keri-graph';
+export type { KeriGraphOptions } from './keri-graph';
