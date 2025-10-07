@@ -13,7 +13,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronRight, ChevronDown, PlusCircle, Download, Upload, Share2, FileText, Copy, MoreVertical, XCircle } from 'lucide-react';
+import { ChevronRight, ChevronDown, PlusCircle, Download, Upload, FileText, Copy, MoreVertical, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import {
@@ -724,7 +724,7 @@ export function Explorer() {
                   {expandedRegistries.has(registry.alias) &&
                     acdcsByRegistry.get(registry.alias) &&
                     acdcsByRegistry.get(registry.alias)!.length > 0 && (
-                      <div className="border-t" style={{ backgroundColor: theme === 'dark' ? 'rgb(15 23 42)' : 'rgb(248 250 252)' }}>
+                      <div className="border-t">
                         {/* Credentials list */}
                         <div className="p-2 space-y-1">
                           {acdcsByRegistry.get(registry.alias)?.map((acdc) => (
@@ -787,7 +787,7 @@ export function Explorer() {
                                     onClick={(e) => handleACDCCopy(e, acdc.credentialId)}
                                     title="Share (copy SAID)"
                                   >
-                                    <Share2 className="h-3 w-3" />
+                                    <Upload className="h-3 w-3" />
                                   </Button>
                                   {acdc.status === 'issued' && (
                                     <Button
@@ -1009,11 +1009,20 @@ export function Explorer() {
             <div className="space-y-2">
               <Label>Recipient (Holder) *</Label>
               <Combobox
-                options={contacts.map(c => ({
-                  value: c.prefix,
-                  label: c.name,
-                  description: c.prefix.substring(0, 40) + '...',
-                }))}
+                options={[
+                  // Add current user at the top
+                  ...(accountDsl ? [{
+                    value: registries[0]?.issuerAid || '',
+                    label: 'Me (Self-certified)',
+                    description: registries[0]?.issuerAid.substring(0, 40) + '...' || '',
+                  }] : []),
+                  // Add all contacts
+                  ...contacts.map(c => ({
+                    value: c.prefix,
+                    label: c.name,
+                    description: c.prefix.substring(0, 40) + '...',
+                  }))
+                ]}
                 value={selectedHolder}
                 onChange={setSelectedHolder}
                 placeholder="Select contact or enter AID..."
