@@ -25,6 +25,8 @@ import type {
   RegistryOptions,
   IssueParams,
   CredentialStatus,
+  JSONSchema7,
+  JSONSchema7Property,
 } from './common';
 import type { Graph } from '../../../storage/types';
 import type { ExportDSL, ImportDSL } from './sync';
@@ -369,10 +371,10 @@ export interface KeritsDSL {
   /**
    * Create a new schema
    * @param alias - Schema alias
-   * @param schema - Schema definition
+   * @param schema - Schema definition (JSON Schema Draft 7)
    * @returns SchemaDSL for the new schema
    */
-  createSchema(alias: string, schema: any): Promise<SchemaDSL>;
+  createSchema(alias: string, schema: JSONSchema7): Promise<SchemaDSL>;
 
   /**
    * Import a schema from KERI SAD format

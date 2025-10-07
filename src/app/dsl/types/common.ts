@@ -5,6 +5,61 @@
 import type { Graph } from '../../../storage/types';
 
 /**
+ * JSONSchema7 - JSON Schema Draft 7 definition
+ * Represents the structure of a credential schema
+ */
+export interface JSONSchema7 {
+  /** Schema identifier (typically a URI or SAID) */
+  $id?: string;
+  /** JSON Schema version */
+  $schema?: string;
+  /** Schema title */
+  title: string;
+  /** Schema description */
+  description?: string;
+  /** Type of the schema (typically 'object' for credential schemas) */
+  type?: 'object' | 'string' | 'number' | 'boolean' | 'array' | 'null';
+  /** Property definitions */
+  properties: Record<string, JSONSchema7Property>;
+  /** Required properties */
+  required?: string[];
+  /** Additional properties allowed */
+  additionalProperties?: boolean | JSONSchema7Property;
+}
+
+/**
+ * JSONSchema7Property - Property definition in JSON Schema
+ */
+export interface JSONSchema7Property {
+  /** Property type */
+  type?: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object' | 'null';
+  /** Property description */
+  description?: string;
+  /** Enum values for restricted choices */
+  enum?: any[];
+  /** Default value */
+  default?: any;
+  /** Format hint (e.g., 'date-time', 'email', 'uri') */
+  format?: string;
+  /** Minimum value (for numbers) */
+  minimum?: number;
+  /** Maximum value (for numbers) */
+  maximum?: number;
+  /** Minimum length (for strings) */
+  minLength?: number;
+  /** Maximum length (for strings) */
+  maxLength?: number;
+  /** Pattern (regex for strings) */
+  pattern?: string;
+  /** Items schema (for arrays) */
+  items?: JSONSchema7Property;
+  /** Properties (for nested objects) */
+  properties?: Record<string, JSONSchema7Property>;
+  /** Required properties (for nested objects) */
+  required?: string[];
+}
+
+/**
  * Account represents a KERI identifier with human-friendly metadata
  */
 export interface Account {
@@ -66,13 +121,8 @@ export interface Schema {
   schemaId: string;
   /** Schema SAID (alias for schemaId for API consistency) */
   schemaSaid: string;
-  /** Schema definition */
-  schema: {
-    title: string;
-    description?: string;
-    properties: Record<string, any>;
-    required?: string[];
-  };
+  /** Schema definition (JSON Schema Draft 7) */
+  schema: JSONSchema7;
 }
 
 /**
@@ -83,14 +133,10 @@ export interface SchemaExport {
   /** Human-readable alias */
   alias: string;
   /** Self-Addressing Data (SED) - schema definition with SAID in $id */
-  sed: {
-    $id: string; // SAID
-    $schema: string;
-    title: string;
-    type: 'object';
-    properties: Record<string, any>;
-    description?: string;
-    required?: string[];
+  sed: JSONSchema7 & {
+    $id: string; // SAID (required in export format)
+    $schema: string; // JSON Schema version (required in export format)
+    type: 'object'; // Always object for KERI schemas
   };
   /** Schema SAID (redundant with sed.$id but part of standard format) */
   said: string;
