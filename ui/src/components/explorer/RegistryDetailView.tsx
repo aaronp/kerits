@@ -23,12 +23,14 @@ import {
 } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { Select } from '../ui/select';
 import { Combobox } from '../ui/combobox';
 import { route } from '@/config';
 import { CreateRegistryDialog } from './CreateRegistryDialog';
 import { VisualId } from '../ui/visual-id';
 import type { KeritsDSL, RegistryDSL } from '@/../src/app/dsl/types';
 import type { IndexedACDC } from '@/../src/app/indexer/types';
+import type { JSONSchema7Property } from '@/../src/app/dsl/types';
 
 interface RegistryDetailViewProps {
   dsl: KeritsDSL | null;
@@ -55,7 +57,11 @@ export function RegistryDetailView({
   const [selectedSchema, setSelectedSchema] = useState('');
   const [selectedHolder, setSelectedHolder] = useState('');
   const [credentialAlias, setCredentialAlias] = useState('');
-  const [credentialData, setCredentialData] = useState('{}');
+  const [credentialDataFields, setCredentialDataFields] = useState<Record<string, any>>({});
+  const [availableContacts, setAvailableContacts] = useState<Array<{ value: string; label: string }>>([]);
+  const [currentAccountAid, setCurrentAccountAid] = useState<string>('');
+  const [schemaProperties, setSchemaProperties] = useState<Record<string, JSONSchema7Property> | null>(null);
+  const [schemaRequired, setSchemaRequired] = useState<string[]>([]);
 
   // Load registry data
   useEffect(() => {
@@ -116,13 +122,29 @@ export function RegistryDetailView({
 
         setAcdcs(acdcList);
 
-        // Load available schemas
+        // Load available schemas (with "Create new..." option)
         const schemaAliases = await dsl.listSchemas();
-        const schemas = schemaAliases.map(alias => ({
-          value: alias,
-          label: alias,
-        }));
+        const schemas = [
+          { value: '__create__', label: '+ Create New Schema' },
+          ...schemaAliases.map(alias => ({
+            value: alias,
+            label: alias,
+          }))
+        ];
         setAvailableSchemas(schemas);
+
+        // Load contacts
+        const contactsDsl = dsl.contacts();
+        const allContacts = await contactsDsl.getAll();
+        const contacts = [
+          { value: accountDsl.account.aid, label: `${accountAlias} (current account)` },
+          ...allContacts.map(contact => ({
+            value: contact.aid,
+            label: `${contact.alias} - ${contact.aid.substring(0, 16)}...`,
+          }))
+        ];
+        setAvailableContacts(contacts);
+        setCurrentAccountAid(accountDsl.account.aid);
       } catch (error) {
         console.error('Failed to load registry:', error);
       } finally {
@@ -134,18 +156,52 @@ export function RegistryDetailView({
   }, [dsl, accountAlias, registryId]);
 
 
+  // Initialize credential data fields when schema changes
+  useEffect(() => {
+    async function loadSchemaFields() {
+      if (!dsl || !selectedSchema || selectedSchema === '__create__') {
+        setCredentialDataFields({});
+        setSchemaProperties(null);
+        setSchemaRequired([]);
+        return;
+      }
+
+      try {
+        const schemaDsl = await dsl.schema(selectedSchema);
+        if (schemaDsl) {
+          const schema = schemaDsl.getSchema();
+          const initialData: Record<string, any> = {};
+
+          // Store schema properties and required fields
+          setSchemaProperties(schema.properties || null);
+          setSchemaRequired(schema.required || []);
+
+          // Initialize fields from schema properties
+          if (schema.properties) {
+            Object.keys(schema.properties).forEach(key => {
+              initialData[key] = '';
+            });
+          }
+
+          setCredentialDataFields(initialData);
+        }
+      } catch (error) {
+        console.error('Failed to load schema fields:', error);
+      }
+    }
+
+    loadSchemaFields();
+  }, [dsl, selectedSchema]);
+
   const handleIssueCredential = async () => {
     if (!selectedSchema || !selectedHolder || !credentialAlias.trim() || !registryDsl) return;
 
     try {
-      // Parse credential data
-      const data = JSON.parse(credentialData);
-
-      // Issue credential
+      // Issue credential with structured field data
       await registryDsl.issue({
         schema: selectedSchema,
         holder: selectedHolder,
-        data,
+        data: credentialDataFields,
         alias: credentialAlias.trim(),
       });
 
@@ -154,7 +210,7 @@ export function RegistryDetailView({
       setSelectedSchema('');
       setSelectedHolder('');
       setCredentialAlias('');
-      setCredentialData('{}');
+      setCredentialDataFields({});
 
       // Reload registry data
       const acdcAliases = await registryDsl.listACDCs();
@@ -195,11 +251,15 @@ export function RegistryDetailView({
     console.log('Import to registry:', registryId);
   };
 
-  const handleCreateSchema = () => {
-    // Navigate to schema creation with return URL
-    navigate(
-      route(`/dashboard/schemas/new?returnTo=/dashboard/explorer/${accountAlias}/${registryId}`)
-    );
+  const handleSchemaChange = (value: string) => {
+    if (value === '__create__') {
+      // Navigate to schema creation with return URL
+      navigate(
+        route(`/dashboard/schemas/new?returnTo=/dashboard/explorer/${accountAlias}/${registryId}`)
+      );
+    } else {
+      setSelectedSchema(value);
+    }
   };
 
   if (loading) {
@@ -311,7 +371,7 @@ export function RegistryDetailView({
 
       {/* Issue Credential Dialog */}
       <Dialog open={showIssueDialog} onOpenChange={setShowIssueDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Issue Credential</DialogTitle>
             <DialogDescription>
@@ -319,8 +379,9 @@ export function RegistryDetailView({
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            {/* Credential Alias */}
             <div className="grid gap-2">
-              <Label htmlFor="credentialAlias">Credential Alias</Label>
+              <Label htmlFor="credentialAlias">Credential Alias *</Label>
               <Input
                 id="credentialAlias"
                 value={credentialAlias}
@@ -329,48 +390,92 @@ export function RegistryDetailView({
               />
             </div>
 
+            {/* Schema Selection */}
             <div className="grid gap-2">
-              <div className="flex justify-between items-center">
-                <Label>Schema</Label>
-                {availableSchemas.length === 0 && (
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0"
-                    onClick={handleCreateSchema}
-                  >
-                    Create Schema
-                  </Button>
-                )}
-              </div>
-              <Combobox
-                options={availableSchemas}
+              <Label>Schema *</Label>
+              <Select
                 value={selectedSchema}
-                onChange={setSelectedSchema}
-                placeholder="Select schema..."
-              />
+                onChange={(e) => handleSchemaChange(e.target.value)}
+              >
+                <option value="">Select schema...</option>
+                {availableSchemas.map(schema => (
+                  <option key={schema.value} value={schema.value}>
+                    {schema.label}
+                  </option>
+                ))}
+              </Select>
             </div>
 
+            {/* Holder Selection */}
             <div className="grid gap-2">
-              <Label htmlFor="holder">Holder AID</Label>
-              <Input
-                id="holder"
+              <Label>Holder *</Label>
+              <Select
                 value={selectedHolder}
                 onChange={(e) => setSelectedHolder(e.target.value)}
-                placeholder="AID of credential holder"
-              />
+              >
+                <option value="">Select holder...</option>
+                {availableContacts.map(contact => (
+                  <option key={contact.value} value={contact.value}>
+                    {contact.label}
+                  </option>
+                ))}
+              </Select>
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="credentialData">Credential Data (JSON)</Label>
-              <textarea
-                id="credentialData"
-                value={credentialData}
-                onChange={(e) => setCredentialData(e.target.value)}
-                className="min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                placeholder='{"name": "John Doe", "role": "Engineer"}'
-              />
-            </div>
+            {/* Credential Data Fields */}
+            {schemaProperties && Object.keys(schemaProperties).length > 0 && (
+              <div className="space-y-4 pt-4 border-t">
+                <Label className="text-base font-semibold">Credential Data</Label>
+                {Object.entries(schemaProperties).map(([fieldName, prop]) => {
+                  const isRequired = schemaRequired.includes(fieldName);
+
+                  return (
+                    <div key={fieldName} className="space-y-2 px-1">
+                      <Label htmlFor={fieldName}>
+                        {fieldName} {isRequired && '*'}
+                        <span className="text-xs text-muted-foreground ml-2">
+                          ({prop.type || 'string'})
+                        </span>
+                      </Label>
+
+                      {prop.type === 'boolean' ? (
+                        <Select
+                          id={fieldName}
+                          value={credentialDataFields[fieldName]?.toString() || ''}
+                          onChange={(e) => setCredentialDataFields({
+                            ...credentialDataFields,
+                            [fieldName]: e.target.value === 'true',
+                          })}
+                        >
+                          <option value="">Select...</option>
+                          <option value="true">True</option>
+                          <option value="false">False</option>
+                        </Select>
+                      ) : (
+                        <Input
+                          id={fieldName}
+                          type={
+                            prop.type === 'number' || prop.type === 'integer'
+                              ? 'number'
+                              : prop.format === 'date' || prop.format === 'date-time'
+                                ? 'date'
+                                : 'text'
+                          }
+                          placeholder={`Enter ${fieldName}`}
+                          value={credentialDataFields[fieldName] || ''}
+                          onChange={(e) => setCredentialDataFields({
+                            ...credentialDataFields,
+                            [fieldName]: prop.type === 'number' || prop.type === 'integer'
+                              ? Number(e.target.value)
+                              : e.target.value,
+                          })}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowIssueDialog(false)}>
@@ -378,7 +483,7 @@ export function RegistryDetailView({
             </Button>
             <Button
               onClick={handleIssueCredential}
-              disabled={!selectedSchema || !selectedHolder || !credentialAlias.trim()}
+              disabled={!selectedSchema || selectedSchema === '__create__' || !selectedHolder || !credentialAlias.trim()}
             >
               Issue Credential
             </Button>
