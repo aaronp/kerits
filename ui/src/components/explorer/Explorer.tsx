@@ -13,9 +13,15 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronRight, ChevronDown, PlusCircle, Download, Upload, Share2, FileText, Copy } from 'lucide-react';
+import { ChevronRight, ChevronDown, PlusCircle, Download, Upload, Share2, FileText, Copy, MoreVertical, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 import { route } from '@/config';
 import { VisualId } from '../ui/visual-id';
 import {
@@ -65,6 +71,10 @@ export function Explorer() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newRegistryName, setNewRegistryName] = useState('');
   const [showAddACDCDialog, setShowAddACDCDialog] = useState(false);
+  const [showImportACDCDialog, setShowImportACDCDialog] = useState(false);
+  const [importRegistryAlias, setImportRegistryAlias] = useState<string | null>(null);
+  const [importCredentialData, setImportCredentialData] = useState('');
+  const [importCredentialAlias, setImportCredentialAlias] = useState('');
   const [selectedRegistryId, setSelectedRegistryId] = useState<string | null>(null);
   const [selectedSchemaAlias, setSelectedSchemaAlias] = useState('');
   const [selectedSchema, setSelectedSchema] = useState<any>(null);
@@ -413,28 +423,83 @@ export function Explorer() {
     }
   };
 
-  const handleACDCImport = async (e: React.MouseEvent, registryAlias: string) => {
+  const handleACDCRevoke = async (e: React.MouseEvent, registryAlias: string, credentialId: string) => {
     e.stopPropagation();
     if (!accountDsl) return;
 
+    if (!confirm('Are you sure you want to revoke this credential? This action cannot be undone.')) {
+      return;
+    }
+
     try {
-      const text = await navigator.clipboard.readText();
-      const cesr = new TextEncoder().encode(text);
-
-      const importDsl = accountDsl.import();
-      const result = await importDsl.fromCESR(cesr, {
-        verify: true,
-        skipExisting: true,
-      });
-
-      if (result.failed > 0) {
-        showToast(`Import completed with errors: ${result.errors.join(', ')}`);
-      } else {
-        showToast(`Imported ${result.imported} events, skipped ${result.skipped}`);
+      const registryDsl = await accountDsl.registry(registryAlias);
+      if (!registryDsl) {
+        showToast('Registry not found');
+        return;
       }
 
-      // Reload ACDCs for this registry
-      await loadACDCsForRegistry(registryAlias);
+      // TODO: Implement revoke method on registry DSL
+      showToast('Revoke functionality not yet implemented');
+
+      // When implemented:
+      // await registryDsl.revoke(credentialId);
+      // await loadACDCsForRegistry(registryAlias);
+      // showToast('Credential revoked successfully');
+    } catch (error) {
+      console.error('Failed to revoke credential:', error);
+      showToast(`Failed to revoke: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
+  const handleACDCImportOpen = async (e: React.MouseEvent, registryAlias: string) => {
+    e.stopPropagation();
+    setImportRegistryAlias(registryAlias);
+    setImportCredentialData('');
+    setImportCredentialAlias('');
+    setShowImportACDCDialog(true);
+  };
+
+  const handleACDCImportSubmit = async () => {
+    if (!accountDsl || !importRegistryAlias) return;
+
+    try {
+      // Parse the credential data (could be JSON or CESR)
+      let credentialSaid: string;
+      try {
+        const parsed = JSON.parse(importCredentialData);
+        credentialSaid = parsed.d || parsed.SAID || parsed.credentialId;
+      } catch {
+        // Assume it's a SAID directly
+        credentialSaid = importCredentialData.trim();
+      }
+
+      if (!credentialSaid) {
+        showToast('Could not determine credential SAID from input');
+        return;
+      }
+
+      const registryDsl = await accountDsl.registry(importRegistryAlias);
+      if (!registryDsl) {
+        showToast('Registry not found');
+        return;
+      }
+
+      // TODO: Implement accept/anchor method on registry DSL
+      // This should:
+      // 1. Verify the credential
+      // 2. Create an ACP (accept) event
+      // 3. Anchor it in the TEL
+      // await registryDsl.accept({
+      //   credentialSaid,
+      //   alias: importCredentialAlias || undefined,
+      // });
+
+      showToast('Accept/anchor functionality not yet implemented in DSL');
+
+      // When implemented, reload credentials:
+      // await loadACDCsForRegistry(importRegistryAlias);
+      // setShowImportACDCDialog(false);
+
     } catch (error) {
       console.error('Failed to import credential:', error);
       showToast(`Failed to import: ${error instanceof Error ? error.message : String(error)}`);
@@ -619,33 +684,29 @@ export function Explorer() {
                       >
                         <PlusCircle className="h-3.5 w-3.5" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0"
-                        onClick={(e) => handleRegistryImport(e, registry.alias)}
-                        title="Import from clipboard (CESR)"
-                      >
-                        <Upload className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0"
-                        onClick={(e) => handleRegistryExport(e, registry.alias)}
-                        title="Export to clipboard (CESR)"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0"
-                        onClick={(e) => handleRegistryShare(e, registry.alias)}
-                        title="Share (copy CESR)"
-                      >
-                        <Share2 className="h-3.5 w-3.5" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={(e) => e.stopPropagation()}
+                            title="More actions"
+                          >
+                            <MoreVertical className="h-3.5 w-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={(e) => handleACDCImportOpen(e, registry.alias)}>
+                            <Download className="h-4 w-4 mr-2" />
+                            Import Credential
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => handleRegistryExport(e, registry.alias)}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copy Registry
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
 
@@ -713,10 +774,21 @@ export function Explorer() {
                                     size="sm"
                                     className="h-6 w-6 p-0"
                                     onClick={(e) => handleACDCCopy(e, acdc.credentialId)}
-                                    title="Copy credential SAID"
+                                    title="Share (copy SAID)"
                                   >
-                                    <Copy className="h-3 w-3" />
+                                    <Share2 className="h-3 w-3" />
                                   </Button>
+                                  {acdc.status === 'issued' && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0"
+                                      onClick={(e) => handleACDCRevoke(e, registry.alias, acdc.credentialId)}
+                                      title="Revoke credential"
+                                    >
+                                      <XCircle className="h-3 w-3" />
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
 
@@ -907,6 +979,21 @@ export function Explorer() {
               )}
             </div>
 
+            {/* Credential Alias (Optional) */}
+            <div className="space-y-2">
+              <Label htmlFor="credentialAlias">Credential Alias (Optional)</Label>
+              <Input
+                id="credentialAlias"
+                type="text"
+                placeholder="my-credential"
+                value={credentialAlias}
+                onChange={(e) => setCredentialAlias(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Optional friendly name to reference this credential
+              </p>
+            </div>
+
             {/* Recipient Selection */}
             <div className="space-y-2">
               <Label>Recipient (Holder) *</Label>
@@ -925,21 +1012,6 @@ export function Explorer() {
               />
               <p className="text-xs text-muted-foreground">
                 Select from contacts or enter a custom AID directly
-              </p>
-            </div>
-
-            {/* Credential Alias (Optional) */}
-            <div className="space-y-2">
-              <Label htmlFor="credentialAlias">Credential Alias (Optional)</Label>
-              <Input
-                id="credentialAlias"
-                type="text"
-                placeholder="my-credential"
-                value={credentialAlias}
-                onChange={(e) => setCredentialAlias(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Optional friendly name to reference this credential
               </p>
             </div>
 
@@ -1010,6 +1082,66 @@ export function Explorer() {
               className="border-2"
             >
               Issue Credential
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import ACDC Dialog */}
+      <Dialog open={showImportACDCDialog} onOpenChange={setShowImportACDCDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Import Credential</DialogTitle>
+            <DialogDescription>
+              Paste the credential data (JSON or SAID) and optionally provide an alias to anchor it in your registry.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Credential Data Input */}
+            <div className="space-y-2">
+              <Label>Credential Data (JSON or SAID) *</Label>
+              <textarea
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono min-h-[200px]"
+                placeholder='{"d":"EBWNHdSXCJnFJL5OuQPyM5K0neuniccMBdXt3gIXOf2B",...} or just SAID'
+                value={importCredentialData}
+                onChange={(e) => setImportCredentialData(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Paste the full credential JSON or just the SAID/credentialId
+              </p>
+            </div>
+
+            {/* Alias Input */}
+            <div className="space-y-2">
+              <Label>Credential Alias (Optional)</Label>
+              <Input
+                type="text"
+                placeholder="my-credential"
+                value={importCredentialAlias}
+                onChange={(e) => setImportCredentialAlias(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Optional: provide a human-readable alias for this credential
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowImportACDCDialog(false);
+                setImportCredentialData('');
+                setImportCredentialAlias('');
+                setImportRegistryAlias(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleACDCImportSubmit}
+              disabled={!importCredentialData.trim()}
+            >
+              Import
             </Button>
           </div>
         </DialogContent>
