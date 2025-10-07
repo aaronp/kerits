@@ -278,5 +278,9 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
     sync(): ContactSyncDSL {
       return createContactSyncDSL(store);
     },
+
+    getStore(): KerStore {
+      return store;
+    },
   };
 }

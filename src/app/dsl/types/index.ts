@@ -9,6 +9,8 @@ export * from './contact-sync';
 // Re-export indexer types for convenience
 export type { IndexedRegistry, IndexedACDC, SchemaUsage, CounterpartyInfo, TELEventSummary } from '../../indexer/types';
 
+import type { KerStore } from '../../../storage/types';
+
 import type {
   Account,
   Registry,
@@ -423,4 +425,10 @@ export interface KeritsDSL {
    * @returns ContactSyncDSL instance
    */
   sync(): ContactSyncDSL;
+
+  /**
+   * Get the underlying KerStore instance
+   * @returns KerStore instance
+   */
+  getStore(): KerStore;
 }

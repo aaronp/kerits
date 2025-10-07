@@ -8,7 +8,7 @@
  * 4. Alice exports the credential via IPEX
  * 5. Bob imports the credential into his 'mydata' registry
  * 6. Alice revokes the credential
- * 7. TreeGraph shows filesystem-like view of all KERI data
+ * 7. TextGraph shows filesystem-like view and KeriGitGraph shows Mermaid diagrams
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
@@ -16,12 +16,13 @@ import { createKerStore } from '../../src/storage/core';
 import { DiskKv } from '../../src/storage/adapters/disk';
 import { createKeritsDSL } from '../../src/app/dsl';
 import type { KeritsDSL } from '../../src/app/dsl/types';
+import { createTextGraph, createKeriGitGraph } from '../../src/app/graph';
 import * as path from 'path';
 
 const SEED_ALICE = new Uint8Array(32).fill(1);
 const SEED_BOB = new Uint8Array(32).fill(2);
 
-describe('IPEX Credential Exchange with TreeGraph', () => {
+describe('IPEX Credential Exchange with Graph Visualizations', () => {
   const TEST_DIR = path.join('target', 'ipex-test', `test-${Date.now()}`);
   const ALICE_DIR = path.join(TEST_DIR, 'alice');
   const BOB_DIR = path.join(TEST_DIR, 'bob');
@@ -175,76 +176,62 @@ describe('IPEX Credential Exchange with TreeGraph', () => {
     expect(revEvents[0].acdcSaid).toBe(credential.acdc.credentialId);
     console.log(`✓ Revocation event found in TEL`);
 
-    // === 11. Generate TreeGraph visualization ===
-    console.log('\n📝 Step 11: Generating TreeGraph visualization...\n');
+    // === 11. Generate graph visualizations ===
+    console.log('\n📝 Step 11: Generating graph visualizations...\n');
 
-    console.log('┌──────────────────────────��──────────────────────────────┐');
-    console.log('│ KERI Data Structure - Filesystem View                  │');
+    // Get KEL/TEL data for assertions
+    const aliceKel = await aliceAccountDSL!.getKel();
+    const financeTel = await financeRegistry.getTel();
+    const bobKel = await bobAccountDSL!.getKel();
+    const bobTel = await bobRegistry.getTel();
+
+    // === 11a. TextGraph - Filesystem View ===
+    console.log('┌─────────────────────────────────────────────────────────┐');
+    console.log('│ KERI Data Structure - Filesystem View (TextGraph)      │');
     console.log('└─────────────────────────────────────────────────────────┘\n');
 
+    // Alice's data
     console.log('📁 Alice\'s KERI Data:');
-    console.log('├─ 🔑 KEL (alice)');
-    console.log(`│  └─ ${aliceAccount.aid.substring(0, 24)}...`);
-    const aliceKel = await aliceAccountDSL!.getKel();
-    aliceKel.forEach((event, idx) => {
-      const isLast = idx === aliceKel.length - 1;
-      const prefix = isLast ? '     └─' : '     ├─';
-      console.log(`${prefix} [${event.s}] ${event.t.toUpperCase()}: ${event.d.substring(0, 20)}...`);
-    });
+    const aliceStore = aliceDSL.getStore(); // Access internal store
+    const aliceTextGraph = createTextGraph(aliceStore);
+    const aliceTree = await aliceTextGraph.toTree();
+    console.log(aliceTree);
+    console.log('');
 
-    console.log('├─ 📋 TEL (finance)');
-    console.log(`│  └─ ${financeRegistry.registry.registryId.substring(0, 24)}...`);
-    const financeTel = await financeRegistry.getTel();
-    financeTel.forEach((event, idx) => {
-      const isLast = idx === financeTel.length - 1;
-      const prefix = isLast ? '     └─' : '     ├─';
-      console.log(`${prefix} [${event.s}] ${event.t.toUpperCase()}: ${event.d.substring(0, 20)}...`);
-    });
+    const aliceSummary = await aliceTextGraph.toSummary({ storageLocation: ALICE_DIR });
+    console.log(aliceSummary);
+    console.log('');
 
-    console.log('└─ 📋 TEL (public) [nested under finance]');
-    console.log(`   └─ ${publicRegistry.registry.registryId.substring(0, 24)}...`);
-    publicTel.forEach((event, idx) => {
-      const isLast = idx === publicTel.length - 1;
-      const prefix = isLast ? '      └─' : '      ├─';
-      const label = event.t === 'iss' ? `ISS (ACDC: ${event.acdcSaid?.substring(0, 16)}...)` :
-                    event.t === 'rev' ? `REV (ACDC: ${event.acdcSaid?.substring(0, 16)}...)` :
-                    event.t.toUpperCase();
-      console.log(`${prefix} [${event.s}] ${label}`);
-    });
+    // Bob's data
+    console.log('📁 Bob\'s KERI Data:');
+    const bobStore = bobDSL.getStore(); // Access internal store
+    const bobTextGraph = createTextGraph(bobStore);
+    const bobTree = await bobTextGraph.toTree();
+    console.log(bobTree);
+    console.log('');
 
-    console.log('\n📁 Bob\'s KERI Data:');
-    console.log('├─ 🔑 KEL (bob)');
-    console.log(`│  └─ ${bobAccount.aid.substring(0, 24)}...`);
-    const bobKel = await bobAccountDSL!.getKel();
-    bobKel.forEach((event, idx) => {
-      const isLast = idx === bobKel.length - 1;
-      const prefix = isLast ? '     └─' : '     ├─';
-      console.log(`${prefix} [${event.s}] ${event.t.toUpperCase()}: ${event.d.substring(0, 20)}...`);
-    });
+    const bobSummary = await bobTextGraph.toSummary({ storageLocation: BOB_DIR });
+    console.log(bobSummary);
 
-    console.log('└─ 📋 TEL (mydata)');
-    console.log(`   └─ ${bobRegistry.registry.registryId.substring(0, 24)}...`);
-    const bobTel = await bobRegistry.getTel();
-    bobTel.forEach((event, idx) => {
-      const isLast = idx === bobTel.length - 1;
-      const prefix = isLast ? '      └─' : '      ├─';
-      const label = event.t === 'iss' ? `ISS (ACDC: ${event.acdcSaid?.substring(0, 16)}...)` :
-                    event.t.toUpperCase();
-      console.log(`${prefix} [${event.s}] ${label}`);
-    });
+    // === 11b. KeriGitGraph - Mermaid GitGraph ===
+    console.log('\n┌─────────────────────────────────────────────────────────┐');
+    console.log('│ KERI Event Chains - Mermaid GitGraph                   │');
+    console.log('└─────────────────────────────────────────────────────────┘\n');
 
-    console.log('\n📊 Summary:');
-    console.log(`  • Alice's KEL events: ${aliceKel.length}`);
-    console.log(`  • Alice's finance TEL events: ${financeTel.length}`);
-    console.log(`  • Alice's public TEL events: ${publicTel.length}`);
-    console.log(`  • Bob's KEL events: ${bobKel.length}`);
-    console.log(`  • Bob's mydata TEL events: ${bobTel.length}`);
-    console.log(`  • Total events: ${aliceKel.length + financeTel.length + publicTel.length + bobKel.length + bobTel.length}`);
-    console.log(`  • Credential: ${credential.acdc.credentialId.substring(0, 24)}... (revoked)`);
+    console.log('Alice\'s GitGraph:');
+    const aliceGitGraph = createKeriGitGraph(aliceStore);
+    const aliceMermaid = await aliceGitGraph.toMermaid({ includeTel: true });
+    console.log(aliceMermaid);
+    console.log('');
 
-    console.log('\n📂 Storage locations:');
-    console.log(`  • Alice: ${ALICE_DIR}`);
-    console.log(`  • Bob: ${BOB_DIR}`);
+    console.log('Bob\'s GitGraph:');
+    const bobGitGraph = createKeriGitGraph(bobStore);
+    const bobMermaid = await bobGitGraph.toMermaid({ includeTel: true });
+    console.log(bobMermaid);
+
+    console.log('\n📌 Credential Info:');
+    console.log(`  • ID: ${credential.acdc.credentialId.substring(0, 24)}...`);
+    console.log(`  • Status: revoked`);
 
     // === Final Assertions ===
     expect(aliceKel.length).toBeGreaterThanOrEqual(2); // ICP + at least one IXN
