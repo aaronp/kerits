@@ -18,6 +18,7 @@ export default defineConfig({
       'fs': path.resolve(__dirname, './src/lib/fs-stub.ts'),
       'path': path.resolve(__dirname, './src/lib/path-stub.ts'),
     },
+    extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'],
   },
   build: {
     outDir: 'dist',
@@ -27,7 +28,15 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['@noble/ed25519', '@noble/hashes/blake3.js', '@noble/hashes/sha2.js', 'buffer', 'bip39'],
+    include: [
+      '@noble/ed25519',
+      '@noble/hashes/blake3.js',
+      '@noble/hashes/sha2.js',
+      '@noble/hashes/sha3.js',
+      '@noble/hashes/blake2.js',
+      'buffer',
+      'bip39'
+    ],
     esbuildOptions: {
       define: {
         global: 'globalThis'
