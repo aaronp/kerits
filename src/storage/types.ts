@@ -46,6 +46,28 @@ export interface Attachment {
   rawSegment: Uint8Array; // the exact CESR segment bytes
 }
 
+/**
+ * Structured storage key for KV implementations
+ * Enables proper file extensions, SQL table routing, and IndexedDB stores
+ */
+export interface StorageKey {
+  /** Path segments (e.g., ['kel', 'EAID123', 'ESAID456']) */
+  path: string[];
+
+  /** Type hint for file extensions and serialization */
+  type?: 'cesr' | 'json' | 'text';
+
+  /** Optional metadata for KV optimization */
+  meta?: {
+    /** Event type for CESR files (icp, rot, ixn, vcp, iss, rev) */
+    eventType?: EventType;
+    /** Whether this is immutable content-addressed data */
+    immutable?: boolean;
+    /** Suggested index keys for query optimization */
+    indexes?: string[];
+  };
+}
+
 export interface ParsedEvent {
   stored: Omit<StoredEvent, "said" | "size" | "ingestedAt"> & { kind: string };
   meta: EventMeta;
@@ -56,13 +78,18 @@ export interface ParsedEvent {
  * KV Adapter - pluggable storage backend
  */
 export interface Kv {
+  // String-based methods (backward compatible)
   get(key: string): Promise<Uint8Array | null>;
   put(key: string, value: Uint8Array): Promise<void>;
   del(key: string): Promise<void>;
-  // list all keys/values under a given prefix
   list(prefix: string, opts?: { keysOnly?: boolean; limit?: number }): Promise<Array<{ key: string; value?: Uint8Array }>>;
-  // optional batch operations
   batch?(ops: Array<{ type: "put" | "del"; key: string; value?: Uint8Array }>): Promise<void>;
+
+  // Structured key methods (optional, for advanced implementations)
+  getStructured?(key: StorageKey): Promise<Uint8Array | null>;
+  putStructured?(key: StorageKey, value: Uint8Array): Promise<void>;
+  delStructured?(key: StorageKey): Promise<void>;
+  listStructured?(keyPrefix: StorageKey, opts?: { keysOnly?: boolean; limit?: number }): Promise<Array<{ key: StorageKey; value?: Uint8Array }>>;
 }
 
 /**

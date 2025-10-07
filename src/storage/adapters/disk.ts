@@ -5,9 +5,10 @@
  * - Each key is encoded as a safe filesystem path
  * - Values are stored as raw bytes in individual files
  * - Directory structure mirrors key hierarchy (separated by '/')
+ * - Supports structured keys with proper file extensions (.cesr, .json, .icp.cesr, etc.)
  */
 
-import type { Kv } from '../types';
+import type { Kv, StorageKey } from '../types';
 import * as fs from 'fs';
 import * as path from 'path';
 import { promisify } from 'util';
@@ -67,6 +68,68 @@ function decodeKey(encodedKey: string): string {
 function keyToPath(baseDir: string, key: string): string {
   const encoded = encodeKey(key);
   return path.join(baseDir, encoded);
+}
+
+/**
+ * Convert StorageKey to filesystem path with proper extensions
+ */
+function storageKeyToPath(baseDir: string, key: StorageKey): string {
+  const dirPath = path.join(baseDir, ...key.path.slice(0, -1).map(p => encodeKey(p)));
+  const fileName = key.path[key.path.length - 1];
+
+  // Build file extension
+  let ext = '';
+  if (key.meta?.eventType) {
+    ext += `.${key.meta.eventType}`;
+  }
+  if (key.type === 'cesr') {
+    ext += '.cesr';
+  } else if (key.type === 'json') {
+    ext += '.json';
+  }
+
+  return path.join(dirPath, encodeKey(fileName) + ext);
+}
+
+/**
+ * Convert filesystem path back to StorageKey
+ */
+function pathToStorageKey(baseDir: string, filePath: string): StorageKey {
+  const relativePath = path.relative(baseDir, filePath);
+  const parts = relativePath.split(path.sep).map(p => decodeKey(p));
+
+  // Extract extensions from last part
+  const lastPart = parts[parts.length - 1];
+  let fileName = lastPart;
+  let type: 'cesr' | 'json' | 'text' | undefined;
+  let eventType: string | undefined;
+
+  // Check for .cesr or .json extension
+  if (lastPart.endsWith('.cesr')) {
+    type = 'cesr';
+    fileName = lastPart.slice(0, -5); // Remove .cesr
+
+    // Check for event type before .cesr
+    const eventTypes = ['icp', 'rot', 'ixn', 'vcp', 'iss', 'rev', 'upg', 'vtc', 'nrx'];
+    for (const et of eventTypes) {
+      if (fileName.endsWith(`.${et}`)) {
+        eventType = et;
+        fileName = fileName.slice(0, -(et.length + 1));
+        break;
+      }
+    }
+  } else if (lastPart.endsWith('.json')) {
+    type = 'json';
+    fileName = lastPart.slice(0, -5); // Remove .json
+  }
+
+  parts[parts.length - 1] = fileName;
+
+  return {
+    path: parts,
+    type,
+    meta: eventType ? { eventType: eventType as any } : undefined
+  };
 }
 
 /**
@@ -256,5 +319,109 @@ export class DiskKv implements Kv {
    */
   getBaseDir(): string {
     return this.baseDir;
+  }
+
+  // Structured key methods
+
+  async getStructured(key: StorageKey): Promise<Uint8Array | null> {
+    const filePath = storageKeyToPath(this.baseDir, key);
+
+    try {
+      const buffer = await readFile(filePath);
+      return new Uint8Array(buffer);
+    } catch (err: any) {
+      if (err.code === 'ENOENT') {
+        return null;
+      }
+      throw err;
+    }
+  }
+
+  async putStructured(key: StorageKey, value: Uint8Array): Promise<void> {
+    const filePath = storageKeyToPath(this.baseDir, key);
+    const dir = path.dirname(filePath);
+
+    // Ensure parent directory exists
+    await mkdir(dir, { recursive: true });
+
+    // Write value
+    await writeFile(filePath, value);
+  }
+
+  async delStructured(key: StorageKey): Promise<void> {
+    const filePath = storageKeyToPath(this.baseDir, key);
+
+    try {
+      await unlink(filePath);
+    } catch (err: any) {
+      if (err.code !== 'ENOENT') {
+        throw err;
+      }
+      // Silently ignore if file doesn't exist
+    }
+  }
+
+  async listStructured(
+    keyPrefix: StorageKey,
+    opts?: { keysOnly?: boolean; limit?: number }
+  ): Promise<Array<{ key: StorageKey; value?: Uint8Array }>> {
+    const out: Array<{ key: StorageKey; value?: Uint8Array }> = [];
+    const lim = opts?.limit ?? Infinity;
+
+    // Build directory path from prefix
+    const prefixPath = path.join(this.baseDir, ...keyPrefix.path);
+
+    // Walk directory
+    const results: { key: StorageKey; filePath: string }[] = [];
+    await this.walkDirStructured(prefixPath, results);
+
+    // Sort by path for deterministic ordering
+    results.sort((a, b) => a.key.path.join('/').localeCompare(b.key.path.join('/')));
+
+    // Fetch values if needed
+    for (const { key, filePath } of results) {
+      if (out.length >= lim) break;
+
+      if (opts?.keysOnly) {
+        out.push({ key });
+      } else {
+        try {
+          const buffer = await readFile(filePath);
+          out.push({ key, value: new Uint8Array(buffer) });
+        } catch (err: any) {
+          // File may have been deleted, skip
+          if (err.code !== 'ENOENT') {
+            throw err;
+          }
+        }
+      }
+    }
+
+    return out;
+  }
+
+  private async walkDirStructured(
+    dir: string,
+    results: Array<{ key: StorageKey; filePath: string }>
+  ): Promise<void> {
+    let entries: string[];
+    try {
+      entries = await readdir(dir);
+    } catch (err) {
+      // Directory doesn't exist, return empty
+      return;
+    }
+
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry);
+      const stats = await stat(fullPath);
+
+      if (stats.isFile()) {
+        const key = pathToStorageKey(this.baseDir, fullPath);
+        results.push({ key, filePath: fullPath });
+      } else if (stats.isDirectory()) {
+        await this.walkDirStructured(fullPath, results);
+      }
+    }
   }
 }
