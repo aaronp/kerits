@@ -249,5 +249,27 @@ export function createRegistryDSL(
 
       return createACDCDSL(acdcObj, registry, store);
     },
+
+    async createRegistry(alias: string, opts?: any): Promise<RegistryDSL> {
+      const { createRegistry: createRegistryHelper } = await import('../../helpers');
+
+      // Create sub-registry anchored in this registry's TEL
+      const { registryId } = await createRegistryHelper(store, {
+        alias,
+        issuerAid: account.aid,
+        backers: opts?.backers || [],
+        parentRegistryId: registry.registryId,  // Pass parent registry ID
+      });
+
+      const subRegistry = {
+        alias,
+        registryId,
+        issuerAid: account.aid,
+        createdAt: new Date().toISOString(),
+        parentRegistryId: registry.registryId,  // Set parent registry ID
+      };
+
+      return createRegistryDSL(subRegistry, account, store);
+    },
   };
 }

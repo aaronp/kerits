@@ -66,9 +66,10 @@ export async function createRegistry(
     alias: string;
     issuerAid: string;
     backers?: string[];
+    parentRegistryId?: string;
   }
 ): Promise<{ registryId: string; vcp: any; ixn: any }> {
-  const { alias, issuerAid, backers = [] } = params;
+  const { alias, issuerAid, backers = [], parentRegistryId } = params;
 
   // Create registry inception (vcp)
   const vcp = registryIncept({
@@ -83,36 +84,50 @@ export async function createRegistry(
   const rawVcp = serializeEvent(vcp.sad);
   await store.putEvent(rawVcp);
 
-  // Get issuer's KEL to create anchoring interaction event
-  const kelEvents = await store.listKel(issuerAid);
-  const lastEvent = kelEvents[kelEvents.length - 1];
+  // If there's a parent registry, anchor in parent TEL instead of KEL
+  if (parentRegistryId) {
+    // Get parent registry's TEL to create anchoring event
+    const { issue } = await import('../tel');
 
-  if (!lastEvent) {
-    throw new Error(`No KEL found for issuer: ${issuerAid}`);
+    const issData = issue({
+      vcdig: registryId,  // The sub-registry is treated like a credential
+      regk: parentRegistryId,  // Anchor in parent registry
+    });
+
+    const rawIss = serializeEvent(issData.sad);
+    await store.putEvent(rawIss);
+  } else {
+    // Original behavior: anchor in KEL with interaction event
+    const kelEvents = await store.listKel(issuerAid);
+    const lastEvent = kelEvents[kelEvents.length - 1];
+
+    if (!lastEvent) {
+      throw new Error(`No KEL found for issuer: ${issuerAid}`);
+    }
+
+    const sn = kelEvents.length; // Next sequence number
+    const priorSaid = lastEvent.meta.d;
+
+    // Create interaction event that anchors the registry
+    const ixn = interaction({
+      pre: issuerAid,
+      sn,
+      dig: priorSaid,
+      seals: [{
+        i: registryId,
+        d: vcp.sad.d,
+      }],
+    });
+
+    // Store interaction event
+    const rawIxn = serializeEvent(ixn.ked);
+    await store.putEvent(rawIxn);
   }
-
-  const sn = kelEvents.length; // Next sequence number
-  const priorSaid = lastEvent.meta.d;
-
-  // Create interaction event that anchors the registry
-  const ixn = interaction({
-    pre: issuerAid,
-    sn,
-    dig: priorSaid,
-    seals: [{
-      i: registryId,
-      d: vcp.sad.d,
-    }],
-  });
-
-  // Store interaction event
-  const rawIxn = serializeEvent(ixn.ked);
-  await store.putEvent(rawIxn);
 
   // Store alias mapping
   await store.putAlias('tel', registryId, alias);
 
-  return { registryId, vcp, ixn };
+  return { registryId, vcp, ixn: null };
 }
 
 /**

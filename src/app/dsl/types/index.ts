@@ -152,6 +152,15 @@ export interface RegistryDSL {
   revoke(credentialId: string): Promise<void>;
 
   /**
+   * Create a sub-registry within this registry
+   * The sub-registry will be anchored in this registry's TEL
+   * @param alias - Alias for the sub-registry
+   * @param opts - Registry options
+   * @returns RegistryDSL for the newly created sub-registry
+   */
+  createRegistry(alias: string, opts?: RegistryOptions): Promise<RegistryDSL>;
+
+  /**
    * Accept and anchor a received credential
    * Imports a credential from another party and stores it as 'received'
    * @param params - Acceptance parameters

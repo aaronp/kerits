@@ -30,6 +30,8 @@ export interface Registry {
   issuerAid: string;
   /** Creation timestamp */
   createdAt: string;
+  /** Parent registry ID for nested registries (optional) */
+  parentRegistryId?: string;
 }
 
 /**
