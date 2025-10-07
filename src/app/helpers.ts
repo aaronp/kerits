@@ -10,13 +10,16 @@ import { interaction } from '../interaction';
 import { registryIncept, issue, revoke } from '../tel';
 import { diger } from '../diger';
 import { saidify } from '../saidify';
+import type { KeyManager } from './keymanager';
+import { signKelEvent, signTelEvent } from './signing';
 
 // Utility to serialize events as CESR-framed bytes
 function serializeEvent(event: any): Uint8Array {
   const json = JSON.stringify(event);
+  // The event.v already contains the version string with size (e.g., "KERI10JSON0000fd_")
+  // So we just prepend the '-' and append the JSON
   const versionString = event.v || 'KERI10JSON';
-  const frameSize = json.length.toString(16).padStart(6, '0');
-  const framed = `-${versionString}${frameSize}_${json}`;
+  const framed = `-${versionString}${json}`;
   return new TextEncoder().encode(framed);
 }
 
@@ -31,7 +34,8 @@ export async function createIdentity(
     nextKeys: string[];
     witnesses?: string[];
     config?: string[];
-  }
+  },
+  keyManager?: KeyManager
 ): Promise<{ aid: string; icp: any }> {
   const { alias, keys, nextKeys, witnesses = [], config = [] } = params;
 
@@ -47,9 +51,23 @@ export async function createIdentity(
 
   const aid = icp.pre;
 
-  // Store inception event
-  const rawCesr = serializeEvent(icp.ked);
-  await store.putEvent(rawCesr);
+  // Serialize event
+  const eventBytes = serializeEvent(icp.ked);
+
+  // Sign if keyManager provided
+  let finalBytes = eventBytes;
+  if (keyManager) {
+    const signer = keyManager.getSigner(aid);
+    if (!signer) {
+      throw new Error(`Account not unlocked: ${aid}. Call keyManager.unlock() first.`);
+    }
+
+    const signed = await signKelEvent(eventBytes, signer);
+    finalBytes = signed.combined;
+  }
+
+  // Store signed event
+  await store.putEvent(finalBytes);
 
   // Store alias mapping
   await store.putAlias('kel', aid, alias);
@@ -67,7 +85,8 @@ export async function createRegistry(
     issuerAid: string;
     backers?: string[];
     parentRegistryId?: string;
-  }
+  },
+  keyManager?: KeyManager
 ): Promise<{ registryId: string; vcp: any; ixn: any }> {
   const { alias, issuerAid, backers = [], parentRegistryId } = params;
 
@@ -81,9 +100,23 @@ export async function createRegistry(
 
   const registryId = vcp.sad.i;
 
-  // Store registry inception
-  const rawVcp = serializeEvent(vcp.sad);
-  await store.putEvent(rawVcp);
+  // Serialize VCP
+  const vcpBytes = serializeEvent(vcp.sad);
+
+  // Sign VCP if keyManager provided
+  let finalVcpBytes = vcpBytes;
+  if (keyManager) {
+    const signer = keyManager.getSigner(issuerAid);
+    if (!signer) {
+      throw new Error(`Issuer account not unlocked: ${issuerAid}`);
+    }
+
+    const signed = await signTelEvent(vcpBytes, signer);
+    finalVcpBytes = signed.combined;
+  }
+
+  // Store signed VCP
+  await store.putEvent(finalVcpBytes);
 
   // ALWAYS anchor in KEL with interaction event (even for nested registries)
   const kelEvents = await store.listKel(issuerAid);
@@ -107,9 +140,23 @@ export async function createRegistry(
     }],
   });
 
-  // Store interaction event
-  const rawIxn = serializeEvent(ixn.ked);
-  await store.putEvent(rawIxn);
+  // Serialize IXN
+  const ixnBytes = serializeEvent(ixn.ked);
+
+  // Sign IXN if keyManager provided
+  let finalIxnBytes = ixnBytes;
+  if (keyManager) {
+    const signer = keyManager.getSigner(issuerAid);
+    if (!signer) {
+      throw new Error(`Issuer account not unlocked: ${issuerAid}`);
+    }
+
+    const signed = await signKelEvent(ixnBytes, signer);
+    finalIxnBytes = signed.combined;
+  }
+
+  // Store signed IXN
+  await store.putEvent(finalIxnBytes);
 
   // If there's a parent registry, also anchor in parent TEL with IXN
   if (parentRegistryId) {
@@ -140,8 +187,23 @@ export async function createRegistry(
       },
     });
 
-    const rawIxn = serializeEvent(ixnData.sad);
-    await store.putEvent(rawIxn);
+    // Serialize parent TEL IXN
+    const parentIxnBytes = serializeEvent(ixnData.sad);
+
+    // Sign parent TEL IXN if keyManager provided
+    let finalParentIxnBytes = parentIxnBytes;
+    if (keyManager) {
+      const signer = keyManager.getSigner(issuerAid);
+      if (!signer) {
+        throw new Error(`Issuer account not unlocked: ${issuerAid}`);
+      }
+
+      const signed = await signTelEvent(parentIxnBytes, signer);
+      finalParentIxnBytes = signed.combined;
+    }
+
+    // Store signed parent TEL IXN
+    await store.putEvent(finalParentIxnBytes);
   }
 
   // Store alias mapping
@@ -203,7 +265,8 @@ export async function issueCredential(
     issuerAid: string;
     holderAid: string;
     credentialData: Record<string, any>;
-  }
+  },
+  keyManager?: KeyManager
 ): Promise<{ credentialId: string; acdc: any; iss: any }> {
   const { registryId, schemaId, issuerAid, holderAid, credentialData } = params;
 
@@ -225,7 +288,7 @@ export async function issueCredential(
   const saidified = saidify(acdc);
   const credentialId = saidified.d;
 
-  // Store ACDC as pseudo-event
+  // Store ACDC as pseudo-event (unsigned for now)
   const acdcEvent = {
     v: 'ACDC10JSON',
     t: 'acdc',
@@ -244,9 +307,23 @@ export async function issueCredential(
     regk: registryId,
   });
 
-  // Store issuance event
-  const rawIss = serializeEvent(iss.sad);
-  await store.putEvent(rawIss);
+  // Serialize ISS
+  const issBytes = serializeEvent(iss.sad);
+
+  // Sign ISS if keyManager provided
+  let finalIssBytes = issBytes;
+  if (keyManager) {
+    const signer = keyManager.getSigner(issuerAid);
+    if (!signer) {
+      throw new Error(`Issuer account not unlocked: ${issuerAid}`);
+    }
+
+    const signed = await signTelEvent(issBytes, signer);
+    finalIssBytes = signed.combined;
+  }
+
+  // Store signed ISS event
+  await store.putEvent(finalIssBytes);
 
   return { credentialId, acdc: saidified, iss };
 }
@@ -259,9 +336,11 @@ export async function revokeCredential(
   params: {
     registryId: string;
     credentialId: string;
-  }
+    issuerAid: string;
+  },
+  keyManager?: KeyManager
 ): Promise<{ rev: any }> {
-  const { registryId, credentialId } = params;
+  const { registryId, credentialId, issuerAid } = params;
 
   // Find the issuance event to get its SAID (dig)
   const telEvents = await store.listTel(registryId);
@@ -280,9 +359,23 @@ export async function revokeCredential(
     dig: issEvent.meta.d, // Prior event digest is the issuance event SAID
   });
 
-  // Store revocation event
-  const rawRev = serializeEvent(rev.sad);
-  await store.putEvent(rawRev);
+  // Serialize REV
+  const revBytes = serializeEvent(rev.sad);
+
+  // Sign REV if keyManager provided
+  let finalRevBytes = revBytes;
+  if (keyManager) {
+    const signer = keyManager.getSigner(issuerAid);
+    if (!signer) {
+      throw new Error(`Issuer account not unlocked: ${issuerAid}`);
+    }
+
+    const signed = await signTelEvent(revBytes, signer);
+    finalRevBytes = signed.combined;
+  }
+
+  // Store signed REV event
+  await store.putEvent(finalRevBytes);
 
   return { rev };
 }
