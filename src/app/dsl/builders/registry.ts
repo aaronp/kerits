@@ -115,14 +115,44 @@ export function createRegistryDSL(
     },
 
     async getTel(): Promise<TelEvent[]> {
+      const { parseCesrStream, parseIndexedSignatures } = await import('../../signing');
+
       const events = await store.listTel(registry.registryId);
-      return events.map(({ meta }) => ({
-        t: meta.t,
-        d: meta.d,
-        ri: meta.ri,
-        s: meta.s,
-        ...meta,
-      }));
+
+      // Parse each event to extract signatures and full event data
+      return events.map(e => {
+        let signatures: Array<{index: number; signature: string}> | undefined;
+        let eventData: any = {};
+
+        // Try to parse signatures and event JSON from raw CESR
+        try {
+          const parsed = parseCesrStream(e.raw);
+
+          // Parse signatures
+          if (parsed.signatures) {
+            signatures = parseIndexedSignatures(parsed.signatures);
+          }
+
+          // Parse event JSON to get all fields
+          const eventText = new TextDecoder().decode(parsed.event);
+          const jsonStart = eventText.indexOf('{');
+          if (jsonStart >= 0) {
+            eventData = JSON.parse(eventText.substring(jsonStart));
+          }
+        } catch (err) {
+          // Event might not have signatures or be malformed (backward compatibility)
+        }
+
+        return {
+          ...eventData,  // Full event fields
+          t: e.meta.t,
+          d: e.meta.d,
+          ri: e.meta.ri,
+          s: e.meta.s,
+          signatures,
+          raw: e.raw,
+        };
+      });
     },
 
     async export(): Promise<ExportDSL> {

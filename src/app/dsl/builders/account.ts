@@ -175,16 +175,44 @@ export function createAccountDSL(account: Account, store: KerStore): AccountDSL 
     },
 
     async getKel(): Promise<KelEvent[]> {
+      const { parseCesrStream, parseIndexedSignatures } = await import('../../signing');
+
       const events = await store.listKel(account.aid);
-      // Return the metadata which contains the event type and fields
-      return events.map(e => ({
-        t: e.meta.t,
-        d: e.meta.d,
-        i: e.meta.i,
-        s: e.meta.s,
-        p: e.meta.p,
-        ...e.meta,
-      }));
+
+      // Parse each event to extract signatures and full event data
+      return events.map(e => {
+        let signatures: Array<{index: number; signature: string}> | undefined;
+        let eventData: any = {};
+
+        // Try to parse signatures and event JSON from raw CESR
+        try {
+          const parsed = parseCesrStream(e.raw);
+
+          // Parse signatures
+          if (parsed.signatures) {
+            signatures = parseIndexedSignatures(parsed.signatures);
+          }
+
+          // Parse event JSON to get all fields (k, n, kt, nt, etc.)
+          const eventText = new TextDecoder().decode(parsed.event);
+          const jsonStart = eventText.indexOf('{');
+          if (jsonStart >= 0) {
+            eventData = JSON.parse(eventText.substring(jsonStart));
+          }
+        } catch (err) {
+          // Event might not have signatures or be malformed (backward compatibility)
+        }
+
+        return {
+          ...eventData,  // Full event fields (k, n, kt, nt, etc.)
+          t: e.meta.t,
+          d: e.meta.d,
+          i: e.meta.i,
+          s: e.meta.s,
+          signatures,
+          raw: e.raw,
+        };
+      });
     },
 
     async export(): Promise<ExportDSL> {

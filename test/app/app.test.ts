@@ -173,7 +173,7 @@ describe('IPEX Credential Exchange with Graph Visualizations', () => {
     const publicTel = await publicRegistry.getTel();
     const revEvents = publicTel.filter(e => e.t === 'rev');
     expect(revEvents.length).toBe(1);
-    expect(revEvents[0].acdcSaid).toBe(credential.acdc.credentialId);
+    expect(revEvents[0].i).toBe(credential.acdc.credentialId);  // 'i' field contains credential SAID
     console.log(`✓ Revocation event found in TEL`);
 
     // === 11. Generate graph visualizations ===

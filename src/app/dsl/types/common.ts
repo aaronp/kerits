@@ -213,7 +213,23 @@ export interface KelEvent {
   i?: string; // AID
   s?: string; // Sequence
   p?: string; // Prior
+  k?: string[]; // Current signing keys
+  n?: string[]; // Next key digests
+  kt?: string; // Current threshold
+  nt?: string; // Next threshold
+  signatures?: SignatureInfo[];  // Attached signatures (if signed)
+  raw?: Uint8Array;  // Full CESR event with signatures
   [key: string]: any;
+}
+
+/**
+ * Signature information extracted from CESR indexed signatures
+ */
+export interface SignatureInfo {
+  /** Key index */
+  index: number;
+  /** Signature in CESR qb64 format */
+  signature: string;
 }
 
 /**
@@ -224,6 +240,8 @@ export interface TelEvent {
   d: string;  // SAID
   ri?: string; // Registry ID
   s?: string;  // Sequence
+  signatures?: SignatureInfo[];  // Attached signatures (if signed)
+  raw?: Uint8Array;  // Full CESR event with signatures
   [key: string]: any;
 }
 
