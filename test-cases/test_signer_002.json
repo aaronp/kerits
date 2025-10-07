@@ -1,0 +1,9 @@
+{
+  "description": "Generate non-transferable key from seed (all 1s)",
+  "commands": {
+    "generate": "testgen/scripts/signer_generate.sh",
+    "verify": "testgen/scripts/signer_verify.sh"
+  },
+  "input": {"seed":"0101010101010101010101010101010101010101010101010101010101010101"},
+  "expected": {"verfer": "BIqI4910CfGV_VLbLTy6XXLKZwm_HZQSG_N0iAG0D29c"}
+}

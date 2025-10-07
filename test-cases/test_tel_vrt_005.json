@@ -1,0 +1,34 @@
+{
+  "description": "Update threshold without changing backers",
+  "commands": {
+    "generate": "testgen/scripts/tel_vrt_generate.sh",
+    "verify": "testgen/scripts/tel_vrt_verify.sh"
+  },
+  "input": {
+    "regk": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+    "dig": "EFinalDigest1234567890123456789012345678901",
+    "sn": 5,
+    "baks": [
+      "BACKER_B_12345678901234567890123456789012",
+      "BACKER_C_12345678901234567890123456789012"
+    ],
+    "adds": [],
+    "cuts": [],
+    "toad": 2
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON0000dc_",
+      "t": "vrt",
+      "d": "EFsp08B2BmC0GB1zFQq4OpkpHj0wfZHUWPVi1x-LJ41a",
+      "i": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+      "p": "EFinalDigest1234567890123456789012345678901",
+      "s": "5",
+      "bt": "2",
+      "br": [],
+      "ba": []
+    },
+    "raw": "{\"v\":\"KERI10JSON0000dc_\",\"t\":\"vrt\",\"d\":\"EFsp08B2BmC0GB1zFQq4OpkpHj0wfZHUWPVi1x-LJ41a\",\"i\":\"EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi\",\"p\":\"EFinalDigest1234567890123456789012345678901\",\"s\":\"5\",\"bt\":\"2\",\"br\":[],\"ba\":[]}",
+    "said": "EFsp08B2BmC0GB1zFQq4OpkpHj0wfZHUWPVi1x-LJ41a"
+  }
+}

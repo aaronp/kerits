@@ -1,0 +1,9 @@
+{
+  "description": "Digest of transferable Ed25519 public key",
+  "commands": {
+    "generate": "testgen/scripts/diger_generate.sh",
+    "verify": "testgen/scripts/diger_verify.sh"
+  },
+  "input": {"ser":"DSuhyBcPZEZLK-fcw5tzHn2N46wRCG_ZOoeKtWTOunRA"},
+  "expected": {"digest": "EPiaAesjPkPcUZwuSp9fz6uvPzt7pvBSkLGRs1gANSeA"}
+}

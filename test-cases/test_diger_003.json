@@ -1,0 +1,9 @@
+{
+  "description": "Digest of non-transferable Ed25519 public key",
+  "commands": {
+    "generate": "testgen/scripts/diger_generate.sh",
+    "verify": "testgen/scripts/diger_verify.sh"
+  },
+  "input": {"ser":"BEtf_fra4xhr6OaT2UJUILC6XDxnHTjimVH-zCNsG1hi"},
+  "expected": {"digest": "EIgQDWsI5bi49ACrHfs4ioYgOaGg6OUA9yRjPq6CDfEm"}
+}

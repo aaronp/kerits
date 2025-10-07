@@ -1,0 +1,9 @@
+{
+  "description": "Saidify a JSON document with custom 'id' field",
+  "commands": {
+    "generate": "testgen/scripts/saidify_generate.sh --label id",
+    "verify": "testgen/scripts/saidify_verify.sh --label id"
+  },
+  "input": {"name":"Jane Smith","role":"administrator","permissions":["read","write","delete"]},
+  "expected": {"name": "Jane Smith", "role": "administrator", "permissions": ["read", "write", "delete"], "id": "EGpzMF0Ln6u1ZNgrzNWBS8VvyzSdxgcflA2CA8rtEj1P"}
+}

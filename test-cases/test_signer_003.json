@@ -1,0 +1,9 @@
+{
+  "description": "Generate transferable key from seed (all 0s)",
+  "commands": {
+    "generate": "testgen/scripts/signer_generate.sh --transferable",
+    "verify": "testgen/scripts/signer_verify.sh --transferable"
+  },
+  "input": {"seed":"0000000000000000000000000000000000000000000000000000000000000000"},
+  "expected": {"verfer": "DDtqJ7zOtqQtYqOo0CpvDXNlMhV3HeJDpjrASKGLWdop"}
+}

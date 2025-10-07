@@ -1,0 +1,9 @@
+{
+  "description": "Sign KERI message with seed (all 0s)",
+  "commands": {
+    "generate": "testgen/scripts/sign_generate.sh",
+    "verify": "testgen/scripts/sign_verify.sh"
+  },
+  "input": {"seed":"0000000000000000000000000000000000000000000000000000000000000000","message":"KERI test message"},
+  "expected": {"verfer": "DDtqJ7zOtqQtYqOo0CpvDXNlMhV3HeJDpjrASKGLWdop", "signature": "0BCQG0aeSvczU4uMqJdnBH2-g7Yby36dYd9pAxuVAu73TBTQXVIRcyJbH8Dd0VvHLEFcM-JHMUmFegw1hvpAkqcJ", "message": "KERI test message"}
+}

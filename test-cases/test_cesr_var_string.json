@@ -1,0 +1,14 @@
+{
+  "description": "Variable-sized string encoding",
+  "commands": {
+    "verify": "testgen/scripts/cesr_verify.sh"
+  },
+  "input": {
+    "code": "4A",
+    "raw_hex": "48656c6c6f20576f726c6421"
+  },
+  "expected": {
+    "qb64": "4AAESGVsbG8gV29ybGQh",
+    "raw_hex": "48656c6c6f20576f726c6421"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "description": "Salt 256-bit random value",
+  "commands": {
+    "verify": "testgen/scripts/cesr_verify.sh"
+  },
+  "input": {
+    "code": "a",
+    "raw_hex": "5468697349734153616c7431323334355468697349734153616c743132333435"
+  },
+  "expected": {
+    "qb64": "aFRoaXNJc0FTYWx0MTIzNDVUaGlzSXNBU2FsdDEyMzQ1",
+    "raw_hex": "5468697349734153616c7431323334355468697349734153616c743132333435"
+  }
+}

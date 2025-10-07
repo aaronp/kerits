@@ -1,0 +1,9 @@
+{
+  "description": "Versify with explicit size 0",
+  "commands": {
+    "generate": "testgen/scripts/versify_generate.sh --size 0",
+    "verify": "testgen/scripts/versify_verify.sh --size 0"
+  },
+  "input": {"size":0},
+  "expected": {"version":"KERI10JSON000000_"}
+}

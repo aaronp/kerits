@@ -1,0 +1,9 @@
+{
+  "description": "Versify with max size 16777215 (0xffffff)",
+  "commands": {
+    "generate": "testgen/scripts/versify_generate.sh --size 16777215",
+    "verify": "testgen/scripts/versify_verify.sh --size 16777215"
+  },
+  "input": {"size":16777215},
+  "expected": {"version":"KERI10JSONffffff_"}
+}

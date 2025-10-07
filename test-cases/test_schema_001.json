@@ -1,0 +1,9 @@
+{
+  "description": "Simple object schema with basic properties",
+  "commands": {
+    "generate": "testgen/scripts/schema_generate.sh",
+    "verify": "testgen/scripts/schema_verify.sh"
+  },
+  "input": {"sed":{"$id":"","$schema":"http://json-schema.org/draft-07/schema#","type":"object","properties":{"name":{"type":"string"},"age":{"type":"number"}}}},
+  "expected": {"sed": {"$id": "EOnvS3sdRaeOyWEQbrE8-0LpTUWOecFZSn2iQcLmbA9t", "$schema": "http://json-schema.org/draft-07/schema#", "type": "object", "properties": {"name": {"type": "string"}, "age": {"type": "number"}}}, "said": "EOnvS3sdRaeOyWEQbrE8-0LpTUWOecFZSn2iQcLmbA9t"}
+}

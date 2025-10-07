@@ -1,0 +1,23 @@
+{
+  "description": "Simple receipt for inception event (sn=0)",
+  "commands": {
+    "generate": "testgen/scripts/receipt_generate.sh",
+    "verify": "testgen/scripts/receipt_verify.sh"
+  },
+  "input": {
+    "pre": "ECmiMVHTfZIjhA_rovnfx73T3G_FJzIQtzDn1meBVLAz",
+    "sn": 0,
+    "said": "ECmiMVHTfZIjhA_rovnfx73T3G_FJzIQtzDn1meBVLAz"
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON000091_",
+      "t": "rct",
+      "d": "ECmiMVHTfZIjhA_rovnfx73T3G_FJzIQtzDn1meBVLAz",
+      "i": "ECmiMVHTfZIjhA_rovnfx73T3G_FJzIQtzDn1meBVLAz",
+      "s": "0"
+    },
+    "raw": "{\"v\":\"KERI10JSON000091_\",\"t\":\"rct\",\"d\":\"ECmiMVHTfZIjhA_rovnfx73T3G_FJzIQtzDn1meBVLAz\",\"i\":\"ECmiMVHTfZIjhA_rovnfx73T3G_FJzIQtzDn1meBVLAz\",\"s\":\"0\"}",
+    "said": "ECmiMVHTfZIjhA_rovnfx73T3G_FJzIQtzDn1meBVLAz"
+  }
+}

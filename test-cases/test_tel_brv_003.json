@@ -1,0 +1,33 @@
+{
+  "description": "Backer revocation with higher registry sequence number",
+  "commands": {
+    "generate": "testgen/scripts/tel_brv_generate.sh",
+    "verify": "testgen/scripts/tel_brv_verify.sh"
+  },
+  "input": {
+    "vcdig": "EBx7fRaZp3FkT8qLxM9WvYnH2cDjEsK6uO1pQ4rS5tU2",
+    "regk": "ECx8gSbBq4GlU9rMxN0XwZoI3dEkFtL7vP2qR5sT6uV3",
+    "regsn": 15,
+    "regd": "EDy9hTcCr5HmV0sNyO1YxApJ4eFlGuM8wQ3rS6tU7vW4",
+    "dig": "EEz0iTdDs6InW1tOzP2ZyBqK5fGmHvN9xR4sT7uV8wX5",
+    "dt": "2024-04-05T11:20:00.000000+00:00"
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON000161_",
+      "t": "brv",
+      "d": "EJ5dpdYXTWc5L_GnzAy1kLqV7sEq-VmsewHKwwrgeSVB",
+      "i": "EBx7fRaZp3FkT8qLxM9WvYnH2cDjEsK6uO1pQ4rS5tU2",
+      "s": "1",
+      "p": "EEz0iTdDs6InW1tOzP2ZyBqK5fGmHvN9xR4sT7uV8wX5",
+      "ra": {
+        "i": "ECx8gSbBq4GlU9rMxN0XwZoI3dEkFtL7vP2qR5sT6uV3",
+        "s": "f",
+        "d": "EDy9hTcCr5HmV0sNyO1YxApJ4eFlGuM8wQ3rS6tU7vW4"
+      },
+      "dt": "2024-04-05T11:20:00.000000+00:00"
+    },
+    "raw": "{\"v\":\"KERI10JSON000161_\",\"t\":\"brv\",\"d\":\"EJ5dpdYXTWc5L_GnzAy1kLqV7sEq-VmsewHKwwrgeSVB\",\"i\":\"EBx7fRaZp3FkT8qLxM9WvYnH2cDjEsK6uO1pQ4rS5tU2\",\"s\":\"1\",\"p\":\"EEz0iTdDs6InW1tOzP2ZyBqK5fGmHvN9xR4sT7uV8wX5\",\"ra\":{\"i\":\"ECx8gSbBq4GlU9rMxN0XwZoI3dEkFtL7vP2qR5sT6uV3\",\"s\":\"f\",\"d\":\"EDy9hTcCr5HmV0sNyO1YxApJ4eFlGuM8wQ3rS6tU7vW4\"},\"dt\":\"2024-04-05T11:20:00.000000+00:00\"}",
+    "said": "EJ5dpdYXTWc5L_GnzAy1kLqV7sEq-VmsewHKwwrgeSVB"
+  }
+}

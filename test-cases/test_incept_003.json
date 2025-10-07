@@ -1,0 +1,9 @@
+{
+  "description": "Inception with different key",
+  "commands": {
+    "generate": "testgen/scripts/incept_generate.sh",
+    "verify": "testgen/scripts/incept_verify.sh"
+  },
+  "input": {"keys":["DH_yXAQafapVmMF0O10oDl37XqhTixkjuLXJKTzRxwN5"],"ndigs":["EPiaAesjPkPcUZwuSp9fz6uvPzt7pvBSkLGRs1gANSeA"]},
+  "expected": {"ked": {"v": "KERI10JSON00012b_", "t": "icp", "d": "EFf943PG5w916QCqyg3N7Zlmajc_Ob8s7yrotXf3Dwlz", "i": "DH_yXAQafapVmMF0O10oDl37XqhTixkjuLXJKTzRxwN5", "s": "0", "kt": "1", "k": ["DH_yXAQafapVmMF0O10oDl37XqhTixkjuLXJKTzRxwN5"], "nt": "1", "n": ["EPiaAesjPkPcUZwuSp9fz6uvPzt7pvBSkLGRs1gANSeA"], "bt": "0", "b": [], "c": [], "a": []}, "pre": "DH_yXAQafapVmMF0O10oDl37XqhTixkjuLXJKTzRxwN5", "said": "EFf943PG5w916QCqyg3N7Zlmajc_Ob8s7yrotXf3Dwlz"}
+}

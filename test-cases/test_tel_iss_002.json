@@ -1,0 +1,25 @@
+{
+  "description": "Credential issuance with specific datetime",
+  "commands": {
+    "generate": "testgen/scripts/tel_iss_generate.sh",
+    "verify": "testgen/scripts/tel_iss_verify.sh"
+  },
+  "input": {
+    "vcdig": "EIZaXLgq1VDnQ_qI0gAd2wogtxcc2UrJcd3_q9Io5keO",
+    "regk": "EN4SeFenXz_05cv85qycvZPE7PB8MMlw-vDuc5HX4ys2",
+    "dt": "2024-06-15T12:30:45.123456+00:00"
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON0000ed_",
+      "t": "iss",
+      "d": "EF_pqMU3pwzNR6jMCuSWIjtJtO5TSHjuG9-R_oKuHWdk",
+      "i": "EIZaXLgq1VDnQ_qI0gAd2wogtxcc2UrJcd3_q9Io5keO",
+      "s": "0",
+      "ri": "EN4SeFenXz_05cv85qycvZPE7PB8MMlw-vDuc5HX4ys2",
+      "dt": "2024-06-15T12:30:45.123456+00:00"
+    },
+    "raw": "{\"v\":\"KERI10JSON0000ed_\",\"t\":\"iss\",\"d\":\"EF_pqMU3pwzNR6jMCuSWIjtJtO5TSHjuG9-R_oKuHWdk\",\"i\":\"EIZaXLgq1VDnQ_qI0gAd2wogtxcc2UrJcd3_q9Io5keO\",\"s\":\"0\",\"ri\":\"EN4SeFenXz_05cv85qycvZPE7PB8MMlw-vDuc5HX4ys2\",\"dt\":\"2024-06-15T12:30:45.123456+00:00\"}",
+    "said": "EF_pqMU3pwzNR6jMCuSWIjtJtO5TSHjuG9-R_oKuHWdk"
+  }
+}

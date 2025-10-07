@@ -27,22 +27,22 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Update base path in production vite config
+# Update base path in vite config
 echo "🔧 Setting base path to /$REPO_NAME..."
-sed -i.bak "s|base: '/kerits'|base: '/$REPO_NAME'|g" vite.config.prod.ts
+sed -i.bak "s|base: '/kerits'|base: '/$REPO_NAME'|g" vite.config.ts
 
-# Build UI using production config
+# Build UI using standard config
 echo "🎨 Building UI..."
-bun run build -- --config vite.config.prod.ts
+bun run build
 if [ $? -ne 0 ]; then
     echo "❌ UI build failed"
-    # Restore original production config
-    mv vite.config.prod.ts.bak vite.config.prod.ts
+    # Restore original config
+    mv vite.config.ts.bak vite.config.ts
     exit 1
 fi
 
-# Restore original production config
-mv vite.config.prod.ts.bak vite.config.prod.ts
+# Restore original config
+mv vite.config.ts.bak vite.config.ts
 
 # Copy UI to deployment root
 echo "📋 Copying UI to deployment directory..."

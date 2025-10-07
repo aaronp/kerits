@@ -1,0 +1,32 @@
+{
+  "description": "Backer issuance with higher registry sequence number",
+  "commands": {
+    "generate": "testgen/scripts/tel_bis_generate.sh",
+    "verify": "testgen/scripts/tel_bis_verify.sh"
+  },
+  "input": {
+    "vcdig": "EBx7fRaZp3FkT8qLxM9WvYnH2cDjEsK6uO1pQ4rS5tU2",
+    "regk": "ECx8gSbBq4GlU9rMxN0XwZoI3dEkFtL7vP2qR5sT6uV3",
+    "regsn": 10,
+    "regd": "EDy9hTcCr5HmV0sNyO1YxApJ4eFlGuM8wQ3rS6tU7vW4",
+    "dt": "2024-04-01T09:15:00.000000+00:00"
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON000162_",
+      "t": "bis",
+      "d": "EKixkBmuXwfEX-ZYExsxby3zkaDttksTqS5a3-sTIRUt",
+      "i": "EBx7fRaZp3FkT8qLxM9WvYnH2cDjEsK6uO1pQ4rS5tU2",
+      "ii": "ECx8gSbBq4GlU9rMxN0XwZoI3dEkFtL7vP2qR5sT6uV3",
+      "s": "0",
+      "ra": {
+        "i": "ECx8gSbBq4GlU9rMxN0XwZoI3dEkFtL7vP2qR5sT6uV3",
+        "s": "a",
+        "d": "EDy9hTcCr5HmV0sNyO1YxApJ4eFlGuM8wQ3rS6tU7vW4"
+      },
+      "dt": "2024-04-01T09:15:00.000000+00:00"
+    },
+    "raw": "{\"v\":\"KERI10JSON000162_\",\"t\":\"bis\",\"d\":\"EKixkBmuXwfEX-ZYExsxby3zkaDttksTqS5a3-sTIRUt\",\"i\":\"EBx7fRaZp3FkT8qLxM9WvYnH2cDjEsK6uO1pQ4rS5tU2\",\"ii\":\"ECx8gSbBq4GlU9rMxN0XwZoI3dEkFtL7vP2qR5sT6uV3\",\"s\":\"0\",\"ra\":{\"i\":\"ECx8gSbBq4GlU9rMxN0XwZoI3dEkFtL7vP2qR5sT6uV3\",\"s\":\"a\",\"d\":\"EDy9hTcCr5HmV0sNyO1YxApJ4eFlGuM8wQ3rS6tU7vW4\"},\"dt\":\"2024-04-01T09:15:00.000000+00:00\"}",
+    "said": "EKixkBmuXwfEX-ZYExsxby3zkaDttksTqS5a3-sTIRUt"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "description": "Ed25519 32-byte seed encoding",
+  "commands": {
+    "verify": "testgen/scripts/cesr_verify.sh"
+  },
+  "input": {
+    "code": "A",
+    "raw_hex": "3031323334353637383961626364656630313233343536373839616263646566"
+  },
+  "expected": {
+    "qb64": "ADAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5YWJjZGVm",
+    "raw_hex": "3031323334353637383961626364656630313233343536373839616263646566"
+  }
+}

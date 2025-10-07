@@ -1,0 +1,9 @@
+{
+  "description": "Saidify a JSON document with default 'd' field",
+  "commands": {
+    "generate": "testgen/scripts/saidify_generate.sh",
+    "verify": "testgen/scripts/saidify_verify.sh"
+  },
+  "input": {"name":"John Doe","email":"john@example.com","data":{"field1":"value1","field2":42}},
+  "expected": {"name": "John Doe", "email": "john@example.com", "data": {"field1": "value1", "field2": 42}, "d": "EIs3pBWAXfG4sf4le4g_bZIvTX91e0Ax6ToMgmln4Oey"}
+}

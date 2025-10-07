@@ -1,0 +1,14 @@
+{
+  "description": "Short 2-byte number",
+  "commands": {
+    "verify": "testgen/scripts/cesr_verify.sh"
+  },
+  "input": {
+    "code": "M",
+    "raw_hex": "3039"
+  },
+  "expected": {
+    "qb64": "MDA5",
+    "raw_hex": "3039"
+  }
+}

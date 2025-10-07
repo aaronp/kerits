@@ -1,0 +1,32 @@
+{
+  "description": "Simple backer credential issuance",
+  "commands": {
+    "generate": "testgen/scripts/tel_bis_generate.sh",
+    "verify": "testgen/scripts/tel_bis_verify.sh"
+  },
+  "input": {
+    "vcdig": "EOpMbWcZVemhMevTGrx9Wanc1I1kyv5Utzi_P6lN8GXM",
+    "regk": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+    "regsn": 3,
+    "regd": "ELZpzaM7ZaXo9HLvRcjQhQ5Rb1z0tXqZF5wX6dTj3hqY",
+    "dt": "2024-03-01T10:00:00.000000+00:00"
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON000162_",
+      "t": "bis",
+      "d": "EKgc_fkMM7VYkuLGzkDDf1gNkE47MFNcX15xv8dDlE-b",
+      "i": "EOpMbWcZVemhMevTGrx9Wanc1I1kyv5Utzi_P6lN8GXM",
+      "ii": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+      "s": "0",
+      "ra": {
+        "i": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+        "s": "3",
+        "d": "ELZpzaM7ZaXo9HLvRcjQhQ5Rb1z0tXqZF5wX6dTj3hqY"
+      },
+      "dt": "2024-03-01T10:00:00.000000+00:00"
+    },
+    "raw": "{\"v\":\"KERI10JSON000162_\",\"t\":\"bis\",\"d\":\"EKgc_fkMM7VYkuLGzkDDf1gNkE47MFNcX15xv8dDlE-b\",\"i\":\"EOpMbWcZVemhMevTGrx9Wanc1I1kyv5Utzi_P6lN8GXM\",\"ii\":\"EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi\",\"s\":\"0\",\"ra\":{\"i\":\"EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi\",\"s\":\"3\",\"d\":\"ELZpzaM7ZaXo9HLvRcjQhQ5Rb1z0tXqZF5wX6dTj3hqY\"},\"dt\":\"2024-03-01T10:00:00.000000+00:00\"}",
+    "said": "EKgc_fkMM7VYkuLGzkDDf1gNkE47MFNcX15xv8dDlE-b"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "description": "Simple credential interaction (endorsement)",
+  "commands": {
+    "generate": "testgen/scripts/tel_ixn_generate.sh",
+    "verify": "testgen/scripts/tel_ixn_verify.sh"
+  },
+  "input": {
+    "vcdig": "EOpMbWcZVemhMevTGrx9Wanc1I1kyv5Utzi_P6lN8GXM",
+    "regk": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+    "dig": "ENwxvffw6SXRTVcu3AHIb2OirZcjTHcLm-9tV0uREKOY",
+    "sn": 2,
+    "data": {
+      "action": "endorse",
+      "endorser": "EKC8085pwSwfvR-0_ZBhlEr0LklRuWJSLBe4SyuN6uBQ"
+    },
+    "dt": "2024-02-01T15:30:00.000000+00:00"
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON000173_",
+      "t": "ixn",
+      "d": "EAeYglRSwCmSmWAiAjEL2iXadX_j3oYeZZLezGJXBpMo",
+      "i": "EOpMbWcZVemhMevTGrx9Wanc1I1kyv5Utzi_P6lN8GXM",
+      "s": "2",
+      "ri": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+      "p": "ENwxvffw6SXRTVcu3AHIb2OirZcjTHcLm-9tV0uREKOY",
+      "a": {
+        "action": "endorse",
+        "endorser": "EKC8085pwSwfvR-0_ZBhlEr0LklRuWJSLBe4SyuN6uBQ"
+      },
+      "dt": "2024-02-01T15:30:00.000000+00:00"
+    },
+    "raw": "{\"v\":\"KERI10JSON000173_\",\"t\":\"ixn\",\"d\":\"EAeYglRSwCmSmWAiAjEL2iXadX_j3oYeZZLezGJXBpMo\",\"i\":\"EOpMbWcZVemhMevTGrx9Wanc1I1kyv5Utzi_P6lN8GXM\",\"s\":\"2\",\"ri\":\"EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi\",\"p\":\"ENwxvffw6SXRTVcu3AHIb2OirZcjTHcLm-9tV0uREKOY\",\"a\":{\"action\":\"endorse\",\"endorser\":\"EKC8085pwSwfvR-0_ZBhlEr0LklRuWJSLBe4SyuN6uBQ\"},\"dt\":\"2024-02-01T15:30:00.000000+00:00\"}",
+    "said": "EAeYglRSwCmSmWAiAjEL2iXadX_j3oYeZZLezGJXBpMo"
+  }
+}

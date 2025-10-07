@@ -1,0 +1,33 @@
+{
+  "description": "Simple backer credential revocation",
+  "commands": {
+    "generate": "testgen/scripts/tel_brv_generate.sh",
+    "verify": "testgen/scripts/tel_brv_verify.sh"
+  },
+  "input": {
+    "vcdig": "EOpMbWcZVemhMevTGrx9Wanc1I1kyv5Utzi_P6lN8GXM",
+    "regk": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+    "regsn": 4,
+    "regd": "ERegistryEventAfterIssuance_12345678901234",
+    "dig": "EPriorIssuanceEventDigest_123456789012345",
+    "dt": "2024-03-10T15:00:00.000000+00:00"
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON00015c_",
+      "t": "brv",
+      "d": "EFv1uoA8Pe2g9i1nBOOaL3UdR4_oX_YjEJEW_FwjmGd3",
+      "i": "EOpMbWcZVemhMevTGrx9Wanc1I1kyv5Utzi_P6lN8GXM",
+      "s": "1",
+      "p": "EPriorIssuanceEventDigest_123456789012345",
+      "ra": {
+        "i": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+        "s": "4",
+        "d": "ERegistryEventAfterIssuance_12345678901234"
+      },
+      "dt": "2024-03-10T15:00:00.000000+00:00"
+    },
+    "raw": "{\"v\":\"KERI10JSON00015c_\",\"t\":\"brv\",\"d\":\"EFv1uoA8Pe2g9i1nBOOaL3UdR4_oX_YjEJEW_FwjmGd3\",\"i\":\"EOpMbWcZVemhMevTGrx9Wanc1I1kyv5Utzi_P6lN8GXM\",\"s\":\"1\",\"p\":\"EPriorIssuanceEventDigest_123456789012345\",\"ra\":{\"i\":\"EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi\",\"s\":\"4\",\"d\":\"ERegistryEventAfterIssuance_12345678901234\"},\"dt\":\"2024-03-10T15:00:00.000000+00:00\"}",
+    "said": "EFv1uoA8Pe2g9i1nBOOaL3UdR4_oX_YjEJEW_FwjmGd3"
+  }
+}

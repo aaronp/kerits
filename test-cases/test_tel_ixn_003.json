@@ -1,0 +1,38 @@
+{
+  "description": "Credential interaction with usage metadata",
+  "commands": {
+    "generate": "testgen/scripts/tel_ixn_generate.sh",
+    "verify": "testgen/scripts/tel_ixn_verify.sh"
+  },
+  "input": {
+    "vcdig": "EH_TOwdi3rcMKKdUdJUIjkyX3jy60uHD10T8Ai4lDmaM",
+    "regk": "EE9ST6arBp0vxEFNn3v4-LDjDJrYEcN-KqrZ_XS9-0OJ",
+    "dig": "EC4cMrseA_fO_ajXU-P-TxPM8bN7E52AAdI3LPpKJ00_",
+    "sn": 4,
+    "data": {
+      "type": "usage",
+      "count": 1,
+      "context": "presentation"
+    },
+    "dt": "2024-12-31T23:45:00.999999+00:00"
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON000158_",
+      "t": "ixn",
+      "d": "EKu-arq75WG7Hy-l9Pl-RFa3CmU0ug9Yhvoqz6J-wxRR",
+      "i": "EH_TOwdi3rcMKKdUdJUIjkyX3jy60uHD10T8Ai4lDmaM",
+      "s": "4",
+      "ri": "EE9ST6arBp0vxEFNn3v4-LDjDJrYEcN-KqrZ_XS9-0OJ",
+      "p": "EC4cMrseA_fO_ajXU-P-TxPM8bN7E52AAdI3LPpKJ00_",
+      "a": {
+        "type": "usage",
+        "count": 1,
+        "context": "presentation"
+      },
+      "dt": "2024-12-31T23:45:00.999999+00:00"
+    },
+    "raw": "{\"v\":\"KERI10JSON000158_\",\"t\":\"ixn\",\"d\":\"EKu-arq75WG7Hy-l9Pl-RFa3CmU0ug9Yhvoqz6J-wxRR\",\"i\":\"EH_TOwdi3rcMKKdUdJUIjkyX3jy60uHD10T8Ai4lDmaM\",\"s\":\"4\",\"ri\":\"EE9ST6arBp0vxEFNn3v4-LDjDJrYEcN-KqrZ_XS9-0OJ\",\"p\":\"EC4cMrseA_fO_ajXU-P-TxPM8bN7E52AAdI3LPpKJ00_\",\"a\":{\"type\":\"usage\",\"count\":1,\"context\":\"presentation\"},\"dt\":\"2024-12-31T23:45:00.999999+00:00\"}",
+    "said": "EKu-arq75WG7Hy-l9Pl-RFa3CmU0ug9Yhvoqz6J-wxRR"
+  }
+}

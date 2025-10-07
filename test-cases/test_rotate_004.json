@@ -1,0 +1,9 @@
+{
+  "description": "Rotation with explicit thresholds",
+  "commands": {
+    "generate": "testgen/scripts/rotate_generate.sh",
+    "verify": "testgen/scripts/rotate_verify.sh"
+  },
+  "input": {"pre":"DBQo-84jo4m9QyM7KzeOKxVb8l1bg6hukLZaEg3LCYH-","keys":["DFooOCD_sNXjwsnA5VJ7SOvbaKsZiafUCZQmnhywz6L3"],"dig":"EJbXBNQi1-s8380ecKoh8oBW12QQ1tHCcH1k82K1lnBG","sn":1,"isith":1,"nsith":1,"ndigs":["EOpwSvW81cmCyv6b1OMIXj-v30wYqmXHBnwSzT5MJM6k"]},
+  "expected": {"ked": {"v": "KERI10JSON000160_", "t": "rot", "d": "EF-PBtXDZ9T3Txk8OipoJroRQh7gcxAZO7_LVEndbp0b", "i": "DBQo-84jo4m9QyM7KzeOKxVb8l1bg6hukLZaEg3LCYH-", "s": "1", "p": "EJbXBNQi1-s8380ecKoh8oBW12QQ1tHCcH1k82K1lnBG", "kt": "1", "k": ["DFooOCD_sNXjwsnA5VJ7SOvbaKsZiafUCZQmnhywz6L3"], "nt": "1", "n": ["EOpwSvW81cmCyv6b1OMIXj-v30wYqmXHBnwSzT5MJM6k"], "bt": "0", "br": [], "ba": [], "a": []}, "said": "EF-PBtXDZ9T3Txk8OipoJroRQh7gcxAZO7_LVEndbp0b"}
+}

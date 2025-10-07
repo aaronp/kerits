@@ -1,0 +1,25 @@
+{
+  "description": "Credential issuance for different registry",
+  "commands": {
+    "generate": "testgen/scripts/tel_iss_generate.sh",
+    "verify": "testgen/scripts/tel_iss_verify.sh"
+  },
+  "input": {
+    "vcdig": "EH_TOwdi3rcMKKdUdJUIjkyX3jy60uHD10T8Ai4lDmaM",
+    "regk": "EE9ST6arBp0vxEFNn3v4-LDjDJrYEcN-KqrZ_XS9-0OJ",
+    "dt": "2024-12-25T18:00:00.000000+00:00"
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON0000ed_",
+      "t": "iss",
+      "d": "EOZsri7dZki9RRIQ2qHYrCVcQG4wg7EPuzd7jGi0A8yC",
+      "i": "EH_TOwdi3rcMKKdUdJUIjkyX3jy60uHD10T8Ai4lDmaM",
+      "s": "0",
+      "ri": "EE9ST6arBp0vxEFNn3v4-LDjDJrYEcN-KqrZ_XS9-0OJ",
+      "dt": "2024-12-25T18:00:00.000000+00:00"
+    },
+    "raw": "{\"v\":\"KERI10JSON0000ed_\",\"t\":\"iss\",\"d\":\"EOZsri7dZki9RRIQ2qHYrCVcQG4wg7EPuzd7jGi0A8yC\",\"i\":\"EH_TOwdi3rcMKKdUdJUIjkyX3jy60uHD10T8Ai4lDmaM\",\"s\":\"0\",\"ri\":\"EE9ST6arBp0vxEFNn3v4-LDjDJrYEcN-KqrZ_XS9-0OJ\",\"dt\":\"2024-12-25T18:00:00.000000+00:00\"}",
+    "said": "EOZsri7dZki9RRIQ2qHYrCVcQG4wg7EPuzd7jGi0A8yC"
+  }
+}

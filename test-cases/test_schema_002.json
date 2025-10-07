@@ -1,0 +1,9 @@
+{
+  "description": "Schema with required fields",
+  "commands": {
+    "generate": "testgen/scripts/schema_generate.sh",
+    "verify": "testgen/scripts/schema_verify.sh"
+  },
+  "input": {"sed":{"$id":"","$schema":"http://json-schema.org/draft-07/schema#","type":"object","properties":{"email":{"type":"string","format":"email"},"username":{"type":"string"}},"required":["email","username"]}},
+  "expected": {"sed": {"$id": "EMeGAhLXvExBmWXmLjX82iz9_txIz9dTpfApTBSubwgT", "$schema": "http://json-schema.org/draft-07/schema#", "type": "object", "properties": {"email": {"type": "string", "format": "email"}, "username": {"type": "string"}}, "required": ["email", "username"]}, "said": "EMeGAhLXvExBmWXmLjX82iz9_txIz9dTpfApTBSubwgT"}
+}

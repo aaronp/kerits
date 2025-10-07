@@ -1,0 +1,27 @@
+{
+  "description": "Credential revocation for different registry",
+  "commands": {
+    "generate": "testgen/scripts/tel_rev_generate.sh",
+    "verify": "testgen/scripts/tel_rev_verify.sh"
+  },
+  "input": {
+    "vcdig": "EH_TOwdi3rcMKKdUdJUIjkyX3jy60uHD10T8Ai4lDmaM",
+    "regk": "EE9ST6arBp0vxEFNn3v4-LDjDJrYEcN-KqrZ_XS9-0OJ",
+    "dig": "EBFvQ5rM2IQ8nXzFpQdNhL9jYRoQx6TvWdZc8Kq3Lm5A",
+    "dt": "2024-12-31T23:59:59.999999+00:00"
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON000120_",
+      "t": "rev",
+      "d": "EC4cMrseA_fO_ajXU-P-TxPM8bN7E52AAdI3LPpKJ00_",
+      "i": "EH_TOwdi3rcMKKdUdJUIjkyX3jy60uHD10T8Ai4lDmaM",
+      "s": "1",
+      "ri": "EE9ST6arBp0vxEFNn3v4-LDjDJrYEcN-KqrZ_XS9-0OJ",
+      "p": "EBFvQ5rM2IQ8nXzFpQdNhL9jYRoQx6TvWdZc8Kq3Lm5A",
+      "dt": "2024-12-31T23:59:59.999999+00:00"
+    },
+    "raw": "{\"v\":\"KERI10JSON000120_\",\"t\":\"rev\",\"d\":\"EC4cMrseA_fO_ajXU-P-TxPM8bN7E52AAdI3LPpKJ00_\",\"i\":\"EH_TOwdi3rcMKKdUdJUIjkyX3jy60uHD10T8Ai4lDmaM\",\"s\":\"1\",\"ri\":\"EE9ST6arBp0vxEFNn3v4-LDjDJrYEcN-KqrZ_XS9-0OJ\",\"p\":\"EBFvQ5rM2IQ8nXzFpQdNhL9jYRoQx6TvWdZc8Kq3Lm5A\",\"dt\":\"2024-12-31T23:59:59.999999+00:00\"}",
+    "said": "EC4cMrseA_fO_ajXU-P-TxPM8bN7E52AAdI3LPpKJ00_"
+  }
+}

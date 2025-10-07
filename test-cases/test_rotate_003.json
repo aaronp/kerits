@@ -1,0 +1,9 @@
+{
+  "description": "Second rotation event",
+  "commands": {
+    "generate": "testgen/scripts/rotate_generate.sh",
+    "verify": "testgen/scripts/rotate_verify.sh"
+  },
+  "input": {"pre":"DBQo-84jo4m9QyM7KzeOKxVb8l1bg6hukLZaEg3LCYH-","keys":["DBf_wmAXp4xGRvVYPLLE20pB2iLUJdAd1jlaqgNHLfx4"],"dig":"EF-PBtXDZ9T3Txk8OipoJroRQh7gcxAZO7_LVEndbp0b","sn":2,"ndigs":["EKuqRhQJ7DC9-e1xVZ7ljKfQcvyKu0vH8R3G-IWvtYcB"]},
+  "expected": {"ked": {"v": "KERI10JSON000160_", "t": "rot", "d": "EPttO-rthFs14NqwCdalmyIgBXVbeVQv3TZ622N9hMx-", "i": "DBQo-84jo4m9QyM7KzeOKxVb8l1bg6hukLZaEg3LCYH-", "s": "2", "p": "EF-PBtXDZ9T3Txk8OipoJroRQh7gcxAZO7_LVEndbp0b", "kt": "1", "k": ["DBf_wmAXp4xGRvVYPLLE20pB2iLUJdAd1jlaqgNHLfx4"], "nt": "1", "n": ["EKuqRhQJ7DC9-e1xVZ7ljKfQcvyKu0vH8R3G-IWvtYcB"], "bt": "0", "br": [], "ba": [], "a": []}, "said": "EPttO-rthFs14NqwCdalmyIgBXVbeVQv3TZ622N9hMx-"}
+}

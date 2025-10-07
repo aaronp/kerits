@@ -1,0 +1,9 @@
+{
+  "description": "Inception with single key and next key digest",
+  "commands": {
+    "generate": "testgen/scripts/incept_generate.sh",
+    "verify": "testgen/scripts/incept_verify.sh"
+  },
+  "input": {"keys":["DIqI4910CfGV_VLbLTy6XXLKZwm_HZQSG_N0iAG0D29c"],"ndigs":["EHQEteSlbY8drT6QN0MNFGqlQlvWeCrI1evK9L7T0akI"]},
+  "expected": {"ked": {"v": "KERI10JSON00012b_", "t": "icp", "d": "EGttmd_VlAaRYaPHIaHBIrBNe89Mk7YA0qcTC05YX4vZ", "i": "DIqI4910CfGV_VLbLTy6XXLKZwm_HZQSG_N0iAG0D29c", "s": "0", "kt": "1", "k": ["DIqI4910CfGV_VLbLTy6XXLKZwm_HZQSG_N0iAG0D29c"], "nt": "1", "n": ["EHQEteSlbY8drT6QN0MNFGqlQlvWeCrI1evK9L7T0akI"], "bt": "0", "b": [], "c": [], "a": []}, "pre": "DIqI4910CfGV_VLbLTy6XXLKZwm_HZQSG_N0iAG0D29c", "said": "EGttmd_VlAaRYaPHIaHBIrBNe89Mk7YA0qcTC05YX4vZ"}
+}

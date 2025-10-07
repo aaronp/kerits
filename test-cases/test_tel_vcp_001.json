@@ -1,0 +1,28 @@
+{
+  "description": "Simple registry inception with no backers",
+  "commands": {
+    "generate": "testgen/scripts/tel_vcp_generate.sh",
+    "verify": "testgen/scripts/tel_vcp_verify.sh"
+  },
+  "input": {
+    "issuer": "DBQo-84jo4m9QyM7KzeOKxVb8l1bg6hukLZaEg3LCYH-",
+    "nonce": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn"
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON00010b_",
+      "t": "vcp",
+      "d": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+      "i": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+      "ii": "DBQo-84jo4m9QyM7KzeOKxVb8l1bg6hukLZaEg3LCYH-",
+      "s": "0",
+      "c": [],
+      "bt": "0",
+      "b": [],
+      "n": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn"
+    },
+    "raw": "{\"v\":\"KERI10JSON00010b_\",\"t\":\"vcp\",\"d\":\"EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi\",\"i\":\"EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi\",\"ii\":\"DBQo-84jo4m9QyM7KzeOKxVb8l1bg6hukLZaEg3LCYH-\",\"s\":\"0\",\"c\":[],\"bt\":\"0\",\"b\":[],\"n\":\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn\"}",
+    "said": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+    "regk": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi"
+  }
+}

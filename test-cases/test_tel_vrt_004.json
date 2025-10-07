@@ -1,0 +1,41 @@
+{
+  "description": "Replace backers (simultaneous add and remove)",
+  "commands": {
+    "generate": "testgen/scripts/tel_vrt_generate.sh",
+    "verify": "testgen/scripts/tel_vrt_verify.sh"
+  },
+  "input": {
+    "regk": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+    "dig": "EYetAnotherDigest12345678901234567890123456",
+    "sn": 4,
+    "baks": [
+      "BACKER_A_12345678901234567890123456789012"
+    ],
+    "adds": [
+      "BACKER_B_12345678901234567890123456789012"
+    ],
+    "cuts": [
+      "BACKER_A_12345678901234567890123456789012"
+    ],
+    "toad": 1
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON000132_",
+      "t": "vrt",
+      "d": "EK95E0SFTEtIjGYJR-CgS2BcibyOElnMVwIR_3h02ydm",
+      "i": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+      "p": "EYetAnotherDigest12345678901234567890123456",
+      "s": "4",
+      "bt": "1",
+      "br": [
+        "BACKER_A_12345678901234567890123456789012"
+      ],
+      "ba": [
+        "BACKER_B_12345678901234567890123456789012"
+      ]
+    },
+    "raw": "{\"v\":\"KERI10JSON000132_\",\"t\":\"vrt\",\"d\":\"EK95E0SFTEtIjGYJR-CgS2BcibyOElnMVwIR_3h02ydm\",\"i\":\"EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi\",\"p\":\"EYetAnotherDigest12345678901234567890123456\",\"s\":\"4\",\"bt\":\"1\",\"br\":[\"BACKER_A_12345678901234567890123456789012\"],\"ba\":[\"BACKER_B_12345678901234567890123456789012\"]}",
+    "said": "EK95E0SFTEtIjGYJR-CgS2BcibyOElnMVwIR_3h02ydm"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "description": "Ed25519 verification key (non-transferable)",
+  "commands": {
+    "verify": "testgen/scripts/cesr_verify.sh"
+  },
+  "input": {
+    "code": "B",
+    "raw_hex": "23bc54912c1e6e92c4a86825c867e27ffdc555bffbd4244f17a26abfffee965d"
+  },
+  "expected": {
+    "qb64": "BCO8VJEsHm6SxKhoJchn4n_9xVW_-9QkTxeiar__7pZd",
+    "raw_hex": "23bc54912c1e6e92c4a86825c867e27ffdc555bffbd4244f17a26abfffee965d"
+  }
+}

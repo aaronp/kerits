@@ -1,0 +1,37 @@
+{
+  "description": "Remove backer from registry",
+  "commands": {
+    "generate": "testgen/scripts/tel_vrt_generate.sh",
+    "verify": "testgen/scripts/tel_vrt_verify.sh"
+  },
+  "input": {
+    "regk": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+    "dig": "EPriorEventDigest1234567890123456789012345",
+    "sn": 3,
+    "baks": [
+      "BKRaC6UsijUY1FRjExoAMc8WOHBDIfIKYnOlxWH8eOe8"
+    ],
+    "adds": [],
+    "cuts": [
+      "BKRaC6UsijUY1FRjExoAMc8WOHBDIfIKYnOlxWH8eOe8"
+    ],
+    "toad": 0
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON000109_",
+      "t": "vrt",
+      "d": "ENTT7x7Z9qykXcylccvbmHDzZC-XNoNt_ZBtnl4A-AwQ",
+      "i": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+      "p": "EPriorEventDigest1234567890123456789012345",
+      "s": "3",
+      "bt": "0",
+      "br": [
+        "BKRaC6UsijUY1FRjExoAMc8WOHBDIfIKYnOlxWH8eOe8"
+      ],
+      "ba": []
+    },
+    "raw": "{\"v\":\"KERI10JSON000109_\",\"t\":\"vrt\",\"d\":\"ENTT7x7Z9qykXcylccvbmHDzZC-XNoNt_ZBtnl4A-AwQ\",\"i\":\"EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi\",\"p\":\"EPriorEventDigest1234567890123456789012345\",\"s\":\"3\",\"bt\":\"0\",\"br\":[\"BKRaC6UsijUY1FRjExoAMc8WOHBDIfIKYnOlxWH8eOe8\"],\"ba\":[]}",
+    "said": "ENTT7x7Z9qykXcylccvbmHDzZC-XNoNt_ZBtnl4A-AwQ"
+  }
+}

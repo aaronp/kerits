@@ -1,0 +1,9 @@
+{
+  "description": "Saidify a nested JSON document",
+  "commands": {
+    "generate": "testgen/scripts/saidify_generate.sh",
+    "verify": "testgen/scripts/saidify_verify.sh"
+  },
+  "input": {"event":{"type":"credential","version":"1.0","issuer":"EBWNHdSXCJnFJL5OuQPyM5K0neuniccMBdXt3gIXOf2B","subject":{"name":"Alice","age":30}}},
+  "expected": {"event": {"type": "credential", "version": "1.0", "issuer": "EBWNHdSXCJnFJL5OuQPyM5K0neuniccMBdXt3gIXOf2B", "subject": {"name": "Alice", "age": 30}}, "d": "EINkxOTkJCewP_na2e9w_Xsy0YUdjesvFaoi3N684Vsp"}
+}

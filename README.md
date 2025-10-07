@@ -13,19 +13,28 @@ You can run this code [here](https://aaronp.github.io/kerits/) to:
 All the identities are stored locally in your browser, but you perfrom interoperability with basic 'copy/paste' functionality,
 leaving you to build upon this implementation with whatever workflows, messaging, etc you'd like.
 
-## Building
+## Testing
 
+Run the complete test suite (75 compatibility tests + 132 unit tests):
 ```bash
-make dev
+make test
 ```
+
+All test cases are self-contained in `./test-cases` and verified against the Python keripy implementation.
+
+## Building
 
 Running the UI locally:
 ```bash
-cd ui &&  make dev
+cd ui && bun run dev
 ```
 
+Building for production:
+```bash
+bash build-for-pages.sh
+```
 
 Running the CLI locally:
 ```bash
-cd cli &&  make dev
+cd cli && bun run dev
 ```

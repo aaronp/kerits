@@ -1,0 +1,38 @@
+{
+  "description": "Credential interaction with attestation",
+  "commands": {
+    "generate": "testgen/scripts/tel_ixn_generate.sh",
+    "verify": "testgen/scripts/tel_ixn_verify.sh"
+  },
+  "input": {
+    "vcdig": "EIZaXLgq1VDnQ_qI0gAd2wogtxcc2UrJcd3_q9Io5keO",
+    "regk": "EN4SeFenXz_05cv85qycvZPE7PB8MMlw-vDuc5HX4ys2",
+    "dig": "ECiQthHKAFX7WYH1XhEZKO2Fz8GRPDyo5VkP_EAVva7p",
+    "sn": 3,
+    "data": {
+      "action": "attest",
+      "witness": "BACDEFGHIJKLMNOPQRSTUVWXYZ012345678901234567",
+      "statement": "verified"
+    },
+    "dt": "2024-06-25T10:15:30.123456+00:00"
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON000188_",
+      "t": "ixn",
+      "d": "EMcFACGOD78MhnnlSpbuj6P8pgPba2k1ln-U1Nd9WpfT",
+      "i": "EIZaXLgq1VDnQ_qI0gAd2wogtxcc2UrJcd3_q9Io5keO",
+      "s": "3",
+      "ri": "EN4SeFenXz_05cv85qycvZPE7PB8MMlw-vDuc5HX4ys2",
+      "p": "ECiQthHKAFX7WYH1XhEZKO2Fz8GRPDyo5VkP_EAVva7p",
+      "a": {
+        "action": "attest",
+        "witness": "BACDEFGHIJKLMNOPQRSTUVWXYZ012345678901234567",
+        "statement": "verified"
+      },
+      "dt": "2024-06-25T10:15:30.123456+00:00"
+    },
+    "raw": "{\"v\":\"KERI10JSON000188_\",\"t\":\"ixn\",\"d\":\"EMcFACGOD78MhnnlSpbuj6P8pgPba2k1ln-U1Nd9WpfT\",\"i\":\"EIZaXLgq1VDnQ_qI0gAd2wogtxcc2UrJcd3_q9Io5keO\",\"s\":\"3\",\"ri\":\"EN4SeFenXz_05cv85qycvZPE7PB8MMlw-vDuc5HX4ys2\",\"p\":\"ECiQthHKAFX7WYH1XhEZKO2Fz8GRPDyo5VkP_EAVva7p\",\"a\":{\"action\":\"attest\",\"witness\":\"BACDEFGHIJKLMNOPQRSTUVWXYZ012345678901234567\",\"statement\":\"verified\"},\"dt\":\"2024-06-25T10:15:30.123456+00:00\"}",
+    "said": "EMcFACGOD78MhnnlSpbuj6P8pgPba2k1ln-U1Nd9WpfT"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "description": "Verify valid credential",
+  "commands": {
+    "generate": "testgen/scripts/verify_generate.sh",
+    "verify": "testgen/scripts/verify_verify.sh"
+  },
+  "input": {
+    "credential": {
+      "v": "ACDC10JSON00012e_",
+      "d": "EOpMbWcZVemhMevTGrx9Wanc1I1kyv5Utzi_P6lN8GXM",
+      "i": "DBQo-84jo4m9QyM7KzeOKxVb8l1bg6hukLZaEg3LCYH-",
+      "s": "EMRvS7lGxc1eDleXBkvSHkFs8vUrslRcla6UXOJdcczw",
+      "a": {
+        "d": "EIbdtD0WTh_OS0eQ8NsHZm3cXH4ZyGo9VqOE8M5uGFsX",
+        "dt": "2024-01-01T00:00:00.000000+00:00",
+        "name": "John Doe",
+        "age": 30
+      }
+    }
+  },
+  "expected": {
+    "valid": true,
+    "credentialSaid": true,
+    "subjectSaid": true
+  }
+}

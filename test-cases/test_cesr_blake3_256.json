@@ -1,0 +1,14 @@
+{
+  "description": "Blake3-256 digest of test message",
+  "commands": {
+    "verify": "testgen/scripts/cesr_verify.sh"
+  },
+  "input": {
+    "code": "E",
+    "raw_hex": "de5a66a4164911f030b9a5944e2c8769565c424660efc2573c712daa137a0eb8"
+  },
+  "expected": {
+    "qb64": "EN5aZqQWSRHwMLmllE4sh2lWXEJGYO_CVzxxLaoTeg64",
+    "raw_hex": "de5a66a4164911f030b9a5944e2c8769565c424660efc2573c712daa137a0eb8"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "description": "Receipt for rotation event (sn=1)",
+  "commands": {
+    "generate": "testgen/scripts/receipt_generate.sh",
+    "verify": "testgen/scripts/receipt_verify.sh"
+  },
+  "input": {
+    "pre": "ECmiMVHTfZIjhA_rovnfx73T3G_FJzIQtzDn1meBVLAz",
+    "sn": 1,
+    "said": "EFghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUV"
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON000091_",
+      "t": "rct",
+      "d": "EFghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUV",
+      "i": "ECmiMVHTfZIjhA_rovnfx73T3G_FJzIQtzDn1meBVLAz",
+      "s": "1"
+    },
+    "raw": "{\"v\":\"KERI10JSON000091_\",\"t\":\"rct\",\"d\":\"EFghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUV\",\"i\":\"ECmiMVHTfZIjhA_rovnfx73T3G_FJzIQtzDn1meBVLAz\",\"s\":\"1\"}",
+    "said": "EFghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUV"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "description": "Default versify - KERI 1.0 JSON size 0",
+  "commands": {
+    "generate": "testgen/scripts/versify_generate.sh",
+    "verify": "testgen/scripts/versify_verify.sh"
+  },
+  "input": {},
+  "expected": {"version":"KERI10JSON000000_"}
+}

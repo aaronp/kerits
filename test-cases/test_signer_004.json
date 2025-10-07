@@ -1,0 +1,9 @@
+{
+  "description": "Generate transferable key from seed (all FFs)",
+  "commands": {
+    "generate": "testgen/scripts/signer_generate.sh --transferable",
+    "verify": "testgen/scripts/signer_verify.sh --transferable"
+  },
+  "input": {"seed":"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},
+  "expected": {"verfer": "DHahWSBEpuT1ESZbynOmBNkLBSnR32Ar4woZqSV2YNH1"}
+}

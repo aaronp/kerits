@@ -1,0 +1,23 @@
+{
+  "description": "Receipt for event with higher sequence number (sn=5)",
+  "commands": {
+    "generate": "testgen/scripts/receipt_generate.sh",
+    "verify": "testgen/scripts/receipt_verify.sh"
+  },
+  "input": {
+    "pre": "DBQo-84jo4m9QyM7KzeOKxVb8l1bg6hukLZaEg3LCYH-",
+    "sn": 5,
+    "said": "EXYZabcdefghijklmnopqrstuvwxyz123456789ABCDE"
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON000091_",
+      "t": "rct",
+      "d": "EXYZabcdefghijklmnopqrstuvwxyz123456789ABCDE",
+      "i": "DBQo-84jo4m9QyM7KzeOKxVb8l1bg6hukLZaEg3LCYH-",
+      "s": "5"
+    },
+    "raw": "{\"v\":\"KERI10JSON000091_\",\"t\":\"rct\",\"d\":\"EXYZabcdefghijklmnopqrstuvwxyz123456789ABCDE\",\"i\":\"DBQo-84jo4m9QyM7KzeOKxVb8l1bg6hukLZaEg3LCYH-\",\"s\":\"5\"}",
+    "said": "EXYZabcdefghijklmnopqrstuvwxyz123456789ABCDE"
+  }
+}

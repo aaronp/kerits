@@ -1,0 +1,9 @@
+{
+  "description": "Schema with date-time format",
+  "commands": {
+    "generate": "testgen/scripts/schema_generate.sh",
+    "verify": "testgen/scripts/schema_verify.sh"
+  },
+  "input": {"sed":{"$id":"","$schema":"http://json-schema.org/draft-07/schema#","type":"object","properties":{"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"}}}},
+  "expected": {"sed": {"$id": "EOoMNFZ5tdmrnIjLb3LeOawV9H4xkHGbVxdi6GFpcEfc", "$schema": "http://json-schema.org/draft-07/schema#", "type": "object", "properties": {"createdAt": {"type": "string", "format": "date-time"}, "updatedAt": {"type": "string", "format": "date-time"}}}, "said": "EOoMNFZ5tdmrnIjLb3LeOawV9H4xkHGbVxdi6GFpcEfc"}
+}

@@ -1,0 +1,9 @@
+{
+  "description": "Sign empty string with seed (all 1s)",
+  "commands": {
+    "generate": "testgen/scripts/sign_generate.sh",
+    "verify": "testgen/scripts/sign_verify.sh"
+  },
+  "input": {"seed":"0101010101010101010101010101010101010101010101010101010101010101","message":""},
+  "expected": {"verfer": "DIqI4910CfGV_VLbLTy6XXLKZwm_HZQSG_N0iAG0D29c", "signature": "0BB3jNoGNMAh-uixqfplW6EyMPb8_FxdUZr7CHLsm_HWQkHMPu2K1HJw2G0w52KtF2d8b7F5fjW8p-ujA4glfgIP", "message": ""}
+}

@@ -1,0 +1,9 @@
+{
+  "description": "Schema with array property",
+  "commands": {
+    "generate": "testgen/scripts/schema_generate.sh",
+    "verify": "testgen/scripts/schema_verify.sh"
+  },
+  "input": {"sed":{"$id":"","$schema":"http://json-schema.org/draft-07/schema#","type":"object","properties":{"tags":{"type":"array","items":{"type":"string"}},"count":{"type":"integer"}}}},
+  "expected": {"sed": {"$id": "ECT6opyOPxV57PpQ0cuPGhvPKdlRIeAP9Gf-hL629NSE", "$schema": "http://json-schema.org/draft-07/schema#", "type": "object", "properties": {"tags": {"type": "array", "items": {"type": "string"}}, "count": {"type": "integer"}}}, "said": "ECT6opyOPxV57PpQ0cuPGhvPKdlRIeAP9Gf-hL629NSE"}
+}

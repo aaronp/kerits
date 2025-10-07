@@ -1,0 +1,9 @@
+{
+  "description": "Sign message with mixed seed",
+  "commands": {
+    "generate": "testgen/scripts/sign_generate.sh",
+    "verify": "testgen/scripts/sign_verify.sh"
+  },
+  "input": {"seed":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","message":"KERI signature test"},
+  "expected": {"verfer": "DCB6BniSgh4l13Dx-6DEfBH_S4E-VBYuzp64OeB2Ixq2", "signature": "0BBHc_frfIppWMACRiQJiuyIOVY8lrn4e-t06nw_KxloAv_37VtpJf0bIJ8QQfc69xE5h-rFigLQ8fOcBXTchOAD", "message": "KERI signature test"}
+}

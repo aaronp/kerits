@@ -1,0 +1,9 @@
+{
+  "description": "Generate transferable key from mixed seed",
+  "commands": {
+    "generate": "testgen/scripts/signer_generate.sh --transferable",
+    "verify": "testgen/scripts/signer_verify.sh --transferable"
+  },
+  "input": {"seed":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"},
+  "expected": {"verfer": "DCB6BniSgh4l13Dx-6DEfBH_S4E-VBYuzp64OeB2Ixq2"}
+}

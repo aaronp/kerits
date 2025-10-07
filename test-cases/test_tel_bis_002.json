@@ -1,0 +1,32 @@
+{
+  "description": "Backer issuance with different registry",
+  "commands": {
+    "generate": "testgen/scripts/tel_bis_generate.sh",
+    "verify": "testgen/scripts/tel_bis_verify.sh"
+  },
+  "input": {
+    "vcdig": "EA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q7R8S9T0U1V",
+    "regk": "ERegistryID_Different_0123456789ABCDEF",
+    "regsn": 5,
+    "regd": "EDifferentRegistryDigest_123456789ABCDEF",
+    "dt": "2024-03-15T14:30:00.000000+00:00"
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON000152_",
+      "t": "bis",
+      "d": "EKlNoEhb18vxiu-ylXktX8lTCwcsePczq0R2HguUxgNP",
+      "i": "EA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q7R8S9T0U1V",
+      "ii": "ERegistryID_Different_0123456789ABCDEF",
+      "s": "0",
+      "ra": {
+        "i": "ERegistryID_Different_0123456789ABCDEF",
+        "s": "5",
+        "d": "EDifferentRegistryDigest_123456789ABCDEF"
+      },
+      "dt": "2024-03-15T14:30:00.000000+00:00"
+    },
+    "raw": "{\"v\":\"KERI10JSON000152_\",\"t\":\"bis\",\"d\":\"EKlNoEhb18vxiu-ylXktX8lTCwcsePczq0R2HguUxgNP\",\"i\":\"EA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q7R8S9T0U1V\",\"ii\":\"ERegistryID_Different_0123456789ABCDEF\",\"s\":\"0\",\"ra\":{\"i\":\"ERegistryID_Different_0123456789ABCDEF\",\"s\":\"5\",\"d\":\"EDifferentRegistryDigest_123456789ABCDEF\"},\"dt\":\"2024-03-15T14:30:00.000000+00:00\"}",
+    "said": "EKlNoEhb18vxiu-ylXktX8lTCwcsePczq0R2HguUxgNP"
+  }
+}

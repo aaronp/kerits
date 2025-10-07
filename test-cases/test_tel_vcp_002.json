@@ -1,0 +1,34 @@
+{
+  "description": "Registry inception with one backer",
+  "commands": {
+    "generate": "testgen/scripts/tel_vcp_generate.sh",
+    "verify": "testgen/scripts/tel_vcp_verify.sh"
+  },
+  "input": {
+    "issuer": "DBQo-84jo4m9QyM7KzeOKxVb8l1bg6hukLZaEg3LCYH-",
+    "nonce": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn",
+    "baks": [
+      "BKRaC6UsijUY1FRjExoAMc8WOHBDIfIKYnOlxWH8eOe8"
+    ],
+    "toad": 1
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON000139_",
+      "t": "vcp",
+      "d": "EN4SeFenXz_05cv85qycvZPE7PB8MMlw-vDuc5HX4ys2",
+      "i": "EN4SeFenXz_05cv85qycvZPE7PB8MMlw-vDuc5HX4ys2",
+      "ii": "DBQo-84jo4m9QyM7KzeOKxVb8l1bg6hukLZaEg3LCYH-",
+      "s": "0",
+      "c": [],
+      "bt": "1",
+      "b": [
+        "BKRaC6UsijUY1FRjExoAMc8WOHBDIfIKYnOlxWH8eOe8"
+      ],
+      "n": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn"
+    },
+    "raw": "{\"v\":\"KERI10JSON000139_\",\"t\":\"vcp\",\"d\":\"EN4SeFenXz_05cv85qycvZPE7PB8MMlw-vDuc5HX4ys2\",\"i\":\"EN4SeFenXz_05cv85qycvZPE7PB8MMlw-vDuc5HX4ys2\",\"ii\":\"DBQo-84jo4m9QyM7KzeOKxVb8l1bg6hukLZaEg3LCYH-\",\"s\":\"0\",\"c\":[],\"bt\":\"1\",\"b\":[\"BKRaC6UsijUY1FRjExoAMc8WOHBDIfIKYnOlxWH8eOe8\"],\"n\":\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn\"}",
+    "said": "EN4SeFenXz_05cv85qycvZPE7PB8MMlw-vDuc5HX4ys2",
+    "regk": "EN4SeFenXz_05cv85qycvZPE7PB8MMlw-vDuc5HX4ys2"
+  }
+}

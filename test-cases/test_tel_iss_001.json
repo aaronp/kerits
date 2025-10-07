@@ -1,0 +1,25 @@
+{
+  "description": "Simple credential issuance",
+  "commands": {
+    "generate": "testgen/scripts/tel_iss_generate.sh",
+    "verify": "testgen/scripts/tel_iss_verify.sh"
+  },
+  "input": {
+    "vcdig": "EOpMbWcZVemhMevTGrx9Wanc1I1kyv5Utzi_P6lN8GXM",
+    "regk": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+    "dt": "2024-01-01T00:00:00.000000+00:00"
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON0000ed_",
+      "t": "iss",
+      "d": "ENwxvffw6SXRTVcu3AHIb2OirZcjTHcLm-9tV0uREKOY",
+      "i": "EOpMbWcZVemhMevTGrx9Wanc1I1kyv5Utzi_P6lN8GXM",
+      "s": "0",
+      "ri": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+      "dt": "2024-01-01T00:00:00.000000+00:00"
+    },
+    "raw": "{\"v\":\"KERI10JSON0000ed_\",\"t\":\"iss\",\"d\":\"ENwxvffw6SXRTVcu3AHIb2OirZcjTHcLm-9tV0uREKOY\",\"i\":\"EOpMbWcZVemhMevTGrx9Wanc1I1kyv5Utzi_P6lN8GXM\",\"s\":\"0\",\"ri\":\"EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi\",\"dt\":\"2024-01-01T00:00:00.000000+00:00\"}",
+    "said": "ENwxvffw6SXRTVcu3AHIb2OirZcjTHcLm-9tV0uREKOY"
+  }
+}

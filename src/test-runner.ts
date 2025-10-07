@@ -35,7 +35,7 @@ interface TestResult {
 }
 
 async function loadTestCases(): Promise<TestCase[]> {
-  const testCasesDir = path.join(import.meta.dir, '../../testgen/test-cases');
+  const testCasesDir = path.join(import.meta.dir, '../test-cases');
   const tests: TestCase[] = [];
 
   try {

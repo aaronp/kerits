@@ -1,0 +1,36 @@
+{
+  "description": "Add multiple backers to registry",
+  "commands": {
+    "generate": "testgen/scripts/tel_vrt_generate.sh",
+    "verify": "testgen/scripts/tel_vrt_verify.sh"
+  },
+  "input": {
+    "regk": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+    "dig": "EGZY3tgdlwKs-J_2x_WZXg-rcw_qkPcQ6rHATUNlxDC3",
+    "sn": 2,
+    "adds": [
+      "BL0A0mOZWr4PwJgL8qhpU9pxHxVmbgqIWfGgYt5qIc2Y",
+      "BMTcwbVGPEVE2S4M1wSxEklP8yQi6t_5x6_XZ0B5MqLa"
+    ],
+    "cuts": [],
+    "toad": 2
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON00013a_",
+      "t": "vrt",
+      "d": "EMoxGFrE_FG0DP1KHu-9cJ7bE1I3UvWHhNJcIpBm-zxJ",
+      "i": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+      "p": "EGZY3tgdlwKs-J_2x_WZXg-rcw_qkPcQ6rHATUNlxDC3",
+      "s": "2",
+      "bt": "2",
+      "br": [],
+      "ba": [
+        "BL0A0mOZWr4PwJgL8qhpU9pxHxVmbgqIWfGgYt5qIc2Y",
+        "BMTcwbVGPEVE2S4M1wSxEklP8yQi6t_5x6_XZ0B5MqLa"
+      ]
+    },
+    "raw": "{\"v\":\"KERI10JSON00013a_\",\"t\":\"vrt\",\"d\":\"EMoxGFrE_FG0DP1KHu-9cJ7bE1I3UvWHhNJcIpBm-zxJ\",\"i\":\"EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi\",\"p\":\"EGZY3tgdlwKs-J_2x_WZXg-rcw_qkPcQ6rHATUNlxDC3\",\"s\":\"2\",\"bt\":\"2\",\"br\":[],\"ba\":[\"BL0A0mOZWr4PwJgL8qhpU9pxHxVmbgqIWfGgYt5qIc2Y\",\"BMTcwbVGPEVE2S4M1wSxEklP8yQi6t_5x6_XZ0B5MqLa\"]}",
+    "said": "EMoxGFrE_FG0DP1KHu-9cJ7bE1I3UvWHhNJcIpBm-zxJ"
+  }
+}

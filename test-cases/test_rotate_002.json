@@ -1,0 +1,9 @@
+{
+  "description": "Rotation with no next key digests",
+  "commands": {
+    "generate": "testgen/scripts/rotate_generate.sh",
+    "verify": "testgen/scripts/rotate_verify.sh"
+  },
+  "input": {"pre":"DBQo-84jo4m9QyM7KzeOKxVb8l1bg6hukLZaEg3LCYH-","keys":["DFooOCD_sNXjwsnA5VJ7SOvbaKsZiafUCZQmnhywz6L3"],"dig":"EJbXBNQi1-s8380ecKoh8oBW12QQ1tHCcH1k82K1lnBG","sn":1,"ndigs":[]},
+  "expected": {"ked": {"v": "KERI10JSON000132_", "t": "rot", "d": "EBd9Wj-Z5I3A4CylkhsM2QefcIjS6El3pp6ASxlo9zsy", "i": "DBQo-84jo4m9QyM7KzeOKxVb8l1bg6hukLZaEg3LCYH-", "s": "1", "p": "EJbXBNQi1-s8380ecKoh8oBW12QQ1tHCcH1k82K1lnBG", "kt": "1", "k": ["DFooOCD_sNXjwsnA5VJ7SOvbaKsZiafUCZQmnhywz6L3"], "nt": "0", "n": [], "bt": "0", "br": [], "ba": [], "a": []}, "said": "EBd9Wj-Z5I3A4CylkhsM2QefcIjS6El3pp6ASxlo9zsy"}
+}

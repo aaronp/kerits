@@ -1,0 +1,27 @@
+{
+  "description": "Simple credential revocation",
+  "commands": {
+    "generate": "testgen/scripts/tel_rev_generate.sh",
+    "verify": "testgen/scripts/tel_rev_verify.sh"
+  },
+  "input": {
+    "vcdig": "EOpMbWcZVemhMevTGrx9Wanc1I1kyv5Utzi_P6lN8GXM",
+    "regk": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+    "dig": "ELZpzaM7ZaXo9HLvRcjQhQ5Rb1z0tXqZF5wX6dTj3hqY",
+    "dt": "2024-01-15T10:30:00.000000+00:00"
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON000120_",
+      "t": "rev",
+      "d": "EBvyQ432IfVPXJGbvzhTgAXK1nuwX5CP0fDSan-gH8U0",
+      "i": "EOpMbWcZVemhMevTGrx9Wanc1I1kyv5Utzi_P6lN8GXM",
+      "s": "1",
+      "ri": "EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi",
+      "p": "ELZpzaM7ZaXo9HLvRcjQhQ5Rb1z0tXqZF5wX6dTj3hqY",
+      "dt": "2024-01-15T10:30:00.000000+00:00"
+    },
+    "raw": "{\"v\":\"KERI10JSON000120_\",\"t\":\"rev\",\"d\":\"EBvyQ432IfVPXJGbvzhTgAXK1nuwX5CP0fDSan-gH8U0\",\"i\":\"EOpMbWcZVemhMevTGrx9Wanc1I1kyv5Utzi_P6lN8GXM\",\"s\":\"1\",\"ri\":\"EMbueaMR7Sn63BBrHvDXgPo70XZMc07_xbAMg83dxSHi\",\"p\":\"ELZpzaM7ZaXo9HLvRcjQhQ5Rb1z0tXqZF5wX6dTj3hqY\",\"dt\":\"2024-01-15T10:30:00.000000+00:00\"}",
+    "said": "EBvyQ432IfVPXJGbvzhTgAXK1nuwX5CP0fDSan-gH8U0"
+  }
+}

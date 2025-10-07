@@ -1,0 +1,38 @@
+{
+  "description": "Registry inception with multiple backers",
+  "commands": {
+    "generate": "testgen/scripts/tel_vcp_generate.sh",
+    "verify": "testgen/scripts/tel_vcp_verify.sh"
+  },
+  "input": {
+    "issuer": "DBQo-84jo4m9QyM7KzeOKxVb8l1bg6hukLZaEg3LCYH-",
+    "nonce": "XYZabcdefghijklmn1234567890ABCDEFGHIJKLMNOP",
+    "baks": [
+      "BKRaC6UsijUY1FRjExoAMc8WOHBDIfIKYnOlxWH8eOe8",
+      "BL0A0mOZWr4PwJgL8qhpU9pxHxVmbgqIWfGgYt5qIc2Y",
+      "BMTcwbVGPEVE2S4M1wSxEklP8yQi6t_5x6_XZ0B5MqLa"
+    ],
+    "toad": 2
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON00019a_",
+      "t": "vcp",
+      "d": "EE9ST6arBp0vxEFNn3v4-LDjDJrYEcN-KqrZ_XS9-0OJ",
+      "i": "EE9ST6arBp0vxEFNn3v4-LDjDJrYEcN-KqrZ_XS9-0OJ",
+      "ii": "DBQo-84jo4m9QyM7KzeOKxVb8l1bg6hukLZaEg3LCYH-",
+      "s": "0",
+      "c": [],
+      "bt": "2",
+      "b": [
+        "BKRaC6UsijUY1FRjExoAMc8WOHBDIfIKYnOlxWH8eOe8",
+        "BL0A0mOZWr4PwJgL8qhpU9pxHxVmbgqIWfGgYt5qIc2Y",
+        "BMTcwbVGPEVE2S4M1wSxEklP8yQi6t_5x6_XZ0B5MqLa"
+      ],
+      "n": "XYZabcdefghijklmn1234567890ABCDEFGHIJKLMNOP"
+    },
+    "raw": "{\"v\":\"KERI10JSON00019a_\",\"t\":\"vcp\",\"d\":\"EE9ST6arBp0vxEFNn3v4-LDjDJrYEcN-KqrZ_XS9-0OJ\",\"i\":\"EE9ST6arBp0vxEFNn3v4-LDjDJrYEcN-KqrZ_XS9-0OJ\",\"ii\":\"DBQo-84jo4m9QyM7KzeOKxVb8l1bg6hukLZaEg3LCYH-\",\"s\":\"0\",\"c\":[],\"bt\":\"2\",\"b\":[\"BKRaC6UsijUY1FRjExoAMc8WOHBDIfIKYnOlxWH8eOe8\",\"BL0A0mOZWr4PwJgL8qhpU9pxHxVmbgqIWfGgYt5qIc2Y\",\"BMTcwbVGPEVE2S4M1wSxEklP8yQi6t_5x6_XZ0B5MqLa\"],\"n\":\"XYZabcdefghijklmn1234567890ABCDEFGHIJKLMNOP\"}",
+    "said": "EE9ST6arBp0vxEFNn3v4-LDjDJrYEcN-KqrZ_XS9-0OJ",
+    "regk": "EE9ST6arBp0vxEFNn3v4-LDjDJrYEcN-KqrZ_XS9-0OJ"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "description": "Digest of arbitrary string",
+  "commands": {
+    "generate": "testgen/scripts/diger_generate.sh",
+    "verify": "testgen/scripts/diger_verify.sh"
+  },
+  "input": {"ser":"hello world"},
+  "expected": {"digest": "ENdJge-nCgyIC42MGYXQddvL9nm5ml-ZFOWq-WuDGp4k"}
+}

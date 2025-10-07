@@ -1,0 +1,9 @@
+{
+  "description": "Sign long message with seed (all FFs)",
+  "commands": {
+    "generate": "testgen/scripts/sign_generate.sh",
+    "verify": "testgen/scripts/sign_verify.sh"
+  },
+  "input": {"seed":"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","message":"The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog."},
+  "expected": {"verfer": "DHahWSBEpuT1ESZbynOmBNkLBSnR32Ar4woZqSV2YNH1", "signature": "0BDEAXnYJkC4ivV26JW4XgDKe0BtRubqC8k4HbbfzHQ7fiwVbLAk4Nyla9Kvly1NhB4TlMMBLkJSwk8CX8Pu-acC", "message": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog."}
+}

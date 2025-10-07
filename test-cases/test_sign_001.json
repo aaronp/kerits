@@ -1,0 +1,9 @@
+{
+  "description": "Sign 'Hello, World!' with seed (all 1s)",
+  "commands": {
+    "generate": "testgen/scripts/sign_generate.sh",
+    "verify": "testgen/scripts/sign_verify.sh"
+  },
+  "input": {"seed":"0101010101010101010101010101010101010101010101010101010101010101","message":"Hello, World!"},
+  "expected": {"verfer": "DIqI4910CfGV_VLbLTy6XXLKZwm_HZQSG_N0iAG0D29c", "signature": "0BCqPt3zuVwYHa1_djN4epAyhetW7LP4TcqLGt5pIzmzNhPp2xMqFP_sgv7qJ3dMojqRgJ6ojAHwohoTxv0dEFYJ", "message": "Hello, World!"}
+}

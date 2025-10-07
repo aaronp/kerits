@@ -1,0 +1,9 @@
+{
+  "description": "Versify with size 299 (0x12b)",
+  "commands": {
+    "generate": "testgen/scripts/versify_generate.sh --size 299",
+    "verify": "testgen/scripts/versify_verify.sh --size 299"
+  },
+  "input": {"size":299},
+  "expected": {"version":"KERI10JSON00012b_"}
+}

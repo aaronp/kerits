@@ -1,0 +1,27 @@
+{
+  "description": "Credential revocation with specific datetime",
+  "commands": {
+    "generate": "testgen/scripts/tel_rev_generate.sh",
+    "verify": "testgen/scripts/tel_rev_verify.sh"
+  },
+  "input": {
+    "vcdig": "EIZaXLgq1VDnQ_qI0gAd2wogtxcc2UrJcd3_q9Io5keO",
+    "regk": "EN4SeFenXz_05cv85qycvZPE7PB8MMlw-vDuc5HX4ys2",
+    "dig": "EKQnT_6h3YnE9wpf2dZpJwJCEu3uA4RZhAXLvNTTMx0E",
+    "dt": "2024-06-20T18:45:30.123456+00:00"
+  },
+  "expected": {
+    "sad": {
+      "v": "KERI10JSON000120_",
+      "t": "rev",
+      "d": "ECiQthHKAFX7WYH1XhEZKO2Fz8GRPDyo5VkP_EAVva7p",
+      "i": "EIZaXLgq1VDnQ_qI0gAd2wogtxcc2UrJcd3_q9Io5keO",
+      "s": "1",
+      "ri": "EN4SeFenXz_05cv85qycvZPE7PB8MMlw-vDuc5HX4ys2",
+      "p": "EKQnT_6h3YnE9wpf2dZpJwJCEu3uA4RZhAXLvNTTMx0E",
+      "dt": "2024-06-20T18:45:30.123456+00:00"
+    },
+    "raw": "{\"v\":\"KERI10JSON000120_\",\"t\":\"rev\",\"d\":\"ECiQthHKAFX7WYH1XhEZKO2Fz8GRPDyo5VkP_EAVva7p\",\"i\":\"EIZaXLgq1VDnQ_qI0gAd2wogtxcc2UrJcd3_q9Io5keO\",\"s\":\"1\",\"ri\":\"EN4SeFenXz_05cv85qycvZPE7PB8MMlw-vDuc5HX4ys2\",\"p\":\"EKQnT_6h3YnE9wpf2dZpJwJCEu3uA4RZhAXLvNTTMx0E\",\"dt\":\"2024-06-20T18:45:30.123456+00:00\"}",
+    "said": "ECiQthHKAFX7WYH1XhEZKO2Fz8GRPDyo5VkP_EAVva7p"
+  }
+}
