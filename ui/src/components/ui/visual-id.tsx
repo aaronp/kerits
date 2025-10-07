@@ -75,9 +75,9 @@ export function VisualId({
   const labelClass = small
     ? 'text-xs font-medium text-muted-foreground'
     : bold
-      ? 'text-foreground font-semibold font-2xl'
+      ? 'text-foreground font-semibold font-8xl'
       : 'font-medium text-muted-foreground';
-  const valueClass = small ? 'text-xs font-mono' : 'text-sm font-mono';
+  const valueClass = small ? 'text-xs font-mono' : 'text-xs font-mono';
 
   return (
     <div className={`flex items-center ${gapClass} ${className}`}>

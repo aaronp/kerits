@@ -7,7 +7,7 @@
  * - Batch operations via transactions
  */
 
-import type { Kv } from '../types';
+import type { Kv, StorageKey } from '../types';
 
 const DB_NAME = 'kerits-kv';
 const DB_VERSION = 1;
@@ -187,5 +187,46 @@ export class IndexedDBKv implements Kv {
   async close(): Promise<void> {
     const db = await this.dbPromise;
     db.close();
+  }
+
+  // Structured key methods (required by KerStore)
+
+  /**
+   * Convert StorageKey to string key
+   */
+  private keyToString(key: StorageKey): string {
+    return key.path.join('/');
+  }
+
+  /**
+   * Convert string key back to StorageKey
+   */
+  private stringToKey(s: string): StorageKey {
+    return { path: s.split('/') };
+  }
+
+  async getStructured(key: StorageKey): Promise<Uint8Array | null> {
+    return this.get(this.keyToString(key));
+  }
+
+  async putStructured(key: StorageKey, value: Uint8Array): Promise<void> {
+    return this.put(this.keyToString(key), value);
+  }
+
+  async delStructured(key: StorageKey): Promise<void> {
+    return this.del(this.keyToString(key));
+  }
+
+  async listStructured(
+    keyPrefix: StorageKey,
+    opts?: { keysOnly?: boolean; limit?: number }
+  ): Promise<Array<{ key: StorageKey; value?: Uint8Array }>> {
+    const prefix = this.keyToString(keyPrefix);
+    const results = await this.list(prefix, opts);
+
+    return results.map(r => ({
+      key: this.stringToKey(r.key),
+      value: r.value,
+    }));
   }
 }

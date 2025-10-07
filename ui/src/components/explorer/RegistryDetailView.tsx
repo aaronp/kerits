@@ -25,7 +25,8 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Combobox } from '../ui/combobox';
 import { route } from '@/config';
-import { ACDCRow } from './ACDCRow';
+import { CreateRegistryDialog } from './CreateRegistryDialog';
+import { VisualId } from '../ui/visual-id';
 import type { KeritsDSL, RegistryDSL } from '@/../src/app/dsl/types';
 import type { IndexedACDC } from '@/../src/app/indexer/types';
 
@@ -49,7 +50,6 @@ export function RegistryDetailView({
 
   // Dialog states
   const [showAddSubRegistryDialog, setShowAddSubRegistryDialog] = useState(false);
-  const [subRegistryName, setSubRegistryName] = useState('');
   const [showIssueDialog, setShowIssueDialog] = useState(false);
   const [availableSchemas, setAvailableSchemas] = useState<Array<{ value: string; label: string }>>([]);
   const [selectedSchema, setSelectedSchema] = useState('');
@@ -133,24 +133,6 @@ export function RegistryDetailView({
     loadRegistry();
   }, [dsl, accountAlias, registryId]);
 
-  const handleCreateSubRegistry = async () => {
-    if (!subRegistryName.trim() || !registryDsl) return;
-
-    try {
-      // Create nested registry
-      await registryDsl.createRegistry(subRegistryName.trim());
-
-      // Close dialog and notify parent
-      setShowAddSubRegistryDialog(false);
-      setSubRegistryName('');
-
-      if (onRegistryCreated) {
-        onRegistryCreated();
-      }
-    } catch (error) {
-      console.error('Failed to create sub-registry:', error);
-    }
-  };
 
   const handleIssueCredential = async () => {
     if (!selectedSchema || !selectedHolder || !credentialAlias.trim() || !registryDsl) return;
@@ -240,15 +222,22 @@ export function RegistryDetailView({
     <div className="space-y-6">
       {/* Header with actions */}
       <div className="flex justify-between items-start">
-        <div>
-          <h2 className="text-2xl font-bold">{registryDsl.registry.alias}</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Registry ID: {registryDsl.registry.registryId.substring(0, 24)}...
-          </p>
+        <div className="space-y-2">
+          <VisualId
+            variant='marble'
+            label={registryDsl.registry.alias}
+            value={registryDsl.registry.registryId}
+            size={48}
+            maxCharacters={16}
+            bold={true}
+          />
           {registryDsl.registry.parentRegistryId && (
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Nested registry (parent: {registryDsl.registry.parentRegistryId.substring(0, 24)}...)
-            </p>
+            <VisualId
+              label="Parent Registry"
+              value={registryDsl.registry.parentRegistryId}
+              size={28}
+              maxCharacters={14}
+            />
           )}
         </div>
 
@@ -261,10 +250,7 @@ export function RegistryDetailView({
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowAddSubRegistryDialog(true)}>
-            <FolderPlus className="mr-2 h-4 w-4" />
-            Add Sub-Registry
-          </Button>
+
           <Button size="sm" onClick={() => setShowIssueDialog(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Issue Credential
@@ -324,40 +310,12 @@ export function RegistryDetailView({
       </Card>
 
       {/* Add Sub-Registry Dialog */}
-      <Dialog open={showAddSubRegistryDialog} onOpenChange={setShowAddSubRegistryDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create Nested Registry</DialogTitle>
-            <DialogDescription>
-              Create a sub-registry under "{registryDsl.registry.alias}". This will be anchored in the parent registry's TEL.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="subRegistryName">Registry Name</Label>
-              <Input
-                id="subRegistryName"
-                value={subRegistryName}
-                onChange={(e) => setSubRegistryName(e.target.value)}
-                placeholder="e.g., Public, Internal, Archived"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && subRegistryName.trim()) {
-                    handleCreateSubRegistry();
-                  }
-                }}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddSubRegistryDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateSubRegistry} disabled={!subRegistryName.trim()}>
-              Create Sub-Registry
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateRegistryDialog
+        open={showAddSubRegistryDialog}
+        onOpenChange={setShowAddSubRegistryDialog}
+        parentRegistryDsl={registryDsl}
+        onSuccess={onRegistryCreated}
+      />
 
       {/* Issue Credential Dialog */}
       <Dialog open={showIssueDialog} onOpenChange={setShowIssueDialog}>

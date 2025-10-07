@@ -9,11 +9,14 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import { getDSL } from '@/lib/dsl';
+import { Button } from '../ui/button';
 import type { KeritsDSL, AccountDSL } from '@/../src/app/dsl/types';
 import { RegistryTreeNavigation } from './RegistryTreeNavigation';
 import { RegistryBreadcrumbs } from './RegistryBreadcrumbs';
 import { RegistryDetailView } from './RegistryDetailView';
+import { CreateRegistryDialog } from './CreateRegistryDialog';
 
 export function Explorer() {
   const { accountAlias: accountParam, '*': registryPathParam } = useParams<{
@@ -33,6 +36,7 @@ export function Explorer() {
   const [registryAliases, setRegistryAliases] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   // Initialize DSL
   useEffect(() => {
@@ -48,12 +52,19 @@ export function Explorer() {
         if (accountNames.length === 0) {
           console.log('No accounts found, creating default account...');
 
-          const seed = new Uint8Array(32);
-          crypto.getRandomValues(seed);
-          const mnemonic = dslInstance.newMnemonic(seed);
-          await dslInstance.newAccount('default', mnemonic);
+          try {
+            const seed = new Uint8Array(32);
+            crypto.getRandomValues(seed);
+            const mnemonic = dslInstance.newMnemonic(seed);
+            await dslInstance.newAccount('default', mnemonic);
+            console.log('Account created successfully');
 
-          accountNames = await dslInstance.accountNames();
+            accountNames = await dslInstance.accountNames();
+            console.log('Account names after creation:', accountNames);
+          } catch (createError) {
+            console.error('Failed to create default account:', createError);
+            throw createError;
+          }
         }
 
         // Get account DSL (prefer the one from URL param, fallback to first)
@@ -121,18 +132,29 @@ export function Explorer() {
   }
 
   return (
-    <div className="flex h-full -m-6">
+    <div className="flex h-full">
       {/* Left Sidebar - Registry Tree Navigation */}
-      <div className="w-64 border-r bg-muted/10 overflow-y-auto">
-        <div className="p-4 border-b">
+      <div className="w-64 border-r bg-muted/10 flex flex-col">
+        <div className="px-4 py-3 border-b flex-shrink-0 flex items-center justify-between">
           <h3 className="font-semibold text-sm">Registries</h3>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowCreateDialog(true)}
+            className="h-7 w-7 p-0"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
         </div>
-        <RegistryTreeNavigation
-          key={refreshKey}
-          dsl={dsl}
-          accountAlias={accountAlias}
-          selectedRegistryId={selectedRegistryId}
-        />
+        <div className="flex-1 overflow-y-auto">
+          <RegistryTreeNavigation
+            key={refreshKey}
+            dsl={dsl}
+            accountAlias={accountAlias}
+            selectedRegistryId={selectedRegistryId}
+            onRegistryCreated={handleRegistryCreated}
+          />
+        </div>
       </div>
 
       {/* Main Content Area */}
@@ -166,6 +188,14 @@ export function Explorer() {
           )}
         </div>
       </div>
+
+      {/* Create Registry Dialog */}
+      <CreateRegistryDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        accountDsl={accountDsl}
+        onSuccess={handleRegistryCreated}
+      />
     </div>
   );
 }

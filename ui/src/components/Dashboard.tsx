@@ -259,6 +259,16 @@ export function Dashboard() {
               </Button>
             )}
             <Button
+              variant={activeTab === 'contacts' ? 'default' : 'ghost'}
+              size={sidebarExpanded ? 'default' : 'icon'}
+              className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'contacts' ? 'bg-primary text-primary-foreground' : ''}`}
+              onClick={() => navigate(route('/dashboard/contacts'))}
+              title="Contacts"
+            >
+              <Users className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
+              {sidebarExpanded && <span>Contacts</span>}
+            </Button>
+            <Button
               variant={activeTab === 'schemas' ? 'default' : 'ghost'}
               size={sidebarExpanded ? 'default' : 'icon'}
               className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'schemas' ? 'bg-primary text-primary-foreground' : ''}`}
@@ -268,7 +278,7 @@ export function Dashboard() {
               <FileText className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
               {sidebarExpanded && <span>Schemas</span>}
             </Button>
-            <Button
+            {/* <Button
               variant={activeTab === 'credentials' ? 'default' : 'ghost'}
               size={sidebarExpanded ? 'default' : 'icon'}
               className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'credentials' ? 'bg-primary text-primary-foreground' : ''}`}
@@ -277,7 +287,7 @@ export function Dashboard() {
             >
               <Award className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
               {sidebarExpanded && <span>Credentials</span>}
-            </Button>
+            </Button> */}
             <Button
               variant={activeTab === 'sign' ? 'default' : 'ghost'}
               size={sidebarExpanded ? 'default' : 'icon'}
@@ -297,16 +307,6 @@ export function Dashboard() {
             >
               <Network className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
               {sidebarExpanded && <span>Events</span>}
-            </Button>
-            <Button
-              variant={activeTab === 'contacts' ? 'default' : 'ghost'}
-              size={sidebarExpanded ? 'default' : 'icon'}
-              className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'contacts' ? 'bg-primary text-primary-foreground' : ''}`}
-              onClick={() => navigate(route('/dashboard/contacts'))}
-              title="Contacts"
-            >
-              <Users className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
-              {sidebarExpanded && <span>Contacts</span>}
             </Button>
           </div>
 
@@ -336,10 +336,10 @@ export function Dashboard() {
 
         {/* Main content */}
         <div className="flex-1 overflow-hidden">
-          <div className="container mx-auto px-4 py-6 h-full">
+          <div className="h-full">
             <main className="h-full overflow-y-auto">
               {loading ? (
-                <Card>
+                <Card className="container mx-auto px-4 py-6">
                   <CardContent className="text-center py-12 text-muted-foreground">
                     Loading...
                   </CardContent>
@@ -348,19 +348,19 @@ export function Dashboard() {
                 <Routes>
                   <Route path="/" element={<Explorer />} />
                   <Route path="/explorer/:accountAlias/*" element={<Explorer />} />
-                  <Route path="/schemas" element={<Schemas />} />
-                  <Route path="/schemas/new" element={<SchemaCreator />} />
-                  <Route path="/issue" element={<IssueSchemaList />} />
-                  <Route path="/issue/:schemaId" element={<IssueCredentialForm />} />
-                  <Route path="/credentials" element={<Credentials />} />
-                  <Route path="/credentials/new" element={<CredentialIssuer />} />
-                  <Route path="/verify" element={<VerifyCredential />} />
-                  <Route path="/sign" element={<Sign />} />
-                  <Route path="/graph" element={<NetworkGraph />} />
-                  <Route path="/graph/:said" element={<NetworkGraph />} />
-                  <Route path="/contacts" element={<Contacts />} />
-                  <Route path="/contacts/:identifier" element={<MyContact />} />
-                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/schemas" element={<div className="container mx-auto px-4 py-6"><Schemas /></div>} />
+                  <Route path="/schemas/new" element={<div className="container mx-auto px-4 py-6"><SchemaCreator /></div>} />
+                  <Route path="/issue" element={<div className="container mx-auto px-4 py-6"><IssueSchemaList /></div>} />
+                  <Route path="/issue/:schemaId" element={<div className="container mx-auto px-4 py-6"><IssueCredentialForm /></div>} />
+                  <Route path="/credentials" element={<div className="container mx-auto px-4 py-6"><Credentials /></div>} />
+                  <Route path="/credentials/new" element={<div className="container mx-auto px-4 py-6"><CredentialIssuer /></div>} />
+                  <Route path="/verify" element={<div className="container mx-auto px-4 py-6"><VerifyCredential /></div>} />
+                  <Route path="/sign" element={<div className="container mx-auto px-4 py-6"><Sign /></div>} />
+                  <Route path="/graph" element={<div className="container mx-auto px-4 py-6"><NetworkGraph /></div>} />
+                  <Route path="/graph/:said" element={<div className="container mx-auto px-4 py-6"><NetworkGraph /></div>} />
+                  <Route path="/contacts" element={<div className="container mx-auto px-4 py-6"><Contacts /></div>} />
+                  <Route path="/contacts/:identifier" element={<div className="container mx-auto px-4 py-6"><MyContact /></div>} />
+                  <Route path="/profile" element={<div className="container mx-auto px-4 py-6"><Profile /></div>} />
                 </Routes>
               )}
             </main>
