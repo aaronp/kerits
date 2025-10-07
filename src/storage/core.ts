@@ -131,7 +131,8 @@ export function createKerStore(kv: Kv, opts?: StoreOptions): KerStore {
     const idx = await kv.list(pref, { keysOnly: false });
     const pairs = idx
       .map(({ key, value }) => {
-        const s = parseInt(key.slice(pref.length), 10);
+        const hexSeq = key.slice(pref.length);
+        const s = parseInt(hexSeq, 16); // Parse as hex, not decimal!
         return Number.isFinite(s) ? { s, said: utf8Decode(value!) } : null;
       })
       .filter(Boolean) as Array<{ s: number; said: SAID }>;
