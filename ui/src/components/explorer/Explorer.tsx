@@ -438,13 +438,13 @@ export function Explorer() {
         return;
       }
 
-      // TODO: Implement revoke method on registry DSL
-      showToast('Revoke functionality not yet implemented');
+      // Revoke the credential
+      await registryDsl.revoke(credentialId);
 
-      // When implemented:
-      // await registryDsl.revoke(credentialId);
-      // await loadACDCsForRegistry(registryAlias);
-      // showToast('Credential revoked successfully');
+      // Reload credentials to show updated status
+      await loadACDCsForRegistry(registryAlias);
+
+      showToast('Credential revoked successfully');
     } catch (error) {
       console.error('Failed to revoke credential:', error);
       showToast(`Failed to revoke: ${error instanceof Error ? error.message : String(error)}`);

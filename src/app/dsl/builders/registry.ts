@@ -145,5 +145,31 @@ export function createRegistryDSL(
       const indexed = await indexer.indexRegistry(registry.registryId);
       return indexed.credentials;
     },
+
+    async revoke(credentialId: string): Promise<void> {
+      const { revokeCredential } = await import('../../helpers');
+
+      // Validate credential exists and belongs to this registry
+      const indexer = new TELIndexer(store);
+      const indexed = await indexer.indexRegistry(registry.registryId);
+      const credential = indexed.credentials.find(c => c.credentialId === credentialId);
+
+      if (!credential) {
+        throw new Error(`Credential not found in registry: ${credentialId}`);
+      }
+
+      if (credential.status === 'revoked') {
+        throw new Error(`Credential already revoked: ${credentialId}`);
+      }
+
+      // Revoke the credential
+      await revokeCredential(store, {
+        registryId: registry.registryId,
+        credentialId,
+      });
+
+      // Note: Credential status will be updated automatically when re-indexed
+      // The TEL indexer reads the revocation event and sets status='revoked'
+    },
   };
 }

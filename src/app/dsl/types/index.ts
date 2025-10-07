@@ -140,6 +140,13 @@ export interface RegistryDSL {
    * @returns Array of indexed credentials
    */
   listCredentials(): Promise<IndexedACDC[]>;
+
+  /**
+   * Revoke a credential in this registry
+   * @param credentialId - Credential SAID to revoke
+   * @returns Promise that resolves when revocation is complete
+   */
+  revoke(credentialId: string): Promise<void>;
 }
 
 /**
