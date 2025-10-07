@@ -50,6 +50,9 @@ jobs:
         run: |
           sed -i "s/REPO_NAME=\"keripy\"/REPO_NAME=\"${{ github.event.repository.name }}\"/" build-for-pages.sh
 
+      - name: Run tests
+        run: make test
+
       - name: Build UI
         run: ./build-for-pages.sh
 
