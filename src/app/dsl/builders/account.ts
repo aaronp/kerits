@@ -89,11 +89,37 @@ export function createAccountDSL(account: Account, store: KerStore): AccountDSL 
         return null;
       }
 
+      // Check if this registry has a parent by looking for iss events
+      // that reference this registry as vcdig (in the 'i' field)
+      let parentRegistryId: string | undefined;
+
+      try {
+        // Get all TEL events and check for issue events referencing this registry
+        const allAliases = await store.listAliases('tel');
+        for (const telAlias of allAliases) {
+          const candidateRegId = await store.aliasToId('tel', telAlias);
+          if (candidateRegId) {
+            const telEvents = await store.listTel(candidateRegId);
+            for (const event of telEvents) {
+              if (event.meta.t === 'iss' && event.meta.i === registryId) {
+                // This registry was issued in candidateRegId's TEL, so candidateRegId is the parent
+                parentRegistryId = candidateRegId;
+                break;
+              }
+            }
+            if (parentRegistryId) break;
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to determine parent registry:', error);
+      }
+
       const registry = {
         alias,
         registryId,
         issuerAid: account.aid,
         createdAt: '', // Would need to fetch from storage
+        parentRegistryId,
       };
 
       return createRegistryDSL(registry, account, store);

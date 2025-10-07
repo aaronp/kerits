@@ -14,15 +14,8 @@ import { ChevronRight, ChevronDown, Folder, FolderOpen, Plus } from 'lucide-reac
 import { Button } from '../ui/button';
 import { route } from '@/config';
 import { CreateRegistryDialog } from './CreateRegistryDialog';
-
-interface RegistryNode {
-  registryId: string;
-  alias: string;
-  issuerAid: string;
-  parentRegistryId?: string;
-  depth: number;
-  children: RegistryNode[];
-}
+import { buildRegistryTree, type RegistryNode } from '@/lib/registry-tree';
+import type { KeritsDSL } from '@kerits/app/dsl';
 
 interface RegistryTreeNavigationProps {
   dsl: KeritsDSL | null;
@@ -40,7 +33,7 @@ export function RegistryTreeNavigation({ dsl, accountAlias, selectedRegistryId, 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedParentRegistry, setSelectedParentRegistry] = useState<RegistryDSL | null>(null);
 
-  // Build registry hierarchy from DSL
+  // Build registry hierarchy from DSL using KERI parent traversal
   useEffect(() => {
     async function buildHierarchy() {
       if (!dsl) return;
@@ -56,50 +49,13 @@ export function RegistryTreeNavigation({ dsl, accountAlias, selectedRegistryId, 
         // Get all registries for this account
         const registryAliases = await accountDsl.listRegistries();
 
-        // Build flat list with parent relationships
-        const registryMap = new Map<string, RegistryNode>();
+        // Use tree builder that calculates depth via parent chain traversal
+        const tree = await buildRegistryTree(
+          registryAliases,
+          (alias) => accountDsl.registry(alias)
+        );
 
-        for (const alias of registryAliases) {
-          const registryDsl = await accountDsl.registry(alias);
-          if (registryDsl) {
-            const registry = registryDsl.registry;
-            registryMap.set(registry.registryId, {
-              registryId: registry.registryId,
-              alias: registry.alias,
-              issuerAid: registry.issuerAid,
-              parentRegistryId: registry.parentRegistryId,
-              depth: 0,
-              children: [],
-            });
-          }
-        }
-
-        // Build tree structure
-        const rootNodes: RegistryNode[] = [];
-
-        for (const node of registryMap.values()) {
-          if (node.parentRegistryId) {
-            const parent = registryMap.get(node.parentRegistryId);
-            if (parent) {
-              node.depth = parent.depth + 1;
-              parent.children.push(node);
-            } else {
-              // Parent not found, treat as root
-              rootNodes.push(node);
-            }
-          } else {
-            rootNodes.push(node);
-          }
-        }
-
-        // Sort children by alias
-        const sortChildren = (nodes: RegistryNode[]) => {
-          nodes.sort((a, b) => a.alias.localeCompare(b.alias));
-          nodes.forEach(node => sortChildren(node.children));
-        };
-        sortChildren(rootNodes);
-
-        setRegistryTree(rootNodes);
+        setRegistryTree(tree);
       } catch (error) {
         console.error('Failed to build registry hierarchy:', error);
         setRegistryTree([]);
@@ -158,14 +114,17 @@ export function RegistryTreeNavigation({ dsl, accountAlias, selectedRegistryId, 
     const hasChildren = node.children.length > 0;
     const currentPath = [...path, node.registryId];
 
-    // Depth-based styling for selected state
-    const depthColors = [
-      'bg-blue-100 dark:bg-red-900 border-blue-300 dark:border-red-700',
-      'bg-indigo-100 dark:bg-orange-900 border-indigo-300 dark:border-orange-700',
-      'bg-purple-100 dark:bg-yellow-900 border-purple-300 dark:border-yellow-700',
-      'bg-pink-100 dark:bg-green-900 border-pink-300 dark:border-green-700',
-    ];
-    const depthColor = depthColors[node.depth % depthColors.length];
+    // Get selected state styling - use explicit classes for Tailwind JIT
+    const getSelectedClasses = () => {
+      if (!isSelected) return 'hover:bg-muted/50';
+
+      // Depth-based colors for selected state
+      const lightColors = ['bg-blue-100', 'bg-indigo-100', 'bg-purple-100', 'bg-pink-100'];
+      const lightBorders = ['border-blue-300', 'border-indigo-300', 'border-purple-300', 'border-pink-300'];
+
+      const idx = node.depth % lightColors.length;
+      return `${lightColors[idx]} dark:bg-slate-800 ${lightBorders[idx]} dark:border-slate-600 border`;
+    };
 
     return (
       <div key={node.registryId} className="select-none">
@@ -173,7 +132,7 @@ export function RegistryTreeNavigation({ dsl, accountAlias, selectedRegistryId, 
           className={`
             group flex items-center gap-1 px-2 py-1.5 rounded-md cursor-pointer
             transition-colors duration-150 relative
-            ${isSelected ? `${depthColor} border` : 'hover:bg-muted/50'}
+            ${getSelectedClasses()}
           `}
           style={{ paddingLeft: `${node.depth * 16 + 8}px` }}
           onClick={() => handleNodeClick(node.registryId, currentPath)}
