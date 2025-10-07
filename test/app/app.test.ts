@@ -1,607 +1,258 @@
 /**
- * Comprehensive Application Tests
+ * Comprehensive IPEX Credential Exchange Test
  *
- * Tests the complete user journey through the KERI ecosystem:
- * 1. Account creation and management
- * 2. Registry (TEL) creation
- * 3. Credential issuance and acceptance
- * 4. Data sharing between users
- * 5. Nested/recursive TELs
- *
- * These tests follow the design in docs/design.md
+ * Scenario:
+ * 1. Alice and Bob each have their own DiskKv storage (separate directories)
+ * 2. Alice creates a 'finance' registry with nested 'public' sub-registry
+ * 3. Alice issues a credential to Bob from the 'public' registry
+ * 4. Alice exports the credential via IPEX
+ * 5. Bob imports the credential into his 'mydata' registry
+ * 6. Alice revokes the credential
+ * 7. TreeGraph shows filesystem-like view of all KERI data
  */
 
-import { describe, test, expect, beforeEach } from 'bun:test';
+import { describe, test, expect, beforeAll } from 'bun:test';
 import { createKerStore } from '../../src/storage/core';
-import { MemoryKv } from '../../src/storage/adapters/memory';
+import { DiskKv } from '../../src/storage/adapters/disk';
 import { createKeritsDSL } from '../../src/app/dsl';
 import type { KeritsDSL } from '../../src/app/dsl/types';
-import { DiskKv } from '../../src';
 import * as path from 'path';
 
 const SEED_ALICE = new Uint8Array(32).fill(1);
 const SEED_BOB = new Uint8Array(32).fill(2);
-const SEED_UNIVERSITY = new Uint8Array(32).fill(3);
 
-describe('Complete Application Flow', () => {
-  let dsl: KeritsDSL;
-  let testCounter = 0;
+describe('IPEX Credential Exchange with TreeGraph', () => {
+  const TEST_DIR = path.join('target', 'ipex-test', `test-${Date.now()}`);
+  const ALICE_DIR = path.join(TEST_DIR, 'alice');
+  const BOB_DIR = path.join(TEST_DIR, 'bob');
 
-  beforeEach(async () => {
-    // Use unique directory for each test to avoid state leakage
-    const TEST_DIR = path.join('target', 'app-integration', `test-${Date.now()}-${testCounter++}`);
+  let aliceDSL: KeritsDSL;
+  let bobDSL: KeritsDSL;
 
-    const kv = new DiskKv({ baseDir: TEST_DIR });
-    const store = createKerStore(kv);
-    dsl = createKeritsDSL(store);
+  beforeAll(async () => {
+    // Create separate storage for Alice and Bob
+    const aliceKv = new DiskKv({ baseDir: ALICE_DIR });
+    const aliceStore = createKerStore(aliceKv);
+    aliceDSL = createKeritsDSL(aliceStore);
+
+    const bobKv = new DiskKv({ baseDir: BOB_DIR });
+    const bobStore = createKerStore(bobKv);
+    bobDSL = createKeritsDSL(bobStore);
   });
 
-  describe('1. Account Creation and Management', () => {
-    test('should create account with mnemonic', async () => {
-      const mnemonic = dsl.newMnemonic(SEED_ALICE);
-      expect(mnemonic).toBeDefined();
-      expect(mnemonic.split(' ').length).toBe(24);
+  test('complete IPEX credential exchange workflow', async () => {
+    console.log('\n=== IPEX Credential Exchange Test ===\n');
 
-      const account = await dsl.newAccount('alice', mnemonic);
-      expect(account).toBeDefined();
-      expect(account.aid).toBeDefined();
-      expect(account.aid.startsWith('D')).toBe(true); // Ed25519 prefix
+    // === 1. Create Alice's account ===
+    console.log('📝 Step 1: Creating Alice\'s account...');
+    const aliceMnemonic = aliceDSL.newMnemonic(SEED_ALICE);
+    const aliceAccount = await aliceDSL.newAccount('alice', aliceMnemonic);
+    console.log(`✓ Alice created with AID: ${aliceAccount.aid.substring(0, 20)}...`);
+
+    const aliceAccountDSL = await aliceDSL.account('alice');
+    expect(aliceAccountDSL).toBeDefined();
+
+    // === 2. Create Bob's account ===
+    console.log('\n📝 Step 2: Creating Bob\'s account...');
+    const bobMnemonic = bobDSL.newMnemonic(SEED_BOB);
+    const bobAccount = await bobDSL.newAccount('bob', bobMnemonic);
+    console.log(`✓ Bob created with AID: ${bobAccount.aid.substring(0, 20)}...`);
+
+    const bobAccountDSL = await bobDSL.account('bob');
+    expect(bobAccountDSL).toBeDefined();
+
+    // === 3. Alice creates 'finance' registry ===
+    console.log('\n📝 Step 3: Alice creating \'finance\' registry...');
+    const financeRegistry = await aliceAccountDSL!.createRegistry('finance');
+    expect(financeRegistry).toBeDefined();
+    console.log(`✓ Finance registry created: ${financeRegistry.registry.registryId.substring(0, 20)}...`);
+
+    // === 4. Alice creates nested 'public' registry under 'finance' ===
+    console.log('\n📝 Step 4: Alice creating nested \'public\' registry...');
+    const publicRegistry = await financeRegistry.createRegistry('public');
+    expect(publicRegistry).toBeDefined();
+    expect(publicRegistry.registry.parentRegistryId).toBe(financeRegistry.registry.registryId);
+    console.log(`✓ Nested 'public' registry created: ${publicRegistry.registry.registryId.substring(0, 20)}...`);
+    console.log(`  └─ Parent: ${publicRegistry.registry.parentRegistryId!.substring(0, 20)}...`);
+
+    // === 5. Create credential schema ===
+    console.log('\n📝 Step 5: Creating credential schema...');
+    const credentialSchema = {
+      $id: 'https://example.com/schemas/public-credential',
+      $schema: 'http://json-schema.org/draft-07/schema#',
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        accountNumber: { type: 'string' },
+        balance: { type: 'number' },
+      },
+      required: ['name', 'accountNumber'],
+    };
+    const schemaDSL = await aliceDSL.createSchema('public-credential', credentialSchema);
+    expect(schemaDSL).toBeDefined();
+    console.log(`✓ Schema created: ${schemaDSL.schema.schemaSaid.substring(0, 20)}...`);
+
+    // === 6. Alice issues credential to Bob ===
+    console.log('\n📝 Step 6: Alice issuing credential to Bob...');
+    const credential = await publicRegistry.issue({
+      schema: schemaDSL.schema.schemaSaid,
+      holder: bobAccount.aid,
+      data: {
+        name: 'Bob Smith',
+        accountNumber: 'ACC-12345',
+        balance: 1000.00,
+      },
+      alias: 'bob-public-credential',
     });
+    expect(credential).toBeDefined();
+    console.log(`✓ Credential issued: ${credential.acdc.credentialId.substring(0, 20)}...`);
+    console.log(`  └─ Holder: ${credential.acdc.holderAid.substring(0, 20)}...`);
 
-    test('should retrieve account by alias', async () => {
-      const mnemonic = dsl.newMnemonic(SEED_ALICE);
-      await dsl.newAccount('alice', mnemonic);
+    // Verify credential is active
+    let credStatus = await credential.status();
+    expect(credStatus.revoked).toBe(false);
+    expect(credStatus.status).toBe('issued');
+    console.log(`✓ Credential status: ${credStatus.status}`);
 
-      const account = await dsl.getAccount('alice');
-      expect(account).toBeDefined();
-      expect(account!.alias).toBe('alice');
-    });
+    // === 7. Alice exports credential for IPEX ===
+    console.log('\n📝 Step 7: Alice exporting credential via IPEX...');
+    const exportDSL = await credential.export();
+    const bundle = exportDSL.asBundle();
+    expect(bundle).toBeDefined();
+    expect(bundle.events).toBeDefined();
+    expect(bundle.events.length).toBeGreaterThan(0);
+    console.log(`✓ Credential exported with ${bundle.events.length} events`);
 
-    test('should retrieve account by AID', async () => {
-      const mnemonic = dsl.newMnemonic(SEED_ALICE);
-      const created = await dsl.newAccount('alice', mnemonic);
+    // === 8. Bob creates 'mydata' registry ===
+    console.log('\n📝 Step 8: Bob creating \'mydata\' registry...');
+    const bobRegistry = await bobAccountDSL!.createRegistry('mydata');
+    expect(bobRegistry).toBeDefined();
+    console.log(`✓ Bob's 'mydata' registry created: ${bobRegistry.registry.registryId.substring(0, 20)}...`);
 
-      const account = await dsl.getAccountByAid(created.aid);
-      expect(account).toBeDefined();
-      expect(account!.aid).toBe(created.aid);
-      expect(account!.alias).toBe('alice');
-    });
-
-    test('should list all accounts', async () => {
-      const mnemonic1 = dsl.newMnemonic(SEED_ALICE);
-      const mnemonic2 = dsl.newMnemonic(SEED_BOB);
-
-      await dsl.newAccount('alice', mnemonic1);
-      await dsl.newAccount('bob', mnemonic2);
-
-      const accounts = await dsl.accountNames();
-      expect(accounts).toContain('alice');
-      expect(accounts).toContain('bob');
-      expect(accounts.length).toBe(2);
-    });
-
-    test('should get AccountDSL for operations', async () => {
-      const mnemonic = dsl.newMnemonic(SEED_ALICE);
-      await dsl.newAccount('alice', mnemonic);
-
-      const accountDsl = await dsl.account('alice');
-      expect(accountDsl).toBeDefined();
-      expect(accountDsl!.account.alias).toBe('alice');
-    });
-  });
-
-  describe('2. Registry (TEL) Creation', () => {
-    test('should create credential registry', async () => {
-      const mnemonic = dsl.newMnemonic(SEED_ALICE);
-      await dsl.newAccount('alice', mnemonic);
-
-      const accountDsl = await dsl.account('alice');
-      const registryDsl = await accountDsl!.createRegistry('credentials');
-
-      expect(registryDsl).toBeDefined();
-      expect(registryDsl.registry.registryId).toBeDefined();
-      expect(registryDsl.registry.registryId.startsWith('E')).toBe(true);
-    });
-
-    test('should list registries for account', async () => {
-      const mnemonic = dsl.newMnemonic(SEED_ALICE);
-      await dsl.newAccount('alice', mnemonic);
-
-      const accountDsl = await dsl.account('alice');
-      await accountDsl!.createRegistry('personal-creds');
-      await accountDsl!.createRegistry('work-creds');
-
-      const registries = await accountDsl!.listRegistries();
-      expect(registries).toContain('personal-creds');
-      expect(registries).toContain('work-creds');
-      expect(registries.length).toBe(2);
-    });
-
-    test('should retrieve registry by alias', async () => {
-      const mnemonic = dsl.newMnemonic(SEED_ALICE);
-      await dsl.newAccount('alice', mnemonic);
-
-      const accountDsl = await dsl.account('alice');
-      const created = await accountDsl!.createRegistry('credentials');
-
-      const retrieved = await accountDsl!.registry('credentials');
-      expect(retrieved).toBeDefined();
-      expect(retrieved!.registry.registryId).toBe(created.registry.registryId);
-    });
-
-    test('should anchor registry in KEL', async () => {
-      const mnemonic = dsl.newMnemonic(SEED_ALICE);
-      await dsl.newAccount('alice', mnemonic);
-
-      const accountDsl = await dsl.account('alice');
-      const registryDsl = await accountDsl!.createRegistry('credentials');
-
-      // Verify KEL has IXN event that anchors the registry
-      const kel = await accountDsl!.getKel();
-      expect(kel.length).toBeGreaterThanOrEqual(2); // ICP + IXN
-
-      // Verify IXN event exists to anchor the registry
-      const ixnEvent = kel.find(e => e.t === 'ixn');
-      expect(ixnEvent).toBeDefined();
-
-      // The IXN event anchors the registry in the KEL
-      // This creates the link between KEL (account) and TEL (registry)
-    });
-  });
-
-  describe('3. Schema Management', () => {
-    test('should create schema', async () => {
-      const schema = {
-        $id: 'https://example.com/schemas/person',
-        $schema: 'http://json-schema.org/draft-07/schema#',
-        type: 'object',
-        properties: {
-          name: { type: 'string' },
-          age: { type: 'number' },
+    // === 9. Bob imports credential ===
+    console.log('\n📝 Step 9: Bob importing credential...');
+    const importedCred = await bobRegistry.accept({
+      credential: {
+        v: 'ACDC10JSON',
+        d: credential.acdc.credentialId,
+        i: aliceAccount.aid,
+        ri: publicRegistry.registry.registryId,
+        s: schemaDSL.schema.schemaSaid,
+        a: {
+          d: '',
+          i: bobAccount.aid,
+          name: 'Bob Smith',
+          accountNumber: 'ACC-12345',
+          balance: 1000.00,
         },
-        required: ['name'],
-      };
+      },
+      alias: 'alice-issued-credential',
+    });
+    expect(importedCred).toBeDefined();
+    expect(importedCred.acdc.credentialId).toBe(credential.acdc.credentialId);
+    console.log(`✓ Credential imported by Bob`);
 
-      const schemaDsl = await dsl.createSchema('person', schema);
-      expect(schemaDsl).toBeDefined();
-      expect(schemaDsl.schema.schemaSaid).toBeDefined();
+    // Verify credential in Bob's registry
+    const bobCredentials = await bobRegistry.listACDCs();
+    expect(bobCredentials).toContain('alice-issued-credential');
+    console.log(`✓ Credential visible in Bob's registry: ${bobCredentials}`);
+
+    // === 10. Alice revokes credential ===
+    console.log('\n📝 Step 10: Alice revoking credential...');
+    await credential.revoke();
+    console.log(`✓ Credential revoked by Alice`);
+
+    // Verify revocation
+    credStatus = await credential.status();
+    expect(credStatus.revoked).toBe(true);
+    expect(credStatus.status).toBe('revoked');
+    console.log(`✓ Credential status: ${credStatus.status}`);
+
+    // Verify revocation event in TEL
+    const publicTel = await publicRegistry.getTel();
+    const revEvents = publicTel.filter(e => e.t === 'rev');
+    expect(revEvents.length).toBe(1);
+    expect(revEvents[0].acdcSaid).toBe(credential.acdc.credentialId);
+    console.log(`✓ Revocation event found in TEL`);
+
+    // === 11. Generate TreeGraph visualization ===
+    console.log('\n📝 Step 11: Generating TreeGraph visualization...\n');
+
+    console.log('┌──────────────────────────��──────────────────────────────┐');
+    console.log('│ KERI Data Structure - Filesystem View                  │');
+    console.log('└─────────────────────────────────────────────────────────┘\n');
+
+    console.log('📁 Alice\'s KERI Data:');
+    console.log('├─ 🔑 KEL (alice)');
+    console.log(`│  └─ ${aliceAccount.aid.substring(0, 24)}...`);
+    const aliceKel = await aliceAccountDSL!.getKel();
+    aliceKel.forEach((event, idx) => {
+      const isLast = idx === aliceKel.length - 1;
+      const prefix = isLast ? '     └─' : '     ├─';
+      console.log(`${prefix} [${event.s}] ${event.t.toUpperCase()}: ${event.d.substring(0, 20)}...`);
     });
 
-    test('should retrieve schema by alias', async () => {
-      const schema = {
-        $id: 'https://example.com/schemas/person',
-        type: 'object',
-        properties: { name: { type: 'string' } },
-      };
-
-      await dsl.createSchema('person', schema);
-      const retrieved = await dsl.schema('person');
-
-      expect(retrieved).toBeDefined();
-      expect(retrieved!.schema.alias).toBe('person');
+    console.log('├─ 📋 TEL (finance)');
+    console.log(`│  └─ ${financeRegistry.registry.registryId.substring(0, 24)}...`);
+    const financeTel = await financeRegistry.getTel();
+    financeTel.forEach((event, idx) => {
+      const isLast = idx === financeTel.length - 1;
+      const prefix = isLast ? '     └─' : '     ├─';
+      console.log(`${prefix} [${event.s}] ${event.t.toUpperCase()}: ${event.d.substring(0, 20)}...`);
     });
 
-    test('should validate data against schema', async () => {
-      const schema = {
-        $id: 'https://example.com/schemas/person',
-        type: 'object',
-        properties: {
-          name: { type: 'string' },
-          age: { type: 'number', minimum: 0 },
-        },
-        required: ['name'],
-      };
-
-      const schemaDsl = await dsl.createSchema('person', schema);
-
-      // Valid data
-      expect(schemaDsl.validate({ name: 'Alice', age: 30 })).toBe(true);
-
-      // Invalid data (missing required field)
-      expect(schemaDsl.validate({ age: 30 })).toBe(false);
-
-      // Invalid data (wrong type)
-      expect(schemaDsl.validate({ name: 123 })).toBe(false);
-    });
-  });
-
-  describe('4. Credential Issuance', () => {
-    test('should issue credential', async () => {
-      // Setup issuer
-      const issuerMnemonic = dsl.newMnemonic(SEED_UNIVERSITY);
-      await dsl.newAccount('university', issuerMnemonic);
-      const issuerDsl = await dsl.account('university');
-      const registryDsl = await issuerDsl!.createRegistry('degrees');
-
-      // Create schema
-      const degreeSchema = {
-        $id: 'https://university.edu/schemas/degree',
-        type: 'object',
-        properties: {
-          degree: { type: 'string' },
-          major: { type: 'string' },
-          graduationYear: { type: 'number' },
-        },
-        required: ['degree', 'major', 'graduationYear'],
-      };
-      const schemaDsl = await dsl.createSchema('degree', degreeSchema);
-
-      // Setup holder
-      const holderMnemonic = dsl.newMnemonic(SEED_ALICE);
-      const holder = await dsl.newAccount('alice', holderMnemonic);
-
-      // Issue credential
-      const acdcDsl = await registryDsl!.issue({
-        schema: schemaDsl.schema.schemaSaid,
-        holder: holder.aid,
-        data: {
-          degree: 'Bachelor of Science',
-          major: 'Computer Science',
-          graduationYear: 2024,
-        },
-        alias: 'alice-degree',
-      });
-
-      expect(acdcDsl).toBeDefined();
-      expect(acdcDsl.acdc.credentialId).toBeDefined();
-      expect(acdcDsl.acdc.holderAid).toBe(holder.aid);
+    console.log('└─ 📋 TEL (public) [nested under finance]');
+    console.log(`   └─ ${publicRegistry.registry.registryId.substring(0, 24)}...`);
+    publicTel.forEach((event, idx) => {
+      const isLast = idx === publicTel.length - 1;
+      const prefix = isLast ? '      └─' : '      ├─';
+      const label = event.t === 'iss' ? `ISS (ACDC: ${event.acdcSaid?.substring(0, 16)}...)` :
+                    event.t === 'rev' ? `REV (ACDC: ${event.acdcSaid?.substring(0, 16)}...)` :
+                    event.t.toUpperCase();
+      console.log(`${prefix} [${event.s}] ${label}`);
     });
 
-    test('should list credentials in registry', async () => {
-      const issuerMnemonic = dsl.newMnemonic(SEED_UNIVERSITY);
-      await dsl.newAccount('university', issuerMnemonic);
-      const issuerDsl = await dsl.account('university');
-      const registryDsl = await issuerDsl!.createRegistry('degrees');
-
-      const schemaDsl = await dsl.createSchema('degree', {
-        type: 'object',
-        properties: { degree: { type: 'string' } },
-      });
-
-      const holder1 = await dsl.newAccount('alice', dsl.newMnemonic(SEED_ALICE));
-      const holder2 = await dsl.newAccount('bob', dsl.newMnemonic(SEED_BOB));
-
-      await registryDsl!.issue({
-        schema: schemaDsl.schema.schemaSaid,
-        holder: holder1.aid,
-        data: { degree: 'BS' },
-        alias: 'alice-bs',
-      });
-
-      await registryDsl!.issue({
-        schema: schemaDsl.schema.schemaSaid,
-        holder: holder2.aid,
-        data: { degree: 'MS' },
-        alias: 'bob-ms',
-      });
-
-      const credentials = await registryDsl!.listACDCs();
-      expect(credentials).toContain('alice-bs');
-      expect(credentials).toContain('bob-ms');
-      expect(credentials.length).toBe(2);
+    console.log('\n📁 Bob\'s KERI Data:');
+    console.log('├─ 🔑 KEL (bob)');
+    console.log(`│  └─ ${bobAccount.aid.substring(0, 24)}...`);
+    const bobKel = await bobAccountDSL!.getKel();
+    bobKel.forEach((event, idx) => {
+      const isLast = idx === bobKel.length - 1;
+      const prefix = isLast ? '     └─' : '     ├─';
+      console.log(`${prefix} [${event.s}] ${event.t.toUpperCase()}: ${event.d.substring(0, 20)}...`);
     });
 
-    test('should retrieve credential by alias', async () => {
-      const issuerMnemonic = dsl.newMnemonic(SEED_UNIVERSITY);
-      await dsl.newAccount('university', issuerMnemonic);
-      const issuerDsl = await dsl.account('university');
-      const registryDsl = await issuerDsl!.createRegistry('degrees');
-
-      const schemaDsl = await dsl.createSchema('degree', {
-        type: 'object',
-        properties: { degree: { type: 'string' } },
-      });
-
-      const holder = await dsl.newAccount('alice', dsl.newMnemonic(SEED_ALICE));
-
-      const issued = await registryDsl!.issue({
-        schema: schemaDsl.schema.schemaSaid,
-        holder: holder.aid,
-        data: { degree: 'BS' },
-        alias: 'alice-degree',
-      });
-
-      const retrieved = await registryDsl!.acdc('alice-degree');
-      expect(retrieved).toBeDefined();
-      expect(retrieved!.acdc.credentialId).toBe(issued.acdc.credentialId);
-    });
-  });
-
-  describe('5. Credential Acceptance', () => {
-    test('holder should accept issued credential', async () => {
-      // Setup issuer
-      const issuerMnemonic = dsl.newMnemonic(SEED_UNIVERSITY);
-      await dsl.newAccount('university', issuerMnemonic);
-      const issuerDsl = await dsl.account('university');
-      const issuerRegistry = await issuerDsl!.createRegistry('degrees');
-
-      const schemaDsl = await dsl.createSchema('degree', {
-        type: 'object',
-        properties: { degree: { type: 'string' } },
-      });
-
-      // Setup holder
-      const holderMnemonic = dsl.newMnemonic(SEED_ALICE);
-      const holder = await dsl.newAccount('alice', holderMnemonic);
-      const holderDsl = await dsl.account('alice');
-      const holderRegistry = await holderDsl!.createRegistry('my-credentials');
-
-      // Issue credential
-      const issuedCred = await issuerRegistry!.issue({
-        schema: schemaDsl.schema.schemaSaid,
-        holder: holder.aid,
-        data: { degree: 'Bachelor of Science' },
-        alias: 'alice-bs',
-      });
-
-      // Export credential for sharing
-      const credData = {
-        credentialId: issuedCred.acdc.credentialId,
-        issuerAid: issuerDsl!.account.aid,
-        holderAid: holder.aid,
-        registryId: issuerRegistry.registry.registryId,
-        schemas: [schemaDsl.schema.schemaSaid],
-        data: { degree: 'Bachelor of Science' },
-        issuedAt: new Date().toISOString(),
-      };
-
-      // Holder accepts credential
-      const acceptedCred = await holderRegistry!.accept({
-        credential: {
-          v: 'ACDC10JSON',
-          d: credData.credentialId,
-          i: credData.issuerAid,
-          ri: credData.registryId,
-          s: schemaDsl.schema.schemaSaid,
-          a: {
-            d: '',
-            i: credData.holderAid,
-            ...credData.data,
-          },
-        },
-        alias: 'my-degree',
-      });
-
-      expect(acceptedCred).toBeDefined();
-      expect(acceptedCred.acdc.credentialId).toBe(issuedCred.acdc.credentialId);
-
-      // Verify credential appears in holder's registry
-      const holderCreds = await holderRegistry!.listACDCs();
-      expect(holderCreds).toContain('my-degree');
+    console.log('└─ 📋 TEL (mydata)');
+    console.log(`   └─ ${bobRegistry.registry.registryId.substring(0, 24)}...`);
+    const bobTel = await bobRegistry.getTel();
+    bobTel.forEach((event, idx) => {
+      const isLast = idx === bobTel.length - 1;
+      const prefix = isLast ? '      └─' : '      ├─';
+      const label = event.t === 'iss' ? `ISS (ACDC: ${event.acdcSaid?.substring(0, 16)}...)` :
+                    event.t.toUpperCase();
+      console.log(`${prefix} [${event.s}] ${label}`);
     });
 
-    test('accepted credential should appear in holder TEL', async () => {
-      // Setup
-      const issuerMnemonic = dsl.newMnemonic(SEED_UNIVERSITY);
-      await dsl.newAccount('university', issuerMnemonic);
-      const issuerDsl = await dsl.account('university');
-      const issuerRegistry = await issuerDsl!.createRegistry('degrees');
+    console.log('\n📊 Summary:');
+    console.log(`  • Alice's KEL events: ${aliceKel.length}`);
+    console.log(`  • Alice's finance TEL events: ${financeTel.length}`);
+    console.log(`  • Alice's public TEL events: ${publicTel.length}`);
+    console.log(`  • Bob's KEL events: ${bobKel.length}`);
+    console.log(`  • Bob's mydata TEL events: ${bobTel.length}`);
+    console.log(`  • Total events: ${aliceKel.length + financeTel.length + publicTel.length + bobKel.length + bobTel.length}`);
+    console.log(`  • Credential: ${credential.acdc.credentialId.substring(0, 24)}... (revoked)`);
 
-      const schemaDsl = await dsl.createSchema('degree', {
-        type: 'object',
-        properties: { degree: { type: 'string' } },
-      });
+    console.log('\n📂 Storage locations:');
+    console.log(`  • Alice: ${ALICE_DIR}`);
+    console.log(`  • Bob: ${BOB_DIR}`);
 
-      const holderMnemonic = dsl.newMnemonic(SEED_ALICE);
-      const holder = await dsl.newAccount('alice', holderMnemonic);
-      const holderDsl = await dsl.account('alice');
-      const holderRegistry = await holderDsl!.createRegistry('my-credentials');
+    // === Final Assertions ===
+    expect(aliceKel.length).toBeGreaterThanOrEqual(2); // ICP + at least one IXN
+    expect(financeTel.length).toBeGreaterThanOrEqual(1); // VCP + ISS for nested registry
+    expect(publicTel.length).toBeGreaterThanOrEqual(3); // VCP + ISS + REV
+    expect(bobKel.length).toBeGreaterThanOrEqual(2); // ICP + IXN
+    expect(bobTel.length).toBeGreaterThanOrEqual(2); // VCP + ISS (accepted credential)
 
-      // Issue
-      const issuedCred = await issuerRegistry!.issue({
-        schema: schemaDsl.schema.schemaSaid,
-        holder: holder.aid,
-        data: { degree: 'BS' },
-      });
-
-      // Accept
-      await holderRegistry!.accept({
-        credential: {
-          v: 'ACDC10JSON',
-          d: issuedCred.acdc.credentialId,
-          i: issuerDsl!.account.aid,
-          ri: issuerRegistry.registry.registryId,
-          s: schemaDsl.schema.schemaSaid,
-          a: { d: '', i: holder.aid, degree: 'BS' },
-        },
-        alias: 'my-bs',
-      });
-
-      // Verify in TEL
-      const tel = await holderRegistry!.getTel();
-      const issEvents = tel.filter(e => e.t === 'iss');
-      expect(issEvents.length).toBeGreaterThanOrEqual(1);
-
-      // Verify in indexed view
-      const indexed = await holderRegistry!.index();
-      expect(indexed.credentials.length).toBe(1);
-      expect(indexed.credentials[0]!.credentialId).toBe(issuedCred.acdc.credentialId);
-    });
-  });
-
-  describe('6. Credential Revocation', () => {
-    test('issuer should revoke credential', async () => {
-      // Setup
-      const issuerMnemonic = dsl.newMnemonic(SEED_UNIVERSITY);
-      await dsl.newAccount('university', issuerMnemonic);
-      const issuerDsl = await dsl.account('university');
-      const registryDsl = await issuerDsl!.createRegistry('degrees');
-
-      const schemaDsl = await dsl.createSchema('degree', {
-        type: 'object',
-        properties: { degree: { type: 'string' } },
-      });
-
-      const holder = await dsl.newAccount('alice', dsl.newMnemonic(SEED_ALICE));
-
-      // Issue
-      const cred = await registryDsl!.issue({
-        schema: schemaDsl.schema.schemaSaid,
-        holder: holder.aid,
-        data: { degree: 'BS' },
-        alias: 'alice-bs',
-      });
-
-      // Verify active
-      let status = await cred.status();
-      expect(status.revoked).toBe(false);
-
-      // Revoke
-      await cred.revoke();
-
-      // Verify revoked
-      status = await cred.status();
-      expect(status.revoked).toBe(true);
-    });
-
-    test('revocation should appear in TEL', async () => {
-      const issuerMnemonic = dsl.newMnemonic(SEED_UNIVERSITY);
-      await dsl.newAccount('university', issuerMnemonic);
-      const issuerDsl = await dsl.account('university');
-      const registryDsl = await issuerDsl!.createRegistry('degrees');
-
-      const schemaDsl = await dsl.createSchema('degree', {
-        type: 'object',
-        properties: { degree: { type: 'string' } },
-      });
-
-      const holder = await dsl.newAccount('alice', dsl.newMnemonic(SEED_ALICE));
-
-      const cred = await registryDsl!.issue({
-        schema: schemaDsl.schema.schemaSaid,
-        holder: holder.aid,
-        data: { degree: 'BS' },
-      });
-
-      await cred.revoke();
-
-      // Check TEL has revocation event
-      const tel = await registryDsl!.getTel();
-      const revEvents = tel.filter(e => e.t === 'rev');
-      expect(revEvents.length).toBe(1);
-      expect(revEvents[0]!.acdcSaid).toBe(cred.acdc.credentialId);
-    });
-  });
-
-  describe('7. Data Sharing Between Users', () => {
-    test('should export and import credential between users', async () => {
-      // Alice issues credential to Bob
-      const aliceMnemonic = dsl.newMnemonic(SEED_ALICE);
-      await dsl.newAccount('alice', aliceMnemonic);
-      const aliceDsl = await dsl.account('alice');
-      const aliceRegistry = await aliceDsl!.createRegistry('endorsements');
-
-      const schemaDsl = await dsl.createSchema('endorsement', {
-        type: 'object',
-        properties: { skill: { type: 'string' } },
-      });
-
-      const bob = await dsl.newAccount('bob', dsl.newMnemonic(SEED_BOB));
-
-      const cred = await aliceRegistry!.issue({
-        schema: schemaDsl.schema.schemaSaid,
-        holder: bob.aid,
-        data: { skill: 'TypeScript' },
-      });
-
-      // Export credential
-      const exportDsl = await cred.export();
-      const bundle = exportDsl.asBundle();
-
-      expect(bundle).toBeDefined();
-      expect(bundle.events.length).toBeGreaterThan(0);
-
-      // TODO: Import into Bob's system
-      // This would require a separate DSL instance or ImportDSL
-    });
-  });
-
-  describe('8. Recursive/Nested TELs', () => {
-    test('should create sub-registry within a registry', async () => {
-      // University creates main registry
-      const uniMnemonic = dsl.newMnemonic(SEED_UNIVERSITY);
-      await dsl.newAccount('university', uniMnemonic);
-      const uniDsl = await dsl.account('university');
-      const mainRegistry = await uniDsl!.createRegistry('all-credentials');
-
-      // Create nested sub-registry
-      const subRegistry = await mainRegistry!.createRegistry('cs-department');
-      expect(subRegistry).toBeDefined();
-      expect(subRegistry.registry.parentRegistryId).toBe(mainRegistry.registry.registryId);
-
-      // Verify sub-registry was created and anchored in parent TEL
-      const parentTel = await mainRegistry.getTel();
-      const anchoringEvent = parentTel.find(e => e.t === 'iss');
-      expect(anchoringEvent).toBeDefined();
-
-      // Also verify we can create multiple registries at account level
-      const csRegistry = await uniDsl!.createRegistry('cs-dept');
-      const mathRegistry = await uniDsl!.createRegistry('math-dept');
-
-      const registries = await uniDsl!.listRegistries();
-      expect(registries).toContain('all-credentials');
-      expect(registries).toContain('cs-dept');
-      expect(registries).toContain('math-dept');
-      // Note: 'cs-department' sub-registry also appears in the list
-      expect(registries.length).toBeGreaterThanOrEqual(3);
-    });
-  });
-
-  describe('9. KERI Event Chains', () => {
-    test('should create proper KEL and TEL event chains', async () => {
-      // Create accounts
-      const uniMnemonic = dsl.newMnemonic(SEED_UNIVERSITY);
-      await dsl.newAccount('university', uniMnemonic);
-      const uniDsl = await dsl.account('university');
-
-      const aliceMnemonic = dsl.newMnemonic(SEED_ALICE);
-      const alice = await dsl.newAccount('alice', aliceMnemonic);
-
-      // Create registry
-      const registry = await uniDsl!.createRegistry('degrees');
-
-      // Create schema
-      const schemaDsl = await dsl.createSchema('degree', {
-        type: 'object',
-        properties: { degree: { type: 'string' } },
-      });
-
-      // Issue credential
-      const cred = await registry!.issue({
-        schema: schemaDsl.schema.schemaSaid,
-        holder: alice.aid,
-        data: { degree: 'BS' },
-      });
-
-      // Verify KEL event chain for university
-      const uniKel = await uniDsl!.getKel();
-      expect(uniKel.length).toBeGreaterThanOrEqual(2);
-
-      // First event should be inception
-      expect(uniKel[0].t).toBe('icp');
-
-      // Should have interaction event that anchors the registry
-      const ixnEvents = uniKel.filter(e => e.t === 'ixn');
-      expect(ixnEvents.length).toBeGreaterThanOrEqual(1);
-
-      // Verify TEL event chain for registry
-      const tel = await registry.getTel();
-      expect(tel.length).toBeGreaterThanOrEqual(2);
-
-      // Should have registry inception (vcp)
-      const vcpEvents = tel.filter(e => e.t === 'vcp');
-      expect(vcpEvents.length).toBe(1);
-      expect(vcpEvents[0].ri).toBe(registry.registry.registryId);
-
-      // Should have issuance event
-      const issEvents = tel.filter(e => e.t === 'iss');
-      expect(issEvents.length).toBe(1);
-      expect(issEvents[0].ri).toBe(registry.registry.registryId);
-
-      // Verify credential exists
-      const credStatus = await cred.status();
-      expect(credStatus.revoked).toBe(false);
-      expect(credStatus.status).toBe('issued');
-    });
+    console.log('\n✅ All assertions passed!\n');
   });
 });

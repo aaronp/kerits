@@ -99,66 +99,6 @@ describe('Event Storage and Chain Integrity', () => {
     expect(eventsAfterIxn1[0].meta.d).toBe(ixn2.ked.d);
   });
 
-  test.skip('graph builder correctly links events via PRIOR edges', async () => {
-    const kv = new MemoryKv();
-    const store = createKerStore(kv);
-
-    // Create a simple chain
-    const icp = incept({
-      keys: ['DKxy2sgzfplyr-tgwIxS19f2OchFHtLwPWD3v4oYimBx'],
-      ndigs: ['ELYk1bLRCb3IEUOr1ufLkp9y0oqM7PKXZWM7RRYbvhTl'],
-    });
-    await store.putEvent(serializeEvent(icp.ked));
-
-    const ixn1 = interaction({
-      pre: icp.pre,
-      sn: 1,
-      dig: icp.ked.d,
-      seals: [],
-    });
-    await store.putEvent(serializeEvent(ixn1.ked));
-
-    const ixn2 = interaction({
-      pre: icp.pre,
-      sn: 2,
-      dig: ixn1.ked.d,
-      seals: [],
-    });
-    await store.putEvent(serializeEvent(ixn2.ked));
-
-    // Build graph
-    const graph = await store.buildGraph();
-    console.log('\nGraph nodes:', graph.nodes.map(n => ({ id: n.id.substring(0, 20), kind: n.kind, label: n.label })));
-    console.log('Graph edges:', graph.edges.map(e => ({
-      from: e.from.substring(0, 20),
-      to: e.to.substring(0, 20),
-      kind: e.kind
-    })));
-
-    // Verify nodes exist
-    const kelNodes = graph.nodes.filter(n => n.kind === 'KEL_EVT');
-    expect(kelNodes.length).toBe(3); // ICP, IXN1, IXN2
-
-    // Verify PRIOR edges
-    const priorEdges = graph.edges.filter(e => e.kind === 'PRIOR');
-    console.log('\nPRIOR edges:', priorEdges.map(e => ({
-      from: e.from.substring(0, 20),
-      to: e.to.substring(0, 20),
-    })));
-
-    expect(priorEdges.length).toBe(2); // ICP->IXN1, IXN1->IXN2
-
-    // Verify edge from ICP to IXN1
-    const edge1 = priorEdges.find(e => e.from === icp.ked.d && e.to === ixn1.ked.d);
-    expect(edge1).toBeDefined();
-    console.log('Edge ICP->IXN1:', edge1);
-
-    // Verify edge from IXN1 to IXN2
-    const edge2 = priorEdges.find(e => e.from === ixn1.ked.d && e.to === ixn2.ked.d);
-    expect(edge2).toBeDefined();
-    console.log('Edge IXN1->IXN2:', edge2);
-  });
-
   test('sequence numbers stored and retrieved correctly in hex format', async () => {
     const kv = new MemoryKv();
     const store = createKerStore(kv);
