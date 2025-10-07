@@ -72,20 +72,22 @@ export function seedToMnemonic(seed: Uint8Array): Mnemonic {
     words.push(WORDLIST[index]);
   }
 
-  return words;
+  return words.join(' ');
 }
 
 /**
  * Convert mnemonic words to seed bytes
  */
 export function mnemonicToSeed(mnemonic: Mnemonic): Uint8Array {
-  if (mnemonic.length !== 24) {
+  const words = mnemonic.split(' ');
+
+  if (words.length !== 24) {
     throw new Error('Mnemonic must be 24 words');
   }
 
   // Convert words to indices
   const indices: number[] = [];
-  for (const word of mnemonic) {
+  for (const word of words) {
     const index = WORDLIST.indexOf(word.toLowerCase());
     if (index === -1) {
       throw new Error(`Invalid mnemonic word: ${word}`);

@@ -116,12 +116,12 @@ export function createRegistryDSL(
 
     async getTel(): Promise<TelEvent[]> {
       const events = await store.listTel(registry.registryId);
-      return events.map(e => ({
-        t: e.meta.t,
-        d: e.meta.d,
-        ri: e.meta.ri,
-        s: e.meta.s,
-        ...e.meta,
+      return events.map(({ meta }) => ({
+        t: meta.t,
+        d: meta.d,
+        ri: meta.ri,
+        s: meta.s,
+        ...meta,
       }));
     },
 

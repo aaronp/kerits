@@ -35,15 +35,15 @@ export function createACDCDSL(
       for (const event of telEvents.reverse()) {
         if (event.meta.acdcSaid === acdc.credentialId) {
           if (event.meta.t === 'rev') {
-            return CredentialStatus.Revoked;
+            return { revoked: true, status: 'revoked' };
           }
           if (event.meta.t === 'iss') {
-            return CredentialStatus.Issued;
+            return { revoked: false, status: 'issued' };
           }
         }
       }
 
-      return CredentialStatus.Issued;
+      return { revoked: false, status: 'issued' };
     },
 
     async graph(): Promise<any> {

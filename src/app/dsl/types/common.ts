@@ -62,6 +62,8 @@ export interface Schema {
   alias: string;
   /** Schema identifier (SAID) */
   schemaId: string;
+  /** Schema SAID (alias for schemaId for API consistency) */
+  schemaSaid: string;
   /** Schema definition */
   schema: {
     title: string;
@@ -111,18 +113,20 @@ export interface Contact {
 }
 
 /**
- * Credential status enumeration
+ * Credential status information
  */
-export enum CredentialStatus {
-  Issued = 'issued',
-  Revoked = 'revoked',
-  Expired = 'expired',
+export interface CredentialStatus {
+  /** Whether the credential has been revoked */
+  revoked: boolean;
+  /** The status as a string */
+  status: 'issued' | 'revoked' | 'expired';
 }
 
 /**
  * Mnemonic seed phrase (24 words for 256-bit entropy)
  */
-export type Mnemonic = string[];
+/** 24-word BIP39-style mnemonic as space-separated string */
+export type Mnemonic = string;
 
 /**
  * Options for graph building

@@ -22,8 +22,8 @@ describe('KeritsDSL', () => {
     const account1Mnemonic = dsl.newMnemonic(TEST_SEED_USER1);
 
     // Verify mnemonic is 24 words
-    expect(account1Mnemonic).toHaveLength(24);
-    expect(account1Mnemonic.every(w => typeof w === 'string')).toBe(true);
+    expect(account1Mnemonic.split(' ')).toHaveLength(24);
+    expect(typeof account1Mnemonic).toBe('string');
     console.log('✓ Generated 24-word mnemonic');
 
     // Create account from mnemonic

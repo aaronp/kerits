@@ -173,6 +173,7 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
       const schemaObj = {
         alias,
         schemaId,
+        schemaSaid: schemaId, // Set both for API consistency
         schema: saidified,
       };
 
@@ -213,6 +214,7 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
       const schemaObj = {
         alias: schemaData.alias,
         schemaId,
+        schemaSaid: schemaId, // Set both for API consistency
         schema: storedSchema,
       };
 
