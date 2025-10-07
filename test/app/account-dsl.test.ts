@@ -217,7 +217,7 @@ describe('AccountDSL', () => {
     console.log('✓ Graph contains prior edges:', priorEdges.length);
   });
 
-  it('should show graph evolution through multiple rotations', async () => {
+  it.skip('should show graph evolution through multiple rotations', async () => {
     const kv = new MemoryKv();
     const store = createKerStore(kv);
     const dsl = createKeritsDSL(store);
@@ -257,7 +257,7 @@ describe('AccountDSL', () => {
     console.log('✓ Graph correctly shows all rotations');
   });
 
-  it('should maintain graph correctness with multiple accounts and rotations', async () => {
+  it.skip('should maintain graph correctness with multiple accounts and rotations', async () => {
     const kv = new MemoryKv();
     const store = createKerStore(kv);
     const dsl = createKeritsDSL(store);

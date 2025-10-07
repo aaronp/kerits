@@ -271,10 +271,6 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
       return createContactsDSL(store);
     },
 
-    async graph(opts?: GraphOptions): Promise<any> {
-      return store.buildGraph(opts);
-    },
-
     import(): ImportDSL {
       return createImportDSL(store);
     },

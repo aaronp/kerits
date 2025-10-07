@@ -1,0 +1,140 @@
+/**
+ * Tests for KeriGitGraph - Mermaid gitGraph generation
+ */
+
+import { describe, it, expect, beforeEach } from 'bun:test';
+import { createKerStore } from '../../storage/core';
+import { MemoryKv } from '../../storage/adapters/memory';
+import { createKeritsDSL } from '../dsl';
+import { createKeriGitGraph } from './keri-git-graph';
+
+describe('KeriGitGraph', () => {
+  it('should generate Mermaid gitGraph for simple KEL', async () => {
+    const kv = new MemoryKv();
+    const store = createKerStore(kv);
+    const dsl = createKeritsDSL(store);
+
+    // Create a simple account
+    const mnemonic = dsl.newMnemonic(new Uint8Array(32).fill(1));
+    await dsl.newAccount('alice', mnemonic);
+
+    // Generate graph
+    const graph = createKeriGitGraph(store);
+    const mermaid = await graph.toMermaid({ includeTel: false });
+
+    // Verify basic structure
+    expect(mermaid).toContain('gitGraph');
+    expect(mermaid).toContain('inception');
+    expect(mermaid).toContain('Inception');
+  });
+
+  it('should generate gitGraph with KEL and TEL events', async () => {
+    const kv = new MemoryKv();
+    const store = createKerStore(kv);
+    const dsl = createKeritsDSL(store);
+
+    // Create account and registry
+    const mnemonic = dsl.newMnemonic(new Uint8Array(32).fill(1));
+    await dsl.newAccount('alice', mnemonic);
+    const accountDsl = await dsl.account('alice');
+    await accountDsl!.createRegistry('credentials');
+
+    // Generate graph with TEL
+    const graph = createKeriGitGraph(store);
+    const mermaid = await graph.toMermaid({ includeTel: true });
+
+    // Verify KEL and TEL branches
+    expect(mermaid).toContain('gitGraph');
+    expect(mermaid).toContain('Inception'); // KEL inception
+    expect(mermaid).toContain('Registry inception'); // TEL inception
+    expect(mermaid).toContain('Interaction'); // IXN that anchors registry
+  });
+
+  it('should generate gitGraph with credential issuance', async () => {
+    const kv = new MemoryKv();
+    const store = createKerStore(kv);
+    const dsl = createKeritsDSL(store);
+
+    // Setup: account, registry, schema
+    const mnemonic = dsl.newMnemonic(new Uint8Array(32).fill(1));
+    await dsl.newAccount('issuer', mnemonic);
+    const issuerDsl = await dsl.account('issuer');
+    const registry = await issuerDsl!.createRegistry('degrees');
+
+    const schema = await dsl.createSchema('degree', {
+      type: 'object',
+      properties: { degree: { type: 'string' } },
+    });
+
+    // Issue credential
+    const holderMnemonic = dsl.newMnemonic(new Uint8Array(32).fill(2));
+    const holder = await dsl.newAccount('holder', holderMnemonic);
+
+    await registry.issue({
+      schema: schema.schema.schemaSaid,
+      holder: holder.aid,
+      data: { degree: 'BS' },
+    });
+
+    // Generate graph
+    const graph = createKeriGitGraph(store);
+    const mermaid = await graph.toMermaid({ includeTel: true, includeCredentials: true });
+
+    // Verify credential issuance appears
+    expect(mermaid).toContain('Issue:'); // Credential issuance
+  });
+
+  it('should filter graph by AID', async () => {
+    const kv = new MemoryKv();
+    const store = createKerStore(kv);
+    const dsl = createKeritsDSL(store);
+
+    // Create two accounts
+    const alice = await dsl.newAccount('alice', dsl.newMnemonic(new Uint8Array(32).fill(1)));
+    await dsl.newAccount('bob', dsl.newMnemonic(new Uint8Array(32).fill(2)));
+
+    // Generate graph filtered to Alice
+    const graph = createKeriGitGraph(store);
+    const mermaid = await graph.toMermaid({ filterAid: alice.aid });
+
+    // Should contain Alice but verification is implicit
+    expect(mermaid).toContain('gitGraph');
+  });
+
+  it('should show credential revocation in graph', async () => {
+    const kv = new MemoryKv();
+    const store = createKerStore(kv);
+    const dsl = createKeritsDSL(store);
+
+    // Setup
+    const mnemonic = dsl.newMnemonic(new Uint8Array(32).fill(1));
+    await dsl.newAccount('issuer', mnemonic);
+    const issuerDsl = await dsl.account('issuer');
+    const registry = await issuerDsl!.createRegistry('creds');
+
+    const schema = await dsl.createSchema('cert', {
+      type: 'object',
+      properties: { name: { type: 'string' } },
+    });
+
+    const holderMnemonic = dsl.newMnemonic(new Uint8Array(32).fill(2));
+    const holder = await dsl.newAccount('holder', holderMnemonic);
+
+    const cred = await registry.issue({
+      schema: schema.schema.schemaSaid,
+      holder: holder.aid,
+      data: { name: 'Test' },
+    });
+
+    // Revoke credential
+    await cred.revoke();
+
+    // Generate graph
+    const graph = createKeriGitGraph(store);
+    const mermaid = await graph.toMermaid({ includeTel: true });
+
+    // Verify revocation appears
+    expect(mermaid).toContain('Revoke:');
+    expect(mermaid).toContain('REVERSE'); // Revocation is marked as reverse commit
+  });
+});

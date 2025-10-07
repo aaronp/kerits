@@ -125,12 +125,6 @@ export function createRegistryDSL(
       }));
     },
 
-    async graph(opts?: GraphOptions): Promise<any> {
-      // For now, return global graph
-      // TODO: Filter to only this registry's events
-      return store.buildGraph(opts);
-    },
-
     async export(): Promise<ExportDSL> {
       return exportTel(store, registry.registryId, account.aid);
     },

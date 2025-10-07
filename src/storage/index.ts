@@ -21,9 +21,6 @@ export type {
   StoreOptions,
   PutResult,
   StoredWithMeta,
-  GraphNode,
-  GraphEdge,
-  Graph,
   KerStore,
 } from './types';
 
@@ -38,6 +35,3 @@ export { MemoryKv } from './adapters/memory';
 export { DiskKv } from './adapters/disk';
 export type { DiskKvOptions } from './adapters/disk';
 export { IndexedDBKv } from './adapters/indexeddb';
-
-// Graph builder
-export { buildGraphFromStructuredKeys } from './graph';

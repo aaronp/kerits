@@ -140,14 +140,12 @@ describe('Complete Application Flow', () => {
       const kel = await accountDsl!.getKel();
       expect(kel.length).toBeGreaterThanOrEqual(2); // ICP + IXN
 
-      // Check graph shows ANCHOR edge
-      const graph = await accountDsl!.graph();
-      const anchorEdges = graph.edges.filter(e => e.kind === 'ANCHOR');
-      expect(anchorEdges.length).toBeGreaterThanOrEqual(1);
+      // Verify IXN event exists to anchor the registry
+      const ixnEvent = kel.find(e => e.t === 'ixn');
+      expect(ixnEvent).toBeDefined();
 
-      // Verify ANCHOR edge links to registry
-      const regAnchor = anchorEdges.find(e => e.to === registryDsl.registry.registryId);
-      expect(regAnchor).toBeDefined();
+      // The IXN event anchors the registry in the KEL
+      // This creates the link between KEL (account) and TEL (registry)
     });
   });
 
@@ -549,8 +547,8 @@ describe('Complete Application Flow', () => {
     });
   });
 
-  describe('9. Graph Visualization', () => {
-    test('should build complete graph showing all relationships', async () => {
+  describe('9. KERI Event Chains', () => {
+    test('should create proper KEL and TEL event chains', async () => {
       // Create accounts
       const uniMnemonic = dsl.newMnemonic(SEED_UNIVERSITY);
       await dsl.newAccount('university', uniMnemonic);
@@ -569,36 +567,41 @@ describe('Complete Application Flow', () => {
       });
 
       // Issue credential
-      await registry!.issue({
+      const cred = await registry!.issue({
         schema: schemaDsl.schema.schemaSaid,
         holder: alice.aid,
         data: { degree: 'BS' },
       });
 
-      // Build graph
-      const graph = await dsl.graph();
+      // Verify KEL event chain for university
+      const uniKel = await uniDsl!.getKel();
+      expect(uniKel.length).toBeGreaterThanOrEqual(2);
 
-      // Verify nodes
-      const aidNodes = graph.nodes.filter(n => n.kind === 'AID');
-      const kelNodes = graph.nodes.filter(n => n.kind === 'KEL_EVT');
-      const registryNodes = graph.nodes.filter(n => n.kind === 'TEL_REGISTRY');
-      const telNodes = graph.nodes.filter(n => n.kind === 'TEL_EVT');
-      const acdcNodes = graph.nodes.filter(n => n.kind === 'ACDC');
+      // First event should be inception
+      expect(uniKel[0].t).toBe('icp');
 
-      expect(aidNodes.length).toBeGreaterThanOrEqual(1);
-      expect(kelNodes.length).toBeGreaterThanOrEqual(2); // ICP + IXN
-      expect(registryNodes.length).toBe(1);
-      expect(telNodes.length).toBeGreaterThanOrEqual(1); // ISS
-      expect(acdcNodes.length).toBe(1);
+      // Should have interaction event that anchors the registry
+      const ixnEvents = uniKel.filter(e => e.t === 'ixn');
+      expect(ixnEvents.length).toBeGreaterThanOrEqual(1);
 
-      // Verify edges
-      const priorEdges = graph.edges.filter(e => e.kind === 'PRIOR');
-      const anchorEdges = graph.edges.filter(e => e.kind === 'ANCHOR');
-      const issuesEdges = graph.edges.filter(e => e.kind === 'ISSUES');
+      // Verify TEL event chain for registry
+      const tel = await registry.getTel();
+      expect(tel.length).toBeGreaterThanOrEqual(2);
 
-      expect(priorEdges.length).toBeGreaterThanOrEqual(1);
-      expect(anchorEdges.length).toBeGreaterThanOrEqual(1);
-      expect(issuesEdges.length).toBe(1);
+      // Should have registry inception (vcp)
+      const vcpEvents = tel.filter(e => e.t === 'vcp');
+      expect(vcpEvents.length).toBe(1);
+      expect(vcpEvents[0].ri).toBe(registry.registry.registryId);
+
+      // Should have issuance event
+      const issEvents = tel.filter(e => e.t === 'iss');
+      expect(issEvents.length).toBe(1);
+      expect(issEvents[0].ri).toBe(registry.registry.registryId);
+
+      // Verify credential exists
+      const credStatus = await cred.status();
+      expect(credStatus.revoked).toBe(false);
+      expect(credStatus.status).toBe('issued');
     });
   });
 });

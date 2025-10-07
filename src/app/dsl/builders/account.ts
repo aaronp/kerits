@@ -132,12 +132,6 @@ export function createAccountDSL(account: Account, store: KerStore): AccountDSL 
       }));
     },
 
-    async graph(opts?: GraphOptions): Promise<any> {
-      // For now, return global graph
-      // TODO: Filter to only this account's events
-      return store.buildGraph(opts);
-    },
-
     async export(): Promise<ExportDSL> {
       return exportKel(store, account.aid);
     },

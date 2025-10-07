@@ -9,9 +9,8 @@
  * - Clean alias API
  */
 
-import type { Kv, StorageKey, EventMeta, SAID, AID, CesrEncoding, Graph, GraphOptions, KerStore, StoreOptions, PutResult, KelEvent, TelEvent } from './types';
+import type { Kv, StorageKey, EventMeta, SAID, AID, CesrEncoding, KerStore, StoreOptions, PutResult, KelEvent, TelEvent } from './types';
 import { CesrHasher, DefaultJsonCesrParser } from './parser';
-import { buildGraphFromStructuredKeys } from './graph';
 
 // Helper functions
 function utf8Encode(s: string): Uint8Array {
@@ -531,13 +530,6 @@ export function createKerStore(kv: Kv, opts?: StoreOptions): KerStore {
   }
 
   /**
-   * Build graph from storage
-   */
-  async function buildGraph(opts?: GraphOptions): Promise<Graph> {
-    return buildGraphFromStructuredKeys(kv, opts);
-  }
-
-  /**
    * Clear all data (for testing)
    */
   async function clear(): Promise<void> {
@@ -602,7 +594,6 @@ export function createKerStore(kv: Kv, opts?: StoreOptions): KerStore {
     listAliases,
     delAlias,
     getByPrior,
-    buildGraph,
     clear,
     // Backward-compatible methods
     aliasToId,

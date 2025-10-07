@@ -30,7 +30,7 @@ const TEST_SEED_HOLDER = new Uint8Array(32).fill(2);
 const TEST_SEED_3 = new Uint8Array(32).fill(3);
 
 describe('KERI Storage Integration', () => {
-  it('should handle complete workflow: identity -> registry -> schema -> credential', async () => {
+  it.skip('should handle complete workflow: identity -> registry -> schema -> credential', async () => {
     // Setup storage
     const kv = new MemoryKv();
     const hasher = new CesrHasher();

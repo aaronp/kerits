@@ -142,30 +142,6 @@ export interface StoredWithMeta {
 }
 
 /**
- * Graph types
- */
-export interface GraphNode {
-  id: string;                // SAID/AID
-  label?: string;
-  kind: "AID" | "KEL_EVT" | "TEL_REGISTRY" | "TEL_EVT" | "ACDC" | "SCHEMA";
-  meta?: Record<string, any>;
-}
-
-export interface GraphEdge {
-  id: string;
-  from: string;
-  to: string;
-  label?: string;
-  kind: "ANCHOR" | "PRIOR" | "ISSUES" | "REVOKES" | "WITNESS" | "REFS" | "USES_SCHEMA";
-  meta?: Record<string, any>;
-}
-
-export interface Graph {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-}
-
-/**
  * KEL event with raw CESR and metadata
  */
 export interface KelEvent {
@@ -223,9 +199,6 @@ export interface KerStore {
 
   // Event queries
   getByPrior(priorSaid: SAID): Promise<Array<{ raw: Uint8Array; meta: EventMeta }>>;
-
-  // Graph building
-  buildGraph(opts?: GraphOptions): Promise<Graph>;
 
   // Utility
   clear?(): Promise<void>;

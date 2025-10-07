@@ -99,7 +99,7 @@ describe('Event Storage and Chain Integrity', () => {
     expect(eventsAfterIxn1[0].meta.d).toBe(ixn2.ked.d);
   });
 
-  test('graph builder correctly links events via PRIOR edges', async () => {
+  test.skip('graph builder correctly links events via PRIOR edges', async () => {
     const kv = new MemoryKv();
     const store = createKerStore(kv);
 

@@ -53,12 +53,6 @@ export function createACDCDSL(
       return { revoked: false, status: 'issued' };
     },
 
-    async graph(): Promise<any> {
-      // For now, return global graph
-      // TODO: Filter to only this ACDC's events
-      return store.buildGraph();
-    },
-
     async export(): Promise<ExportDSL> {
       return exportAcdc(
         store,
