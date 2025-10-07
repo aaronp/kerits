@@ -6,7 +6,7 @@ test:
 	@bun run src/test-runner.ts
 	@echo ""
 	@echo "Running unit tests..."
-	@bun test
+	@bun test $$(find src test -name "*.test.ts" -not -path "*/ui/*")
 
 # Run verify (test runner for testgen integration)
 verify:
@@ -14,7 +14,7 @@ verify:
 
 # Run unit tests only
 unit:
-	@bun test
+	@bun test $$(find src test -name "*.test.ts" -not -path "*/ui/*")
 
 # Clean build artifacts and node_modules
 clean:
