@@ -50,6 +50,20 @@ export async function buildGraphFromStore(
     if (!evRec) continue;
     const event = decodeJson<StoredEvent>(evRec);
 
+    // Parse the raw event to get SAD fields like 'a' (seals)
+    let sad: any = null;
+    try {
+      const rawStr = utf8Decode(event.raw);
+      // Extract JSON from CESR frame (find first '{' to last '}')
+      const start = rawStr.indexOf('{');
+      const end = rawStr.lastIndexOf('}');
+      if (start >= 0 && end > start) {
+        sad = JSON.parse(rawStr.substring(start, end + 1));
+      }
+    } catch (e) {
+      // If parsing fails, continue without SAD
+    }
+
     // Determine node kinds
     const isKEL = meta.t === "icp" || meta.t === "rot" || meta.t === "ixn";
     const isVCP = meta.t === "vcp";
@@ -77,6 +91,22 @@ export async function buildGraphFromStore(
           label: "prior",
         });
       }
+
+      // For ixn events, parse seals from 'a' field to create ANCHOR edges
+      if (meta.t === "ixn" && sad && Array.isArray(sad.a)) {
+        for (const seal of sad.a) {
+          if (seal && typeof seal === 'object' && seal.i && seal.d) {
+            // This is a registry anchor seal: { i: registryId, d: vcpSaid }
+            addEdge({
+              id: `ANCHOR:${meta.d}->${seal.i}`,
+              from: meta.d,
+              to: seal.i,
+              kind: "ANCHOR",
+              label: "anchors TEL",
+            });
+          }
+        }
+      }
     }
 
     if (isVCP) {
@@ -88,16 +118,10 @@ export async function buildGraphFromStore(
         meta: { t: meta.t, event, eventMeta: meta },
       });
 
-      // For VCP, the issuer is in meta.issuerAid (from 'ii' field)
+      // Registry is anchored via ixn event seals, not directly from AID
+      // Just ensure the AID node exists
       if (meta.issuerAid) {
         addNode({ id: meta.issuerAid, kind: "AID", label: meta.issuerAid.substring(0, 12) + "..." });
-        addEdge({
-          id: `ANCHOR:${meta.issuerAid}->${meta.d}`,
-          from: meta.issuerAid,
-          to: meta.d,
-          kind: "ANCHOR",
-          label: "anchors TEL",
-        });
       }
     }
 
