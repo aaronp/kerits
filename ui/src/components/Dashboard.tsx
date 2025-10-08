@@ -69,24 +69,28 @@ export function Dashboard() {
   }, [currentUser, navigate]);
 
   useEffect(() => {
-    // Load banner color from localStorage
-    const savedColor = localStorage.getItem('kerits-banner-color');
-    if (savedColor) {
-      setBannerColor(savedColor);
+    // Load banner color from localStorage for current user
+    if (currentUser) {
+      const savedColor = localStorage.getItem(`kerits-banner-color-${currentUser.id}`);
+      if (savedColor) {
+        setBannerColor(savedColor);
+      } else {
+        setBannerColor('#3b82f6'); // Reset to default if no color saved
+      }
     }
 
     // Listen for storage changes
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'kerits-banner-color' && e.newValue) {
+      if (currentUser && e.key === `kerits-banner-color-${currentUser.id}` && e.newValue) {
         setBannerColor(e.newValue);
       }
     };
 
     // Listen for custom event for same-window updates
-    const handleColorUpdate = () => {
-      const savedColor = localStorage.getItem('kerits-banner-color');
-      if (savedColor) {
-        setBannerColor(savedColor);
+    const handleColorUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ userId: string; color: string }>;
+      if (currentUser && customEvent.detail.userId === currentUser.id) {
+        setBannerColor(customEvent.detail.color);
       }
     };
 
@@ -97,7 +101,7 @@ export function Dashboard() {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('kerits-color-changed', handleColorUpdate);
     };
-  }, []);
+  }, [currentUser]);
 
   const getActiveTab = () => {
     const path = location.pathname;

@@ -35,12 +35,6 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
   // Use useEffect directly without useCallback to avoid dependency issues
   React.useEffect(() => {
     const loadCurrentAccount = async () => {
-      console.log('[AccountProvider] loadCurrentAccount called:', {
-        currentUser: currentUser?.id,
-        lastLoaded: lastLoadedUserIdRef.current,
-        currentAlias: currentAccountAlias
-      });
-
       if (!currentUser) {
         lastLoadedUserIdRef.current = null;
         // Only update state if it actually changed
@@ -51,7 +45,6 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
 
       // Skip if we already loaded this user's account
       if (lastLoadedUserIdRef.current === currentUser.id) {
-        console.log('[AccountProvider] Skipping load - user already loaded');
         return;
       }
 

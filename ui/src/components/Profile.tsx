@@ -22,17 +22,21 @@ export function Profile() {
   const [bannerColor, setBannerColor] = useState<string>('#3b82f6');
 
   useEffect(() => {
-    const savedColor = localStorage.getItem('kerits-banner-color');
-    if (savedColor) {
-      setBannerColor(savedColor);
+    if (currentUser) {
+      const savedColor = localStorage.getItem(`kerits-banner-color-${currentUser.id}`);
+      if (savedColor) {
+        setBannerColor(savedColor);
+      }
     }
-  }, []);
+  }, [currentUser]);
 
   const handleColorChange = (color: string) => {
+    if (!currentUser) return;
+
     setBannerColor(color);
-    localStorage.setItem('kerits-banner-color', color);
+    localStorage.setItem(`kerits-banner-color-${currentUser.id}`, color);
     // Dispatch custom event for same-window updates
-    window.dispatchEvent(new Event('kerits-color-changed'));
+    window.dispatchEvent(new CustomEvent('kerits-color-changed', { detail: { userId: currentUser.id, color } }));
     showToast('Banner color updated!');
   };
 

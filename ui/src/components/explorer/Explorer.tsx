@@ -47,15 +47,12 @@ export function Explorer() {
 
   // Wait for account context to load before proceeding
   useEffect(() => {
-    console.log('[Explorer] useEffect:', { accountLoading, accountAlias, currentAccountAlias, hasRedirected: hasRedirectedRef.current });
-
     if (accountLoading) {
       return; // Still loading account context
     }
 
     if (!accountAlias && !hasRedirectedRef.current) {
       // No account available - redirect to login (once)
-      console.warn('No account available, redirecting to login');
       hasRedirectedRef.current = true;
       navigate(route('/'), { replace: true });
       return;
