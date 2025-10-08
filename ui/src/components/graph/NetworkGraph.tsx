@@ -1,15 +1,21 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Combobox } from '../ui/combobox';
+import { Label } from '../ui/label';
 import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import { getDSL } from '@/lib/dsl';
 import { VisualId } from '../ui/visual-id';
+import { NodeDetails } from '../ui/NodeDetails';
 import { GraphTableView } from './GraphTableView';
 import { MermaidRenderer } from './MermaidRenderer';
 import { createKeriGitGraph, createKeriGraph } from '@/../../src/app/graph';
+import { createKeriTraversal, KeriTraversal } from '@/../../src/app/graph/traversal';
 import type { Graph, GraphNode, GraphEdge } from '@/../../src/storage/types';
 import type { KeritsDSL } from '@/../../src/app/dsl/types';
+import type { TraversalNode, ResolvedNode } from '@/../../src/app/graph/traversal';
 
 // Node types for the KERI graph
 export type NodeKind = 'AID' | 'KEL_EVT' | 'TEL_REGISTRY' | 'TEL_EVT' | 'ACDC' | 'SCHEMA';
@@ -267,6 +273,9 @@ function NodeGlyph({ n, onClick }: { n: LayoutNode; onClick: () => void }) {
 }
 
 export function NetworkGraph() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedId = searchParams.get('id');
+
   const [graph, setGraph] = useState<Graph | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -278,6 +287,10 @@ export function NetworkGraph() {
   const svgRef = useRef<SVGSVGElement>(null);
   const [dsl, setDsl] = useState<KeritsDSL | null>(null);
   const [mermaidChart, setMermaidChart] = useState<string>('');
+  const [traversal, setTraversal] = useState<KeriTraversal | null>(null);
+  const [traversalTree, setTraversalTree] = useState<TraversalNode | null>(null);
+  const [resolvedNode, setResolvedNode] = useState<ResolvedNode | null>(null);
+  const [availableIds, setAvailableIds] = useState<Array<{ value: string; label: string }>>([]);
 
   useEffect(() => {
     async function loadGraph() {
@@ -288,8 +301,13 @@ export function NetworkGraph() {
         const dslInstance = await getDSL();
         setDsl(dslInstance);
 
+        // Initialize traversal
+        const store = dslInstance.getStore();
+        const traversalInstance = createKeriTraversal(store, dslInstance);
+        setTraversal(traversalInstance);
+
         // Build graph using createKeriGraph
-        const graphBuilder = createKeriGraph(dslInstance.getStore(), dslInstance);
+        const graphBuilder = createKeriGraph(store, dslInstance);
         const graphData = await graphBuilder.build();
 
         // Build alias map from DSL
@@ -344,8 +362,17 @@ export function NetworkGraph() {
 
         setGraph(graphData);
 
+        // Build available IDs list for selector
+        const ids: Array<{ value: string; label: string }> = [];
+        graphData.nodes.forEach(node => {
+          ids.push({
+            value: node.id,
+            label: `${node.label} (${node.kind})`,
+          });
+        });
+        setAvailableIds(ids);
+
         // Generate Mermaid gitGraph
-        const store = dslInstance.getStore();
         const gitGraph = createKeriGitGraph(store, dslInstance);
         const mermaid = await gitGraph.toMermaid({ includeTel: true });
         setMermaidChart(mermaid);
@@ -359,6 +386,38 @@ export function NetworkGraph() {
 
     loadGraph();
   }, []);
+
+  // Handle traversal when selectedId changes
+  useEffect(() => {
+    async function runTraversal() {
+      if (!selectedId || !traversal) {
+        setTraversalTree(null);
+        setResolvedNode(null);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const tree = await traversal.traverse(selectedId);
+        setTraversalTree(tree);
+        setResolvedNode(tree?.node || null);
+
+        // Convert tree to graph for visualization
+        if (tree) {
+          const { KeriTraversal } = await import('@/../../src/app/graph/traversal');
+          const graphData = KeriTraversal.treeToGraph(tree);
+          setGraph(graphData);
+        }
+      } catch (err) {
+        console.error('Failed to traverse from ID:', err);
+        setError(err instanceof Error ? err.message : 'Traversal failed');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    runTraversal();
+  }, [selectedId, traversal]);
 
   const { nodes, edges } = useMemo(() => {
     if (!graph) return { nodes: [], edges: [] };
@@ -474,12 +533,52 @@ export function NetworkGraph() {
   }
 
   return (
-    <Tabs defaultValue="graph" className="w-full">
-      <TabsList className="mb-4">
-        <TabsTrigger value="graph">Graph View</TabsTrigger>
-        <TabsTrigger value="gitgraph">Git Graph</TabsTrigger>
-        <TabsTrigger value="table">Table View</TabsTrigger>
-      </TabsList>
+    <div className="space-y-4">
+      {/* ID Selector */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Filter by ID</CardTitle>
+          <CardDescription>
+            Select a KERI identifier to view its lineage and relationships
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <Label htmlFor="id-selector">KERI Identifier</Label>
+            <Combobox
+              id="id-selector"
+              placeholder="Select or search for an ID..."
+              emptyText="No IDs found"
+              value={selectedId || ''}
+              onValueChange={(value) => {
+                if (value) {
+                  setSearchParams({ id: value });
+                } else {
+                  setSearchParams({});
+                }
+              }}
+              options={availableIds}
+            />
+            {selectedId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSearchParams({})}
+                className="mt-2"
+              >
+                Clear Filter
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Tabs defaultValue="graph" className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="graph">Graph View</TabsTrigger>
+          <TabsTrigger value="gitgraph">Git Graph</TabsTrigger>
+          <TabsTrigger value="table">Table View</TabsTrigger>
+        </TabsList>
 
       <TabsContent value="graph">
         <div className="flex gap-4 h-[calc(100vh-200px)]">
@@ -594,7 +693,14 @@ export function NetworkGraph() {
 
               {/* Nodes */}
               {nodes.map(n => (
-                <NodeGlyph key={n.id} n={n} onClick={() => setSelectedNode(n)} />
+                <NodeGlyph
+                  key={n.id}
+                  n={n}
+                  onClick={() => {
+                    setSelectedNode(n);
+                    setSearchParams({ id: n.id });
+                  }}
+                />
               ))}
             </g>
           </svg>
@@ -605,18 +711,18 @@ export function NetworkGraph() {
       <Card className="w-96 flex-shrink-0 overflow-y-auto">
         <CardHeader>
           <CardTitle className="text-lg">
-            {selectedNode ? selectedNode.label : 'Node Details'}
+            {resolvedNode ? (resolvedNode.label || resolvedNode.kind) : 'Node Details'}
           </CardTitle>
           <CardDescription>
-            {selectedNode ? 'Click a different node to view its details' : 'Click a node to view details'}
+            {resolvedNode ? 'Click a different node to view its details' : 'Click a node to view details'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {selectedNode ? (
+          {resolvedNode ? (
             <div className="space-y-4">
               <VisualId
                 label="Node ID"
-                value={selectedNode.id}
+                value={resolvedNode.id}
                 size={40}
                 maxCharacters={20}
               />
@@ -624,32 +730,14 @@ export function NetworkGraph() {
               <div>
                 <div className="text-sm font-semibold mb-1">Type</div>
                 <div className="px-3 py-2 bg-secondary rounded text-sm font-mono">
-                  {selectedNode.kind}
+                  {resolvedNode.kind}
                 </div>
               </div>
 
-              <div>
-                <div className="text-sm font-semibold mb-1">Position</div>
-                <div className="px-3 py-2 bg-secondary rounded text-sm">
-                  Lane {selectedNode.lane}, Column {selectedNode.col}
-                </div>
-              </div>
-
-              {selectedNode.meta && Object.keys(selectedNode.meta).length > 0 && (
+              {resolvedNode.meta && Object.keys(resolvedNode.meta).length > 0 && (
                 <div>
-                  <div className="text-sm font-semibold mb-2">Metadata</div>
-                  <div className="space-y-2">
-                    {Object.entries(selectedNode.meta).map(([key, value]) => (
-                      <div key={key} className="flex gap-2">
-                        <span className="text-xs font-semibold text-muted-foreground min-w-[80px]">
-                          {key}:
-                        </span>
-                        <span className="text-xs font-mono flex-1 break-all">
-                          {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  <div className="text-sm font-semibold mb-2">Details</div>
+                  <NodeDetails data={resolvedNode.meta} layout="stacked" />
                 </div>
               )}
             </div>
@@ -687,5 +775,6 @@ export function NetworkGraph() {
         <GraphTableView />
       </TabsContent>
     </Tabs>
+    </div>
   );
 }
