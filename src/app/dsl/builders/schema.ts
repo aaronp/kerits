@@ -4,6 +4,7 @@
 
 import type { KerStore } from '../../../storage/types';
 import type { SchemaDSL, Schema, SchemaExport } from '../types';
+import { saidify } from '../../../saidify';
 
 /**
  * Create a SchemaDSL for a specific schema
@@ -52,16 +53,27 @@ export function createSchemaDSL(schema: Schema, store: KerStore): SchemaDSL {
       // Convert internal format (d) to KERI SAD format ($id, $schema)
       const { d, ...schemaContent } = schema.schema;
 
-      const sed = {
-        $id: schema.schemaId, // Use $id instead of d
+      // Recompute SAID based on schema content
+      // This ensures $id matches the actual schema content
+      const schemaWithId = {
+        $id: '', // Start with empty $id
         $schema: 'http://json-schema.org/draft-07/schema#',
-        ...schemaContent, // Include all other fields from the original schema
+        ...schemaContent,
+      };
+
+      // Compute the SAID using $id as the label field
+      const saidified = saidify(schemaWithId, { label: '$id' });
+      const computedSaid = saidified.$id;
+
+      // Use computed SAID as both $id and said
+      const sed = {
+        ...saidified,
       };
 
       return {
         alias: schema.alias,
         sed,
-        said: schema.schemaId,
+        said: computedSaid,
       };
     },
 

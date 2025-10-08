@@ -25,6 +25,7 @@ export function createACDCDSL(
       await revokeCredential(store, {
         registryId: registry.registryId,
         credentialId: acdc.credentialId,
+        issuerAid: acdc.issuerAid,
       });
     },
 

@@ -651,11 +651,47 @@ export function RegistryDetailView({
                     }
                   }}
                   onRevoke={async () => {
-                    // TODO: Implement revocation
-                    console.log('Revoke credential:', acdc.credentialId);
-                    // Reload credentials after revocation
-                    const updatedAcdcs = await registryDsl!.listACDCs();
-                    // ... refresh logic
+                    try {
+                      if (!registryDsl) {
+                        toast({
+                          title: 'Error',
+                          description: 'Registry not loaded',
+                          variant: 'destructive',
+                        });
+                        return;
+                      }
+
+                      const alias = (acdc as any).alias;
+                      if (!alias) {
+                        throw new Error('Credential alias not found');
+                      }
+
+                      // Get the ACDC DSL
+                      const acdcDsl = await registryDsl.acdc(alias);
+                      if (!acdcDsl) {
+                        throw new Error('Credential not found');
+                      }
+
+                      // Revoke the credential
+                      await acdcDsl.revoke();
+
+                      // Show success toast
+                      toast({
+                        title: 'Credential Revoked',
+                        description: `Successfully revoked credential "${alias}"`,
+                      });
+
+                      // Reload credentials list
+                      const updatedAcdcs = await registryDsl.listACDCs();
+                      setAcdcs(updatedAcdcs);
+                    } catch (error) {
+                      console.error('Failed to revoke credential:', error);
+                      toast({
+                        title: 'Revocation Failed',
+                        description: error instanceof Error ? error.message : 'Failed to revoke credential',
+                        variant: 'destructive',
+                      });
+                    }
                   }}
                   onExpand={async () => {
                     // Load full ACDC data when expanded

@@ -227,19 +227,18 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
         throw new Error('Invalid schema: must have title and properties');
       }
 
+      // Verify the SAID by recomputing it from the sed with $id
+      const { $id, ...sedContent } = schemaData.sed;
+      const schemaWithEmptyId = { $id: '', ...sedContent }; // $id must be first to preserve field order
+      const recomputed = saidify(schemaWithEmptyId, { label: '$id' });
+
+      if (recomputed.$id !== schemaData.said) {
+        throw new Error(`SAID verification failed: expected ${schemaData.said}, got ${recomputed.$id}`);
+      }
+
       // Convert KERI SAD format ($id) to internal format (d)
       // Remove $id and $schema fields, keep rest of the schema
-      const { $id, $schema, ...schemaContent } = schemaData.sed;
-
-      // First, compute what the SAID would be WITHOUT storing
-      const schemaWithD = { ...schemaContent, d: '' };
-      const saidified = saidify(schemaWithD);
-      const computedSaid = saidified.d;
-
-      // Verify the SAID matches what we imported BEFORE storing
-      if (computedSaid !== schemaData.said) {
-        throw new Error(`SAID verification failed: expected ${schemaData.said}, got ${computedSaid}`);
-      }
+      const { $schema, ...schemaContent } = sedContent;
 
       // Now that verification passed, store the schema
       const { schemaId, schema: storedSchema } = await createSchemaHelper(store, {
