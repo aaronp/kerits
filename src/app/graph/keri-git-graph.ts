@@ -28,25 +28,70 @@ export class KeriGitGraph {
       return lines.join('\n');
     }
 
-    // Process each path as a sequence of commits
-    for (let pathIdx = 0; pathIdx < pathGraph.paths.length; pathIdx++) {
-      const path = pathGraph.paths[pathIdx];
+    // Track commits we've already added to avoid duplicates
+    const addedCommits = new Set<SAID>();
 
-      // Add initial commit if this is the first path
-      if (pathIdx === 0) {
-        lines.push(`  commit id: "root"`);
+    // Sort paths by length (shortest first) to establish main branch first
+    const sortedPaths = [...pathGraph.paths].sort((a, b) => a.length - b.length);
+
+    // Process first path to establish main branch
+    const firstPath = sortedPaths[0];
+
+    // Walk from root to target (path is already in correct order: [root, ..., target])
+    for (let i = 0; i < firstPath.length; i++) {
+      const nodeId = firstPath[i];
+      const node = pathGraph.data[nodeId];
+
+      if (!node) continue;
+
+      const commit = this.nodeToCommit(node, nodeId === pathGraph.targetNode);
+      const commitLine = this.formatMermaidCommit(commit);
+      lines.push(`  ${commitLine}`);
+      addedCommits.add(nodeId);
+    }
+
+    // Process remaining paths
+    for (let pathIdx = 1; pathIdx < sortedPaths.length; pathIdx++) {
+      const path = sortedPaths[pathIdx];
+
+      // Find where this path diverges from already-added commits
+      let lastCommonIndex = -1;
+      for (let i = 0; i < path.length; i++) {
+        if (addedCommits.has(path[i])) {
+          lastCommonIndex = i;
+        } else {
+          break;
+        }
       }
 
-      // Add each node in the path as a commit
-      for (let i = path.length - 1; i >= 0; i--) {
-        const nodeId = path[i];
-        const node = pathGraph.data[nodeId];
+      // If this path has unique commits after the common point
+      if (lastCommonIndex >= 0 && lastCommonIndex < path.length - 1) {
+        // Create a branch for the divergent path
+        const branchName = `path${pathIdx}`;
 
-        if (!node) continue;
+        // Checkout from the last common commit
+        lines.push(`  checkout main`);
+        lines.push(`  branch ${branchName}`);
 
-        const commit = this.nodeToCommit(node, i === 0 && nodeId === pathGraph.targetNode);
-        const commitLine = this.formatMermaidCommit(commit);
-        lines.push(`  ${commitLine}`);
+        // Add the unique commits on this branch
+        for (let i = lastCommonIndex + 1; i < path.length; i++) {
+          const nodeId = path[i];
+          if (addedCommits.has(nodeId)) continue;
+
+          const node = pathGraph.data[nodeId];
+          if (!node) continue;
+
+          const commit = this.nodeToCommit(node, nodeId === pathGraph.targetNode);
+          const commitLine = this.formatMermaidCommit(commit);
+          lines.push(`  ${commitLine}`);
+          addedCommits.add(nodeId);
+        }
+
+        // Merge back to main if we reached the target
+        if (path[path.length - 1] === pathGraph.targetNode) {
+          lines.push(`  checkout main`);
+          lines.push(`  merge ${branchName}`);
+        }
       }
     }
 

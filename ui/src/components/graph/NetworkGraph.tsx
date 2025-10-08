@@ -805,10 +805,10 @@ export function NetworkGraph() {
           </CardHeader>
           <CardContent className="min-h-[600px]">
             {mermaidChart ? (
-              <MermaidRenderer chart={mermaidChart} className="w-full" />
+              <MermaidRenderer key={mermaidChart} chart={mermaidChart} className="w-full" />
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
-                No data available - create identities and registries to view the git graph
+                {pathGraph ? 'Generating git graph...' : 'Select an ID above to view its path-based git graph'}
               </div>
             )}
           </CardContent>
