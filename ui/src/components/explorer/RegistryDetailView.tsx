@@ -28,6 +28,7 @@ import { Combobox } from '../ui/combobox';
 import { route } from '@/config';
 import { CreateRegistryDialog } from './CreateRegistryDialog';
 import { VisualId } from '../ui/visual-id';
+import { ACDCRecord } from './ACDCRecord';
 import type { KeritsDSL, RegistryDSL } from '@kerits/app/dsl/types';
 import type { IndexedACDC } from '@kerits/app/indexer/types';
 import type { JSONSchema7Property } from '@kerits/app/dsl/types';
@@ -363,27 +364,30 @@ export function RegistryDetailView({
           ) : (
             <div className="space-y-2">
               {acdcs.map(acdc => (
-                <div
+                <ACDCRecord
                   key={acdc.credentialId}
-                  className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-medium">{acdc.alias}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {acdc.credentialId.substring(0, 24)}...
-                      </p>
-                      <div className="flex gap-2 mt-2 text-xs">
-                        <span className={`px-2 py-0.5 rounded ${acdc.revoked ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'}`}>
-                          {acdc.status}
-                        </span>
-                        <span className="text-muted-foreground">
-                          Issued: {acdc.issuedAt ? new Date(acdc.issuedAt).toLocaleDateString() : 'Unknown'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  acdc={acdc}
+                  onExpand={async () => {
+                    // Load full ACDC data when expanded
+                    if (!registryDsl) return {};
+
+                    const acdcDsl = await registryDsl.acdc(acdc.alias);
+                    if (!acdcDsl) return {};
+
+                    return {
+                      'Credential ID': acdc.credentialId,
+                      'Alias': acdc.alias,
+                      'Registry ID': acdc.registryId,
+                      'Issuer AID': acdc.issuerAid,
+                      'Holder AID': acdc.holderAid,
+                      'Schema ID': acdc.schemaId,
+                      'Issued At': acdc.issuedAt,
+                      'Status': acdc.status,
+                      'Revoked': acdc.revoked,
+                      'Data': acdcDsl.acdc.data,
+                    };
+                  }}
+                />
               ))}
             </div>
           )}
