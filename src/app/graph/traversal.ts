@@ -508,6 +508,65 @@ export class KeriTraversal {
     traverse(tree);
     return { nodes, edges };
   }
+
+  /**
+   * Convert tree to path-based structure for visualization
+   */
+  static async treeToPathGraph(
+    tree: TraversalNode,
+    dsl: KeritsDSL
+  ): Promise<{
+    kelRootId: SAID | null;
+    targetNode: SAID;
+    paths: SAID[][];
+    data: Record<SAID, ResolvedNode>;
+  }> {
+    const targetNode = tree.node.id;
+    const paths: SAID[][] = [];
+    const data: Record<SAID, ResolvedNode> = {};
+
+    // Find KEL root (the user's current account inception event)
+    let kelRootId: SAID | null = null;
+    try {
+      const accountNames = await dsl.accountNames();
+      if (accountNames.length > 0) {
+        const account = await dsl.getAccount(accountNames[0]);
+        if (account) {
+          kelRootId = account.aid;
+        }
+      }
+    } catch {
+      // No account found
+    }
+
+    // Recursive function to collect all paths from target to roots
+    function collectPaths(node: TraversalNode, currentPath: SAID[]): void {
+      const newPath = [node.node.id, ...currentPath];
+
+      // Store node data
+      data[node.node.id] = node.node;
+
+      if (node.parents.length === 0) {
+        // Reached a root node, store the complete path
+        paths.push(newPath);
+      } else {
+        // Continue traversing parents
+        for (const parent of node.parents) {
+          collectPaths(parent, newPath);
+        }
+      }
+    }
+
+    // Start path collection from target node
+    collectPaths(tree, []);
+
+    return {
+      kelRootId,
+      targetNode,
+      paths,
+      data,
+    };
+  }
 }
 
 /**

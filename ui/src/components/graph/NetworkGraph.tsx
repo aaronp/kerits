@@ -5,7 +5,7 @@ import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Combobox } from '../ui/combobox';
 import { Label } from '../ui/label';
-import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, ChevronRight } from 'lucide-react';
 import { getDSL } from '@/lib/dsl';
 import { VisualId } from '../ui/visual-id';
 import { NodeDetails } from '../ui/NodeDetails';
@@ -291,6 +291,12 @@ export function NetworkGraph() {
   const [traversalTree, setTraversalTree] = useState<TraversalNode | null>(null);
   const [resolvedNode, setResolvedNode] = useState<ResolvedNode | null>(null);
   const [availableIds, setAvailableIds] = useState<Array<{ value: string; label: string }>>([]);
+  const [pathGraph, setPathGraph] = useState<{
+    kelRootId: string | null;
+    targetNode: string;
+    paths: string[][];
+    data: Record<string, ResolvedNode>;
+  } | null>(null);
 
   useEffect(() => {
     async function loadGraph() {
@@ -390,9 +396,10 @@ export function NetworkGraph() {
   // Handle traversal when selectedId changes
   useEffect(() => {
     async function runTraversal() {
-      if (!selectedId || !traversal) {
+      if (!selectedId || !traversal || !dsl) {
         setTraversalTree(null);
         setResolvedNode(null);
+        setPathGraph(null);
         return;
       }
 
@@ -407,6 +414,10 @@ export function NetworkGraph() {
           const { KeriTraversal } = await import('@/../../src/app/graph/traversal');
           const graphData = KeriTraversal.treeToGraph(tree);
           setGraph(graphData);
+
+          // Also create path-based graph structure
+          const pathGraphData = await KeriTraversal.treeToPathGraph(tree, dsl);
+          setPathGraph(pathGraphData);
         }
       } catch (err) {
         console.error('Failed to traverse from ID:', err);
@@ -417,7 +428,7 @@ export function NetworkGraph() {
     }
 
     runTraversal();
-  }, [selectedId, traversal]);
+  }, [selectedId, traversal, dsl]);
 
   const { nodes, edges } = useMemo(() => {
     if (!graph) return { nodes: [], edges: [] };
@@ -572,6 +583,41 @@ export function NetworkGraph() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Breadcrumb Paths */}
+      {pathGraph && pathGraph.paths.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Paths to {pathGraph.targetNode.substring(0, 12)}...</CardTitle>
+            <CardDescription>
+              {pathGraph.paths.length} path{pathGraph.paths.length > 1 ? 's' : ''} found • Click any node to navigate
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {pathGraph.paths.map((path, pathIdx) => (
+                <div key={pathIdx} className="flex items-center gap-1 flex-wrap p-2 rounded-md bg-muted/50 hover:bg-muted/70 transition-colors">
+                  {path.map((nodeId, idx) => (
+                    <div key={`${pathIdx}-${idx}`} className="flex items-center gap-1">
+                      <VisualId
+                        label=""
+                        variant="marble"
+                        value={nodeId}
+                        size={16}
+                        showCopy={false}
+                        small
+                      />
+                      {idx < path.length - 1 && (
+                        <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="graph" className="w-full">
         <TabsList className="mb-4">
@@ -782,15 +828,15 @@ export function NetworkGraph() {
           <CardHeader>
             <CardTitle>JSON Data</CardTitle>
             <CardDescription>
-              {traversalTree
-                ? `Traversal results for ${selectedId}`
-                : 'Full graph data (select an ID above to view traversal results)'}
+              {pathGraph
+                ? `Path-based graph for ${selectedId}`
+                : 'Full graph data (select an ID above to view path graph)'}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <pre className="bg-muted p-4 rounded-md overflow-auto max-h-[calc(100vh-300px)] text-xs">
               {JSON.stringify(
-                traversalTree || { nodes: graph?.nodes || [], edges: graph?.edges || [] },
+                pathGraph || { nodes: graph?.nodes || [], edges: graph?.edges || [] },
                 null,
                 2
               )}
