@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { getDSL } from '@/lib/dsl';
 import { useAccount } from '@/lib/account-provider';
@@ -22,6 +22,7 @@ import { route } from '@/config';
 
 export function Explorer() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { currentAccountAlias, loading: accountLoading } = useAccount();
   const { accountAlias: accountParam, '*': registryPathParam } = useParams<{
     accountAlias: string;
@@ -35,6 +36,9 @@ export function Explorer() {
   const registryPath = registryPathParam ? registryPathParam.split('/').filter(Boolean) : [];
   const selectedRegistryId = registryPath.length > 0 ? registryPath[registryPath.length - 1] : null;
 
+  // Get selected ID from query parameter
+  const selectedId = searchParams.get('selected');
+
   const [dsl, setDsl] = useState<KeritsDSL | null>(null);
   const [accountDsl, setAccountDsl] = useState<AccountDSL | null>(null);
   const [registryAliases, setRegistryAliases] = useState<Map<string, string>>(new Map());
@@ -44,6 +48,7 @@ export function Explorer() {
 
   // Track if we've already redirected to prevent loops
   const hasRedirectedRef = useRef(false);
+  const hasAutoNavigatedRef = useRef(false);
 
   // Wait for account context to load before proceeding
   useEffect(() => {
@@ -120,6 +125,47 @@ export function Explorer() {
 
     buildAliasMap();
   }, [accountDsl, refreshKey]);
+
+  // Auto-navigate to selected ACDC or registry
+  useEffect(() => {
+    if (!selectedId || !dsl || !accountDsl || hasAutoNavigatedRef.current) {
+      return;
+    }
+
+    async function navigateToSelected() {
+      try {
+        // Check if it's an ACDC ID
+        const allRegistries = await accountDsl!.listRegistries();
+
+        for (const registryAlias of allRegistries) {
+          const registryDsl = await accountDsl!.registry(registryAlias);
+          if (!registryDsl) continue;
+
+          const acdcs = await registryDsl.listACDCs();
+          for (const acdcAlias of acdcs) {
+            const acdcDsl = await registryDsl.acdc(acdcAlias);
+            if (acdcDsl && acdcDsl.acdc.credentialId === selectedId) {
+              // Found the ACDC! Navigate to its registry
+              hasAutoNavigatedRef.current = true;
+              navigate(route(`/dashboard/explorer/${accountAlias}/${registryDsl.registry.registryId}?selected=${selectedId}`), { replace: true });
+              return;
+            }
+          }
+
+          // Check if the selected ID is the registry itself
+          if (registryDsl.registry.registryId === selectedId) {
+            hasAutoNavigatedRef.current = true;
+            navigate(route(`/dashboard/explorer/${accountAlias}/${selectedId}`), { replace: true });
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Failed to navigate to selected item:', error);
+      }
+    }
+
+    navigateToSelected();
+  }, [selectedId, dsl, accountDsl, accountAlias, navigate]);
 
   const handleRegistryCreated = () => {
     // Trigger refresh of navigation tree and alias map

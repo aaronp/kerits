@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Download, Upload, FolderPlus, FileText, Shield } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
@@ -47,6 +47,8 @@ export function RegistryDetailView({
   onRegistryCreated,
 }: RegistryDetailViewProps) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const selectedId = searchParams.get('selected');
   const [registryDsl, setRegistryDsl] = useState<RegistryDSL | null>(null);
   const [acdcs, setAcdcs] = useState<IndexedACDC[]>([]);
   const [loading, setLoading] = useState(true);
@@ -367,6 +369,7 @@ export function RegistryDetailView({
                 <ACDCRecord
                   key={acdc.credentialId}
                   acdc={acdc}
+                  autoExpand={selectedId === acdc.credentialId}
                   onExpand={async () => {
                     // Load full ACDC data when expanded
                     if (!dsl || !registryDsl) return {};

@@ -4,7 +4,7 @@
  * Displays credential summary with expand/collapse to show full details
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Ban } from 'lucide-react';
 import { Button } from '../ui/button';
 import { NodeDetails } from '../ui/NodeDetails';
@@ -18,13 +18,26 @@ interface ACDCRecordProps {
   onExpand?: () => Promise<Record<string, any>>;
   /** Callback to revoke credential */
   onRevoke?: () => Promise<void>;
+  /** Auto-expand this record on mount */
+  autoExpand?: boolean;
 }
 
-export function ACDCRecord({ acdc, fullData: initialFullData, onExpand, onRevoke }: ACDCRecordProps) {
-  const [expanded, setExpanded] = useState(false);
+export function ACDCRecord({ acdc, fullData: initialFullData, onExpand, onRevoke, autoExpand }: ACDCRecordProps) {
+  const [expanded, setExpanded] = useState(autoExpand || false);
   const [fullData, setFullData] = useState<Record<string, any> | null>(initialFullData || null);
   const [loading, setLoading] = useState(false);
   const [revoking, setRevoking] = useState(false);
+
+  // Auto-load data when auto-expanding
+  useEffect(() => {
+    if (autoExpand && !fullData && onExpand) {
+      setLoading(true);
+      onExpand()
+        .then(data => setFullData(data))
+        .catch(error => console.error('Failed to load full ACDC data:', error))
+        .finally(() => setLoading(false));
+    }
+  }, [autoExpand, onExpand]);
 
   const handleToggle = async () => {
     if (!expanded && !fullData && onExpand) {
