@@ -578,6 +578,7 @@ export function NetworkGraph() {
           <TabsTrigger value="graph">Graph View</TabsTrigger>
           <TabsTrigger value="gitgraph">Git Graph</TabsTrigger>
           <TabsTrigger value="table">Table View</TabsTrigger>
+          <TabsTrigger value="json">JSON</TabsTrigger>
         </TabsList>
 
       <TabsContent value="graph">
@@ -774,6 +775,28 @@ export function NetworkGraph() {
 
       <TabsContent value="table">
         <GraphTableView />
+      </TabsContent>
+
+      <TabsContent value="json">
+        <Card>
+          <CardHeader>
+            <CardTitle>JSON Data</CardTitle>
+            <CardDescription>
+              {traversalTree
+                ? `Traversal results for ${selectedId}`
+                : 'Full graph data (select an ID above to view traversal results)'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <pre className="bg-muted p-4 rounded-md overflow-auto max-h-[calc(100vh-300px)] text-xs">
+              {JSON.stringify(
+                traversalTree || { nodes: graph?.nodes || [], edges: graph?.edges || [] },
+                null,
+                2
+              )}
+            </pre>
+          </CardContent>
+        </Card>
       </TabsContent>
     </Tabs>
     </div>

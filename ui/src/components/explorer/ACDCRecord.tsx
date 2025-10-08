@@ -9,6 +9,7 @@ import { ChevronDown, ChevronRight, Ban } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { NodeDetails } from '../ui/NodeDetails';
+import { VisualId } from '../ui/visual-id';
 import type { IndexedACDC } from '@kerits/app/indexer/types';
 
 interface ACDCRecordProps {
@@ -130,8 +131,32 @@ export function ACDCRecord({ acdc, fullData: initialFullData, onExpand, onRevoke
                 {fullData['Linked Credentials'] && Object.keys(fullData['Linked Credentials']).length > 0 && (
                   <div>
                     <h4 className="text-sm font-semibold mb-2">Linked Credentials</h4>
-                    <div className="bg-background/50 rounded p-3">
-                      <NodeDetails data={{ 'Linked Credentials': fullData['Linked Credentials'] }} />
+                    <div className="bg-background/50 rounded p-3 space-y-1.5">
+                      {Object.entries(fullData['Linked Credentials']).map(([edgeName, edgeData]: [string, any]) => {
+                        const credentialSaid = edgeData?.n;
+                        const alias = edgeData?.alias;
+                        if (!credentialSaid) return null;
+
+                        return (
+                          <div
+                            key={edgeName}
+                            className="flex items-center gap-2 p-1.5 rounded"
+                          >
+                            <span className="text-xs text-muted-foreground min-w-[80px] shrink-0">{edgeName}</span>
+                            <VisualId
+                              label=""
+                              variant="marble"
+                              value={credentialSaid}
+                              size={20}
+                              showCopy={true}
+                              small
+                            />
+                            <span className="text-sm font-medium">
+                              {alias || credentialSaid.substring(0, 12) + '...'}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
