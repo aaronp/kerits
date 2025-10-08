@@ -90,5 +90,57 @@ export function createACDCDSL(
       const indexed = await indexer.indexACDC(acdc.credentialId, registry.registryId);
       return indexed.telEvents;
     },
+
+    async getEdges(): Promise<Record<string, import('../types').EdgeBlock>> {
+      const acdcData = await store.getACDC(acdc.credentialId);
+      return acdcData?.e || {};
+    },
+
+    async getLinkedCredentials(): Promise<ACDCDSL[]> {
+      const edges = await this.getEdges();
+      const linked: ACDCDSL[] = [];
+
+      for (const edge of Object.values(edges)) {
+        const linkedAcdcData = await store.getACDC(edge.n);
+        if (linkedAcdcData) {
+          const linkedAcdcObj = {
+            credentialId: edge.n,
+            registryId: linkedAcdcData.ri || registry.registryId,
+            schemaId: linkedAcdcData.s || '',
+            issuerAid: linkedAcdcData.i || '',
+            holderAid: linkedAcdcData.a?.i || '',
+            data: linkedAcdcData.a || {},
+            issuedAt: linkedAcdcData.dt || new Date().toISOString(),
+          };
+          linked.push(createACDCDSL(linkedAcdcObj, registry, store));
+        }
+      }
+
+      return linked;
+    },
+
+    async getLinkedFrom(): Promise<ACDCDSL[]> {
+      const indexer = new TELIndexer(store);
+      const indexed = await indexer.indexACDC(acdc.credentialId, registry.registryId);
+      const linkedFrom: ACDCDSL[] = [];
+
+      for (const linkedFromId of indexed.linkedFrom) {
+        const linkedAcdcData = await store.getACDC(linkedFromId);
+        if (linkedAcdcData) {
+          const linkedAcdcObj = {
+            credentialId: linkedFromId,
+            registryId: linkedAcdcData.ri || registry.registryId,
+            schemaId: linkedAcdcData.s || '',
+            issuerAid: linkedAcdcData.i || '',
+            holderAid: linkedAcdcData.a?.i || '',
+            data: linkedAcdcData.a || {},
+            issuedAt: linkedAcdcData.dt || new Date().toISOString(),
+          };
+          linkedFrom.push(createACDCDSL(linkedAcdcObj, registry, store));
+        }
+      }
+
+      return linkedFrom;
+    },
   };
 }

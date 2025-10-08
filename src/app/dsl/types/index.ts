@@ -77,6 +77,28 @@ export interface AccountDSL {
    * @returns ExportDSL for creating CESR bundle
    */
   export(): Promise<ExportDSL>;
+
+  /**
+   * Get ContactsDSL for managing contacts
+   * @returns ContactsDSL instance
+   */
+  contacts(): ContactsDSL;
+
+  /**
+   * List all ACDCs issued by this account across all registries
+   * @param filter - Optional case-insensitive filter text to search credential data
+   * @returns Array of credential information
+   */
+  listAllACDCs(filter?: string): Promise<Array<{
+    credentialId: string;
+    alias?: string;
+    registryId: string;
+    schemaId: string;
+    issuerAid: string;
+    holderAid: string;
+    data: Record<string, any>;
+    issuedAt: string;
+  }>>;
 }
 
 /**
@@ -219,6 +241,24 @@ export interface ACDCDSL {
    * @returns Timeline of TEL events
    */
   getHistory(): Promise<TELEventSummary[]>;
+
+  /**
+   * Get edge blocks from this credential
+   * @returns Map of edge names to edge blocks
+   */
+  getEdges(): Promise<Record<string, EdgeBlock>>;
+
+  /**
+   * Get credentials this ACDC links to via edges
+   * @returns ACDCs referenced in edge blocks
+   */
+  getLinkedCredentials(): Promise<ACDCDSL[]>;
+
+  /**
+   * Get credentials that link to this ACDC
+   * @returns ACDCs that have edges pointing to this credential
+   */
+  getLinkedFrom(): Promise<ACDCDSL[]>;
 }
 
 /**

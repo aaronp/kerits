@@ -23,7 +23,6 @@ import {
 } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Select } from '../ui/select';
 import { Combobox } from '../ui/combobox';
 import { route } from '@/config';
 import { CreateRegistryDialog } from './CreateRegistryDialog';
@@ -65,6 +64,10 @@ export function RegistryDetailView({
   const [currentAccountAid, setCurrentAccountAid] = useState<string>('');
   const [schemaProperties, setSchemaProperties] = useState<Record<string, JSONSchema7Property> | null>(null);
   const [schemaRequired, setSchemaRequired] = useState<string[]>([]);
+  const [credentialEdges, setCredentialEdges] = useState<Record<string, { n: string; s?: string }>>({});
+  const [edgeFilter, setEdgeFilter] = useState('');
+  const [availableCredentials, setAvailableCredentials] = useState<Array<{ value: string; label: string; schemaId?: string }>>([]);
+  const [edgeCredentialSearch, setEdgeCredentialSearch] = useState('');
 
   // Load registry data
   useEffect(() => {
@@ -200,6 +203,35 @@ export function RegistryDetailView({
     loadSchemaFields();
   }, [dsl, selectedSchema]);
 
+  // Load available credentials for edge selection using listAllACDCs
+  useEffect(() => {
+    async function loadAvailableCredentials() {
+      if (!showIssueDialog || !dsl) {
+        return;
+      }
+
+      try {
+        const accountDsl = await dsl.account(accountAlias);
+        if (!accountDsl) return;
+
+        // Use listAllACDCs with optional filter
+        const allCreds = await accountDsl.listAllACDCs(edgeCredentialSearch);
+
+        const credentials: Array<{ value: string; label: string; schemaId?: string }> = allCreds.map(cred => ({
+          value: cred.credentialId,
+          label: `${cred.alias || cred.credentialId.substring(0, 12)}...`,
+          schemaId: cred.schemaId,
+        }));
+
+        setAvailableCredentials(credentials);
+      } catch (error) {
+        console.error('Failed to load available credentials:', error);
+      }
+    }
+
+    loadAvailableCredentials();
+  }, [showIssueDialog, dsl, accountAlias, edgeCredentialSearch]);
+
   const handleIssueCredential = async () => {
     if (!selectedSchema || !selectedHolder || !credentialAlias.trim() || !registryDsl) {
       console.warn('Missing required fields for credential issuance:', {
@@ -220,12 +252,13 @@ export function RegistryDetailView({
         registryId: registryDsl.registry.registryId,
       });
 
-      // Issue credential with structured field data
+      // Issue credential with structured field data and edges
       await registryDsl.issue({
         schema: selectedSchema,
         holder: selectedHolder,
         data: credentialDataFields,
         alias: credentialAlias.trim(),
+        edges: Object.keys(credentialEdges).length > 0 ? credentialEdges : undefined,
       });
 
       console.log('Credential issued successfully, reloading ACDCs...');
@@ -264,6 +297,8 @@ export function RegistryDetailView({
       setSelectedHolder('');
       setCredentialAlias('');
       setCredentialDataFields({});
+      setCredentialEdges({});
+      setEdgeFilter('');
 
       console.log('Credential issuance complete');
     } catch (error) {
@@ -428,6 +463,7 @@ export function RegistryDetailView({
                       'CESR': details.cesr,
                       [details.publicKeys.length === 1 ? 'Public Key' : 'Public Keys']: details.publicKeys,
                       [details.signatures.length === 1 ? 'Signature' : 'Signatures']: details.signatures,
+                      ...(details.acdcEvent?.e && { 'Linked Credentials': details.acdcEvent.e }),
                     };
                   }}
                 />
@@ -469,33 +505,25 @@ export function RegistryDetailView({
             {/* Schema Selection */}
             <div className="grid gap-2">
               <Label>Schema *</Label>
-              <Select
+              <Combobox
+                options={availableSchemas}
                 value={selectedSchema}
-                onChange={(e) => handleSchemaChange(e.target.value)}
-              >
-                <option value="">Select schema...</option>
-                {availableSchemas.map(schema => (
-                  <option key={schema.value} value={schema.value}>
-                    {schema.label}
-                  </option>
-                ))}
-              </Select>
+                onChange={handleSchemaChange}
+                placeholder="Select schema..."
+                emptyMessage="No schemas found."
+              />
             </div>
 
             {/* Holder Selection */}
             <div className="grid gap-2">
               <Label>Holder *</Label>
-              <Select
+              <Combobox
+                options={availableContacts}
                 value={selectedHolder}
-                onChange={(e) => setSelectedHolder(e.target.value)}
-              >
-                <option value="">Select holder...</option>
-                {availableContacts.map(contact => (
-                  <option key={contact.value} value={contact.value}>
-                    {contact.label}
-                  </option>
-                ))}
-              </Select>
+                onChange={setSelectedHolder}
+                placeholder="Select holder..."
+                emptyMessage="No contacts found."
+              />
             </div>
 
             {/* Credential Data Fields */}
@@ -552,6 +580,118 @@ export function RegistryDetailView({
                 })}
               </div>
             )}
+
+            {/* Link to Other Credentials (Edges) */}
+            <div className="space-y-4 pt-4 border-t">
+              <div>
+                <Label className="text-base font-semibold">Link to Other Credentials (Optional)</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Create edges linking this credential to existing credentials in this registry
+                </p>
+              </div>
+
+              {/* Display existing edges */}
+              {Object.entries(credentialEdges).map(([edgeName, edge]) => {
+                const linkedCred = availableCredentials.find(c => c.value === edge.n);
+                return (
+                  <div key={edgeName} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">{edgeName}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {linkedCred?.label || edge.n.substring(0, 20) + '...'}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const newEdges = { ...credentialEdges };
+                        delete newEdges[edgeName];
+                        setCredentialEdges(newEdges);
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                );
+              })}
+
+              {/* Add new edge */}
+              <div className="space-y-3 p-3 border rounded">
+                <div className="grid gap-2">
+                  <Label>Edge Name</Label>
+                  <Input
+                    placeholder="e.g., evidence, parent, prerequisite"
+                    value={edgeFilter}
+                    onChange={(e) => setEdgeFilter(e.target.value)}
+                  />
+                </div>
+
+                {edgeFilter && (
+                  <div className="grid gap-2">
+                    <Label>Credential</Label>
+                    {availableCredentials.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        No credentials available. Issue a credential first.
+                      </p>
+                    ) : (
+                      <Combobox
+                        options={availableCredentials}
+                        value=""
+                        onChange={(selectedCredId) => {
+                          if (selectedCredId && edgeFilter.trim()) {
+                            setCredentialEdges({
+                              ...credentialEdges,
+                              [edgeFilter.trim()]: { n: selectedCredId },
+                            });
+                            setEdgeFilter('');
+                          }
+                        }}
+                        placeholder="Search credentials..."
+                        emptyMessage="No credentials found. Try adjusting your search."
+                      />
+                    )}
+
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Or paste credential SAID directly"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && e.currentTarget.value && edgeFilter.trim()) {
+                            setCredentialEdges({
+                              ...credentialEdges,
+                              [edgeFilter.trim()]: { n: e.currentTarget.value },
+                            });
+                            setEdgeFilter('');
+                            e.currentTarget.value = '';
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEdgeFilter('')}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {!edgeFilter && availableCredentials.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEdgeFilter('edge_')}
+                    className="w-full"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Edge Link
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowIssueDialog(false)}>

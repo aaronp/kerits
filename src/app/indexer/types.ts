@@ -3,6 +3,7 @@
  */
 
 import type { SAID, AID } from '../../storage/types.js';
+import type { EdgeBlock } from '../dsl/types/common.js';
 
 /**
  * Schema usage tracking
@@ -59,6 +60,11 @@ export interface IndexedACDC {
 
   // Credential data
   latestData: Record<string, any>; // Current attribute values (from a.d in ACDC)
+
+  // Edge relationships
+  edges: Record<string, EdgeBlock>; // Edge blocks from this ACDC to others
+  linkedTo: SAID[];                 // ACDCs this credential links to (from edges)
+  linkedFrom: SAID[];               // ACDCs that link to this credential
 
   // Interaction history
   counterparties: CounterpartyInfo[]; // All parties in TEL chain

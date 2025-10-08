@@ -71,6 +71,7 @@ export function createRegistryDSL(
         issuerAid: account.aid,
         holderAid,
         credentialData: params.data,
+        edges: params.edges,
       }, keyManager);
 
       // Store alias if provided
@@ -92,6 +93,7 @@ export function createRegistryDSL(
         holderAid,
         data: params.data,
         issuedAt: new Date().toISOString(),
+        edges: params.edges,
       };
 
       return createACDCDSL(acdcObj, registry, store);

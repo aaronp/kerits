@@ -290,5 +290,103 @@ export function createAccountDSL(account: Account, store: KerStore, keyManager?:
     contacts(): ContactsDSL {
       return createContactsDSL(store);
     },
+
+    async listAllACDCs(filter?: string): Promise<Array<{
+      credentialId: string;
+      alias?: string;
+      registryId: string;
+      schemaId: string;
+      issuerAid: string;
+      holderAid: string;
+      data: Record<string, any>;
+      issuedAt: string;
+    }>> {
+      const { parseCesrStream, parseIndexedSignatures } = await import('../../signing');
+
+      // Get all ACDC aliases
+      const acdcAliases = await store.listAliases('acdc');
+      const credentials: Array<{
+        credentialId: string;
+        alias?: string;
+        registryId: string;
+        schemaId: string;
+        issuerAid: string;
+        holderAid: string;
+        data: Record<string, any>;
+        issuedAt: string;
+      }> = [];
+
+      for (const alias of acdcAliases) {
+        const credentialId = await store.aliasToId('acdc', alias);
+        if (!credentialId) continue;
+
+        // Get ACDC data
+        const acdcData = await store.getACDC(credentialId);
+        if (!acdcData) continue;
+
+        // Only include credentials issued by this account
+        if (acdcData.i !== account.aid) continue;
+
+        // Build credential info
+        const credInfo = {
+          credentialId,
+          alias,
+          registryId: acdcData.ri || '',
+          schemaId: acdcData.s || '',
+          issuerAid: acdcData.i || '',
+          holderAid: acdcData.a?.i || '',
+          data: acdcData.a || {},
+          issuedAt: acdcData.dt || '',
+        };
+
+        // Apply filter if provided
+        if (filter) {
+          // Get the full ACDC event with signatures for comprehensive filtering
+          const event = await store.getEvent(credentialId);
+          if (event) {
+            try {
+              // Parse CESR to get signatures and public keys
+              const parsed = parseCesrStream(event.raw);
+              const eventText = new TextDecoder().decode(parsed.event);
+
+              // Build searchable JSON that includes everything
+              const searchableData: Record<string, any> = {
+                ...acdcData,
+                alias,
+                credentialId,
+              };
+
+              // Add signatures if available
+              if (parsed.signatures) {
+                try {
+                  const sigs = parseIndexedSignatures(parsed.signatures);
+                  searchableData.signatures = sigs.map(s => s.signature);
+                } catch {
+                  // Ignore signature parsing errors
+                }
+              }
+
+              // Stringify and search
+              const searchText = JSON.stringify(searchableData).toLowerCase();
+              const filterLower = filter.toLowerCase();
+
+              if (!searchText.includes(filterLower)) {
+                continue; // Skip this credential
+              }
+            } catch {
+              // If parsing fails, just search the basic data
+              const searchText = JSON.stringify(credInfo).toLowerCase();
+              if (!searchText.includes(filter.toLowerCase())) {
+                continue;
+              }
+            }
+          }
+        }
+
+        credentials.push(credInfo);
+      }
+
+      return credentials;
+    },
   };
 }

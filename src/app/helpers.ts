@@ -275,13 +275,33 @@ export async function issueCredential(
     issuerAid: string;
     holderAid: string;
     credentialData: Record<string, any>;
+    edges?: Record<string, { n: string; s?: string }>;
   },
   keyManager?: KeyManager
 ): Promise<{ credentialId: string; acdc: any; iss: any }> {
-  const { registryId, schemaId, issuerAid, holderAid, credentialData } = params;
+  const { registryId, schemaId, issuerAid, holderAid, credentialData, edges } = params;
+
+  // Validate edges if provided
+  if (edges) {
+    for (const [edgeName, edge] of Object.entries(edges)) {
+      // Check if linked ACDC exists
+      const linkedAcdc = await store.getACDC(edge.n);
+      if (!linkedAcdc) {
+        throw new Error(`Linked ACDC not found: ${edge.n} (edge: ${edgeName})`);
+      }
+
+      // Validate schema constraint if specified
+      if (edge.s && linkedAcdc.s !== edge.s) {
+        throw new Error(
+          `Edge "${edgeName}": Linked ACDC ${edge.n} has schema ${linkedAcdc.s}, ` +
+          `but edge requires schema ${edge.s}`
+        );
+      }
+    }
+  }
 
   // Create ACDC structure
-  const acdc = {
+  const acdc: Record<string, any> = {
     v: 'ACDC10JSON',
     d: '', // Will be filled by saidify
     i: issuerAid,
@@ -293,6 +313,11 @@ export async function issueCredential(
       ...credentialData,
     },
   };
+
+  // Add edge blocks if provided
+  if (edges && Object.keys(edges).length > 0) {
+    acdc.e = edges;
+  }
 
   // SAIDify the ACDC
   const saidified = saidify(acdc);

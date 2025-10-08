@@ -105,6 +105,9 @@ export class TELIndexer {
           }] : [],
           status: 'issued',
           latestData: this.extractCredentialData(acdcData),
+          edges: acdcData.e || {},
+          linkedTo: acdcData.e ? Object.values(acdcData.e).map((edge: any) => edge.n) : [],
+          linkedFrom: [], // Will be populated after all credentials are indexed
           counterparties: this.extractCounterparties(acdcData, meta),
           telEvents: [{
             eventSaid: said,
@@ -176,6 +179,16 @@ export class TELIndexer {
 
     // Convert map to array
     registry.credentials = Array.from(credentialMap.values());
+
+    // Second pass: populate linkedFrom by building reverse edge index
+    for (const cred of registry.credentials) {
+      for (const linkedToId of cred.linkedTo) {
+        const linkedCred = credentialMap.get(linkedToId);
+        if (linkedCred && !linkedCred.linkedFrom.includes(cred.credentialId)) {
+          linkedCred.linkedFrom.push(cred.credentialId);
+        }
+      }
+    }
 
     return registry;
   }

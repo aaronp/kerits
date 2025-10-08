@@ -5,7 +5,7 @@ import { SchemaList } from './SchemaList';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import { Textarea } from '../ui/textarea';
 import { Toast, useToast } from '../ui/toast';
-import { Plus, Upload } from 'lucide-react';
+import { Plus, Download } from 'lucide-react';
 import { route } from '@/config';
 import { getDSL } from '@/lib/dsl';
 import type { KeritsDSL } from '@kerits/app/dsl/types';
@@ -160,7 +160,7 @@ export function Schemas() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShowImportDialog(true)}>
-            <Upload className="mr-2 h-4 w-4" />
+            <Download className="mr-2 h-4 w-4" />
             Import Schema
           </Button>
           <Button

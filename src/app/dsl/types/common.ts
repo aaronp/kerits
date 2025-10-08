@@ -108,6 +108,16 @@ export interface Registry {
 }
 
 /**
+ * Edge block linking this ACDC to another
+ */
+export interface EdgeBlock {
+  /** SAID of the linked ACDC */
+  n: string;
+  /** Optional: constrain linked ACDC's schema */
+  s?: string;
+}
+
+/**
  * ACDC represents a verifiable credential
  */
 export interface ACDC {
@@ -127,6 +137,8 @@ export interface ACDC {
   data: Record<string, any>;
   /** Issuance timestamp */
   issuedAt: string;
+  /** Edge blocks linking to other credentials */
+  edges?: Record<string, EdgeBlock>;
 }
 
 /**
@@ -269,4 +281,6 @@ export interface IssueParams {
   data: Record<string, any>;
   /** Optional alias for the credential */
   alias?: string;
+  /** Optional edge blocks linking to other credentials */
+  edges?: Record<string, EdgeBlock>;
 }
