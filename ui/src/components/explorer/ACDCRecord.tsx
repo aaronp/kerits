@@ -5,7 +5,8 @@
  */
 
 import { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Ban } from 'lucide-react';
+import { Button } from '../ui/button';
 import { NodeDetails } from '../ui/NodeDetails';
 import type { IndexedACDC } from '@kerits/app/indexer/types';
 
@@ -15,12 +16,15 @@ interface ACDCRecordProps {
   fullData?: Record<string, any>;
   /** Callback to load full data when expanded */
   onExpand?: () => Promise<Record<string, any>>;
+  /** Callback to revoke credential */
+  onRevoke?: () => Promise<void>;
 }
 
-export function ACDCRecord({ acdc, fullData: initialFullData, onExpand }: ACDCRecordProps) {
+export function ACDCRecord({ acdc, fullData: initialFullData, onExpand, onRevoke }: ACDCRecordProps) {
   const [expanded, setExpanded] = useState(false);
   const [fullData, setFullData] = useState<Record<string, any> | null>(initialFullData || null);
   const [loading, setLoading] = useState(false);
+  const [revoking, setRevoking] = useState(false);
 
   const handleToggle = async () => {
     if (!expanded && !fullData && onExpand) {
@@ -107,23 +111,40 @@ export function ACDCRecord({ acdc, fullData: initialFullData, onExpand }: ACDCRe
                     'Issuer': fullData['Issuer'],
                     'Holder': fullData['Holder'],
                     'Issued At': fullData['Issued At'],
-                    'Status': fullData['Status'],
-                    'Revoked': fullData['Revoked'],
                   }}
                 />
               </div>
+
+              {/* Action buttons */}
+              {onRevoke && acdc.status === 'issued' && !acdc.revoked && (
+                <div className="pt-2 border-t">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      setRevoking(true);
+                      try {
+                        await onRevoke();
+                      } finally {
+                        setRevoking(false);
+                      }
+                    }}
+                    disabled={revoking}
+                  >
+                    <Ban className="h-4 w-4 mr-2" />
+                    {revoking ? 'Revoking...' : 'Revoke Credential'}
+                  </Button>
+                </div>
+              )}
             </>
           ) : (
             <NodeDetails
               data={{
                 'Credential ID': acdc.credentialId,
                 'Registry ID': acdc.registryId,
-                'Issuer AID': acdc.issuerAid,
-                'Holder AID': acdc.holderAid,
                 'Schema ID': acdc.schemaId,
                 'Issued At': acdc.issuedAt,
-                'Status': acdc.status,
-                'Revoked': acdc.revoked,
               }}
             />
           )}

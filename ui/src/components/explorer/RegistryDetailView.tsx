@@ -374,16 +374,26 @@ export function RegistryDetailView({
                     const acdcDsl = await registryDsl.acdc(acdc.alias);
                     if (!acdcDsl) return {};
 
-                    // Resolve issuer alias
-                    const issuerAlias = await dsl.store.getSaidAlias('kel', acdc.issuerAid);
-                    const issuerLabel = issuerAlias || acdc.issuerAid;
-
-                    // Resolve holder alias (check contacts and account)
-                    let holderAlias = await dsl.store.getSaidAlias('contact', acdc.holderAid);
-                    if (!holderAlias) {
-                      holderAlias = await dsl.store.getSaidAlias('kel', acdc.holderAid);
+                    // Resolve issuer alias (check if it's the current account)
+                    let issuerLabel = acdc.issuerAid;
+                    const accountDsl = await dsl.account(accountAlias);
+                    if (accountDsl && accountDsl.account.aid === acdc.issuerAid) {
+                      issuerLabel = accountAlias;
                     }
-                    const holderLabel = holderAlias || acdc.holderAid;
+
+                    // Resolve holder alias (check contacts and current account)
+                    let holderLabel = acdc.holderAid;
+                    if (accountDsl && accountDsl.account.aid === acdc.holderAid) {
+                      holderLabel = accountAlias;
+                    } else {
+                      // Check contacts
+                      const contactsDsl = dsl.contacts();
+                      const allContacts = await contactsDsl.getAll();
+                      const contact = allContacts.find(c => c.aid === acdc.holderAid);
+                      if (contact) {
+                        holderLabel = contact.alias;
+                      }
+                    }
 
                     // Filter out 'd' and 'i' fields from data
                     const filteredData = Object.entries(acdcDsl.acdc.data)
@@ -395,13 +405,9 @@ export function RegistryDetailView({
                       'Alias': acdc.alias,
                       'Registry ID': acdc.registryId,
                       'Issuer': issuerLabel,
-                      'Issuer AID': acdc.issuerAid,
                       'Holder': holderLabel,
-                      'Holder AID': acdc.holderAid,
                       'Schema ID': acdc.schemaId,
                       'Issued At': acdc.issuedAt,
-                      'Status': acdc.status,
-                      'Revoked': acdc.revoked,
                       'Data': filteredData,
                     };
                   }}

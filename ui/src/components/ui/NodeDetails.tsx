@@ -11,6 +11,7 @@
 
 import { Link } from 'react-router-dom';
 import { VisualId } from './visual-id';
+import { ShowDate } from './ShowDate';
 import { route } from '@/config';
 
 interface NodeDetailsProps {
@@ -48,19 +49,16 @@ export function NodeDetails({ data, schema, layout = 'grid' }: NodeDetailsProps)
 
     // Date string (ISO 8601)
     if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
-      return (
-        <span className="text-purple-600 dark:text-purple-400">
-          {new Date(value).toLocaleString()}
-        </span>
-      );
+      return <ShowDate date={value} />;
     }
 
-    // Schema ID (special case - make it a link with query param)
+    // Schema ID (special case - make it a link with just VisualId)
     if ((key.toLowerCase() === 'schema id' || key.toLowerCase() === 'schema') && isAidOrSaid(value)) {
       return (
         <Link
           to={route(`/dashboard/schemas?selected=${value}`)}
-          className="inline-flex items-center gap-1.5 hover:underline"
+          className="inline-flex items-center hover:opacity-80 transition-opacity"
+          title={`View schema: ${value}`}
         >
           <VisualId
             label=""
@@ -70,9 +68,6 @@ export function NodeDetails({ data, schema, layout = 'grid' }: NodeDetailsProps)
             showCopy={false}
             small
           />
-          <span className="text-xs font-mono text-primary">
-            {value.substring(0, 12)}...
-          </span>
         </Link>
       );
     }
