@@ -28,9 +28,9 @@ import { Combobox } from '../ui/combobox';
 import { route } from '@/config';
 import { CreateRegistryDialog } from './CreateRegistryDialog';
 import { VisualId } from '../ui/visual-id';
-import type { KeritsDSL, RegistryDSL } from '@/../src/app/dsl/types';
-import type { IndexedACDC } from '@/../src/app/indexer/types';
-import type { JSONSchema7Property } from '@/../src/app/dsl/types';
+import type { KeritsDSL, RegistryDSL } from '@kerits/app/dsl/types';
+import type { IndexedACDC } from '@kerits/app/indexer/types';
+import type { JSONSchema7Property } from '@kerits/app/dsl/types';
 
 interface RegistryDetailViewProps {
   dsl: KeritsDSL | null;

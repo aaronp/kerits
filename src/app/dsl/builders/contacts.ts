@@ -85,6 +85,7 @@ export function createContactsDSL(store: KerStore): ContactsDSL {
           };
         } catch (e) {
           // Fall back to basic contact if parse fails
+          console.warn(`Failed to parse contact metadata for ${alias}:`, e);
         }
       }
 

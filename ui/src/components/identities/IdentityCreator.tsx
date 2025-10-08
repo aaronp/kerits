@@ -9,6 +9,7 @@ import { Copy, Check, RefreshCw } from 'lucide-react';
 import { createMnemonic, deriveSeed, formatMnemonic } from '@/lib/mnemonic';
 import { generateKeypairFromSeed, incept, diger } from '@/lib/keri';
 import { saveIdentity } from '@/lib/storage';
+import { getDSL } from '@/lib/dsl';
 import type { StoredIdentity } from '@/lib/storage';
 
 interface IdentityCreatorProps {
@@ -40,6 +41,11 @@ export function IdentityCreator({ onCreated }: IdentityCreatorProps) {
 
     setCreating(true);
     try {
+      // Create account in DSL first
+      const dsl = await getDSL();
+      await dsl.newAccount(alias, mnemonic);
+
+      // Also create in old storage system for backward compatibility
       // Derive seeds from mnemonic
       const currentSeed = deriveSeed(mnemonic, 'current');
       const nextSeed = deriveSeed(mnemonic, 'next');

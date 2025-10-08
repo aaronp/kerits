@@ -5,6 +5,7 @@
 import type { KerStore } from '../../../storage/types';
 import type { RegistryDSL, Registry, Account, IssueParams, TelEvent, GraphOptions, ExportDSL, IndexedRegistry, IndexedACDC } from '../types';
 import type { ACDCDSL } from '../types';
+import type { KeyManager } from '../../keymanager';
 import { createACDCDSL } from './acdc';
 import { exportTel } from './export';
 import { TELIndexer } from '../../indexer/index.js';
@@ -15,7 +16,8 @@ import { TELIndexer } from '../../indexer/index.js';
 export function createRegistryDSL(
   registry: Registry,
   account: Account,
-  store: KerStore
+  store: KerStore,
+  keyManager?: KeyManager
 ): RegistryDSL {
   return {
     registry,
@@ -30,6 +32,14 @@ export function createRegistryDSL(
       }
       if (!params.holder) {
         throw new Error('Holder is required');
+      }
+
+      // Ensure account is unlocked if keyManager is available
+      if (keyManager && !keyManager.isUnlocked(account.aid)) {
+        const unlocked = await keyManager.unlockFromStore(account.aid);
+        if (!unlocked) {
+          throw new Error(`Account ${account.aid} is locked. Call keyManager.unlock() first or provide mnemonic.`);
+        }
       }
 
       // Resolve schema
@@ -61,10 +71,15 @@ export function createRegistryDSL(
         issuerAid: account.aid,
         holderAid,
         credentialData: params.data,
-      });
+      }, keyManager);
 
       // Store alias if provided
       if (params.alias) {
+        // Check if alias already exists
+        const existingCredentialId = await store.getAliasSaid('acdc', params.alias);
+        if (existingCredentialId) {
+          throw new Error(`Credential alias "${params.alias}" already exists`);
+        }
         await store.putAlias('acdc', credentialId, params.alias);
       }
 
@@ -111,7 +126,26 @@ export function createRegistryDSL(
     },
 
     async listACDCs(): Promise<string[]> {
-      return store.listAliases('acdc');
+      // Get all ACDC aliases
+      const allAcdcAliases = await store.listAliases('acdc');
+      const filteredAliases: string[] = [];
+
+      // Filter to only include ACDCs that belong to this registry
+      for (const alias of allAcdcAliases) {
+        const credentialId = await store.getAliasSaid('acdc', alias);
+        if (!credentialId) continue;
+
+        // Get the ACDC data
+        const acdcData = await store.getACDC(credentialId);
+        if (!acdcData) continue;
+
+        // Check if this ACDC belongs to this registry
+        if (acdcData.ri === registry.registryId) {
+          filteredAliases.push(alias);
+        }
+      }
+
+      return filteredAliases;
     },
 
     async getTel(): Promise<TelEvent[]> {
@@ -174,6 +208,14 @@ export function createRegistryDSL(
     async revoke(credentialId: string): Promise<void> {
       const { revokeCredential } = await import('../../helpers');
 
+      // Ensure account is unlocked if keyManager is available
+      if (keyManager && !keyManager.isUnlocked(account.aid)) {
+        const unlocked = await keyManager.unlockFromStore(account.aid);
+        if (!unlocked) {
+          throw new Error(`Account ${account.aid} is locked. Call keyManager.unlock() first or provide mnemonic.`);
+        }
+      }
+
       // Validate credential exists and belongs to this registry
       const indexer = new TELIndexer(store);
       const indexed = await indexer.indexRegistry(registry.registryId);
@@ -191,7 +233,8 @@ export function createRegistryDSL(
       await revokeCredential(store, {
         registryId: registry.registryId,
         credentialId,
-      });
+        issuerAid: account.aid,
+      }, keyManager);
 
       // Note: Credential status will be updated automatically when re-indexed
       // The TEL indexer reads the revocation event and sets status='revoked'
@@ -278,13 +321,27 @@ export function createRegistryDSL(
     async createRegistry(alias: string, opts?: any): Promise<RegistryDSL> {
       const { createRegistry: createRegistryHelper } = await import('../../helpers');
 
+      // Check if alias already exists
+      const existingRegistryId = await store.getAliasSaid('tel', alias);
+      if (existingRegistryId) {
+        throw new Error(`Registry alias "${alias}" already exists`);
+      }
+
+      // Ensure account is unlocked if keyManager is available
+      if (keyManager && !keyManager.isUnlocked(account.aid)) {
+        const unlocked = await keyManager.unlockFromStore(account.aid);
+        if (!unlocked) {
+          throw new Error(`Account ${account.aid} is locked. Call keyManager.unlock() first or provide mnemonic.`);
+        }
+      }
+
       // Create sub-registry anchored in this registry's TEL
       const { registryId } = await createRegistryHelper(store, {
         alias,
         issuerAid: account.aid,
         backers: opts?.backers || [],
         parentRegistryId: registry.registryId,  // Pass parent registry ID
-      });
+      }, keyManager);
 
       const subRegistry = {
         alias,
@@ -294,7 +351,7 @@ export function createRegistryDSL(
         parentRegistryId: registry.registryId,  // Set parent registry ID
       };
 
-      return createRegistryDSL(subRegistry, account, store);
+      return createRegistryDSL(subRegistry, account, store, keyManager);
     },
   };
 }

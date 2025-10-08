@@ -8,7 +8,7 @@
  * - Depth-based visual styling
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type JSX } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, Plus } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -16,7 +16,7 @@ import { route } from '@/config';
 import { CreateRegistryDialog } from './CreateRegistryDialog';
 import { buildRegistryTree, type RegistryNode } from '@/lib/registry-tree';
 import { useTheme } from '@/lib/theme-provider';
-import type { KeritsDSL } from '@kerits/app/dsl';
+import type { KeritsDSL, RegistryDSL } from '@kerits/app/dsl';
 
 interface RegistryTreeNavigationProps {
   dsl: KeritsDSL | null;
@@ -40,30 +40,47 @@ export function RegistryTreeNavigation({ dsl, accountAlias, selectedRegistryId, 
     async function buildHierarchy() {
       if (!dsl) return;
 
-      try {
-        setLoading(true);
-        const accountDsl = await dsl.account(accountAlias);
-        if (!accountDsl) {
-          setRegistryTree([]);
-          return;
-        }
+      console.log('[RegistryTreeNavigation] Building hierarchy for account:', accountAlias);
 
-        // Get all registries for this account
-        const registryAliases = await accountDsl.listRegistries();
-
-        // Use tree builder that calculates depth via parent chain traversal
-        const tree = await buildRegistryTree(
-          registryAliases,
-          (alias) => accountDsl.registry(alias)
-        );
-
-        setRegistryTree(tree);
-      } catch (error) {
-        console.error('Failed to build registry hierarchy:', error);
-        setRegistryTree([]);
-      } finally {
-        setLoading(false);
+      const accountDsl = await dsl.account(accountAlias);
+      if (!accountDsl) {
+        throw new Error('accountDsl not found for ' + accountAlias)
       }
+      const registryAliases = await accountDsl.listRegistries();
+      console.log('[RegistryTreeNavigation] Found registry aliases:', registryAliases);
+
+      // Use tree builder that calculates depth via parent chain traversal
+      const tree = await buildRegistryTree(
+        registryAliases,
+        (alias) => accountDsl.registry(alias)
+      );
+      console.log('loaded tree', {
+        registryAliases,
+        tree
+      })
+      setRegistryTree(tree)
+      // try {
+      //   setLoading(true);
+
+
+      //   // If account not found in DSL, try to migrate from old storage
+      //   if (!accountDsl) {
+      //     console.log('[RegistryTreeNavigation] Account not found in DSL, checking old storage for migration...');
+      //     console.log('[RegistryTreeNavigation] Looking for account alias:', accountAlias);
+
+      //     // Try to get from old storage and migrate
+      //     const { getIdentities } = await import('@/lib/storage');
+      //     const identities = await getIdentities();
+      //     console.log('[RegistryTreeNavigation] Found identities in old storage:', identities.map(i => i.alias));
+
+      //     const identity = identities.find(i => i.alias === accountAlias);
+
+      // } catch (error) {
+      //   console.error('Failed to build registry hierarchy:', error);
+      //   setRegistryTree([]);
+      // } finally {
+      //   setLoading(false);
+      // }
     }
 
     buildHierarchy();

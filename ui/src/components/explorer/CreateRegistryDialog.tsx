@@ -18,7 +18,7 @@ import {
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
-import type { AccountDSL, RegistryDSL } from '@/../src/app/dsl/types';
+import type { AccountDSL, RegistryDSL } from '@kerits/app/dsl/types';
 
 interface CreateRegistryDialogProps {
   open: boolean;
@@ -61,12 +61,15 @@ export function CreateRegistryDialog({
         throw new Error('No account or parent registry provided');
       }
 
+      console.log('Registry creation successful, closing dialog');
+
       // Reset and close
       setRegistryName('');
       onOpenChange(false);
 
       // Notify parent
       if (onSuccess) {
+        console.log('Calling onSuccess callback');
         onSuccess();
       }
     } catch (err) {

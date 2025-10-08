@@ -9,7 +9,7 @@ import { Textarea } from '../ui/textarea';
 import { Toast, useToast } from '../ui/toast';
 import { Plus, Trash2, ArrowLeft } from 'lucide-react';
 import { getDSL } from '@/lib/dsl';
-import type { KeritsDSL } from '@/../src/app/dsl/types';
+import type { KeritsDSL } from '@kerits/app/dsl/types';
 import type { SchemaField } from '@/lib/storage';
 import { route } from '@/config';
 

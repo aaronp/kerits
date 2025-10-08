@@ -8,7 +8,7 @@ import { Toast, useToast } from '../ui/toast';
 import { Plus, Upload } from 'lucide-react';
 import { route } from '@/config';
 import { getDSL } from '@/lib/dsl';
-import type { KeritsDSL } from '@/../src/app/dsl/types';
+import type { KeritsDSL } from '@kerits/app/dsl/types';
 
 interface SchemaDisplay {
   alias: string;

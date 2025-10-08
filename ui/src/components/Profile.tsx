@@ -105,29 +105,43 @@ export function Profile() {
 
     setRotating(prev => ({ ...prev, [identity.alias]: true }));
     try {
-      // Derive new next keypair from mnemonic with incremented path
-      const nextRotationSeed = deriveSeed(identity.mnemonic, `next-${identity.kel.length}`);
-      const newNextKeypair = await generateKeypairFromSeed(nextRotationSeed, true);
+      const dsl = await getDSL();
 
-      // Compute digest of new next key
+      // Get or create account in DSL
+      let accountDsl = await dsl.account(identity.alias);
+      if (!accountDsl) {
+        // Migrate old account to DSL
+        console.log(`Migrating account "${identity.alias}" to DSL...`);
+        await dsl.newAccount(identity.alias, identity.mnemonic);
+        accountDsl = await dsl.account(identity.alias);
+
+        if (!accountDsl) {
+          throw new Error(`Failed to migrate account: ${identity.alias}`);
+        }
+      }
+
+      // Generate new mnemonic for rotation
+      const nextRotationSeed = deriveSeed(identity.mnemonic, `next-${identity.kel.length}`);
+      const newMnemonic = dsl.newMnemonic(nextRotationSeed);
+
+      // Rotate keys using DSL
+      await accountDsl.rotateKeys(newMnemonic);
+
+      // Update old storage system to keep in sync
+      const newNextKeypair = await generateKeypairFromSeed(nextRotationSeed, true);
       const newNextKeyDigest = diger(newNextKeypair.publicKey);
 
-      // Get the prefix from the inception event if not stored directly
       const prefix = identity.prefix || identity.inceptionEvent?.pre || identity.inceptionEvent?.ked?.i;
-
       if (!prefix) {
         throw new Error('Identity prefix not found. Please delete and recreate this identity.');
       }
 
-      // Get the previous event digest
       const prevEvent = identity.kel[identity.kel.length - 1];
       const prevDigest = prevEvent.said || prevEvent.d || prevEvent.ked?.d;
-
       if (!prevDigest) {
         throw new Error('Previous event digest not found');
       }
 
-      // Current "next" keys become "current" keys
       const rotationEvent = rotate({
         pre: prefix,
         keys: [identity.nextKeys.public],
@@ -136,11 +150,10 @@ export function Profile() {
         dig: prevDigest,
       });
 
-      // Update identity
       const updatedIdentity: StoredIdentity = {
         ...identity,
-        prefix: prefix, // Ensure prefix is always set
-        currentKeys: identity.nextKeys, // Next becomes current
+        prefix: prefix,
+        currentKeys: identity.nextKeys,
         nextKeys: {
           public: newNextKeypair.verfer,
           private: Buffer.from(newNextKeypair.privateKey).toString('hex'),
@@ -150,7 +163,7 @@ export function Profile() {
       };
 
       await saveIdentity(updatedIdentity);
-      await init(); // Refresh identities
+      await init();
       showToast(`Keys rotated successfully for "${identity.alias}"`);
     } catch (error) {
       console.error('Failed to rotate keys:', error);

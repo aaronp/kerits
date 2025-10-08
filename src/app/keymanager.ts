@@ -1,12 +1,13 @@
 /**
- * KeyManager - In-memory key management for KERI signing operations
+ * KeyManager - Key management for KERI signing operations
  *
- * Provides secure, ephemeral storage of signing keys during a session.
- * Keys are derived from mnemonics and held in memory only.
+ * Stores mnemonics in KV store for persistence across sessions.
+ * Keys are derived from mnemonics and cached in memory for performance.
  */
 
 import { Signer } from '../cesr/signer';
 import { MatterCodex } from '../cesr/codex';
+import type { Kv } from '../storage/types';
 import type { Mnemonic } from './dsl/types/common';
 import { mnemonicToSeed } from './dsl/utils/mnemonic';
 
@@ -14,30 +15,35 @@ import { mnemonicToSeed } from './dsl/utils/mnemonic';
  * KeyManager configuration options
  */
 export interface KeyManagerOptions {
+  /** KV store for persisting mnemonics */
+  store?: Kv;
   /** Enable debug logging (default: false) */
   debug?: boolean;
 }
 
 /**
- * KeyManager - Manages signing keys in memory during a session
+ * KeyManager - Manages signing keys with KV store persistence
  *
  * Usage:
- *   const km = new KeyManager();
- *   await km.unlock(aid, mnemonic);
+ *   const km = new KeyManager({ store });
+ *   await km.unlock(aid, mnemonic);  // Stores mnemonic in KV
  *   const signer = km.getSigner(aid);
  *   // ... sign events ...
- *   km.lock(aid);
+ *   km.lock(aid);  // Removes from memory but keeps in KV
  */
 export class KeyManager {
   private signers = new Map<string, Signer>();
+  private store?: Kv;
   private debug: boolean;
 
   constructor(options: KeyManagerOptions = {}) {
+    this.store = options.store;
     this.debug = options.debug || false;
   }
 
   /**
    * Unlock an account by loading its signing key from mnemonic or seed
+   * If mnemonic is provided, it will be stored in KV for future use.
    *
    * @param aid - Account identifier (AID)
    * @param mnemonic - BIP39 mnemonic phrase OR raw 32-byte seed
@@ -60,10 +66,48 @@ export class KeyManager {
 
     this.signers.set(aid, signer);
 
+    // Store mnemonic in KV if provided (not raw seed)
+    if (this.store && typeof mnemonic === 'string') {
+      const key = `keymanager/${aid}/mnemonic`;
+      const value = new TextEncoder().encode(mnemonic);
+      await this.store.put(key, value);
+      if (this.debug) console.log(`[KeyManager] Stored mnemonic for ${aid}`);
+    }
+
     if (this.debug) {
       console.log(`[KeyManager] Unlocked account: ${aid}`);
       console.log(`[KeyManager] Verfer: ${signer.verfer.qb64}`);
     }
+  }
+
+  /**
+   * Unlock account from stored mnemonic in KV
+   * Useful for restoring keys across sessions.
+   *
+   * @param aid - Account identifier (AID)
+   * @returns True if unlocked from storage, false if not found
+   */
+  async unlockFromStore(aid: string): Promise<boolean> {
+    if (!this.store) {
+      throw new Error('KeyManager not configured with KV store');
+    }
+
+    if (this.signers.has(aid)) {
+      if (this.debug) console.log(`[KeyManager] Account already unlocked: ${aid}`);
+      return true;
+    }
+
+    const key = `keymanager/${aid}/mnemonic`;
+    const value = await this.store.get(key);
+
+    if (!value) {
+      if (this.debug) console.log(`[KeyManager] No stored mnemonic found for ${aid}`);
+      return false;
+    }
+
+    const mnemonic = new TextDecoder().decode(value);
+    await this.unlock(aid, mnemonic);
+    return true;
   }
 
   /**

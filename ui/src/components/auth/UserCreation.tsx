@@ -10,6 +10,7 @@ import { Copy, Check, RefreshCw, ArrowLeft } from 'lucide-react';
 import { createMnemonic, deriveSeed, formatMnemonic } from '../../lib/mnemonic';
 import { generateKeypairFromSeed, incept, diger } from '../../lib/keri';
 import { saveUser, saveIdentity, type User, type StoredIdentity } from '../../lib/storage';
+import { getDSL } from '../../lib/dsl';
 import { useUser } from '../../lib/user-provider';
 import { route } from '../../config';
 
@@ -49,24 +50,24 @@ export function UserCreation() {
         createdAt: new Date().toISOString(),
       };
 
-      // Derive seeds from mnemonic
+      // Create account in DSL first
+      const dsl = await getDSL();
+      await dsl.newAccount(alias.trim(), mnemonic);
+
+      // Also create in old storage system for backward compatibility
       const currentSeed = deriveSeed(mnemonic, 'current');
       const nextSeed = deriveSeed(mnemonic, 'next');
 
-      // Generate keypairs
       const currentKeypair = await generateKeypairFromSeed(currentSeed, true);
       const nextKeypair = await generateKeypairFromSeed(nextSeed, true);
 
-      // Compute digest of next key
       const nextKeyDigest = diger(nextKeypair.publicKey);
 
-      // Create inception event
       const inceptionEvent = incept({
         keys: [currentKeypair.verfer],
         ndigs: [nextKeyDigest],
       });
 
-      // Save identity
       const identity: StoredIdentity = {
         alias: alias.trim(),
         prefix: inceptionEvent.pre,

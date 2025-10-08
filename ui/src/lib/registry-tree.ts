@@ -4,7 +4,7 @@
  * Builds registry tree structure by traversing KERI parent relationships
  */
 
-import type { RegistryDSL } from '@/../src/app/dsl/types';
+import type { RegistryDSL } from '@kerits/app/dsl/types';
 
 export interface RegistryNode {
   registryId: string;

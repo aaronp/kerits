@@ -13,6 +13,7 @@ import { createSchemaDSL } from './schema';
 import { createContactsDSL } from './contacts';
 import { createImportDSL } from './import';
 import { createContactSyncDSL } from './contact-sync';
+import { KeyManager } from '../../keymanager';
 
 /**
  * Create a new KeritsDSL instance
@@ -22,6 +23,12 @@ import { createContactSyncDSL } from './contact-sync';
 export function createKeritsDSL(store: KerStore): KeritsDSL {
   // In-memory cache of accounts
   const accountCache = new Map<string, Account>();
+
+  // KeyManager for signing operations with KV storage
+  const keyManager = new KeyManager({
+    store: store.kv,
+    debug: false,
+  });
 
   return {
     newMnemonic(seed: Uint8Array): Mnemonic {
@@ -41,12 +48,22 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
       // Generate keypair from seed
       const kp = await generateKeypairFromSeed(seed);
 
-      // Create KERI identity
+      // Unlock account in KeyManager BEFORE creating identity
+      // This ensures signing keys are available for inception event
+      // Note: We use a temporary AID derived from the verfer
+      const tempAid = kp.verfer; // Use verfer as temporary identifier
+      await keyManager.unlock(tempAid, mnemonic);
+
+      // Create KERI identity (now with signing via KeyManager)
       const { aid } = await createIdentity(store, {
         alias,
         keys: [kp.verfer],
         nextKeys: [kp.verfer],
-      });
+      }, keyManager);
+
+      // Lock the temporary AID and unlock with actual AID
+      keyManager.lock(tempAid);
+      await keyManager.unlock(aid, mnemonic);
 
       // Create account object
       const account: Account = {
@@ -79,7 +96,14 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
     async getAccount(alias: string): Promise<Account | null> {
       // Check cache first
       if (accountCache.has(alias)) {
-        return accountCache.get(alias)!;
+        const account = accountCache.get(alias)!;
+
+        // Try to unlock from KV store if not already unlocked
+        if (!keyManager.isUnlocked(account.aid)) {
+          await keyManager.unlockFromStore(account.aid);
+        }
+
+        return account;
       }
 
       // Lookup AID by alias
@@ -103,6 +127,9 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
         createdAt: icp.meta.dt || new Date().toISOString(),
       };
 
+      // Try to unlock from KV store
+      await keyManager.unlockFromStore(aid);
+
       // Cache it
       accountCache.set(alias, account);
       accountCache.set(aid, account);
@@ -113,7 +140,14 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
     async getAccountByAid(aid: string): Promise<Account | null> {
       // Check cache first
       if (accountCache.has(aid)) {
-        return accountCache.get(aid)!;
+        const account = accountCache.get(aid)!;
+
+        // Try to unlock from KV store if not already unlocked
+        if (!keyManager.isUnlocked(account.aid)) {
+          await keyManager.unlockFromStore(account.aid);
+        }
+
+        return account;
       }
 
       // Get KEL events
@@ -140,6 +174,9 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
         createdAt: icp.meta.dt || new Date().toISOString(),
       };
 
+      // Try to unlock from KV store
+      await keyManager.unlockFromStore(aid);
+
       accountCache.set(aid, account);
       return account;
     },
@@ -153,7 +190,7 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
       if (!acc) {
         return null;
       }
-      return createAccountDSL(acc, store);
+      return createAccountDSL(acc, store, keyManager);
     },
 
     async accountByAid(aid: string): Promise<AccountDSL | null> {
@@ -161,7 +198,7 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
       if (!acc) {
         return null;
       }
-      return createAccountDSL(acc, store);
+      return createAccountDSL(acc, store, keyManager);
     },
 
     async createSchema(alias: string, schema: any): Promise<SchemaDSL> {

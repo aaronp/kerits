@@ -603,10 +603,11 @@ export async function saveIdentity(identity: StoredIdentity, userId?: string): P
 }
 
 export async function getIdentities(userId?: string): Promise<StoredIdentity[]> {
-  const db = await getDB(userId);
-  const kels = await getAllKELs(userId);
-  const aliases = await getAllAliases(userId);
-  const identityMetadata = await db.getAll('identityMetadata');
+  try {
+    const db = await getDB(userId);
+    const kels = await getAllKELs(userId);
+    const aliases = await getAllAliases(userId);
+    const identityMetadata = await db.getAll('identityMetadata');
 
   // Only return KELs that have identity metadata (user identities, not contacts)
   const identityAIDs = new Set(identityMetadata.map(m => m.aid));
@@ -630,6 +631,13 @@ export async function getIdentities(userId?: string): Promise<StoredIdentity[]> 
         };
       })
   );
+  } catch (error) {
+    // If no user is logged in, return empty array
+    if (error instanceof Error && error.message === 'No user logged in') {
+      return [];
+    }
+    throw error;
+  }
 }
 
 export async function deleteIdentity(alias: string, userId?: string): Promise<void> {
@@ -656,10 +664,11 @@ export async function saveCredential(credential: StoredCredential, userId?: stri
 }
 
 export async function getCredentials(userId?: string): Promise<StoredCredential[]> {
-  const acdcs = await getAllACDCs(userId);
-  const aliases = await getAllAliases(userId);
+  try {
+    const acdcs = await getAllACDCs(userId);
+    const aliases = await getAllAliases(userId);
 
-  return acdcs.map(acdc => {
+    return acdcs.map(acdc => {
     const issuerAlias = aliases.find(a => a.said === acdc.issuer && a.type === 'kel');
     const recipientAlias = acdc.recipient ? aliases.find(a => a.said === acdc.recipient && a.type === 'kel') : undefined;
     const schemaAlias = aliases.find(a => a.said === acdc.schema && a.type === 'schema');
@@ -679,6 +688,13 @@ export async function getCredentials(userId?: string): Promise<StoredCredential[
       createdAt: acdc.createdAt,
     };
   });
+  } catch (error) {
+    // If no user is logged in, return empty array
+    if (error instanceof Error && error.message === 'No user logged in') {
+      return [];
+    }
+    throw error;
+  }
 }
 
 export async function deleteCredential(id: string, userId?: string): Promise<void> {
@@ -718,10 +734,11 @@ export async function saveSchema(schema: StoredSchema, userId?: string): Promise
 }
 
 export async function getSchemas(userId?: string): Promise<StoredSchema[]> {
-  const schemas = await getAllSchemas(userId);
-  const aliases = await getAllAliases(userId);
+  try {
+    const schemas = await getAllSchemas(userId);
+    const aliases = await getAllAliases(userId);
 
-  return schemas.map(s => {
+    return schemas.map(s => {
     const aliasMapping = aliases.find(a => a.said === s.said && a.type === 'schema');
 
     // Prefer stored fields metadata if available, otherwise reconstruct from SAD
@@ -749,6 +766,13 @@ export async function getSchemas(userId?: string): Promise<StoredSchema[]> {
       createdAt: s.createdAt,
     };
   });
+  } catch (error) {
+    // If no user is logged in, return empty array
+    if (error instanceof Error && error.message === 'No user logged in') {
+      return [];
+    }
+    throw error;
+  }
 }
 
 export async function deleteSchema(id: string, userId?: string): Promise<void> {

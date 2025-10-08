@@ -5,7 +5,7 @@ import { Copy, Check, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { Toast, useToast } from '../ui/toast';
 import { VisualId } from '../ui/visual-id';
 import { getDSL } from '@/lib/dsl';
-import type { KeritsDSL } from '@/../src/app/dsl/types';
+import type { KeritsDSL } from '@kerits/app/dsl/types';
 
 interface SchemaDisplay {
   alias: string;

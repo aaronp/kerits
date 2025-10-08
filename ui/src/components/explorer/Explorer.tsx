@@ -12,7 +12,7 @@ import { useParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { getDSL } from '@/lib/dsl';
 import { Button } from '../ui/button';
-import type { KeritsDSL, AccountDSL } from '@/../src/app/dsl/types';
+import type { KeritsDSL, AccountDSL } from '@kerits/app/dsl/types';
 import { RegistryTreeNavigation } from './RegistryTreeNavigation';
 import { RegistryBreadcrumbs } from './RegistryBreadcrumbs';
 import { RegistryDetailView } from './RegistryDetailView';
