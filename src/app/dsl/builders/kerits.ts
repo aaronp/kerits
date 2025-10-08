@@ -3,7 +3,7 @@
  */
 
 import type { KerStore } from '../../../storage/types';
-import type { KeritsDSL, Account, Mnemonic, AccountDSL, SchemaDSL, ContactsDSL, ImportDSL, ContactSyncDSL } from '../types';
+import type { KeritsDSL, Account, Mnemonic, AccountDSL, SchemaDSL, ContactsDSL, ContactSyncDSL } from '../types';
 import { generateKeypairFromSeed } from '../../../signer';
 import { createIdentity, createSchema as createSchemaHelper } from '../../helpers';
 import { seedToMnemonic, mnemonicToSeed, serializeEvent } from '../utils';
@@ -11,7 +11,6 @@ import { saidify } from '../../../saidify';
 import { createAccountDSL } from './account';
 import { createSchemaDSL } from './schema';
 import { createContactsDSL } from './contacts';
-import { createImportDSL } from './import';
 import { createContactSyncDSL } from './contact-sync';
 import { KeyManager } from '../../keymanager';
 
@@ -306,10 +305,6 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
 
     contacts(): ContactsDSL {
       return createContactsDSL(store);
-    },
-
-    import(): ImportDSL {
-      return createImportDSL(store);
     },
 
     sync(): ContactSyncDSL {

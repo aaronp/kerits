@@ -27,7 +27,7 @@ import type {
   JSONSchema7,
   JSONSchema7Property,
 } from './common';
-import type { ExportDSL, ImportDSL } from './sync';
+import type { ExportDSL } from './sync';
 import type { ContactSyncDSL } from './contact-sync';
 import type { IndexedRegistry, IndexedACDC, SchemaUsage, CounterpartyInfo, TELEventSummary } from '../../indexer/types';
 
@@ -386,12 +386,6 @@ export interface KeritsDSL {
    * @returns ContactsDSL instance
    */
   contacts(): ContactsDSL;
-
-  /**
-   * Get ImportDSL for importing CESR bundles
-   * @returns ImportDSL instance
-   */
-  import(): ImportDSL;
 
   /**
    * Get ContactSyncDSL for tracking sync state with contacts

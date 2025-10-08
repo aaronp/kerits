@@ -284,6 +284,13 @@ export function createRegistryDSL(
         if (!credentialId) {
           throw new Error('Invalid credential: missing SAID (d field)');
         }
+
+        // Update registry ID to the holder's registry (Bob accepting Alice's credential)
+        // This allows the credential to appear in Bob's registry while preserving the original issuer
+        credentialObj = {
+          ...credentialObj,
+          ri: registry.registryId,
+        };
       }
 
       // Serialize and store the ACDC
@@ -302,6 +309,15 @@ export function createRegistryDSL(
 
       const rawAcdc = serializeEvent(acdcEvent);
       await store.putEvent(rawAcdc);
+
+      // Store ACDC as JSON for quick retrieval (dual storage pattern)
+      const acdcKey = {
+        path: ['acdc', credentialId],
+        type: 'json' as const,
+        meta: { immutable: true },
+      };
+      const encodeJson = (obj: any) => new TextEncoder().encode(JSON.stringify(obj));
+      await store.kv.putStructured!(acdcKey, encodeJson(credentialObj));
 
       // Create an issuance event in the holder's registry so the credential shows up in their TEL
       // This represents the holder accepting/anchoring the credential in their registry

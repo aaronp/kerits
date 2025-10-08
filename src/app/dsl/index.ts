@@ -16,7 +16,6 @@ export { createRegistryDSL } from './builders/registry';
 export { createACDCDSL } from './builders/acdc';
 export { createSchemaDSL } from './builders/schema';
 export { createContactsDSL } from './builders/contacts';
-export { createImportDSL } from './builders/import';
 export { createContactSyncDSL } from './builders/contact-sync';
 
 // Export export/import functions
