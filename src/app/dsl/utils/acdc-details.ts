@@ -16,6 +16,10 @@ export interface ACDCEventDetails {
   cesr: string;
   /** Parsed event data */
   event: any;
+  /** Parsed ACDC credential */
+  acdcEvent: any;
+  /** Parsed TEL issuance event */
+  telEvent: any;
 }
 
 /**
@@ -34,6 +38,8 @@ export async function extractACDCDetails(exportDsl: ExportDSL): Promise<ACDCEven
   const publicKeys: string[] = [];
   const signatures: string[] = [];
   let event: any = null;
+  let acdcEvent: any = null;
+  let telEvent: any = null;
 
   // ACDC bundles contain:
   // - events[0]: The ACDC credential itself (no signatures)
@@ -49,6 +55,7 @@ export async function extractACDCDetails(exportDsl: ExportDSL): Promise<ACDCEven
       const jsonStart = eventText.indexOf('{');
       if (jsonStart >= 0) {
         event = JSON.parse(eventText.substring(jsonStart));
+        acdcEvent = event;
 
         // Get issuer AID from ACDC attributes
         if (event.a && event.a.i) {
@@ -65,6 +72,13 @@ export async function extractACDCDetails(exportDsl: ExportDSL): Promise<ACDCEven
     try {
       const parsed = parseCesrStream(bundle.events[1]);
 
+      // Extract TEL event data
+      const telEventText = new TextDecoder().decode(parsed.event);
+      const jsonStart = telEventText.indexOf('{');
+      if (jsonStart >= 0) {
+        telEvent = JSON.parse(telEventText.substring(jsonStart));
+      }
+
       // Extract indexed signatures from TEL issuance event
       if (parsed.signatures) {
         const parsedSigs = parseIndexedSignatures(parsed.signatures);
@@ -75,11 +89,22 @@ export async function extractACDCDetails(exportDsl: ExportDSL): Promise<ACDCEven
     }
   }
 
+  // Create a more useful JSON representation with decoded events
+  const decodedJson = JSON.stringify({
+    acdc: acdcEvent,
+    issuance: telEvent ? {
+      ...telEvent,
+      signatures: signatures,
+    } : null,
+  }, null, 2);
+
   return {
     publicKeys,
     signatures,
-    json,
+    json: decodedJson,
     cesr,
     event,
+    acdcEvent,
+    telEvent,
   };
 }

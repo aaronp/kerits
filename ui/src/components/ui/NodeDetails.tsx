@@ -27,6 +27,11 @@ export function NodeDetails({ data, schema, layout = 'grid' }: NodeDetailsProps)
     return typeof value === 'string' && /^[A-Z][A-Za-z0-9_-]{43,}$/.test(value);
   };
 
+  const isSignature = (value: any): boolean => {
+    // Signatures are CESR-encoded values that start with digits (like 0B, 0C, etc.)
+    return typeof value === 'string' && /^[0-9][A-Za-z0-9_-]{43,}$/.test(value);
+  };
+
   const renderValue = (key: string, value: any): React.ReactNode => {
     // Null/undefined
     if (value === null || value === undefined) {
@@ -86,6 +91,20 @@ export function NodeDetails({ data, schema, layout = 'grid' }: NodeDetailsProps)
       return <span className="text-sm font-medium">{value}</span>;
     }
 
+    // Signature (CESR-encoded, show as VisualId)
+    if (isSignature(value)) {
+      return (
+        <VisualId
+          label=""
+          variant="marble"
+          value={value}
+          size={20}
+          showCopy={false}
+          small
+        />
+      );
+    }
+
     // AID/SAID (show only VisualId avatar, no label or copy button)
     if (isAidOrSaid(value)) {
       return (
@@ -106,6 +125,21 @@ export function NodeDetails({ data, schema, layout = 'grid' }: NodeDetailsProps)
         return <span className="text-muted-foreground italic">[]</span>;
       }
 
+      // Special handling for arrays of AIDs/SAIDs (like Public Keys or Signatures)
+      // Show as a simple list without array indices
+      if (value.every(item => typeof item === 'string')) {
+        return (
+          <div className="space-y-1">
+            {value.map((item, idx) => (
+              <div key={idx}>
+                {renderValue(`${key}[${idx}]`, item)}
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      // For complex arrays, show with indices
       return (
         <div className="space-y-1 pl-3 border-l border-muted mt-1">
           {value.map((item, idx) => (

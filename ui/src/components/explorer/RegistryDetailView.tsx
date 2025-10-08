@@ -426,8 +426,8 @@ export function RegistryDetailView({
                       'Data': filteredData,
                       'JSON': details.json,
                       'CESR': details.cesr,
-                      'Public Keys': details.publicKeys,
-                      'Signatures': details.signatures,
+                      [details.publicKeys.length === 1 ? 'Public Key' : 'Public Keys']: details.publicKeys,
+                      [details.signatures.length === 1 ? 'Signature' : 'Signatures']: details.signatures,
                     };
                   }}
                 />

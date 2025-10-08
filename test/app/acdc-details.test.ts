@@ -61,13 +61,15 @@ describe('ACDC Details Extraction', () => {
     expect(details.cesr.length).toBeGreaterThan(0);
     expect(typeof details.cesr).toBe('string');
 
-    // Verify JSON format
+    // Verify JSON format (now shows decoded events)
     expect(details.json).toBeTruthy();
     expect(details.json.length).toBeGreaterThan(0);
     const parsed = JSON.parse(details.json);
-    expect(parsed.type).toBe('acdc');
-    expect(parsed.events).toBeInstanceOf(Array);
-    expect(parsed.version).toBe('1.0');
+    expect(parsed.acdc).toBeTruthy();
+    expect(parsed.acdc.t).toBe('acdc');
+    expect(parsed.issuance).toBeTruthy();
+    expect(parsed.issuance.t).toBe('iss');
+    expect(parsed.issuance.signatures).toBeInstanceOf(Array);
   });
 
   it('should extract public keys from credential signatures', async () => {
