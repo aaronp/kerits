@@ -308,13 +308,6 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => setShowImportDialog(true)}>
-          <Upload className="h-4 w-4 mr-2" />
-          Import Credential
-        </Button>
-      </div>
-
       {Object.entries(groupedCredentials).map(([recipientAid, creds]) => {
         const recipientAlias = creds[0]?.recipientAlias;
 
@@ -345,12 +338,12 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
                             variant="ghost"
                             size="sm"
                             onClick={() => setExpandedId(isExpanded ? null : credential.id)}
-                            className="p-0 h-auto"
+                            className="p-0 h-auto cursor-pointer"
                           >
                             {isExpanded ? (
-                              <ChevronDown className="h-4 w-4" />
+                              <ChevronDown className="h-4 w-4 cursor-pointer" />
                             ) : (
-                              <ChevronRight className="h-4 w-4" />
+                              <ChevronRight className="h-4 w-4 cursor-pointer" />
                             )}
                           </Button>
                           <div>

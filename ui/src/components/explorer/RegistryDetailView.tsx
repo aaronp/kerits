@@ -405,6 +405,10 @@ export function RegistryDetailView({
                   key={acdc.credentialId}
                   acdc={acdc}
                   autoExpand={selectedId === acdc.credentialId}
+                  onShare={async () => {
+                    // TODO: Implement sharing
+                    console.log('Share credential:', acdc.credentialId);
+                  }}
                   onRevoke={async () => {
                     // TODO: Implement revocation
                     console.log('Revoke credential:', acdc.credentialId);

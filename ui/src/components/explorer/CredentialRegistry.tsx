@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, ChevronDown, Download, Upload, Share2, PlusCircle } from 'lucide-react';
+import { ChevronRight, ChevronDown, Share2, PlusCircle } from 'lucide-react';
 import { Button } from '../ui/button';
 import {
   Dialog,
@@ -83,18 +83,6 @@ export function CredentialRegistry({ registryAID }: CredentialRegistryProps) {
       }
       return newSet;
     });
-  };
-
-  const handleExport = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    // TODO: Implement export functionality
-    console.log('Export registry:', registryAID);
-  };
-
-  const handleImport = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    // TODO: Implement import functionality
-    console.log('Import to registry:', registryAID);
   };
 
   const handleShare = (e: React.MouseEvent) => {
@@ -203,24 +191,6 @@ export function CredentialRegistry({ registryAID }: CredentialRegistryProps) {
             variant="ghost"
             size="sm"
             className="h-7 w-7 p-0"
-            onClick={handleImport}
-            title="Import credentials"
-          >
-            <Upload className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0"
-            onClick={handleExport}
-            title="Export registry"
-          >
-            <Download className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0"
             onClick={handleShare}
             title="Share registry"
           >
@@ -249,16 +219,16 @@ export function CredentialRegistry({ registryAID }: CredentialRegistryProps) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0"
+                  className="h-6 w-6 p-0 cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleContact(contact.prefix);
                   }}
                 >
                   {expandedContacts.has(contact.prefix) ? (
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown className="h-4 w-4 cursor-pointer" />
                   ) : (
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4 cursor-pointer" />
                   )}
                 </Button>
               )}

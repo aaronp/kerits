@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Ban } from 'lucide-react';
+import { ChevronDown, ChevronRight, Ban, Share2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { NodeDetails } from '../ui/NodeDetails';
@@ -20,15 +20,18 @@ interface ACDCRecordProps {
   onExpand?: () => Promise<Record<string, any>>;
   /** Callback to revoke credential */
   onRevoke?: () => Promise<void>;
+  /** Callback to share credential */
+  onShare?: () => Promise<void>;
   /** Auto-expand this record on mount */
   autoExpand?: boolean;
 }
 
-export function ACDCRecord({ acdc, fullData: initialFullData, onExpand, onRevoke, autoExpand }: ACDCRecordProps) {
+export function ACDCRecord({ acdc, fullData: initialFullData, onExpand, onRevoke, onShare, autoExpand }: ACDCRecordProps) {
   const [expanded, setExpanded] = useState(autoExpand || false);
   const [fullData, setFullData] = useState<Record<string, any> | null>(initialFullData || null);
   const [loading, setLoading] = useState(false);
   const [revoking, setRevoking] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   // Auto-load data when auto-expanding
   useEffect(() => {
@@ -57,20 +60,46 @@ export function ACDCRecord({ acdc, fullData: initialFullData, onExpand, onRevoke
     setExpanded(!expanded);
   };
 
+  const handleRevoke = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onRevoke) return;
+    setRevoking(true);
+    try {
+      await onRevoke();
+    } finally {
+      setRevoking(false);
+    }
+  };
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onShare) return;
+    setSharing(true);
+    try {
+      await onShare();
+    } finally {
+      setSharing(false);
+    }
+  };
+
   return (
-    <div className="border rounded-lg overflow-hidden">
+    <div className={`border rounded-lg overflow-hidden transition-colors ${
+      acdc.revoked
+        ? 'bg-red-50/50 hover:bg-red-100/70 dark:bg-red-950/10 dark:hover:bg-red-950/20'
+        : 'bg-green-50/50 hover:bg-green-100/70 dark:bg-green-950/10 dark:hover:bg-green-950/20'
+    }`}>
       {/* Summary - always visible */}
-      <div
-        className="p-4 hover:bg-muted/50 transition-colors cursor-pointer"
-        onClick={handleToggle}
-      >
-        <div className="flex justify-between items-start">
-          <div className="flex-1">
+      <div className="p-4">
+        <div className="flex justify-between items-start gap-4">
+          <div
+            className="flex-1 cursor-pointer hover:opacity-90 transition-opacity"
+            onClick={handleToggle}
+          >
             <div className="flex items-center gap-2">
               {expanded ? (
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                <ChevronDown className="h-4 w-4 text-muted-foreground cursor-pointer" />
               ) : (
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground cursor-pointer" />
               )}
               <h4 className="font-medium">{acdc.alias}</h4>
             </div>
@@ -91,6 +120,32 @@ export function ACDCRecord({ acdc, fullData: initialFullData, onExpand, onRevoke
                 Issued: {acdc.issuedAt ? new Date(acdc.issuedAt).toLocaleDateString() : 'Unknown'}
               </span>
             </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex gap-2 flex-shrink-0">
+            {onShare && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleShare}
+                disabled={sharing}
+              >
+                <Share2 className="h-4 w-4 mr-2" />
+                {sharing ? 'Sharing...' : 'Share'}
+              </Button>
+            )}
+            {onRevoke && acdc.status === 'issued' && !acdc.revoked && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleRevoke}
+                disabled={revoking}
+              >
+                <Ban className="h-4 w-4 mr-2" />
+                {revoking ? 'Revoking...' : 'Revoke'}
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -178,29 +233,6 @@ export function ACDCRecord({ acdc, fullData: initialFullData, onExpand, onRevoke
                     }}
                   />
                 </div>
-
-                {/* Action buttons */}
-                {onRevoke && acdc.status === 'issued' && !acdc.revoked && (
-                  <div className="pt-2 border-t">
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        setRevoking(true);
-                        try {
-                          await onRevoke();
-                        } finally {
-                          setRevoking(false);
-                        }
-                      }}
-                      disabled={revoking}
-                    >
-                      <Ban className="h-4 w-4 mr-2" />
-                      {revoking ? 'Revoking...' : 'Revoke Credential'}
-                    </Button>
-                  </div>
-                )}
               </TabsContent>
 
               <TabsContent value="json" className="mt-4">
