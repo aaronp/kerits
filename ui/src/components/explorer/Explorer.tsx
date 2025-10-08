@@ -7,7 +7,7 @@
  * - Main: Registry detail view with credentials
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { getDSL } from '@/lib/dsl';
@@ -42,19 +42,30 @@ export function Explorer() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
+  // Track if we've already redirected to prevent loops
+  const hasRedirectedRef = useRef(false);
+
   // Wait for account context to load before proceeding
   useEffect(() => {
+    console.log('[Explorer] useEffect:', { accountLoading, accountAlias, currentAccountAlias, hasRedirected: hasRedirectedRef.current });
+
     if (accountLoading) {
       return; // Still loading account context
     }
 
-    if (!accountAlias) {
-      // No account available - redirect to login
+    if (!accountAlias && !hasRedirectedRef.current) {
+      // No account available - redirect to login (once)
       console.warn('No account available, redirecting to login');
+      hasRedirectedRef.current = true;
       navigate(route('/'), { replace: true });
       return;
     }
-  }, [accountLoading, accountAlias, navigate]);
+
+    // Reset redirect flag if we now have an account
+    if (accountAlias && hasRedirectedRef.current) {
+      hasRedirectedRef.current = false;
+    }
+  }, [accountLoading, accountAlias, currentAccountAlias, navigate]);
 
   // Initialize DSL
   useEffect(() => {

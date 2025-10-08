@@ -17,21 +17,30 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [users, setUsers] = React.useState<User[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  const loadUser = React.useCallback(async () => {
-    try {
-      const [user, allUsers] = await Promise.all([getCurrentUser(), getUsers()]);
-      setCurrentUserState(user);
-      setUsers(allUsers);
-    } catch (error) {
-      console.error('Failed to load user:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Track if we've already loaded to prevent re-runs
+  const hasLoadedRef = React.useRef(false);
 
   React.useEffect(() => {
+    // Only load once on mount
+    if (hasLoadedRef.current) {
+      return;
+    }
+
+    const loadUser = async () => {
+      try {
+        const [user, allUsers] = await Promise.all([getCurrentUser(), getUsers()]);
+        setCurrentUserState(user);
+        setUsers(allUsers);
+        hasLoadedRef.current = true;
+      } catch (error) {
+        console.error('Failed to load user:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadUser();
-  }, [loadUser]);
+  }, []); // Empty array means run once on mount
 
   const setCurrentUser = React.useCallback(async (user: User | null) => {
     try {

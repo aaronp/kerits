@@ -29,65 +29,86 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
   const [currentAccountAlias, setCurrentAccountAlias] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
 
-  const loadCurrentAccount = React.useCallback(async () => {
-    if (!currentUser) {
-      setCurrentAccountAlias(null);
-      setLoading(false);
-      return;
-    }
+  // Track last loaded user ID to prevent re-loading for same user
+  const lastLoadedUserIdRef = React.useRef<string | null>(null);
 
-    try {
-      // Try to load saved account preference for this user
-      const storageKey = `${STORAGE_KEY_PREFIX}${currentUser.id}`;
-      const savedAlias = localStorage.getItem(storageKey);
-
-      const dsl = await getDSL();
-      let accountNames = await dsl.accountNames();
-
-      // If no accounts exist, create a default one for this user
-      if (accountNames.length === 0) {
-        console.log('No accounts found, creating account for user:', currentUser.name);
-
-        try {
-          // Use user name as account alias (sanitize it)
-          const accountAlias = currentUser.name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-
-          const seed = new Uint8Array(32);
-          crypto.getRandomValues(seed);
-          const mnemonic = dsl.newMnemonic(seed);
-          await dsl.newAccount(accountAlias, mnemonic);
-          console.log('Account created successfully:', accountAlias);
-
-          accountNames = await dsl.accountNames();
-        } catch (createError) {
-          console.error('Failed to create account:', createError);
-          setCurrentAccountAlias(null);
-          setLoading(false);
-          return;
-        }
-      }
-
-      // If saved alias exists and is valid, use it
-      if (savedAlias && accountNames.includes(savedAlias)) {
-        setCurrentAccountAlias(savedAlias);
-      } else {
-        // Otherwise use the first account
-        const firstAccount = accountNames[0];
-        setCurrentAccountAlias(firstAccount);
-        // Save this as the default
-        localStorage.setItem(storageKey, firstAccount);
-      }
-    } catch (error) {
-      console.error('Failed to load current account:', error);
-      setCurrentAccountAlias(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [currentUser]);
-
+  // Use useEffect directly without useCallback to avoid dependency issues
   React.useEffect(() => {
+    const loadCurrentAccount = async () => {
+      console.log('[AccountProvider] loadCurrentAccount called:', {
+        currentUser: currentUser?.id,
+        lastLoaded: lastLoadedUserIdRef.current,
+        currentAlias: currentAccountAlias
+      });
+
+      if (!currentUser) {
+        lastLoadedUserIdRef.current = null;
+        // Only update state if it actually changed
+        setCurrentAccountAlias(prev => prev === null ? prev : null);
+        setLoading(prev => prev === false ? prev : false);
+        return;
+      }
+
+      // Skip if we already loaded this user's account
+      if (lastLoadedUserIdRef.current === currentUser.id) {
+        console.log('[AccountProvider] Skipping load - user already loaded');
+        return;
+      }
+
+      lastLoadedUserIdRef.current = currentUser.id;
+      setLoading(true);
+
+      try {
+        // Try to load saved account preference for this user
+        const storageKey = `${STORAGE_KEY_PREFIX}${currentUser.id}`;
+        const savedAlias = localStorage.getItem(storageKey);
+
+        const dsl = await getDSL();
+        let accountNames = await dsl.accountNames();
+
+        // If no accounts exist, create a default one for this user
+        if (accountNames.length === 0) {
+          console.log('No accounts found, creating account for user:', currentUser.name);
+
+          try {
+            // Use user name as account alias (sanitize it)
+            const accountAlias = currentUser.name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+
+            const seed = new Uint8Array(32);
+            crypto.getRandomValues(seed);
+            const mnemonic = dsl.newMnemonic(seed);
+            await dsl.newAccount(accountAlias, mnemonic);
+            console.log('Account created successfully:', accountAlias);
+
+            accountNames = await dsl.accountNames();
+          } catch (createError) {
+            console.error('Failed to create account:', createError);
+            setCurrentAccountAlias(null);
+            setLoading(false);
+            return;
+          }
+        }
+
+        // If saved alias exists and is valid, use it
+        if (savedAlias && accountNames.includes(savedAlias)) {
+          setCurrentAccountAlias(prev => prev === savedAlias ? prev : savedAlias);
+        } else {
+          // Otherwise use the first account
+          const firstAccount = accountNames[0];
+          setCurrentAccountAlias(prev => prev === firstAccount ? prev : firstAccount);
+          // Save this as the default
+          localStorage.setItem(storageKey, firstAccount);
+        }
+      } catch (error) {
+        console.error('Failed to load current account:', error);
+        setCurrentAccountAlias(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadCurrentAccount();
-  }, [loadCurrentAccount]);
+  }, [currentUser]);
 
   const setCurrentAccount = React.useCallback(async (alias: string) => {
     if (!currentUser) {
@@ -115,8 +136,36 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
   }, [currentUser]);
 
   const refreshAccount = React.useCallback(async () => {
-    await loadCurrentAccount();
-  }, [loadCurrentAccount]);
+    if (!currentUser) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const storageKey = `${STORAGE_KEY_PREFIX}${currentUser.id}`;
+      const savedAlias = localStorage.getItem(storageKey);
+
+      const dsl = await getDSL();
+      const accountNames = await dsl.accountNames();
+
+      if (accountNames.length === 0) {
+        setCurrentAccountAlias(null);
+        return;
+      }
+
+      if (savedAlias && accountNames.includes(savedAlias)) {
+        setCurrentAccountAlias(savedAlias);
+      } else {
+        const firstAccount = accountNames[0];
+        setCurrentAccountAlias(firstAccount);
+        localStorage.setItem(storageKey, firstAccount);
+      }
+    } catch (error) {
+      console.error('Failed to refresh account:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentUser]);
 
   return (
     <AccountContext.Provider value={{ currentAccountAlias, loading, setCurrentAccount, refreshAccount }}>
