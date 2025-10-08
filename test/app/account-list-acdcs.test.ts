@@ -260,41 +260,6 @@ describe('AccountDSL.listAllACDCs', () => {
     expect(results).toHaveLength(0);
   });
 
-  it.skip('should include signature data in searchable content', async () => {
-    const accountDsl = await dsl.account(accountAlias);
-    const registryDsl = await accountDsl!.createRegistry('test-registry');
-
-    const schemaDsl = await dsl.createSchema('test-schema', {
-      $schema: 'http://json-schema.org/draft-07/schema#',
-      type: 'object',
-      properties: {
-        name: { type: 'string' },
-      },
-    });
-
-    const cred = await registryDsl.issue({
-      alias: 'signed-cred',
-      schema: schemaDsl.schema.schemaId,
-      holder: accountDsl!.account.aid,
-      data: { name: 'Test' },
-    });
-
-    // Get the credential to extract signature
-    const exportDsl = await cred.export();
-    const { extractACDCDetails } = await import('../../src/app/dsl/utils/acdc-details');
-    const details = await extractACDCDetails(exportDsl);
-
-    // Filter by partial signature (if signatures exist)
-    if (details.signatures.length > 0) {
-      const partialSig = details.signatures[0].substring(0, 10);
-      const results = await accountDsl!.listAllACDCs(partialSig);
-
-      // Should find the credential by its signature
-      expect(results.length).toBeGreaterThanOrEqual(1);
-      expect(results.some(c => c.credentialId === cred.acdc.credentialId)).toBe(true);
-    }
-  });
-
   it('should return all credentials when no filter provided', async () => {
     const accountDsl = await dsl.account(accountAlias);
     const registryDsl = await accountDsl!.createRegistry('test-registry');

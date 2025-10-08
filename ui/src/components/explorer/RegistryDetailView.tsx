@@ -450,6 +450,24 @@ export function RegistryDetailView({
                     const exportDsl = await acdcDsl.export();
                     const details = await extractACDCDetails(exportDsl);
 
+                    // Resolve linked credential aliases
+                    let linkedCredentialsWithAliases: Record<string, { n: string; s?: string; alias?: string }> | undefined;
+                    if (details.acdcEvent?.e && accountDsl) {
+                      linkedCredentialsWithAliases = {};
+                      const allCreds = await accountDsl.listAllACDCs();
+
+                      for (const [edgeName, edgeData] of Object.entries(details.acdcEvent.e)) {
+                        const credSaid = (edgeData as any)?.n;
+                        if (credSaid) {
+                          const linkedCred = allCreds.find(c => c.credentialId === credSaid);
+                          linkedCredentialsWithAliases[edgeName] = {
+                            ...(edgeData as any),
+                            alias: linkedCred?.alias,
+                          };
+                        }
+                      }
+                    }
+
                     return {
                       'Credential ID': acdc.credentialId,
                       'Alias': acdc.alias,
@@ -463,7 +481,7 @@ export function RegistryDetailView({
                       'CESR': details.cesr,
                       [details.publicKeys.length === 1 ? 'Public Key' : 'Public Keys']: details.publicKeys,
                       [details.signatures.length === 1 ? 'Signature' : 'Signatures']: details.signatures,
-                      ...(details.acdcEvent?.e && { 'Linked Credentials': details.acdcEvent.e }),
+                      ...(linkedCredentialsWithAliases && { 'Linked Credentials': linkedCredentialsWithAliases }),
                     };
                   }}
                 />
@@ -619,7 +637,7 @@ export function RegistryDetailView({
               {/* Add new edge */}
               <div className="space-y-3 p-3 border rounded">
                 <div className="grid gap-2">
-                  <Label>Edge Name</Label>
+                  <Label>Name</Label>
                   <Input
                     placeholder="e.g., evidence, parent, prerequisite"
                     value={edgeFilter}

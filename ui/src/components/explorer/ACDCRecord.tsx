@@ -126,6 +126,16 @@ export function ACDCRecord({ acdc, fullData: initialFullData, onExpand, onRevoke
                   </div>
                 )}
 
+                {/* Show linked credentials if present */}
+                {fullData['Linked Credentials'] && Object.keys(fullData['Linked Credentials']).length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Linked Credentials</h4>
+                    <div className="bg-background/50 rounded p-3">
+                      <NodeDetails data={{ 'Linked Credentials': fullData['Linked Credentials'] }} />
+                    </div>
+                  </div>
+                )}
+
                 {/* Show metadata */}
                 <div>
                   <h4 className="text-sm font-semibold mb-2">Metadata</h4>

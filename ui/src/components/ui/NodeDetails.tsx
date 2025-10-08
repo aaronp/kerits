@@ -9,7 +9,7 @@
  * - Nested structures
  */
 
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { VisualId } from './visual-id';
 import { ShowDate } from './ShowDate';
 import { route } from '@/config';
@@ -23,6 +23,8 @@ interface NodeDetailsProps {
 }
 
 export function NodeDetails({ data, schema, layout = 'grid' }: NodeDetailsProps) {
+  const location = useLocation();
+
   const isAidOrSaid = (value: any): boolean => {
     return typeof value === 'string' && /^[A-Z][A-Za-z0-9_-]{43,}$/.test(value);
   };
@@ -160,6 +162,42 @@ export function NodeDetails({ data, schema, layout = 'grid' }: NodeDetailsProps)
 
     // Object
     if (typeof value === 'object') {
+      // Special case: Linked Credentials
+      // Format: { edgeName: { n: credentialSAID, s?: schemaSAID, alias?: string } }
+      if (key.toLowerCase() === 'linked credentials') {
+        return (
+          <div className="space-y-1.5">
+            {Object.entries(value).map(([edgeName, edgeData]: [string, any]) => {
+              const credentialSaid = edgeData?.n;
+              const alias = edgeData?.alias;
+              if (!credentialSaid) return null;
+
+              return (
+                <Link
+                  key={edgeName}
+                  to={`${location.pathname}?selected=${credentialSaid}`}
+                  className="flex items-center gap-2 hover:bg-muted/50 p-1.5 rounded transition-colors group"
+                  title={`View linked credential: ${alias || credentialSaid}`}
+                >
+                  <span className="text-xs text-muted-foreground min-w-[80px] shrink-0">{edgeName}</span>
+                  <VisualId
+                    label=""
+                    variant="marble"
+                    value={credentialSaid}
+                    size={20}
+                    showCopy={false}
+                    small
+                  />
+                  <span className="text-sm font-medium group-hover:text-primary transition-colors">
+                    {alias || credentialSaid.substring(0, 12) + '...'}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        );
+      }
+
       return (
         <div className="pl-3 border-l border-muted mt-1">
           <NodeDetails data={value} layout="stacked" />
