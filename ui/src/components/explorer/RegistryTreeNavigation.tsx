@@ -38,49 +38,40 @@ export function RegistryTreeNavigation({ dsl, accountAlias, selectedRegistryId, 
   // Build registry hierarchy from DSL using KERI parent traversal
   useEffect(() => {
     async function buildHierarchy() {
-      if (!dsl) return;
-
-      console.log('[RegistryTreeNavigation] Building hierarchy for account:', accountAlias);
-
-      const accountDsl = await dsl.account(accountAlias);
-      if (!accountDsl) {
-        throw new Error('accountDsl not found for ' + accountAlias)
+      if (!dsl) {
+        setLoading(true);
+        return;
       }
-      const registryAliases = await accountDsl.listRegistries();
-      console.log('[RegistryTreeNavigation] Found registry aliases:', registryAliases);
 
-      // Use tree builder that calculates depth via parent chain traversal
-      const tree = await buildRegistryTree(
-        registryAliases,
-        (alias) => accountDsl.registry(alias)
-      );
-      console.log('loaded tree', {
-        registryAliases,
-        tree
-      })
-      setRegistryTree(tree)
-      // try {
-      //   setLoading(true);
+      try {
+        setLoading(true);
+        console.log('[RegistryTreeNavigation] Building hierarchy for account:', accountAlias);
 
+        const accountDsl = await dsl.account(accountAlias);
+        if (!accountDsl) {
+          console.error('[RegistryTreeNavigation] Account not found:', accountAlias);
+          setRegistryTree([]);
+          setLoading(false);
+          return;
+        }
 
-      //   // If account not found in DSL, try to migrate from old storage
-      //   if (!accountDsl) {
-      //     console.log('[RegistryTreeNavigation] Account not found in DSL, checking old storage for migration...');
-      //     console.log('[RegistryTreeNavigation] Looking for account alias:', accountAlias);
+        const registryAliases = await accountDsl.listRegistries();
+        console.log('[RegistryTreeNavigation] Found registry aliases:', registryAliases);
 
-      //     // Try to get from old storage and migrate
-      //     const { getIdentities } = await import('@/lib/storage');
-      //     const identities = await getIdentities();
-      //     console.log('[RegistryTreeNavigation] Found identities in old storage:', identities.map(i => i.alias));
+        // Use tree builder that calculates depth via parent chain traversal
+        const tree = await buildRegistryTree(
+          registryAliases,
+          (alias) => accountDsl.registry(alias)
+        );
+        console.log('[RegistryTreeNavigation] Loaded tree:', tree);
 
-      //     const identity = identities.find(i => i.alias === accountAlias);
-
-      // } catch (error) {
-      //   console.error('Failed to build registry hierarchy:', error);
-      //   setRegistryTree([]);
-      // } finally {
-      //   setLoading(false);
-      // }
+        setRegistryTree(tree);
+      } catch (error) {
+        console.error('[RegistryTreeNavigation] Failed to build registry hierarchy:', error);
+        setRegistryTree([]);
+      } finally {
+        setLoading(false);
+      }
     }
 
     buildHierarchy();

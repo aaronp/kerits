@@ -8,24 +8,28 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { getDSL } from '@/lib/dsl';
+import { useAccount } from '@/lib/account-provider';
 import { Button } from '../ui/button';
 import type { KeritsDSL, AccountDSL } from '@kerits/app/dsl/types';
 import { RegistryTreeNavigation } from './RegistryTreeNavigation';
 import { RegistryBreadcrumbs } from './RegistryBreadcrumbs';
 import { RegistryDetailView } from './RegistryDetailView';
 import { CreateRegistryDialog } from './CreateRegistryDialog';
+import { route } from '@/config';
 
 export function Explorer() {
+  const navigate = useNavigate();
+  const { currentAccountAlias, loading: accountLoading } = useAccount();
   const { accountAlias: accountParam, '*': registryPathParam } = useParams<{
     accountAlias: string;
     '*': string;
   }>();
 
-  // Default to 'default' account if none specified
-  const accountAlias = accountParam || 'default';
+  // Use account from context if no param specified, otherwise use param
+  const accountAlias = accountParam || currentAccountAlias;
 
   // Parse registry path from URL (can be nested: regId1/regId2/regId3)
   const registryPath = registryPathParam ? registryPathParam.split('/').filter(Boolean) : [];
@@ -38,40 +42,42 @@ export function Explorer() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
+  // Wait for account context to load before proceeding
+  useEffect(() => {
+    if (accountLoading) {
+      return; // Still loading account context
+    }
+
+    if (!accountAlias) {
+      // No account available - redirect to login
+      console.warn('No account available, redirecting to login');
+      navigate(route('/'), { replace: true });
+      return;
+    }
+  }, [accountLoading, accountAlias, navigate]);
+
   // Initialize DSL
   useEffect(() => {
     async function init() {
+      // Don't initialize until we have an account alias
+      if (accountLoading || !accountAlias) {
+        return;
+      }
+
       try {
         const dslInstance = await getDSL();
         setDsl(dslInstance);
 
-        // Check if account exists
-        let accountNames = await dslInstance.accountNames();
+        // Get account DSL
+        const accountDslInstance = await dslInstance.account(accountAlias);
 
-        // If no accounts exist, create default one
-        if (accountNames.length === 0) {
-          console.log('No accounts found, creating default account...');
-
-          try {
-            const seed = new Uint8Array(32);
-            crypto.getRandomValues(seed);
-            const mnemonic = dslInstance.newMnemonic(seed);
-            await dslInstance.newAccount('default', mnemonic);
-            console.log('Account created successfully');
-
-            accountNames = await dslInstance.accountNames();
-            console.log('Account names after creation:', accountNames);
-          } catch (createError) {
-            console.error('Failed to create default account:', createError);
-            throw createError;
-          }
+        if (!accountDslInstance) {
+          console.error(`Account "${accountAlias}" not found`);
+          setLoading(false);
+          return;
         }
 
-        // Get account DSL (prefer the one from URL param, fallback to first)
-        const targetAccount = accountNames.includes(accountAlias) ? accountAlias : accountNames[0];
-        const accountDslInstance = await dslInstance.account(targetAccount);
         setAccountDsl(accountDslInstance);
-
         setLoading(false);
       } catch (error) {
         console.error('Failed to initialize DSL:', error);
@@ -80,7 +86,7 @@ export function Explorer() {
     }
 
     init();
-  }, [accountAlias]);
+  }, [accountAlias, accountLoading]);
 
   // Build registry alias map for breadcrumbs
   useEffect(() => {
@@ -112,7 +118,8 @@ export function Explorer() {
     setRefreshKey(prev => prev + 1);
   };
 
-  if (loading) {
+  // Show loading while account context or DSL is loading
+  if (accountLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-full">
         <div className="text-muted-foreground">Loading...</div>
@@ -120,12 +127,17 @@ export function Explorer() {
     );
   }
 
+  // If no account alias after loading completes, redirect will happen via useEffect
+  if (!accountAlias) {
+    return null;
+  }
+
   if (!accountDsl) {
     return (
       <div className="flex items-center justify-center min-h-full">
         <div className="text-center text-muted-foreground">
-          <p className="mb-2">No identity found.</p>
-          <p className="text-sm">Please create an identity first to use the Explorer.</p>
+          <p className="mb-2">Account "{accountAlias}" not found.</p>
+          <p className="text-sm">Please select a valid account.</p>
         </div>
       </div>
     );

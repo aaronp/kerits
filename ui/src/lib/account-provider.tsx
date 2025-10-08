@@ -42,13 +42,29 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       const savedAlias = localStorage.getItem(storageKey);
 
       const dsl = await getDSL();
-      const accountNames = await dsl.accountNames();
+      let accountNames = await dsl.accountNames();
 
+      // If no accounts exist, create a default one for this user
       if (accountNames.length === 0) {
-        // No accounts exist
-        setCurrentAccountAlias(null);
-        setLoading(false);
-        return;
+        console.log('No accounts found, creating account for user:', currentUser.name);
+
+        try {
+          // Use user name as account alias (sanitize it)
+          const accountAlias = currentUser.name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+
+          const seed = new Uint8Array(32);
+          crypto.getRandomValues(seed);
+          const mnemonic = dsl.newMnemonic(seed);
+          await dsl.newAccount(accountAlias, mnemonic);
+          console.log('Account created successfully:', accountAlias);
+
+          accountNames = await dsl.accountNames();
+        } catch (createError) {
+          console.error('Failed to create account:', createError);
+          setCurrentAccountAlias(null);
+          setLoading(false);
+          return;
+        }
       }
 
       // If saved alias exists and is valid, use it
