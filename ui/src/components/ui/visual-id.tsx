@@ -1,6 +1,10 @@
 import Avatar from 'boring-avatars';
 import { Button } from './button';
-import { Copy } from 'lucide-react';
+import { Copy, Check } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { route } from '@/config';
 
 interface VisualIdProps {
   label: string;
@@ -13,6 +17,7 @@ interface VisualIdProps {
   maxCharacters?: number;
   className?: string;
   onCopy?: (label: string) => void;
+  linkToGraph?: boolean;
 }
 
 export function VisualId({
@@ -25,10 +30,23 @@ export function VisualId({
   size = 40,
   maxCharacters = 8,
   className = '',
-  onCopy
+  onCopy,
+  linkToGraph = true,
 }: VisualIdProps) {
-  const handleCopy = async () => {
+  const [copied, setCopied] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const { toast } = useToast();
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     await navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    toast({
+      title: 'Copied to clipboard',
+      description: `${label || 'ID'}: ${value.substring(0, 20)}${value.length > 20 ? '...' : ''}`,
+    });
     onCopy?.(label);
   };
 
@@ -79,8 +97,23 @@ export function VisualId({
       : 'font-medium text-muted-foreground';
   const valueClass = small ? 'text-xs font-mono' : 'text-xs font-mono';
 
+  const ContentWrapper = linkToGraph ? Link : 'div';
+  const wrapperProps = linkToGraph
+    ? {
+      to: route(`/dashboard/graph?id=${value}`),
+      className: `flex items-center ${gapClass} ${className} group hover:bg-muted/50 rounded-md transition-colors cursor-pointer`,
+      onMouseEnter: () => setIsHovered(true),
+      onMouseLeave: () => setIsHovered(false),
+    }
+    : {
+      className: `flex items-center ${gapClass} ${className} group`,
+      onMouseEnter: () => setIsHovered(true),
+      onMouseLeave: () => setIsHovered(false),
+    };
+
   return (
-    <div className={`flex items-center ${gapClass} ${className}`}>
+    // @ts-expect-error: TypeScript may complain about the dynamic ContentWrapper type (Link | 'div')
+    <ContentWrapper {...wrapperProps}>
       <Avatar
         size={avatarSize}
         name={value}
@@ -96,7 +129,7 @@ export function VisualId({
           {displayValue}
         </div>
       </div>
-      {showCopy && (
+      {showCopy && (isHovered || copied) && (
         <Button
           variant="ghost"
           size="sm"
@@ -104,9 +137,13 @@ export function VisualId({
           className="flex-shrink-0"
           title="Copy to clipboard"
         >
-          <Copy className="h-3 w-3" />
+          {copied ? (
+            <Check className="h-3 w-3 text-green-500" />
+          ) : (
+            <Copy className="h-3 w-3" />
+          )}
         </Button>
       )}
-    </div>
+    </ContentWrapper>
   );
 }

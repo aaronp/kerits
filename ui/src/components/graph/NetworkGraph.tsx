@@ -725,6 +725,7 @@ export function NetworkGraph() {
                 value={resolvedNode.id}
                 size={40}
                 maxCharacters={20}
+                linkToGraph={false}
               />
 
               <div>

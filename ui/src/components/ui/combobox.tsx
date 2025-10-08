@@ -121,22 +121,31 @@ export interface ComboboxOption {
 export interface ComboboxProps {
   options: ComboboxOption[];
   value: string;
-  onChange: (value: string) => void;
+  onChange?: (value: string) => void;
+  onValueChange?: (value: string) => void;
   placeholder?: string;
+  emptyText?: string;
   emptyMessage?: string;
   allowCustomValue?: boolean;
   className?: string;
+  id?: string;
 }
 
 export function Combobox({
   options,
   value,
   onChange,
+  onValueChange,
   placeholder = "Select option...",
-  emptyMessage = "No results found.",
+  emptyText,
+  emptyMessage,
   allowCustomValue = false,
   className,
+  id,
 }: ComboboxProps) {
+  // Support both onChange and onValueChange for compatibility
+  const handleChange = onValueChange || onChange || (() => {});
+  const emptyMsg = emptyText || emptyMessage || "No results found.";
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
 
@@ -145,7 +154,7 @@ export function Combobox({
 
   // Handle selection
   const handleSelect = (selectedValue: string) => {
-    onChange(selectedValue === value ? "" : selectedValue);
+    handleChange(selectedValue === value ? "" : selectedValue);
     setOpen(false);
     setSearch("");
   };
@@ -154,7 +163,7 @@ export function Combobox({
   const handleSearchChange = (searchValue: string) => {
     setSearch(searchValue);
     if (allowCustomValue) {
-      onChange(searchValue);
+      handleChange(searchValue);
     }
   };
 
@@ -181,7 +190,7 @@ export function Combobox({
             onValueChange={handleSearchChange}
           />
           <CommandList>
-            <CommandEmpty>{emptyMessage}</CommandEmpty>
+            <CommandEmpty>{emptyMsg}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
                 <CommandItem
