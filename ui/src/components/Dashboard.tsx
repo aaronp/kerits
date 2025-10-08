@@ -117,6 +117,8 @@ export function Dashboard() {
 
   const handleShareKEL = async () => {
     try {
+      let kelText = '';
+
       if (hasAccounts) {
         // Use DSL to export account KEL
         const dsl = await getDSL();
@@ -132,17 +134,35 @@ export function Dashboard() {
         }
         const exportDsl = await accountDsl.export();
         const cesr = exportDsl.toCESR();
-        const text = new TextDecoder().decode(cesr);
-        await navigator.clipboard.writeText(text);
-        showToast('Account KEL copied to clipboard (CESR format)');
+        kelText = new TextDecoder().decode(cesr);
       } else if (identities.length > 0) {
         // Use old system
         const identity = identities[0];
-        const kelString = JSON.stringify(identity.kel, null, 2);
-        await navigator.clipboard.writeText(kelString);
-        showToast('KEL copied to clipboard');
+        kelText = JSON.stringify(identity.kel, null, 2);
       } else {
         showToast('No identity to share');
+        return;
+      }
+
+      // Try clipboard first, with fallback to download
+      try {
+        await navigator.clipboard.writeText(kelText);
+        showToast('Account KEL copied to clipboard (CESR format)');
+      } catch (clipboardError) {
+        console.warn('Clipboard write failed, downloading instead:', clipboardError);
+
+        // Fallback: Download as file
+        const blob = new Blob([kelText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `account-kel-${Date.now()}.cesr`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showToast('KEL downloaded (clipboard not available)');
       }
     } catch (error) {
       console.error('Failed to share KEL:', error);

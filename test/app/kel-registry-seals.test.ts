@@ -93,10 +93,11 @@ describe('KEL Registry Seals', () => {
 
     // Parse VCP to check for parent edge
     if (childVcp) {
-      const text = new TextDecoder().decode(childVcp.raw);
-      const jsonStart = text.indexOf('{');
-      const json = text.substring(jsonStart);
-      const event = JSON.parse(json);
+      const { parseCesrStream } = await import('../../src/app/signing');
+      const parsed = parseCesrStream(childVcp.raw);
+      const eventText = new TextDecoder().decode(parsed.event);
+      const jsonStart = eventText.indexOf('{');
+      const event = JSON.parse(eventText.substring(jsonStart));
 
       console.log('Child VCP event:', {
         t: event.t,
@@ -134,10 +135,11 @@ describe('KEL Registry Seals', () => {
     const childVcp = await store.getEvent(child.registry.registryId);
     expect(childVcp).toBeTruthy();
 
-    const text = new TextDecoder().decode(childVcp!.raw);
-    const jsonStart = text.indexOf('{');
-    const json = text.substring(jsonStart);
-    const event = JSON.parse(json);
+    const { parseCesrStream } = await import('../../src/app/signing');
+    const parsed = parseCesrStream(childVcp!.raw);
+    const eventText = new TextDecoder().decode(parsed.event);
+    const jsonStart = eventText.indexOf('{');
+    const event = JSON.parse(eventText.substring(jsonStart));
 
     expect(event.e).toBeTruthy();
     expect(event.e.parent).toBeTruthy();

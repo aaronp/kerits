@@ -291,6 +291,21 @@ export interface ContactsDSL {
    * @returns Array of Contact objects
    */
   getAll(): Promise<Contact[]>;
+
+  /**
+   * Export a contact's KEL in CESR format
+   * @param alias - Contact alias
+   * @returns CESR-encoded KEL events
+   */
+  exportKEL(alias: string): Promise<Uint8Array>;
+
+  /**
+   * Import a contact from KEL CESR data
+   * @param cesrData - CESR-encoded KEL events
+   * @param alias - Alias for the contact
+   * @returns Contact object
+   */
+  importKEL(cesrData: Uint8Array, alias: string): Promise<Contact>;
 }
 
 /**

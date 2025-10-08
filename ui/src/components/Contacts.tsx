@@ -57,54 +57,12 @@ export function Contacts() {
     setLoading(true);
     try {
       const dsl = await getDSL();
-      const importDsl = dsl.import();
       let kelData: any[];
       let prefix: string;
 
-      // Try to parse as CESR first (raw text format from export)
+      // Parse CESR format (raw text format from export)
       try {
-        const cesrBytes = new TextEncoder().encode(newContactKEL.trim());
-        const result = await importDsl.fromCESR(cesrBytes);
-
-        if (result.imported === 0) {
-          throw new Error('No events imported from CESR');
-        }
-
-        // Extract AID from the result or from first event
-        if (result.aid) {
-          prefix = result.aid;
-        } else {
-          // Parse the first event to get the AID using balanced brace counting
-          const cesrText = newContactKEL.trim();
-          let braceCount = 0;
-          let start = -1;
-          let end = -1;
-
-          for (let i = 0; i < cesrText.length; i++) {
-            if (cesrText[i] === '{') {
-              if (braceCount === 0) start = i;
-              braceCount++;
-            } else if (cesrText[i] === '}') {
-              braceCount--;
-              if (braceCount === 0 && start !== -1) {
-                end = i + 1;
-                break;
-              }
-            }
-          }
-
-          if (start === -1 || end === -1) {
-            throw new Error('Could not extract JSON from CESR');
-          }
-
-          const firstEvent = JSON.parse(cesrText.slice(start, end));
-          prefix = firstEvent.i || firstEvent.pre;
-          if (!prefix) {
-            throw new Error('Could not find AID in first event');
-          }
-        }
-
-        // Parse events into array format for storage using balanced brace counting
+        // Parse events into array format using balanced brace counting
         kelData = [];
         const cesrText = newContactKEL.trim();
         let offset = 0;
@@ -146,6 +104,13 @@ export function Contacts() {
         if (kelData.length === 0) {
           throw new Error('No events parsed from CESR');
         }
+
+        // Extract AID from first event
+        const firstEvent = kelData[0];
+        prefix = firstEvent.i || firstEvent.pre;
+        if (!prefix) {
+          throw new Error('Could not find AID in first event');
+        }
       } catch (cesrError) {
         // If CESR parsing fails, try JSON format
         try {
@@ -181,6 +146,17 @@ export function Contacts() {
         return;
       }
 
+      // Use DSL to import the contact KEL and create alias mappings
+      const contactsDsl = dsl.contacts();
+      const alias = newContactName.trim().toLowerCase().replace(/\s+/g, '-');
+
+      // Convert CESR text back to Uint8Array for DSL import
+      const cesrBytes = new TextEncoder().encode(newContactKEL.trim());
+      const importedContact = await contactsDsl.importKEL(cesrBytes, alias);
+
+      console.log(`[Contacts] Imported contact via DSL: ${alias} -> ${importedContact.aid}`);
+
+      // Also save to old storage for backwards compatibility
       const contact: Contact = {
         id: crypto.randomUUID(),
         name: newContactName.trim(),
@@ -188,8 +164,8 @@ export function Contacts() {
         prefix: prefix,
         createdAt: new Date().toISOString(),
       };
-
       await saveContact(contact);
+
       await loadContacts();
 
       // Reset form
