@@ -125,6 +125,54 @@ const tools: Tool[] = [
       required: ['schema_id'],
     },
   },
+  {
+    name: 'get_public_key',
+    description: 'Get the current public key(s) for an account (from latest KEL event)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account: {
+          type: 'string',
+          description: 'Account alias (optional, uses first account if not specified)',
+        },
+      },
+    },
+  },
+  {
+    name: 'list_contacts',
+    description: 'List all contacts (other AIDs with aliases and metadata)',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'get_contact',
+    description: 'Get contact details by alias',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        contact_alias: {
+          type: 'string',
+          description: 'Contact alias',
+        },
+      },
+      required: ['contact_alias'],
+    },
+  },
+  {
+    name: 'get_signed_credentials',
+    description: 'Get all credentials signed/issued by a specific account',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account: {
+          type: 'string',
+          description: 'Account alias (optional, uses first account if not specified)',
+        },
+      },
+    },
+  },
 ];
 
 // Tool handlers
@@ -353,6 +401,133 @@ async function handleGetSchema(args: any): Promise<string> {
   }, null, 2);
 }
 
+async function handleGetPublicKey(args: any): Promise<string> {
+  const dslInstance = await initDSL();
+
+  const accountName = args.account || (await dslInstance.accountNames())[0];
+  if (!accountName) {
+    return JSON.stringify({ error: 'No accounts found' }, null, 2);
+  }
+
+  const accountDsl = await dslInstance.account(accountName);
+  const account = await dslInstance.getAccount(accountName);
+
+  if (!account) {
+    return JSON.stringify({ error: `Account '${accountName}' not found` }, null, 2);
+  }
+
+  // Get KEL to find current keys
+  const kel = await accountDsl.getKel();
+
+  if (kel.length === 0) {
+    return JSON.stringify({ error: 'No KEL events found' }, null, 2);
+  }
+
+  // Latest event has current keys
+  const latestEvent = kel[kel.length - 1];
+
+  return JSON.stringify({
+    account: accountName,
+    aid: account.aid,
+    currentKeys: latestEvent.k || [], // Current signing keys
+    nextKeys: latestEvent.n || [], // Next key commitment
+    eventType: latestEvent.t, // 'icp' or 'rot'
+    sequence: latestEvent.s,
+    eventSaid: latestEvent.d,
+    keyCount: (latestEvent.k || []).length,
+  }, null, 2);
+}
+
+async function handleListContacts(): Promise<string> {
+  const dslInstance = await initDSL();
+  const contactsDsl = dslInstance.contacts();
+
+  const contactAliases = await contactsDsl.list();
+
+  const contacts = await Promise.all(
+    contactAliases.map(async (alias) => {
+      const contact = await contactsDsl.get(alias);
+      if (!contact) return null;
+
+      return {
+        alias,
+        aid: contact.aid,
+        name: contact.metadata?.name || alias,
+        role: contact.metadata?.role || 'unknown',
+        metadata: contact.metadata,
+      };
+    })
+  );
+
+  return JSON.stringify({
+    count: contacts.filter(c => c !== null).length,
+    contacts: contacts.filter(c => c !== null),
+  }, null, 2);
+}
+
+async function handleGetContact(args: any): Promise<string> {
+  const dslInstance = await initDSL();
+  const contactsDsl = dslInstance.contacts();
+
+  const contact = await contactsDsl.get(args.contact_alias);
+
+  if (!contact) {
+    return JSON.stringify({ error: `Contact '${args.contact_alias}' not found` }, null, 2);
+  }
+
+  return JSON.stringify({
+    alias: args.contact_alias,
+    aid: contact.aid,
+    metadata: contact.metadata,
+  }, null, 2);
+}
+
+async function handleGetSignedCredentials(args: any): Promise<string> {
+  const dslInstance = await initDSL();
+
+  const accountName = args.account || (await dslInstance.accountNames())[0];
+  if (!accountName) {
+    return JSON.stringify({ error: 'No accounts found' }, null, 2);
+  }
+
+  const account = await dslInstance.getAccount(accountName);
+  if (!account) {
+    return JSON.stringify({ error: `Account '${accountName}' not found` }, null, 2);
+  }
+
+  const issuerAid = account.aid;
+  const accountDsl = await dslInstance.account(accountName);
+  const registries = await accountDsl.listRegistries();
+
+  // Collect all credentials issued by this account
+  const signedCredentials = [];
+
+  for (const registryAlias of registries) {
+    const registryDsl = await accountDsl.registry(registryAlias);
+    const credentials = await registryDsl.listCredentials();
+
+    // Filter credentials where this account is the issuer
+    const issued = credentials.filter(c => c.issuerAid === issuerAid);
+
+    signedCredentials.push(...issued.map(c => ({
+      credentialId: c.credentialId,
+      holderAid: c.holderAid,
+      registry: registryAlias,
+      status: c.status,
+      issuedAt: c.issuedAt,
+      revokedAt: c.revokedAt,
+      schemas: c.schemas.map(s => s.schemaSaid),
+    })));
+  }
+
+  return JSON.stringify({
+    account: accountName,
+    issuerAid,
+    totalSigned: signedCredentials.length,
+    credentials: signedCredentials,
+  }, null, 2);
+}
+
 // Create MCP server
 const server = new Server(
   {
@@ -395,6 +570,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case 'get_schema':
         result = await handleGetSchema(args);
+        break;
+      case 'get_public_key':
+        result = await handleGetPublicKey(args);
+        break;
+      case 'list_contacts':
+        result = await handleListContacts();
+        break;
+      case 'get_contact':
+        result = await handleGetContact(args);
+        break;
+      case 'get_signed_credentials':
+        result = await handleGetSignedCredentials(args);
         break;
       default:
         throw new Error(`Unknown tool: ${name}`);
