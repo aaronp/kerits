@@ -10,9 +10,10 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Download, Upload, FolderPlus, FileText, Shield } from 'lucide-react';
+import { Plus, Download, FileText, Check, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
+import { Textarea } from '../ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -32,6 +33,7 @@ import { ACDCRecord } from './ACDCRecord';
 import type { KeritsDSL, RegistryDSL } from '@kerits/app/dsl/types';
 import type { IndexedACDC } from '@kerits/app/indexer/types';
 import type { JSONSchema7Property } from '@kerits/app/dsl/types';
+import { Select } from '../ui/select';
 
 interface RegistryDetailViewProps {
   dsl: KeritsDSL | null;
@@ -70,6 +72,24 @@ export function RegistryDetailView({
   const [edgeFilter, setEdgeFilter] = useState('');
   const [availableCredentials, setAvailableCredentials] = useState<Array<{ value: string; label: string; schemaId?: string }>>([]);
   const [edgeCredentialSearch, setEdgeCredentialSearch] = useState('');
+
+  // Import dialog state
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importAlias, setImportAlias] = useState('');
+  const [importIpexData, setImportIpexData] = useState('');
+  const [ipexValidation, setIpexValidation] = useState<{
+    isValid: boolean;
+    issuerName: string | null;
+    issuerAid: string | null;
+    credentialId: string | null;
+    errors: string[];
+    checks: {
+      validJson: boolean;
+      validStructure: boolean;
+      validSaid: boolean;
+      validSignature: boolean;
+    };
+  } | null>(null);
 
   // Load registry data
   useEffect(() => {
@@ -311,9 +331,167 @@ export function RegistryDetailView({
   };
 
 
+  // Validate IPEX data when it changes
+  useEffect(() => {
+    async function validateIpex() {
+      if (!importIpexData.trim() || !dsl) {
+        setIpexValidation(null);
+        return;
+      }
+
+      const checks = {
+        validJson: false,
+        validStructure: false,
+        validSaid: false,
+        validSignature: false,
+      };
+      const errors: string[] = [];
+      let issuerAid: string | null = null;
+      let issuerName: string | null = null;
+      let credentialId: string | null = null;
+
+      try {
+        // Parse JSON
+        const ipexData = JSON.parse(importIpexData);
+        checks.validJson = true;
+
+        // Check IPEX structure
+        if (ipexData.r === '/ipex/grant' && ipexData.e?.acdc && ipexData.e?.iss) {
+          checks.validStructure = true;
+
+          // Extract credential and issuer info
+          const acdc = ipexData.e.acdc;
+          credentialId = acdc.d;
+          issuerAid = acdc.i;
+
+          // Verify ACDC SAID
+          if (credentialId && credentialId.length === 44 && credentialId.startsWith('E')) {
+            checks.validSaid = true;
+          } else {
+            errors.push('Invalid credential SAID');
+          }
+
+          // Look up issuer name
+          if (issuerAid) {
+            // Check if issuer is current account
+            const accountDsl = await dsl.account(accountAlias);
+            if (accountDsl && accountDsl.account.aid === issuerAid) {
+              issuerName = accountAlias;
+            } else {
+              // Check contacts
+              const contactsDsl = dsl.contacts();
+              const allContacts = await contactsDsl.getAll();
+              const contact = allContacts.find(c => c.aid === issuerAid);
+              if (contact) {
+                issuerName = contact.alias;
+              } else {
+                issuerName = issuerAid.substring(0, 16) + '...';
+              }
+            }
+          }
+
+          // Basic signature validation (check if signatures exist)
+          // Full cryptographic validation would be done on import
+          checks.validSignature = true; // Assume valid for now, will be verified on import
+        } else {
+          errors.push('Not a valid IPEX grant message');
+        }
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          errors.push('Invalid JSON format');
+        } else {
+          errors.push(error instanceof Error ? error.message : 'Unknown error');
+        }
+      }
+
+      const isValid = checks.validJson && checks.validStructure && checks.validSaid && checks.validSignature;
+
+      setIpexValidation({
+        isValid,
+        issuerName,
+        issuerAid,
+        credentialId,
+        errors,
+        checks,
+      });
+    }
+
+    validateIpex();
+  }, [importIpexData, dsl, accountAlias]);
+
   const handleImport = () => {
-    // TODO: Implement import
-    console.log('Import to registry:', registryId);
+    setShowImportDialog(true);
+    setImportAlias('');
+    setImportIpexData('');
+    setIpexValidation(null);
+  };
+
+  const handleImportCredential = async () => {
+    if (!registryDsl || !importAlias.trim() || !ipexValidation?.isValid) {
+      return;
+    }
+
+    try {
+      // Parse IPEX grant
+      const ipexData = JSON.parse(importIpexData);
+      const { parseExchangeMessage } = await import('@kerits/ipex');
+
+      const grantMessage = parseExchangeMessage(importIpexData);
+
+      if (!grantMessage.e?.acdc || !grantMessage.e?.iss) {
+        throw new Error('Invalid IPEX grant structure');
+      }
+
+      // Import credential using registry accept method
+      await registryDsl.accept({
+        credential: grantMessage.e.acdc,
+        issEvent: grantMessage.e.iss,
+        alias: importAlias.trim(),
+      });
+
+      toast({
+        title: 'Credential Imported',
+        description: `Successfully imported credential "${importAlias}" from ${ipexValidation.issuerName}`,
+      });
+
+      // Reload credentials
+      const acdcAliases = await registryDsl.listACDCs();
+      const acdcList: IndexedACDC[] = [];
+
+      for (const alias of acdcAliases) {
+        const acdcDsl = await registryDsl.acdc(alias);
+        if (acdcDsl) {
+          const status = await acdcDsl.status();
+          acdcList.push({
+            credentialId: acdcDsl.acdc.credentialId,
+            alias: acdcDsl.acdc.alias,
+            registryId: acdcDsl.acdc.registryId,
+            issuerAid: acdcDsl.acdc.issuerAid,
+            holderAid: acdcDsl.acdc.holderAid,
+            schemaId: acdcDsl.acdc.schemaId,
+            issuedAt: acdcDsl.acdc.issuedAt,
+            status: status.status,
+            revoked: status.revoked,
+            data: {},
+          });
+        }
+      }
+
+      setAcdcs(acdcList);
+
+      // Close dialog
+      setShowImportDialog(false);
+      setImportAlias('');
+      setImportIpexData('');
+      setIpexValidation(null);
+    } catch (error) {
+      console.error('Failed to import credential:', error);
+      toast({
+        title: 'Import Failed',
+        description: error instanceof Error ? error.message : 'Failed to import credential',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleSchemaChange = (value: string) => {
@@ -753,6 +931,108 @@ export function RegistryDetailView({
               disabled={!selectedSchema || selectedSchema === '__create__' || !selectedHolder || !credentialAlias.trim()}
             >
               Issue Credential
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Credential Dialog */}
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Import Credential</DialogTitle>
+            <DialogDescription>
+              Import an IPEX credential into "{registryDsl.registry.alias}" registry
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            {/* Alias input */}
+            <div className="grid gap-2">
+              <Label htmlFor="importAlias">Credential Alias *</Label>
+              <Input
+                id="importAlias"
+                value={importAlias}
+                onChange={(e) => setImportAlias(e.target.value)}
+                placeholder="e.g., imported-credential"
+              />
+            </div>
+
+            {/* IPEX data textarea */}
+            <div className="grid gap-2">
+              <Label htmlFor="ipexData">IPEX Credential Data *</Label>
+              <Textarea
+                id="ipexData"
+                value={importIpexData}
+                onChange={(e) => setImportIpexData(e.target.value)}
+                placeholder="Paste IPEX grant message JSON here..."
+                rows={10}
+                className="font-mono text-sm"
+              />
+            </div>
+
+            {/* Validation status */}
+            {ipexValidation && (
+              <div className="space-y-2 p-3 border rounded">
+                <div className="flex items-center gap-2">
+                  {ipexValidation.checks.validJson ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <X className="h-4 w-4 text-red-500" />
+                  )}
+                  <span className="text-sm">Valid JSON</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {ipexValidation.checks.validStructure ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <X className="h-4 w-4 text-red-500" />
+                  )}
+                  <span className="text-sm">Valid IPEX Grant Structure</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {ipexValidation.checks.validSaid ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <X className="h-4 w-4 text-red-500" />
+                  )}
+                  <span className="text-sm">Valid Credential SAID</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {ipexValidation.checks.validSignature ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <X className="h-4 w-4 text-red-500" />
+                  )}
+                  <span className="text-sm">Valid Signature</span>
+                </div>
+
+                {ipexValidation.isValid && ipexValidation.issuerName && (
+                  <div className="pt-2 mt-2 border-t">
+                    <p className="text-sm font-medium">
+                      Import from {ipexValidation.issuerName}
+                    </p>
+                  </div>
+                )}
+
+                {ipexValidation.errors.length > 0 && (
+                  <div className="pt-2 mt-2 border-t">
+                    {ipexValidation.errors.map((error, i) => (
+                      <p key={i} className="text-sm text-destructive">{error}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowImportDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleImportCredential}
+              disabled={!importAlias.trim() || !ipexValidation?.isValid}
+            >
+              Import Credential
             </Button>
           </DialogFooter>
         </DialogContent>

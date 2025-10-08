@@ -23,9 +23,6 @@ export async function buildRegistryTree(
   registryAliases: string[],
   getRegistry: (alias: string) => Promise<RegistryDSL | null>
 ): Promise<RegistryNode[]> {
-
-  console.log('[buildRegistryTree] Building tree for aliases:', registryAliases);
-
   // First pass: Load all registries and create node map
   const registryMap = new Map<string, RegistryNode>();
   const aliasToIdMap = new Map<string, string>();
@@ -35,11 +32,6 @@ export async function buildRegistryTree(
     if (registryDsl) {
       const registry = registryDsl.registry;
       aliasToIdMap.set(alias, registry.registryId);
-
-      console.log(`[buildRegistryTree] Loaded registry "${alias}":`, {
-        id: registry.registryId.substring(0, 20),
-        parentId: registry.parentRegistryId?.substring(0, 20) || 'none',
-      });
 
       registryMap.set(registry.registryId, {
         registryId: registry.registryId,
@@ -82,17 +74,6 @@ export async function buildRegistryTree(
     nodes.forEach(node => sortChildren(node.children));
   };
   sortChildren(rootNodes);
-
-  console.log('[buildRegistryTree] Final tree structure:');
-  const logTree = (nodes: RegistryNode[], indent = '') => {
-    for (const node of nodes) {
-      console.log(`${indent}${node.alias} (depth: ${node.depth}, parent: ${node.parentRegistryId?.substring(0, 12) || 'none'})`);
-      if (node.children.length > 0) {
-        logTree(node.children, indent + '  ');
-      }
-    }
-  };
-  logTree(rootNodes);
 
   return rootNodes;
 }

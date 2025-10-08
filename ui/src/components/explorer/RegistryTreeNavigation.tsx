@@ -45,7 +45,6 @@ export function RegistryTreeNavigation({ dsl, accountAlias, selectedRegistryId, 
 
       try {
         setLoading(true);
-        console.log('[RegistryTreeNavigation] Building hierarchy for account:', accountAlias);
 
         const accountDsl = await dsl.account(accountAlias);
         if (!accountDsl) {
@@ -56,14 +55,12 @@ export function RegistryTreeNavigation({ dsl, accountAlias, selectedRegistryId, 
         }
 
         const registryAliases = await accountDsl.listRegistries();
-        console.log('[RegistryTreeNavigation] Found registry aliases:', registryAliases);
 
         // Use tree builder that calculates depth via parent chain traversal
         const tree = await buildRegistryTree(
           registryAliases,
           (alias) => accountDsl.registry(alias)
         );
-        console.log('[RegistryTreeNavigation] Loaded tree:', tree);
 
         setRegistryTree(tree);
       } catch (error) {
@@ -108,7 +105,6 @@ export function RegistryTreeNavigation({ dsl, accountAlias, selectedRegistryId, 
 
       const regDsl = await accountDsl.registry(node.alias);
       if (regDsl) {
-        console.log('Setting parent registry for sub-registry creation:', regDsl.registry);
         setSelectedParentRegistry(regDsl);
         setShowCreateDialog(true);
       }
