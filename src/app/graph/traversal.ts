@@ -481,6 +481,7 @@ export class KeriTraversal {
     const nodes: ResolvedNode[] = [];
     const edges: TraversalEdge[] = [];
     const seenIds = new Set<SAID>();
+    const seenEdges = new Set<string>();
 
     function traverse(treeNode: TraversalNode) {
       // Add node if not seen
@@ -489,9 +490,13 @@ export class KeriTraversal {
         seenIds.add(treeNode.node.id);
       }
 
-      // Add edge if present
+      // Add edge if present and not already added
       if (treeNode.edgeFromParent) {
-        edges.push(treeNode.edgeFromParent);
+        const edgeKey = `${treeNode.edgeFromParent.from}-${treeNode.edgeFromParent.to}-${treeNode.edgeFromParent.kind}`;
+        if (!seenEdges.has(edgeKey)) {
+          edges.push(treeNode.edgeFromParent);
+          seenEdges.add(edgeKey);
+        }
       }
 
       // Traverse parents

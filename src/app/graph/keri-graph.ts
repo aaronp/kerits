@@ -33,7 +33,23 @@ export class KeriGraph {
   async build(opts: KeriGraphOptions = {}): Promise<Graph> {
     const nodes: GraphNode[] = [];
     const edges: GraphEdge[] = [];
+    const seenNodes = new Set<string>();
+    const seenEdges = new Set<string>();
     const edgeId = (from: string, to: string, kind: string) => `${from}-${kind}-${to}`;
+
+    const addNode = (node: GraphNode) => {
+      if (!seenNodes.has(node.id)) {
+        nodes.push(node);
+        seenNodes.add(node.id);
+      }
+    };
+
+    const addEdge = (edge: GraphEdge) => {
+      if (!seenEdges.has(edge.id)) {
+        edges.push(edge);
+        seenEdges.add(edge.id);
+      }
+    };
 
     // Get all accounts (AIDs)
     const accountAliases = await this.dsl.accountNames();
@@ -46,7 +62,7 @@ export class KeriGraph {
       if (opts.filterAid && opts.filterAid !== account.aid) continue;
 
       // Add AID node
-      nodes.push({
+      addNode({
         id: account.aid,
         kind: 'AID',
         label: accountAlias,
@@ -57,7 +73,7 @@ export class KeriGraph {
       const kelEvents = await this.store.listKel(account.aid);
       for (const kelEvent of kelEvents) {
         const eventId = kelEvent.meta.d;
-        nodes.push({
+        addNode({
           id: eventId,
           kind: 'KEL_EVT',
           label: kelEvent.meta.t,
@@ -66,7 +82,7 @@ export class KeriGraph {
 
         // Add PRIOR edge if there's a previous event
         if (kelEvent.meta.p) {
-          edges.push({
+          addEdge({
             id: edgeId(kelEvent.meta.p, eventId, 'PRIOR'),
             from: kelEvent.meta.p,
             to: eventId,
@@ -90,7 +106,7 @@ export class KeriGraph {
         if (opts.filterRegistryId && opts.filterRegistryId !== registryId) continue;
 
         // Add registry node
-        nodes.push({
+        addNode({
           id: registryId,
           kind: 'TEL_REGISTRY',
           label: regAlias,
@@ -100,7 +116,7 @@ export class KeriGraph {
         // Find anchor event in KEL
         const anchorEvent = registryDsl.registry.anchorEvent;
         if (anchorEvent) {
-          edges.push({
+          addEdge({
             id: edgeId(anchorEvent, registryId, 'ANCHOR'),
             from: anchorEvent,
             to: registryId,
@@ -113,7 +129,7 @@ export class KeriGraph {
           const telEvents = await registryDsl.getTel();
           for (const telEvent of telEvents) {
             const eventId = telEvent.d;
-            nodes.push({
+            addNode({
               id: eventId,
               kind: 'TEL_EVT',
               label: telEvent.t,
@@ -122,7 +138,7 @@ export class KeriGraph {
 
             // Add PRIOR edge if there's a previous event
             if (telEvent.p) {
-              edges.push({
+              addEdge({
                 id: edgeId(telEvent.p, eventId, 'PRIOR'),
                 from: telEvent.p,
                 to: eventId,
@@ -142,7 +158,7 @@ export class KeriGraph {
             const credentialId = acdcDsl.acdc.credentialId;
 
             // Add ACDC node
-            nodes.push({
+            addNode({
               id: credentialId,
               kind: 'ACDC',
               label: acdcAlias,
@@ -152,7 +168,7 @@ export class KeriGraph {
             // Add edge from issuance event to ACDC
             const issEvent = acdcDsl.acdc.issEvent;
             if (issEvent) {
-              edges.push({
+              addEdge({
                 id: edgeId(issEvent, credentialId, 'ISSUES'),
                 from: issEvent,
                 to: credentialId,
@@ -164,7 +180,7 @@ export class KeriGraph {
             if (opts.includeSchemas !== false) {
               const schemaId = acdcDsl.acdc.schemaId;
               if (schemaId) {
-                edges.push({
+                addEdge({
                   id: edgeId(credentialId, schemaId, 'USES_SCHEMA'),
                   from: credentialId,
                   to: schemaId,
@@ -186,15 +202,13 @@ export class KeriGraph {
 
         const schemaId = schemaDsl.schema.schemaSaid;
 
-        // Only add schema node if it doesn't already exist
-        if (!nodes.find(n => n.id === schemaId)) {
-          nodes.push({
-            id: schemaId,
-            kind: 'SCHEMA',
-            label: schemaAlias,
-            meta: { alias: schemaAlias },
-          });
-        }
+        // Add schema node (deduplicated by addNode)
+        addNode({
+          id: schemaId,
+          kind: 'SCHEMA',
+          label: schemaAlias,
+          meta: { alias: schemaAlias },
+        });
       }
     }
 
