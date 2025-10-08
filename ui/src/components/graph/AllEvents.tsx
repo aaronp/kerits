@@ -19,6 +19,7 @@ import {
 } from '../ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { CellSummary } from './CellSummary';
+import { parseKeriEvent } from './parse-event';
 import type { KeritsDSL } from '@kerits/app/dsl/types';
 import type { KerStore, KelEvent, TelEvent, SAID, AID } from '@kerits/storage/types';
 
@@ -132,38 +133,7 @@ export function AllEvents({ dsl }: AllEventsProps) {
     said: SAID,
     meta: any
   ): Promise<ParsedEvent> {
-    let parsed: any = null;
-    let publicKeys: string[] = [];
-    let signatures: string[] = [];
-
-    try {
-      const decoder = new TextDecoder();
-      const text = decoder.decode(raw);
-      const lines = text.split('\n');
-      const jsonLine = lines.find(line => line.trim().startsWith('{'));
-
-      if (jsonLine) {
-        parsed = JSON.parse(jsonLine);
-
-        // Extract public keys
-        if (parsed.k) {
-          publicKeys = Array.isArray(parsed.k) ? parsed.k : [parsed.k];
-        }
-        // For TEL events, check backers (b)
-        if (parsed.b) {
-          publicKeys = Array.isArray(parsed.b) ? parsed.b : [parsed.b];
-        }
-      }
-
-      // Extract signatures from CESR attachments
-      const sigRegex = /0A([A-Za-z0-9_-]{86})/g;
-      let match;
-      while ((match = sigRegex.exec(text)) !== null) {
-        signatures.push(match[1]);
-      }
-    } catch (parseErr) {
-      console.warn('Failed to parse event:', parseErr);
-    }
+    const { parsed, publicKeys, signatures } = parseKeriEvent(raw);
 
     return {
       said,
@@ -220,11 +190,11 @@ export function AllEvents({ dsl }: AllEventsProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto relative">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[200px] sticky left-0 bg-card z-10 border-r">
+                <TableHead className="w-[200px] sticky left-0 bg-card/95 backdrop-blur-sm z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)]">
                   Registry
                 </TableHead>
                 {Array.from({ length: maxColumns }, (_, i) => (
@@ -237,7 +207,7 @@ export function AllEvents({ dsl }: AllEventsProps) {
             <TableBody>
               {rows.map((row) => (
                 <TableRow key={row.id}>
-                  <TableCell className="font-medium sticky left-0 bg-card z-10 border-r">
+                  <TableCell className="font-medium sticky left-0 bg-card/95 backdrop-blur-sm z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)]">
                     <div className="flex flex-col gap-1">
                       <span className={row.type === 'KEL' ? 'font-semibold' : 'pl-4'}>
                         {row.label}
@@ -252,7 +222,11 @@ export function AllEvents({ dsl }: AllEventsProps) {
                     return (
                       <TableCell
                         key={`${row.id}-${idx}`}
-                        className={`align-top ${isHighlighted ? 'bg-primary/10 border-2 border-primary' : ''}`}
+                        className={`align-top transition-all ${
+                          isHighlighted
+                            ? 'bg-blue-100 dark:bg-blue-950 border-4 border-blue-500 dark:border-blue-400 shadow-lg'
+                            : ''
+                        }`}
                       >
                         <CellSummary event={event} />
                       </TableCell>

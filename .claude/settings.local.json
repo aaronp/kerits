@@ -5,7 +5,8 @@
       "Bash(bunx shadcn@latest add:*)",
       "Bash(bunx shadcn@latest search:*)",
       "Bash(bun add:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(bun test:*)"
     ],
     "deny": [],
     "ask": []

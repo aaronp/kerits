@@ -18,6 +18,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Eye, FileJson, Binary } from 'lucide-react';
 import { VisualId } from '../ui/visual-id';
+import { Signature } from '../ui/signature';
 import { NodeDetails } from '../ui/NodeDetails';
 import type { EventMeta } from '@kerits/storage/types';
 
@@ -63,6 +64,29 @@ export function CellSummary({ event }: CellSummaryProps) {
   const sequenceNumber = event.meta.s !== undefined ? parseInt(event.meta.s, 16) : undefined;
   const primaryPublicKey = event.publicKeys?.[0];
   const primarySignature = event.signatures?.[0];
+
+  // Extract event bytes (without signatures) for verification
+  // The signature is over the event bytes, not including the signature section
+  const getEventBytes = (): Uint8Array | undefined => {
+    if (!event.raw) return undefined;
+    try {
+      const text = new TextDecoder().decode(event.raw);
+      const sigStart = text.indexOf('-AAD');
+      if (sigStart === -1) return event.raw; // No signatures found
+
+      // Find the newline before -AAD
+      let eventEnd = sigStart;
+      if (sigStart > 0 && text[sigStart - 1] === '\n') {
+        eventEnd = sigStart - 1;
+      }
+
+      return event.raw.slice(0, eventEnd);
+    } catch {
+      return undefined;
+    }
+  };
+
+  const eventBytesForVerification = getEventBytes();
 
   // Prepare data for NodeDetails
   const nodeDetailsData: Record<string, any> = {
@@ -142,20 +166,33 @@ export function CellSummary({ event }: CellSummaryProps) {
         {/* Public Key */}
         {primaryPublicKey && (
           <div className="flex items-center gap-1">
-            <span className="text-xs text-muted-foreground">Key:</span>
-            <code className="text-xs font-mono truncate max-w-[120px]" title={primaryPublicKey}>
-              {primaryPublicKey.substring(0, 12)}...
-            </code>
+            <VisualId
+              label="Key"
+              variant="ring"
+              value={primaryPublicKey}
+              size={16}
+              maxCharacters={10}
+              showCopy={true}
+              small
+              linkToGraph={false}
+            />
           </div>
         )}
 
         {/* Signature */}
         {primarySignature && (
           <div className="flex items-center gap-1">
-            <span className="text-xs text-muted-foreground">Sig:</span>
-            <code className="text-xs font-mono truncate max-w-[120px]" title={primarySignature}>
-              {primarySignature.substring(0, 12)}...
-            </code>
+            <Signature
+              label="Sig"
+              value={primarySignature}
+              size={16}
+              maxCharacters={10}
+              showCopy={true}
+              showVerify={true}
+              publicKey={primaryPublicKey}
+              message={eventBytesForVerification}
+              small
+            />
           </div>
         )}
 
