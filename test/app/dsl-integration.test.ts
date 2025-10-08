@@ -217,3 +217,137 @@ describe('Multiple Registries', () => {
     console.log('✓ Retrieved specific registry');
   });
 });
+
+describe('Credential Issuance and Retrieval in Nested Registries', () => {
+  it('should issue credentials and read them back via listACDCs', async () => {
+    const kv = new MemoryKv();
+    const store = createKerStore(kv);
+    const dsl = createKeritsDSL(store);
+
+    // Create accounts
+    const issuerMnemonic = dsl.newMnemonic(SEED_ISSUER);
+    await dsl.newAccount('issuer', issuerMnemonic);
+    const holderMnemonic = dsl.newMnemonic(SEED_HOLDER);
+    await dsl.newAccount('holder', holderMnemonic);
+    const holder = await dsl.getAccount('holder');
+    expect(holder).not.toBeNull();
+
+    console.log('✓ Created issuer and holder accounts');
+
+    // Create account DSL
+    const accountDsl = await dsl.account('issuer');
+    expect(accountDsl).not.toBeNull();
+
+    // Create nested registry hierarchy:
+    // root-registry
+    //   └─ child-registry
+    //       └─ grandchild-registry
+    const rootRegistry = await accountDsl!.createRegistry('root-registry');
+    const childRegistry = await rootRegistry.createRegistry('child-registry');
+    const grandchildRegistry = await childRegistry.createRegistry('grandchild-registry');
+
+    console.log('✓ Created 3-level nested registry hierarchy');
+
+    // Create schemas
+    const basicSchema = await dsl.createSchema('basic-credential', {
+      title: 'Basic Credential',
+      properties: {
+        field1: { type: 'string' },
+        field2: { type: 'number' },
+      },
+      required: ['field1'],
+    });
+
+    const advancedSchema = await dsl.createSchema('advanced-credential', {
+      title: 'Advanced Credential',
+      properties: {
+        data: { type: 'string' },
+        verified: { type: 'boolean' },
+      },
+      required: ['data'],
+    });
+
+    console.log('✓ Created schemas');
+
+    // Issue credentials in each registry level
+    console.log('Issuing credential in root registry...');
+    const rootAcdc = await rootRegistry.issue({
+      schema: 'basic-credential',
+      holder: holder!.aid,
+      data: { field1: 'root-data', field2: 100 },
+      alias: 'root-cred',
+    });
+    expect(rootAcdc.acdc.credentialId).toBeDefined();
+    console.log('✓ Issued credential in root registry');
+
+    console.log('Issuing credential in child registry...');
+    const childAcdc = await childRegistry.issue({
+      schema: 'advanced-credential',
+      holder: holder!.aid,
+      data: { data: 'child-data', verified: true },
+      alias: 'child-cred',
+    });
+    expect(childAcdc.acdc.credentialId).toBeDefined();
+    console.log('✓ Issued credential in child registry');
+
+    console.log('Issuing credential in grandchild registry...');
+    const grandchildAcdc = await grandchildRegistry.issue({
+      schema: 'basic-credential',
+      holder: holder!.aid,
+      data: { field1: 'grandchild-data', field2: 200 },
+      alias: 'grandchild-cred',
+    });
+    expect(grandchildAcdc.acdc.credentialId).toBeDefined();
+    console.log('✓ Issued credential in grandchild registry');
+
+    // Read back credentials via listACDCs and verify they're correctly filtered by registry
+    console.log('Reading back credentials from root registry...');
+    const rootAcdcs = await rootRegistry.listACDCs();
+    console.log('Root registry ACDCs:', rootAcdcs);
+    expect(rootAcdcs).toHaveLength(1);
+    expect(rootAcdcs).toContain('root-cred');
+    console.log('✓ Root registry contains only root credential');
+
+    console.log('Reading back credentials from child registry...');
+    const childAcdcs = await childRegistry.listACDCs();
+    console.log('Child registry ACDCs:', childAcdcs);
+    expect(childAcdcs).toHaveLength(1);
+    expect(childAcdcs).toContain('child-cred');
+    console.log('✓ Child registry contains only child credential');
+
+    console.log('Reading back credentials from grandchild registry...');
+    const grandchildAcdcs = await grandchildRegistry.listACDCs();
+    console.log('Grandchild registry ACDCs:', grandchildAcdcs);
+    expect(grandchildAcdcs).toHaveLength(1);
+    expect(grandchildAcdcs).toContain('grandchild-cred');
+    console.log('✓ Grandchild registry contains only grandchild credential');
+
+    // Verify we can retrieve the full ACDC data for each credential
+    console.log('Verifying credential data retrieval...');
+    const rootCredDsl = await rootRegistry.acdc('root-cred');
+    expect(rootCredDsl).not.toBeNull();
+    expect(rootCredDsl!.acdc.data.field1).toBe('root-data');
+    expect(rootCredDsl!.acdc.data.field2).toBe(100);
+    console.log('✓ Root credential data retrieved correctly');
+
+    const childCredDsl = await childRegistry.acdc('child-cred');
+    expect(childCredDsl).not.toBeNull();
+    expect(childCredDsl!.acdc.data.data).toBe('child-data');
+    expect(childCredDsl!.acdc.data.verified).toBe(true);
+    console.log('✓ Child credential data retrieved correctly');
+
+    const grandchildCredDsl = await grandchildRegistry.acdc('grandchild-cred');
+    expect(grandchildCredDsl).not.toBeNull();
+    expect(grandchildCredDsl!.acdc.data.field1).toBe('grandchild-data');
+    expect(grandchildCredDsl!.acdc.data.field2).toBe(200);
+    console.log('✓ Grandchild credential data retrieved correctly');
+
+    // Verify credentials belong to correct registry (via registryId field)
+    expect(rootCredDsl!.acdc.registryId).toBe(rootRegistry.registry.registryId);
+    expect(childCredDsl!.acdc.registryId).toBe(childRegistry.registry.registryId);
+    expect(grandchildCredDsl!.acdc.registryId).toBe(grandchildRegistry.registry.registryId);
+    console.log('✓ All credentials correctly associated with their registries');
+
+    console.log('✓ Complete credential issuance and retrieval test passed');
+  });
+});

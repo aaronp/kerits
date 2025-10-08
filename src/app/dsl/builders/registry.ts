@@ -103,23 +103,23 @@ export function createRegistryDSL(
         return null;
       }
 
-      // Get credential from storage
-      const stored = await store.getEvent(credentialId);
-      if (!stored) {
+      // Get credential data from JSON storage (dual storage fix)
+      const acdcData = await store.getACDC(credentialId);
+      if (!acdcData) {
+        console.warn(`ACDC data not found for ${alias} (${credentialId})`);
         return null;
       }
 
-      // Extract ACDC data from stored event
-      // This is a simplified version - in production, parse the full ACDC
-      const acdcObj = {
+      // Build ACDC object from stored data
+      const acdcObj: ACDC = {
         alias,
         credentialId,
-        registryId: registry.registryId,
-        schemaId: '', // Would extract from stored event
-        issuerAid: account.aid,
-        holderAid: '', // Would extract from stored event
-        data: {},
-        issuedAt: stored.meta.dt || '',
+        registryId: acdcData.ri || registry.registryId,
+        schemaId: acdcData.s || '',
+        issuerAid: acdcData.i || account.aid,
+        holderAid: acdcData.a?.i || '',
+        data: acdcData.a || {},
+        issuedAt: acdcData.dt || new Date().toISOString(),
       };
 
       return createACDCDSL(acdcObj, registry, store);
@@ -128,16 +128,32 @@ export function createRegistryDSL(
     async listACDCs(): Promise<string[]> {
       // Get all ACDC aliases
       const allAcdcAliases = await store.listAliases('acdc');
+      console.log(`[listACDCs] Found ${allAcdcAliases.length} total ACDC aliases:`, allAcdcAliases);
+      console.log(`[listACDCs] Filtering for registry: ${registry.registryId}`);
+
       const filteredAliases: string[] = [];
 
       // Filter to only include ACDCs that belong to this registry
       for (const alias of allAcdcAliases) {
         const credentialId = await store.getAliasSaid('acdc', alias);
-        if (!credentialId) continue;
+        if (!credentialId) {
+          console.log(`[listACDCs] No credentialId found for alias: ${alias}`);
+          continue;
+        }
 
         // Get the ACDC data
         const acdcData = await store.getACDC(credentialId);
-        if (!acdcData) continue;
+        if (!acdcData) {
+          console.log(`[listACDCs] No ACDC data found for credentialId: ${credentialId}`);
+          continue;
+        }
+
+        console.log(`[listACDCs] ACDC ${alias}:`, {
+          credentialId,
+          ri: acdcData.ri,
+          expectedRi: registry.registryId,
+          matches: acdcData.ri === registry.registryId,
+        });
 
         // Check if this ACDC belongs to this registry
         if (acdcData.ri === registry.registryId) {
@@ -145,6 +161,7 @@ export function createRegistryDSL(
         }
       }
 
+      console.log(`[listACDCs] Returning ${filteredAliases.length} filtered aliases:`, filteredAliases);
       return filteredAliases;
     },
 

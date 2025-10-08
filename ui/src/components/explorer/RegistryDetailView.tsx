@@ -197,9 +197,25 @@ export function RegistryDetailView({
   }, [dsl, selectedSchema]);
 
   const handleIssueCredential = async () => {
-    if (!selectedSchema || !selectedHolder || !credentialAlias.trim() || !registryDsl) return;
+    if (!selectedSchema || !selectedHolder || !credentialAlias.trim() || !registryDsl) {
+      console.warn('Missing required fields for credential issuance:', {
+        selectedSchema,
+        selectedHolder,
+        credentialAlias,
+        hasRegistryDsl: !!registryDsl,
+      });
+      return;
+    }
 
     try {
+      console.log('Issuing credential:', {
+        schema: selectedSchema,
+        holder: selectedHolder,
+        alias: credentialAlias.trim(),
+        data: credentialDataFields,
+        registryId: registryDsl.registry.registryId,
+      });
+
       // Issue credential with structured field data
       await registryDsl.issue({
         schema: selectedSchema,
@@ -208,15 +224,12 @@ export function RegistryDetailView({
         alias: credentialAlias.trim(),
       });
 
-      // Close dialog and reload ACDCs
-      setShowIssueDialog(false);
-      setSelectedSchema('');
-      setSelectedHolder('');
-      setCredentialAlias('');
-      setCredentialDataFields({});
+      console.log('Credential issued successfully, reloading ACDCs...');
 
-      // Reload registry data
+      // Reload registry data BEFORE closing dialog
       const acdcAliases = await registryDsl.listACDCs();
+      console.log('Found ACDC aliases after issuance:', acdcAliases);
+
       const acdcList: IndexedACDC[] = [];
 
       for (const alias of acdcAliases) {
@@ -238,9 +251,21 @@ export function RegistryDetailView({
         }
       }
 
+      console.log('Loaded ACDCs:', acdcList);
       setAcdcs(acdcList);
+
+      // Close dialog and reset form
+      setShowIssueDialog(false);
+      setSelectedSchema('');
+      setSelectedHolder('');
+      setCredentialAlias('');
+      setCredentialDataFields({});
+
+      console.log('Credential issuance complete');
     } catch (error) {
       console.error('Failed to issue credential:', error);
+      // Show error to user
+      alert(`Failed to issue credential: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 

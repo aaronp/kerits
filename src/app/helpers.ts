@@ -298,15 +298,24 @@ export async function issueCredential(
   const saidified = saidify(acdc);
   const credentialId = saidified.d;
 
-  // Store ACDC as pseudo-event (unsigned for now)
+  // Store ACDC in two places:
+  // 1. As an event (for event log)
   const acdcEvent = {
     v: 'ACDC10JSON',
     t: 'acdc',
     ...saidified,
   };
-
   const rawAcdc = serializeEvent(acdcEvent);
   await store.putEvent(rawAcdc);
+
+  // 2. As a separate ACDC entry (for quick retrieval by getACDC)
+  const acdcKey = {
+    path: ['acdc', credentialId],
+    type: 'json' as const,
+    meta: { immutable: true },
+  };
+  const encodeJson = (obj: any) => new TextEncoder().encode(JSON.stringify(obj));
+  await store.kv.putStructured!(acdcKey, encodeJson(saidified));
 
   // Create issuance event in TEL
   const telEvents = await store.listTel(registryId);
