@@ -361,6 +361,7 @@ export async function issueCredential(
 
   // Sign ISS if keyManager provided
   let finalIssBytes = issBytes;
+  let issWithSigs = iss.sad;
   if (keyManager) {
     const signer = keyManager.getSigner(issuerAid);
     if (!signer) {
@@ -369,12 +370,23 @@ export async function issueCredential(
 
     const signed = await signTelEvent(issBytes, signer);
     finalIssBytes = signed.combined;
+
+    // Parse signatures from CESR and add to ISS metadata for IPEX export
+    const { parseIndexedSignatures } = await import('./signing');
+    const parsedSigs = parseIndexedSignatures(signed.signatures);
+
+    // Add signatures to ISS event metadata
+    issWithSigs = {
+      ...iss.sad,
+      sigs: parsedSigs.map(s => s.signature),
+      k: [signer.verfer.qb64], // Add public key
+    };
   }
 
   // Store signed ISS event
   await store.putEvent(finalIssBytes);
 
-  return { credentialId, acdc: saidified, iss };
+  return { credentialId, acdc: saidified, iss: { sad: issWithSigs } };
 }
 
 /**

@@ -17,7 +17,7 @@ function App() {
             <Routes>
               <Route path={`${BASE_PATH}/create-user`} element={<UserCreation />} />
               <Route path={`${BASE_PATH}/select-user`} element={<UserSelection />} />
-              <Route path={`${BASE_PATH}*`} element={<Dashboard />} />
+              <Route path={`${BASE_PATH}/*`} element={<Dashboard />} />
             </Routes>
             <Toaster />
           </AccountProvider>

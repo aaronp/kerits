@@ -160,6 +160,29 @@ export function createACDCDSL(
         throw new Error(`Issuance event not found for credential: ${acdc.credentialId}`);
       }
 
+      // Parse signatures from CESR attachments if present
+      let issEventWithSigs = { ...issEvent.meta };
+      if (issEvent.raw) {
+        try {
+          const { parseCesrStream, parseIndexedSignatures } = await import('../../signing');
+          const { signatures } = parseCesrStream(issEvent.raw);
+          if (signatures) {
+            const parsedSigs = parseIndexedSignatures(signatures);
+            issEventWithSigs.sigs = parsedSigs.map(s => s.signature);
+
+            // Try to get public key from KEL
+            const kelEvents = await store.listKel(acdc.issuerAid);
+            const icpEvent = kelEvents.find(e => e.meta.t === 'icp');
+            if (icpEvent?.meta.k) {
+              issEventWithSigs.k = icpEvent.meta.k;
+            }
+          }
+        } catch (error) {
+          // If parsing fails, continue without signatures
+          console.warn('Failed to parse ISS event signatures:', error);
+        }
+      }
+
       // Get the latest KEL event for anchoring
       const kelEvents = await store.listKel(acdc.issuerAid);
       const ancEvent = kelEvents[kelEvents.length - 1];
@@ -172,7 +195,7 @@ export function createACDCDSL(
         sender: acdc.issuerAid,
         recipient: acdc.holderAid,
         credential: acdcData,
-        issEvent: issEvent.meta,
+        issEvent: issEventWithSigs,
         ancEvent: ancEvent.meta,
         message: `Credential: ${acdc.credentialId.substring(0, 12)}...`,
       });

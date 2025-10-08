@@ -29,8 +29,8 @@ export function Toaster() {
             "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full",
             "mb-2",
             toast.variant === 'destructive'
-              ? 'destructive border-destructive bg-destructive text-destructive-foreground'
-              : 'border bg-background text-foreground'
+              ? 'destructive border-red-500 bg-red-600 text-white'
+              : 'border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-800 text-slate-900 dark:text-slate-100'
           )}
           data-state="open"
         >
