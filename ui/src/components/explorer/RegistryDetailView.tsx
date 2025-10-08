@@ -689,8 +689,29 @@ export function RegistryDetailView({
                       });
 
                       // Reload credentials list
-                      const updatedAcdcs = await registryDsl.listACDCs();
-                      setAcdcs(updatedAcdcs);
+                      const acdcAliases = await registryDsl.listACDCs();
+                      const acdcList: IndexedACDC[] = [];
+
+                      for (const acdcAlias of acdcAliases) {
+                        const acdcDsl = await registryDsl.acdc(acdcAlias);
+                        if (acdcDsl) {
+                          const status = await acdcDsl.status();
+                          acdcList.push({
+                            credentialId: acdcDsl.acdc.credentialId,
+                            alias: acdcDsl.acdc.alias,
+                            registryId: acdcDsl.acdc.registryId,
+                            issuerAid: acdcDsl.acdc.issuerAid,
+                            holderAid: acdcDsl.acdc.holderAid,
+                            schemaId: acdcDsl.acdc.schemaId,
+                            issuedAt: acdcDsl.acdc.issuedAt,
+                            status: status.status,
+                            revoked: status.revoked,
+                            data: {},
+                          });
+                        }
+                      }
+
+                      setAcdcs(acdcList);
                     } catch (error) {
                       console.error('Failed to revoke credential:', error);
                       toast({

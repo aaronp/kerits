@@ -40,6 +40,7 @@ export function VisualId({
   const handleCopy = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!value) return;
     await navigator.clipboard.writeText(value);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -53,6 +54,7 @@ export function VisualId({
   // If variant is not specified, determine it from the value's hash
   const getVariant = (): 'marble' | 'beam' | 'pixel' | 'sunset' | 'ring' | 'bauhaus' => {
     if (variant) return variant;
+    if (!value) return 'marble'; // Default variant if value is undefined
 
     const variants: Array<'marble' | 'beam' | 'pixel' | 'sunset' | 'ring' | 'bauhaus'> = [
       'marble', 'beam', 'pixel', 'sunset', 'ring', 'bauhaus'
@@ -72,7 +74,8 @@ export function VisualId({
 
   // Truncate value with ellipsis in the middle if longer than maxCharacters
   // Total length including "..." should equal max characters
-  const truncateValue = (val: string, max: number): string => {
+  const truncateValue = (val: string | undefined, max: number): string => {
+    if (!val) return 'N/A';
     if (val.length <= max) return val;
 
     // Reserve 3 characters for "..."
@@ -97,8 +100,8 @@ export function VisualId({
       : 'font-medium text-muted-foreground';
   const valueClass = small ? 'text-xs font-mono' : 'text-xs font-mono';
 
-  const ContentWrapper = linkToGraph ? Link : 'div';
-  const wrapperProps = linkToGraph
+  const ContentWrapper = linkToGraph && value ? Link : 'div';
+  const wrapperProps = linkToGraph && value
     ? {
       to: route(`/graph?id=${value}`),
       className: `flex items-center ${gapClass} ${className} group hover:bg-muted/50 rounded-md transition-colors cursor-pointer`,
@@ -116,7 +119,7 @@ export function VisualId({
     <ContentWrapper {...wrapperProps}>
       <Avatar
         size={avatarSize}
-        name={value}
+        name={value || 'N/A'}
         variant={selectedVariant}
         colors={['#92A1C6', '#146A7C', '#F0AB3D', '#C271B4', '#C20D90']}
       />
@@ -124,7 +127,7 @@ export function VisualId({
         <div className={labelClass}>{label}</div>
         <div
           className={valueClass}
-          title={value}
+          title={value || 'N/A'}
         >
           {displayValue}
         </div>
