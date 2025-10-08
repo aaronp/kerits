@@ -206,7 +206,7 @@ export function CredentialIssuer() {
 
       await refreshCredentials();
       console.log('Credentials refreshed, navigating to /dashboard/credentials');
-      navigate(route('/dashboard/credentials'));
+      navigate(route('/credentials'));
     } catch (error) {
       console.error('Failed to issue credential:', error);
       showToast('Failed to issue credential. See console for details.');
@@ -227,7 +227,7 @@ export function CredentialIssuer() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate(route('/dashboard/credentials'))}>
+        <Button variant="ghost" size="sm" onClick={() => navigate(route('/credentials'))}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
@@ -378,7 +378,7 @@ export function CredentialIssuer() {
             <Button onClick={handleIssue} disabled={issuing || !activeSchema} className="flex-1">
               {issuing ? 'Issuing...' : 'Issue Credential'}
             </Button>
-            <Button variant="outline" onClick={() => navigate(route('/dashboard/credentials'))}>
+            <Button variant="outline" onClick={() => navigate(route('/credentials'))}>
               Cancel
             </Button>
           </div>

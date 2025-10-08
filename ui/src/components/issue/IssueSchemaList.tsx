@@ -19,7 +19,7 @@ export function IssueSchemaList() {
         <CardContent>
           <div className="text-center py-12">
             <p className="text-muted-foreground mb-4">No schemas available</p>
-            <Button variant="outline" onClick={() => navigate(route('/dashboard/schemas/new'))}>
+            <Button variant="outline" onClick={() => navigate(route('/schemas/new'))}>
               Create Schema
             </Button>
           </div>

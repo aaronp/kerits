@@ -71,20 +71,15 @@ export function NodeDetails({ data, schema, layout = 'grid' }: NodeDetailsProps)
     // Schema ID (special case - make it a link with just VisualId)
     if ((key.toLowerCase() === 'schema id' || key.toLowerCase() === 'schema') && isAidOrSaid(value)) {
       return (
-        <Link
-          to={route(`/dashboard/schemas?selected=${value}`)}
-          className="inline-flex items-center hover:opacity-80 transition-opacity"
-          title={`View schema: ${value}`}
-        >
-          <VisualId
-            label=""
-            variant="marble"
-            value={value}
-            size={20}
-            showCopy={false}
-            small
-          />
-        </Link>
+        <VisualId
+          label=""
+          variant="marble"
+          value={value}
+          size={20}
+          showCopy={true}
+          small
+          linkToGraph={false}
+        />
       );
     }
 
@@ -101,13 +96,14 @@ export function NodeDetails({ data, schema, layout = 'grid' }: NodeDetailsProps)
           variant="marble"
           value={value}
           size={20}
-          showCopy={false}
+          showCopy={true}
           small
+          linkToGraph={false}
         />
       );
     }
 
-    // AID/SAID (show only VisualId avatar, no label or copy button)
+    // AID/SAID (show with VisualId avatar and hover-to-copy)
     if (isAidOrSaid(value)) {
       return (
         <VisualId
@@ -115,7 +111,7 @@ export function NodeDetails({ data, schema, layout = 'grid' }: NodeDetailsProps)
           variant="marble"
           value={value}
           size={20}
-          showCopy={false}
+          showCopy={true}
           small
         />
       );
@@ -173,11 +169,9 @@ export function NodeDetails({ data, schema, layout = 'grid' }: NodeDetailsProps)
               if (!credentialSaid) return null;
 
               return (
-                <Link
+                <div
                   key={edgeName}
-                  to={`${location.pathname}?selected=${credentialSaid}`}
-                  className="flex items-center gap-2 hover:bg-muted/50 p-1.5 rounded transition-colors group"
-                  title={`View linked credential: ${alias || credentialSaid}`}
+                  className="flex items-center gap-2 p-1.5 rounded"
                 >
                   <span className="text-xs text-muted-foreground min-w-[80px] shrink-0">{edgeName}</span>
                   <VisualId
@@ -185,13 +179,13 @@ export function NodeDetails({ data, schema, layout = 'grid' }: NodeDetailsProps)
                     variant="marble"
                     value={credentialSaid}
                     size={20}
-                    showCopy={false}
+                    showCopy={true}
                     small
                   />
-                  <span className="text-sm font-medium group-hover:text-primary transition-colors">
+                  <span className="text-sm font-medium">
                     {alias || credentialSaid.substring(0, 12) + '...'}
                   </span>
-                </Link>
+                </div>
               );
             })}
           </div>

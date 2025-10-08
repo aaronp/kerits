@@ -11,9 +11,9 @@ export function AuthLayout() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // If user is already logged in, go to dashboard
+    // If user is already logged in, go to home
     if (currentUser) {
-      navigate(route('/dashboard'), { replace: true });
+      navigate(route('/'), { replace: true });
     }
   }, [currentUser, navigate]);
 

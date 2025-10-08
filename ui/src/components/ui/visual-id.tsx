@@ -100,7 +100,7 @@ export function VisualId({
   const ContentWrapper = linkToGraph ? Link : 'div';
   const wrapperProps = linkToGraph
     ? {
-      to: route(`/dashboard/graph?id=${value}`),
+      to: route(`/graph?id=${value}`),
       className: `flex items-center ${gapClass} ${className} group hover:bg-muted/50 rounded-md transition-colors cursor-pointer`,
       onMouseEnter: () => setIsHovered(true),
       onMouseLeave: () => setIsHovered(false),

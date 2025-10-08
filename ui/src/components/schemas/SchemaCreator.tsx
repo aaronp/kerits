@@ -127,10 +127,10 @@ export function SchemaCreator() {
       // If we came from Explorer, return there with the new schema
       if (returnTo === 'explorer' && registryId) {
         console.log('Returning to Explorer with new schema:', name);
-        navigate(route(`/dashboard?returnFromSchema=true&schemaAlias=${encodeURIComponent(name)}&registryId=${registryId}`));
+        navigate(route(`/?returnFromSchema=true&schemaAlias=${encodeURIComponent(name)}&registryId=${registryId}`));
       } else {
-        console.log('Schemas refreshed, navigating to /dashboard/schemas');
-        navigate(route('/dashboard/schemas'));
+        console.log('Schemas refreshed, navigating to /schemas');
+        navigate(route('/schemas'));
       }
     } catch (error) {
       console.error('Failed to create schema:', error);
@@ -143,7 +143,7 @@ export function SchemaCreator() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate(route('/dashboard/schemas'))}>
+        <Button variant="ghost" size="sm" onClick={() => navigate(route('/schemas'))}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
@@ -248,7 +248,7 @@ export function SchemaCreator() {
             <Button onClick={handleCreate} disabled={creating} className="flex-1">
               {creating ? 'Creating...' : 'Create Schema'}
             </Button>
-            <Button variant="outline" onClick={() => navigate(route('/dashboard/schemas'))}>
+            <Button variant="outline" onClick={() => navigate(route('/schemas'))}>
               Cancel
             </Button>
           </div>

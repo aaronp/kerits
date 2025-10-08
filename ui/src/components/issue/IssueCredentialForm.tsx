@@ -169,7 +169,7 @@ export function IssueCredentialForm() {
           <p className="text-muted-foreground">Schema not found</p>
           <Button
             variant="outline"
-            onClick={() => navigate(route('/dashboard/issue'))}
+            onClick={() => navigate(route('/issue'))}
             className="mt-4"
           >
             Back to Schema List
@@ -211,7 +211,7 @@ export function IssueCredentialForm() {
                 <Copy className="h-4 w-4 mr-2" />
                 Copy Credential
               </Button>
-              <Button onClick={() => navigate(route('/dashboard/credentials'))}>
+              <Button onClick={() => navigate(route('/credentials'))}>
                 View Credentials
               </Button>
               <Button
@@ -249,7 +249,7 @@ export function IssueCredentialForm() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate(route('/dashboard/issue'))}
+              onClick={() => navigate(route('/issue'))}
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back

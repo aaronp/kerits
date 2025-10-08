@@ -27,6 +27,7 @@ import { IssueCredentialForm } from './issue/IssueCredentialForm';
 import { Contacts } from './Contacts';
 import { MyContact } from './MyContact';
 import { Explorer } from './explorer/Explorer';
+import { AuthLayout } from './auth/AuthLayout';
 import { useTheme } from '../lib/theme-provider';
 import { useUser } from '../lib/user-provider';
 import { route } from '../config';
@@ -105,15 +106,16 @@ export function Dashboard() {
 
   const getActiveTab = () => {
     const path = location.pathname;
-    if (path === '/dashboard' || path === '/dashboard/') return 'home';
-    if (path.includes('/dashboard/schemas')) return 'schemas';
-    if (path.includes('/dashboard/issue')) return 'issue';
-    if (path.includes('/dashboard/credentials')) return 'credentials';
-    if (path.includes('/dashboard/verify')) return 'verify';
-    if (path.includes('/dashboard/sign')) return 'sign';
-    if (path.includes('/dashboard/graph')) return 'graph';
-    if (path.includes('/dashboard/contacts')) return 'contacts';
-    if (path.includes('/dashboard/profile')) return 'profile';
+    const basePath = route('/');
+    if (path === basePath || path === `${basePath}/`) return 'home';
+    if (path.includes(route('/schemas'))) return 'schemas';
+    if (path.includes(route('/issue'))) return 'issue';
+    if (path.includes(route('/credentials'))) return 'credentials';
+    if (path.includes(route('/verify'))) return 'verify';
+    if (path.includes(route('/sign'))) return 'sign';
+    if (path.includes(route('/graph'))) return 'graph';
+    if (path.includes(route('/contacts'))) return 'contacts';
+    if (path.includes(route('/profile'))) return 'profile';
     return 'home';
   };
 
@@ -184,7 +186,7 @@ export function Dashboard() {
   };
 
   if (!currentUser) {
-    return null;
+    return <AuthLayout />;
   }
 
   return (
@@ -222,7 +224,7 @@ export function Dashboard() {
                   <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuLabel>My Account</DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => navigate(route('/dashboard/profile'))}>
+                    <DropdownMenuItem onClick={() => navigate(route('/profile'))}>
                       <User className="mr-2 h-4 w-4" />
                       Profile
                     </DropdownMenuItem>
@@ -264,7 +266,7 @@ export function Dashboard() {
               variant={activeTab === 'home' ? 'default' : 'ghost'}
               size={sidebarExpanded ? 'default' : 'icon'}
               className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'home' ? 'bg-primary text-primary-foreground' : ''}`}
-              onClick={() => navigate(route('/dashboard'))}
+              onClick={() => navigate(route('/'))}
               title="Home"
             >
               <Home className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
@@ -275,7 +277,7 @@ export function Dashboard() {
                 variant={activeTab === 'issue' ? 'default' : 'ghost'}
                 size={sidebarExpanded ? 'default' : 'icon'}
                 className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'issue' ? 'bg-primary text-primary-foreground' : ''}`}
-                onClick={() => navigate(route('/dashboard/issue'))}
+                onClick={() => navigate(route('/issue'))}
                 title="Issue"
               >
                 <Award className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
@@ -286,7 +288,7 @@ export function Dashboard() {
               variant={activeTab === 'contacts' ? 'default' : 'ghost'}
               size={sidebarExpanded ? 'default' : 'icon'}
               className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'contacts' ? 'bg-primary text-primary-foreground' : ''}`}
-              onClick={() => navigate(route('/dashboard/contacts'))}
+              onClick={() => navigate(route('/contacts'))}
               title="Contacts"
             >
               <Users className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
@@ -296,7 +298,7 @@ export function Dashboard() {
               variant={activeTab === 'schemas' ? 'default' : 'ghost'}
               size={sidebarExpanded ? 'default' : 'icon'}
               className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'schemas' ? 'bg-primary text-primary-foreground' : ''}`}
-              onClick={() => navigate(route('/dashboard/schemas'))}
+              onClick={() => navigate(route('/schemas'))}
               title="Schemas"
             >
               <FileText className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
@@ -306,7 +308,7 @@ export function Dashboard() {
               variant={activeTab === 'credentials' ? 'default' : 'ghost'}
               size={sidebarExpanded ? 'default' : 'icon'}
               className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'credentials' ? 'bg-primary text-primary-foreground' : ''}`}
-              onClick={() => navigate(route('/dashboard/credentials'))}
+              onClick={() => navigate(route('/credentials'))}
               title="Credentials"
             >
               <Award className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
@@ -316,7 +318,7 @@ export function Dashboard() {
               variant={activeTab === 'sign' ? 'default' : 'ghost'}
               size={sidebarExpanded ? 'default' : 'icon'}
               className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'sign' ? 'bg-primary text-primary-foreground' : ''}`}
-              onClick={() => navigate(route('/dashboard/sign'))}
+              onClick={() => navigate(route('/sign'))}
               title="Sign"
             >
               <Pencil className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
@@ -326,7 +328,7 @@ export function Dashboard() {
               variant={activeTab === 'graph' ? 'default' : 'ghost'}
               size={sidebarExpanded ? 'default' : 'icon'}
               className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'graph' ? 'bg-primary text-primary-foreground' : ''}`}
-              onClick={() => navigate(route('/dashboard/graph'))}
+              onClick={() => navigate(route('/graph'))}
               title="Events"
             >
               <Network className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />

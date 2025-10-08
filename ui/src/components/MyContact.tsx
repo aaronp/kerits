@@ -223,7 +223,7 @@ export function MyContact() {
           <CardDescription>The requested contact could not be found</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={() => navigate(route('/dashboard/contacts'))}>
+          <Button onClick={() => navigate(route('/contacts'))}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Contacts
           </Button>
@@ -241,7 +241,7 @@ export function MyContact() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate(route('/dashboard/contacts'))}
+                onClick={() => navigate(route('/contacts'))}
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>

@@ -93,7 +93,7 @@ export function RegistryTreeNavigation({ dsl, accountAlias, selectedRegistryId, 
   const handleNodeClick = (registryId: string, registryPath: string[]) => {
     // Navigate to registry detail view with path in URL
     const pathParam = registryPath.join('/');
-    navigate(route(`/dashboard/explorer/${accountAlias}/${pathParam}`));
+    navigate(route(`/explorer/${accountAlias}/${pathParam}`));
   };
 
   const handleAddSubRegistry = async (node: RegistryNode, e: React.MouseEvent) => {

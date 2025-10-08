@@ -17,7 +17,7 @@ export function UserSelection() {
     setSelecting(true);
     try {
       await setCurrentUser(user);
-      navigate(route('/dashboard'));
+      navigate(route('/'));
     } catch (error) {
       console.error('Failed to select user:', error);
       showToast('Failed to select user');

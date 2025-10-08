@@ -91,7 +91,7 @@ export function UserCreation() {
       await saveIdentity(identity, user.id);
       await refreshUsers();
       await setCurrentUser(user);
-      navigate(route('/dashboard'));
+      navigate(route('/'));
     } catch (error) {
       console.error('Failed to create user:', error);
       showToast('Failed to create user. See console for details.');

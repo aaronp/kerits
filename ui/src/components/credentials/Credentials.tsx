@@ -34,7 +34,7 @@ export function Credentials() {
             Verify
           </Button>
           <Button
-            onClick={() => navigate(route('/dashboard/credentials/new'))}
+            onClick={() => navigate(route('/credentials/new'))}
             className="border shadow-sm hover:shadow-md transition-shadow"
           >
             <Plus className="mr-2 h-4 w-4" />
