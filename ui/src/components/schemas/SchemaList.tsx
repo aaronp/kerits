@@ -119,6 +119,7 @@ export function SchemaList({ schemas, selectedSchemaId, onDelete }: SchemaListPr
                   label={schema.alias}
                   value={schema.schemaId}
                   showCopy={false}
+                  linkToGraph={false}
                   bold={true}
                   size={40}
                   maxCharacters={12}

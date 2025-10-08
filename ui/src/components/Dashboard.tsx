@@ -210,10 +210,7 @@ export function Dashboard() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <div className="text-sm text-white/80">
-                {hasAccounts ? 'Accounts ready' : identities.length + ' Identities'} · {schemas.length} Schemas · {credentials.length} Credentials
-              </div>
-              <div className="flex items-center gap-2 border-l border-white/20 pl-4">
+              <div className="flex items-center gap-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="flex items-center gap-2 text-white hover:bg-white/10">
