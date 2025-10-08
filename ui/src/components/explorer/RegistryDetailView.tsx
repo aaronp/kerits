@@ -10,7 +10,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Download, FileText, Check, X } from 'lucide-react';
+import { Plus, Download, FileText, Check, X, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Textarea } from '../ui/textarea';
@@ -34,6 +34,7 @@ import type { KeritsDSL, RegistryDSL } from '@kerits/app/dsl/types';
 import type { IndexedACDC } from '@kerits/app/indexer/types';
 import type { JSONSchema7Property } from '@kerits/app/dsl/types';
 import { Select } from '../ui/select';
+import { cn } from '@/lib/utils';
 
 interface RegistryDetailViewProps {
   dsl: KeritsDSL | null;
@@ -59,6 +60,7 @@ export function RegistryDetailView({
   // Dialog states
   const [showAddSubRegistryDialog, setShowAddSubRegistryDialog] = useState(false);
   const [showIssueDialog, setShowIssueDialog] = useState(false);
+  const [issueStep, setIssueStep] = useState(1); // Wizard step: 1, 2, or 3
   const [availableSchemas, setAvailableSchemas] = useState<Array<{ value: string; label: string }>>([]);
   const [selectedSchema, setSelectedSchema] = useState('');
   const [selectedHolder, setSelectedHolder] = useState('');
@@ -259,6 +261,16 @@ export function RegistryDetailView({
     loadAvailableCredentials();
   }, [showIssueDialog, dsl, accountAlias, edgeCredentialSearch]);
 
+  const resetIssueWizard = () => {
+    setIssueStep(1);
+    setSelectedSchema('');
+    setSelectedHolder('');
+    setCredentialAlias('');
+    setCredentialDataFields({});
+    setCredentialEdges({});
+    setEdgeFilter('');
+  };
+
   const handleIssueCredential = async () => {
     if (!selectedSchema || !selectedHolder || !credentialAlias.trim() || !registryDsl) {
       console.warn('Missing required fields for credential issuance:', {
@@ -320,12 +332,7 @@ export function RegistryDetailView({
 
       // Close dialog and reset form
       setShowIssueDialog(false);
-      setSelectedSchema('');
-      setSelectedHolder('');
-      setCredentialAlias('');
-      setCredentialDataFields({});
-      setCredentialEdges({});
-      setEdgeFilter('');
+      resetIssueWizard();
 
       console.log('Credential issuance complete');
     } catch (error) {
@@ -780,228 +787,321 @@ export function RegistryDetailView({
         onSuccess={onRegistryCreated}
       />
 
-      {/* Issue Credential Dialog */}
-      <Dialog open={showIssueDialog} onOpenChange={setShowIssueDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      {/* Issue Credential Dialog - 3 Step Wizard */}
+      <Dialog open={showIssueDialog} onOpenChange={(open) => {
+        setShowIssueDialog(open);
+        if (!open) resetIssueWizard();
+      }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Issue Credential</DialogTitle>
             <DialogDescription>
               Issue a new ACDC in the "{registryDsl.registry.alias}" registry
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4 px-2">
-            {/* Credential Alias */}
-            <div className="grid gap-2">
-              <Label htmlFor="credentialAlias">Credential Alias *</Label>
-              <Input
-                id="credentialAlias"
-                value={credentialAlias}
-                onChange={(e) => setCredentialAlias(e.target.value)}
-                placeholder="e.g., employee-badge-001"
-              />
-            </div>
 
-            {/* Schema Selection */}
-            <div className="grid gap-2">
-              <Label>Schema *</Label>
-              <Combobox
-                options={availableSchemas}
-                value={selectedSchema}
-                onChange={handleSchemaChange}
-                placeholder="Select schema..."
-                emptyMessage="No schemas found."
-              />
-            </div>
-
-            {/* Holder Selection */}
-            <div className="grid gap-2">
-              <Label>Holder *</Label>
-              <Combobox
-                options={availableContacts}
-                value={selectedHolder}
-                onChange={setSelectedHolder}
-                placeholder="Select holder..."
-                emptyMessage="No contacts found."
-              />
-            </div>
-
-            {/* Credential Data Fields */}
-            {schemaProperties && Object.keys(schemaProperties).length > 0 && (
-              <div className="space-y-4 pt-4 border-t">
-                <Label className="text-base font-semibold">Credential Data</Label>
-                {Object.entries(schemaProperties).map(([fieldName, prop]) => {
-                  const isRequired = schemaRequired.includes(fieldName);
-
-                  return (
-                    <div key={fieldName} className="space-y-2 px-1">
-                      <Label htmlFor={fieldName}>
-                        {fieldName} {isRequired && '*'}
-                        <span className="text-xs text-muted-foreground ml-2">
-                          ({prop.type || 'string'})
-                        </span>
-                      </Label>
-
-                      {prop.type === 'boolean' ? (
-                        <Select
-                          id={fieldName}
-                          value={credentialDataFields[fieldName]?.toString() || ''}
-                          onChange={(e) => setCredentialDataFields({
-                            ...credentialDataFields,
-                            [fieldName]: e.target.value === 'true',
-                          })}
-                        >
-                          <option value="">Select...</option>
-                          <option value="true">True</option>
-                          <option value="false">False</option>
-                        </Select>
-                      ) : (
-                        <Input
-                          id={fieldName}
-                          type={
-                            prop.type === 'number' || prop.type === 'integer'
-                              ? 'number'
-                              : prop.format === 'date' || prop.format === 'date-time'
-                                ? 'date'
-                                : 'text'
-                          }
-                          placeholder={`Enter ${fieldName}`}
-                          value={credentialDataFields[fieldName] || ''}
-                          onChange={(e) => setCredentialDataFields({
-                            ...credentialDataFields,
-                            [fieldName]: prop.type === 'number' || prop.type === 'integer'
-                              ? Number(e.target.value)
-                              : e.target.value,
-                          })}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Link to Other Credentials (Edges) */}
-            <div className="space-y-4 pt-4 border-t">
-              <div>
-                <Label className="text-base font-semibold">Link to Other Credentials (Optional)</Label>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Create edges linking this credential to existing credentials in this registry
-                </p>
-              </div>
-
-              {/* Display existing edges */}
-              {Object.entries(credentialEdges).map(([edgeName, edge]) => {
-                const linkedCred = availableCredentials.find(c => c.value === edge.n);
-                return (
-                  <div key={edgeName} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">{edgeName}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {linkedCred?.label || edge.n.substring(0, 20) + '...'}
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        const newEdges = { ...credentialEdges };
-                        delete newEdges[edgeName];
-                        setCredentialEdges(newEdges);
-                      }}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                );
-              })}
-
-              {/* Add new edge */}
-              <div className="space-y-3 p-3 border rounded">
-                <div className="grid gap-2">
-                  <Label>Name</Label>
-                  <Input
-                    placeholder="e.g., evidence, parent, prerequisite"
-                    value={edgeFilter}
-                    onChange={(e) => setEdgeFilter(e.target.value)}
-                  />
+          {/* Step Indicator */}
+          <div className="flex items-center justify-center gap-2 py-4 border-b">
+            {[1, 2, 3].map((step) => (
+              <div key={step} className="flex items-center">
+                <div className={cn(
+                  "flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-colors",
+                  issueStep === step
+                    ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2"
+                    : issueStep > step
+                      ? "bg-green-500 text-white"
+                      : "bg-muted text-muted-foreground"
+                )}>
+                  {issueStep > step ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    step
+                  )}
                 </div>
+                <div className={cn(
+                  "ml-2 text-sm transition-all",
+                  issueStep === step
+                    ? "text-foreground font-bold"
+                    : issueStep > step
+                      ? "text-muted-foreground font-normal"
+                      : "text-muted-foreground font-light"
+                )}>
+                  {step === 1 ? "Details" : step === 2 ? "Schema" : "Links"}
+                </div>
+                {step < 3 && (
+                  <ChevronRight className={cn(
+                    "mx-2 h-4 w-4 transition-colors",
+                    issueStep > step ? "text-green-500" : "text-muted-foreground"
+                  )} />
+                )}
+              </div>
+            ))}
+          </div>
 
-                {edgeFilter && (
+          {/* Wizard Content - Scrollable */}
+          <div className="flex-1 overflow-y-auto py-4 px-2">
+            <div className="grid gap-4">
+              {/* Step 1: Credential Details */}
+              {issueStep === 1 && (
+                <>
                   <div className="grid gap-2">
-                    <Label>Credential</Label>
-                    {availableCredentials.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">
-                        No credentials available. Issue a credential first.
-                      </p>
-                    ) : (
-                      <Combobox
-                        options={availableCredentials}
-                        value=""
-                        onChange={(selectedCredId) => {
-                          if (selectedCredId && edgeFilter.trim()) {
-                            setCredentialEdges({
-                              ...credentialEdges,
-                              [edgeFilter.trim()]: { n: selectedCredId },
-                            });
-                            setEdgeFilter('');
-                          }
-                        }}
-                        placeholder="Search credentials..."
-                        emptyMessage="No credentials found. Try adjusting your search."
+                    <Label htmlFor="credentialAlias">Credential Alias *</Label>
+                    <Input
+                      id="credentialAlias"
+                      value={credentialAlias}
+                      onChange={(e) => setCredentialAlias(e.target.value)}
+                      placeholder="e.g., employee-badge-001"
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label>Holder *</Label>
+                    <Combobox
+                      options={availableContacts}
+                      value={selectedHolder}
+                      onChange={setSelectedHolder}
+                      placeholder="Select holder..."
+                      emptyMessage="No contacts found."
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Step 2: Schema and Data Fields */}
+              {issueStep === 2 && (
+                <>
+                  <div className="grid gap-2">
+                    <Label>Schema *</Label>
+                    <Combobox
+                      options={availableSchemas}
+                      value={selectedSchema}
+                      onChange={handleSchemaChange}
+                      placeholder="Select schema..."
+                      emptyMessage="No schemas found."
+                    />
+                  </div>
+
+                  {/* Credential Data Fields */}
+                  {schemaProperties && Object.keys(schemaProperties).length > 0 && (
+                    <div className="space-y-4 pt-4 border-t">
+                      <Label className="text-base font-semibold">Credential Data</Label>
+                      {Object.entries(schemaProperties).map(([fieldName, prop]) => {
+                        const isRequired = schemaRequired.includes(fieldName);
+
+                        return (
+                          <div key={fieldName} className="space-y-2 px-1">
+                            <Label htmlFor={fieldName}>
+                              {fieldName} {isRequired && '*'}
+                              <span className="text-xs text-muted-foreground ml-2">
+                                ({prop.type || 'string'})
+                              </span>
+                            </Label>
+
+                            {prop.type === 'boolean' ? (
+                              <Select
+                                id={fieldName}
+                                value={credentialDataFields[fieldName]?.toString() || ''}
+                                onChange={(e) => setCredentialDataFields({
+                                  ...credentialDataFields,
+                                  [fieldName]: e.target.value === 'true',
+                                })}
+                              >
+                                <option value="">Select...</option>
+                                <option value="true">True</option>
+                                <option value="false">False</option>
+                              </Select>
+                            ) : (
+                              <Input
+                                id={fieldName}
+                                type={
+                                  prop.type === 'number' || prop.type === 'integer'
+                                    ? 'number'
+                                    : prop.format === 'date' || prop.format === 'date-time'
+                                      ? 'date'
+                                      : 'text'
+                                }
+                                placeholder={`Enter ${fieldName}`}
+                                value={credentialDataFields[fieldName] || ''}
+                                onChange={(e) => setCredentialDataFields({
+                                  ...credentialDataFields,
+                                  [fieldName]: prop.type === 'number' || prop.type === 'integer'
+                                    ? Number(e.target.value)
+                                    : e.target.value,
+                                })}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Step 3: Link to Other Credentials (Edges) */}
+              {issueStep === 3 && (
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-base font-semibold">Link to Other Credentials (Optional)</Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Create edges linking this credential to existing credentials
+                    </p>
+                  </div>
+
+                  {/* Display existing edges */}
+                  {Object.entries(credentialEdges).map(([edgeName, edge]) => {
+                    const linkedCred = availableCredentials.find(c => c.value === edge.n);
+                    return (
+                      <div key={edgeName} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">{edgeName}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {linkedCred?.label || edge.n.substring(0, 20) + '...'}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const newEdges = { ...credentialEdges };
+                            delete newEdges[edgeName];
+                            setCredentialEdges(newEdges);
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    );
+                  })}
+
+                  {/* Add new edge */}
+                  <div className="space-y-3 p-3 border rounded">
+                    <div className="grid gap-2">
+                      <Label>Edge Name</Label>
+                      <Input
+                        placeholder="e.g., evidence, parent, prerequisite"
+                        value={edgeFilter}
+                        onChange={(e) => setEdgeFilter(e.target.value)}
                       />
+                    </div>
+
+                    {edgeFilter && (
+                      <div className="grid gap-2">
+                        <Label>Credential</Label>
+                        {availableCredentials.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">
+                            No credentials available. Issue a credential first.
+                          </p>
+                        ) : (
+                          <Combobox
+                            options={availableCredentials}
+                            value=""
+                            onChange={(selectedCredId) => {
+                              if (selectedCredId && edgeFilter.trim()) {
+                                setCredentialEdges({
+                                  ...credentialEdges,
+                                  [edgeFilter.trim()]: { n: selectedCredId },
+                                });
+                                setEdgeFilter('');
+                              }
+                            }}
+                            placeholder="Search credentials..."
+                            emptyMessage="No credentials found. Try adjusting your search."
+                          />
+                        )}
+
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Or paste credential SAID directly"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && e.currentTarget.value && edgeFilter.trim()) {
+                                setCredentialEdges({
+                                  ...credentialEdges,
+                                  [edgeFilter.trim()]: { n: e.currentTarget.value },
+                                });
+                                setEdgeFilter('');
+                                e.currentTarget.value = '';
+                              }
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEdgeFilter('')}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
                     )}
 
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Or paste credential SAID directly"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && e.currentTarget.value && edgeFilter.trim()) {
-                            setCredentialEdges({
-                              ...credentialEdges,
-                              [edgeFilter.trim()]: { n: e.currentTarget.value },
-                            });
-                            setEdgeFilter('');
-                            e.currentTarget.value = '';
-                          }
-                        }}
-                      />
+                    {!edgeFilter && availableCredentials.length > 0 && (
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        onClick={() => setEdgeFilter('')}
+                        onClick={() => setEdgeFilter('edge_')}
+                        className="w-full"
                       >
-                        Cancel
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Edge Link
                       </Button>
-                    </div>
+                    )}
                   </div>
-                )}
 
-                {!edgeFilter && availableCredentials.length > 0 && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setEdgeFilter('edge_')}
-                    className="w-full"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Edge Link
-                  </Button>
-                )}
-              </div>
+                  {Object.keys(credentialEdges).length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No edges added. You can skip this step if not needed.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowIssueDialog(false)}>
-              Cancel
-            </Button>
+
+          {/* Wizard Footer */}
+          <DialogFooter className="flex-row justify-between border-t pt-4">
             <Button
-              onClick={handleIssueCredential}
-              disabled={!selectedSchema || selectedSchema === '__create__' || !selectedHolder || !credentialAlias.trim()}
+              variant="outline"
+              onClick={() => {
+                if (issueStep === 1) {
+                  setShowIssueDialog(false);
+                  resetIssueWizard();
+                } else {
+                  setIssueStep(issueStep - 1);
+                }
+              }}
             >
-              Issue Credential
+              {issueStep === 1 ? (
+                'Cancel'
+              ) : (
+                <>
+                  <ChevronLeft className="mr-2 h-4 w-4" />
+                  Back
+                </>
+              )}
             </Button>
+
+            {issueStep < 3 ? (
+              <Button
+                onClick={() => setIssueStep(issueStep + 1)}
+                disabled={
+                  (issueStep === 1 && (!credentialAlias.trim() || !selectedHolder)) ||
+                  (issueStep === 2 && (!selectedSchema || selectedSchema === '__create__'))
+                }
+              >
+                Next
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                onClick={handleIssueCredential}
+                disabled={!selectedSchema || selectedSchema === '__create__' || !selectedHolder || !credentialAlias.trim()}
+              >
+                Issue Credential
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
