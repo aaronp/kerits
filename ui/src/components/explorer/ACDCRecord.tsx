@@ -10,6 +10,7 @@ import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { NodeDetails } from '../ui/NodeDetails';
 import { VisualId } from '../ui/visual-id';
+import { useTheme } from '@/lib/theme-provider';
 import type { IndexedACDC } from '@kerits/app/indexer/types';
 
 interface ACDCRecordProps {
@@ -27,6 +28,7 @@ interface ACDCRecordProps {
 }
 
 export function ACDCRecord({ acdc, fullData: initialFullData, onExpand, onRevoke, onShare, autoExpand }: ACDCRecordProps) {
+  const { theme } = useTheme();
   const [expanded, setExpanded] = useState(autoExpand || false);
   const [fullData, setFullData] = useState<Record<string, any> | null>(initialFullData || null);
   const [loading, setLoading] = useState(false);
@@ -82,11 +84,21 @@ export function ACDCRecord({ acdc, fullData: initialFullData, onExpand, onRevoke
     }
   };
 
+  // Get background colors based on theme and revocation status
+  const getBackgroundClasses = () => {
+    if (acdc.revoked) {
+      return 'bg-red-50 hover:bg-red-100 dark:bg-red-950/10 dark:hover:bg-red-950/20';
+    }
+
+    if (theme === 'dark') {
+      return 'bg-slate-900 hover:bg-slate-800';
+    } else {
+      return 'bg-blue-50 hover:bg-blue-100';
+    }
+  };
+
   return (
-    <div className={`border rounded-lg overflow-hidden transition-colors ${acdc.revoked
-      ? 'bg-red-50/50 hover:bg-red-100/70 dark:bg-red-950/10 dark:hover:bg-red-950/20'
-      : 'bg-green-50/50 hover:bg-green-100/70 dark:bg-green-950/10 dark:hover:bg-green-950/20'
-      }`}>
+    <div className={`border rounded-lg overflow-hidden transition-colors ${getBackgroundClasses()}`}>
       {/* Summary - always visible */}
       <div className="p-4">
         <div className="flex justify-between items-start gap-4">
@@ -100,12 +112,18 @@ export function ACDCRecord({ acdc, fullData: initialFullData, onExpand, onRevoke
               ) : (
                 <ChevronRight className="h-4 w-4 text-muted-foreground cursor-pointer" />
               )}
-              <h4 className="font-medium">{acdc.alias}</h4>
+              <VisualId
+                label={acdc.alias}
+                value={acdc.credentialId}
+                variant="marble"
+                size={48}
+                maxCharacters={24}
+                bold={true}
+                showCopy={true}
+                linkToGraph={false}
+              />
             </div>
-            <p className="text-sm text-muted-foreground mt-1 ml-6">
-              {acdc.credentialId.substring(0, 24)}...
-            </p>
-            <div className="flex gap-2 mt-2 ml-6 text-xs">
+            <div className="flex gap-2 mt-2 ml-14 text-xs">
               <span
                 className={`px-2 py-0.5 rounded ${acdc.revoked
                   ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
