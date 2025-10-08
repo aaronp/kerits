@@ -16,7 +16,8 @@ import { createKerStore } from '../../src/storage/core';
 import { DiskKv } from '../../src/storage/adapters/disk';
 import { createKeritsDSL } from '../../src/app/dsl';
 import type { KeritsDSL } from '../../src/app/dsl/types';
-import { createTextGraph, createKeriGitGraph } from '../../src/app/graph';
+import { createTextGraph, pathGraphToMermaid } from '../../src/app/graph';
+import { createKeriTraversal, KeriTraversal } from '../../src/app/graph/traversal';
 import * as path from 'path';
 
 const SEED_ALICE = new Uint8Array(32).fill(1);
@@ -219,15 +220,25 @@ describe('IPEX Credential Exchange with Graph Visualizations', () => {
     console.log('└─────────────────────────────────────────────────────────┘\n');
 
     console.log('Alice\'s GitGraph:');
-    const aliceGitGraph = createKeriGitGraph(aliceStore, aliceDSL);
-    const aliceMermaid = await aliceGitGraph.toMermaid({ includeTel: true });
-    console.log(aliceMermaid);
+    const aliceStore2 = aliceDSL.getStore();
+    const aliceTraversal = createKeriTraversal(aliceStore2, aliceDSL);
+    const aliceTraversalTree = await aliceTraversal.traverse(aliceAccount.aid);
+    if (aliceTraversalTree) {
+      const alicePathGraph = await KeriTraversal.treeToPathGraph(aliceTraversalTree);
+      const aliceMermaid = pathGraphToMermaid(alicePathGraph);
+      console.log(aliceMermaid);
+    }
     console.log('');
 
     console.log('Bob\'s GitGraph:');
-    const bobGitGraph = createKeriGitGraph(bobStore, bobDSL);
-    const bobMermaid = await bobGitGraph.toMermaid({ includeTel: true });
-    console.log(bobMermaid);
+    const bobStore2 = bobDSL.getStore();
+    const bobTraversal = createKeriTraversal(bobStore2, bobDSL);
+    const bobTraversalTree = await bobTraversal.traverse(bobAccount.aid);
+    if (bobTraversalTree) {
+      const bobPathGraph = await KeriTraversal.treeToPathGraph(bobTraversalTree);
+      const bobMermaid = pathGraphToMermaid(bobPathGraph);
+      console.log(bobMermaid);
+    }
 
     console.log('\n📌 Credential Info:');
     console.log(`  • ID: ${credential.acdc.credentialId.substring(0, 24)}...`);

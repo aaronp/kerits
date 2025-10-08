@@ -13,6 +13,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Download, Upload, FolderPlus, FileText, Shield } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
+import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
   DialogContent,
@@ -48,6 +49,7 @@ export function RegistryDetailView({
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const selectedId = searchParams.get('selected');
+  const { toast } = useToast();
   const [registryDsl, setRegistryDsl] = useState<RegistryDSL | null>(null);
   const [acdcs, setAcdcs] = useState<IndexedACDC[]>([]);
   const [loading, setLoading] = useState(true);
@@ -406,8 +408,51 @@ export function RegistryDetailView({
                   acdc={acdc}
                   autoExpand={selectedId === acdc.credentialId}
                   onShare={async () => {
-                    // TODO: Implement sharing
-                    console.log('Share credential:', acdc.credentialId);
+                    try {
+                      if (!registryDsl) {
+                        alert('Bug: registryDsl is not set');
+                        return;
+                      }
+
+                      const alias = (acdc as any).alias
+                      if (!alias) {
+                        throw new Error("alias not set on ACDC")
+                        return;
+                      }
+                      console.log('sharing', alias);
+
+                      // Get the ACDC DSL
+                      const acdcDsl = await registryDsl.acdc(alias);
+                      console.log('acdcDsl in ', {
+                        acdcDsl,
+                        alias,
+                        registry: registryDsl.registry
+                      });
+                      if (!acdcDsl) {
+                        throw new Error('Credential not found');
+                      }
+
+                      // Export as IPEX grant
+                      console.log('exportin ...')
+                      const ipexGrant = await acdcDsl.exportIPEX();
+                      console.log('got ...', ipexGrant)
+
+                      // Copy to clipboard
+                      await navigator.clipboard.writeText(ipexGrant);
+
+                      // Show toast
+                      toast({
+                        title: 'Credential Shared',
+                        description: `IPEX grant message copied to clipboard for ${acdc.credentialId || 'credential'}`,
+                      });
+                    } catch (error) {
+                      console.error('Failed to share credential:', error);
+                      toast({
+                        title: 'Share Failed',
+                        description: error instanceof Error ? error.message : 'Failed to share credential',
+                        variant: 'destructive',
+                      });
+                    }
                   }}
                   onRevoke={async () => {
                     // TODO: Implement revocation

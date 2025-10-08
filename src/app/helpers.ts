@@ -258,6 +258,11 @@ export async function createSchema(
   const rawSchema = serializeEvent(schemaEvent);
   await store.putEvent(rawSchema);
 
+  // Also store schema in schema storage for direct retrieval
+  // Add $id field for schema storage compatibility
+  const schemaForStorage = { ...saidified, $id: schemaId };
+  await store.putSchema(schemaForStorage);
+
   // Store alias mapping
   await store.putAlias('schema', schemaId, alias);
 

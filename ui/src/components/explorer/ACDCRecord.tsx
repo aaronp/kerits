@@ -83,11 +83,10 @@ export function ACDCRecord({ acdc, fullData: initialFullData, onExpand, onRevoke
   };
 
   return (
-    <div className={`border rounded-lg overflow-hidden transition-colors ${
-      acdc.revoked
-        ? 'bg-red-50/50 hover:bg-red-100/70 dark:bg-red-950/10 dark:hover:bg-red-950/20'
-        : 'bg-green-50/50 hover:bg-green-100/70 dark:bg-green-950/10 dark:hover:bg-green-950/20'
-    }`}>
+    <div className={`border rounded-lg overflow-hidden transition-colors ${acdc.revoked
+      ? 'bg-red-50/50 hover:bg-red-100/70 dark:bg-red-950/10 dark:hover:bg-red-950/20'
+      : 'bg-green-50/50 hover:bg-green-100/70 dark:bg-green-950/10 dark:hover:bg-green-950/20'
+      }`}>
       {/* Summary - always visible */}
       <div className="p-4">
         <div className="flex justify-between items-start gap-4">
@@ -108,11 +107,10 @@ export function ACDCRecord({ acdc, fullData: initialFullData, onExpand, onRevoke
             </p>
             <div className="flex gap-2 mt-2 ml-6 text-xs">
               <span
-                className={`px-2 py-0.5 rounded ${
-                  acdc.revoked
-                    ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
-                    : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                }`}
+                className={`px-2 py-0.5 rounded ${acdc.revoked
+                  ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                  : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                  }`}
               >
                 {acdc.status}
               </span>
@@ -130,9 +128,10 @@ export function ACDCRecord({ acdc, fullData: initialFullData, onExpand, onRevoke
                 size="sm"
                 onClick={handleShare}
                 disabled={sharing}
+                className='cursor-pointer'
               >
                 <Share2 className="h-4 w-4 mr-2" />
-                {sharing ? 'Sharing...' : 'Share'}
+                'Share'
               </Button>
             )}
             {onRevoke && acdc.status === 'issued' && !acdc.revoked && (
@@ -141,6 +140,7 @@ export function ACDCRecord({ acdc, fullData: initialFullData, onExpand, onRevoke
                 size="sm"
                 onClick={handleRevoke}
                 disabled={revoking}
+                className='cursor-pointer'
               >
                 <Ban className="h-4 w-4 mr-2" />
                 {revoking ? 'Revoking...' : 'Revoke'}

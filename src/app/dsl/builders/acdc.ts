@@ -7,6 +7,7 @@ import { type ACDCDSL, type ACDC, type Registry, type CredentialStatus, type Exp
 import { revokeCredential } from '../../helpers';
 import { exportAcdc } from './export';
 import { TELIndexer } from '../../indexer/index.js';
+import { createGrant, type ExchangeMessage } from '../../../ipex';
 
 /**
  * Create an ACDCDSL for a specific ACDC
@@ -141,6 +142,43 @@ export function createACDCDSL(
       }
 
       return linkedFrom;
+    },
+
+    async exportIPEX(): Promise<string> {
+      // Get the ACDC data
+      const acdcData = await store.getACDC(acdc.credentialId);
+      if (!acdcData) {
+        throw new Error(`ACDC not found: ${acdc.credentialId}`);
+      }
+
+      // Get the issuance event from TEL
+      const telEvents = await store.listTel(registry.registryId);
+      const issEvent = telEvents.find(e =>
+        e.meta.t === 'iss' && e.meta.acdcSaid === acdc.credentialId
+      );
+      if (!issEvent) {
+        throw new Error(`Issuance event not found for credential: ${acdc.credentialId}`);
+      }
+
+      // Get the latest KEL event for anchoring
+      const kelEvents = await store.listKel(acdc.issuerAid);
+      const ancEvent = kelEvents[kelEvents.length - 1];
+      if (!ancEvent) {
+        throw new Error(`No KEL events found for issuer: ${acdc.issuerAid}`);
+      }
+
+      // Create IPEX grant message
+      const grantMessage = createGrant({
+        sender: acdc.issuerAid,
+        recipient: acdc.holderAid,
+        credential: acdcData,
+        issEvent: issEvent.meta,
+        ancEvent: ancEvent.meta,
+        message: `Credential: ${acdc.credentialId.substring(0, 12)}...`,
+      });
+
+      // Return as JSON string for clipboard/transmission
+      return JSON.stringify(grantMessage, null, 2);
     },
   };
 }

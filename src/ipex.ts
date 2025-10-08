@@ -234,6 +234,7 @@ export function createGrant(params: IpexGrantParams): ExchangeMessage {
   const { sender, recipient, credential, issEvent, ancEvent, message, priorMessage } = params;
 
   const embeds: Record<string, any> = {
+    d: '', // Placeholder for SAID
     acdc: credential,
     iss: issEvent,
   };
@@ -244,7 +245,6 @@ export function createGrant(params: IpexGrantParams): ExchangeMessage {
 
   // Compute embed block SAID
   const embedSaidified = saidify(embeds, { label: 'd' });
-  embeds.d = embedSaidified.d;
 
   return createBaseExn({
     sender,
@@ -254,7 +254,7 @@ export function createGrant(params: IpexGrantParams): ExchangeMessage {
       m: message || 'Granting credential',
       i: recipient,
     },
-    embeds,
+    embeds: embedSaidified,
     priorMessage,
   });
 }

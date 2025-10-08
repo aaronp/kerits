@@ -65,7 +65,7 @@ export function createRegistryDSL(
       }
 
       // Issue credential
-      const { credentialId, acdc } = await issueCredential(store, {
+      const { credentialId, acdc, iss } = await issueCredential(store, {
         registryId: registry.registryId,
         schemaId,
         issuerAid: account.aid,
@@ -94,6 +94,7 @@ export function createRegistryDSL(
         data: params.data,
         issuedAt: new Date().toISOString(),
         edges: params.edges,
+        issEvent: iss.sad.d, // Store ISS event SAID for traversal
       };
 
       return createACDCDSL(acdcObj, registry, store);
@@ -112,6 +113,20 @@ export function createRegistryDSL(
         return null;
       }
 
+      // Find the ISS event SAID from TEL
+      let issEventSaid: string | undefined;
+      try {
+        const telEvents = await store.listTel(acdcData.ri || registry.registryId);
+        const issEvent = telEvents.find(e =>
+          e.meta.t === 'iss' && e.meta.i === credentialId
+        );
+        if (issEvent) {
+          issEventSaid = issEvent.meta.d;
+        }
+      } catch (error) {
+        console.warn(`Could not find ISS event for ${alias} (${credentialId})`, error);
+      }
+
       // Build ACDC object from stored data
       const acdcObj: ACDC = {
         alias,
@@ -122,6 +137,7 @@ export function createRegistryDSL(
         holderAid: acdcData.a?.i || '',
         data: acdcData.a || {},
         issuedAt: acdcData.dt || new Date().toISOString(),
+        issEvent: issEventSaid, // Store ISS event SAID for traversal
       };
 
       return createACDCDSL(acdcObj, registry, store);

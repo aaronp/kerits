@@ -255,6 +255,12 @@ export interface ACDCDSL {
   getLinkedCredentials(): Promise<ACDCDSL[]>;
 
   /**
+   * Export this credential as IPEX grant message
+   * @returns IPEX grant JSON string ready for sharing
+   */
+  exportIPEX(): Promise<string>;
+
+  /**
    * Get credentials that link to this ACDC
    * @returns ACDCs that have edges pointing to this credential
    */

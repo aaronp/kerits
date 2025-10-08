@@ -407,7 +407,21 @@ export class KeriTraversal {
       }
     }
 
-    // 2. For VCP (registry inception), find anchor in KEL
+    // 2. For ISS/REV/other registry events, link to VCP (registry inception)
+    if (meta.t !== 'vcp' && meta.ri) {
+      // Find the VCP event for this registry
+      const telEvents = await this.store.listTel(meta.ri);
+      const vcpEvent = telEvents.find(e => e.meta.t === 'vcp');
+      if (vcpEvent) {
+        const vcpNode = await this.traverseRecursive(vcpEvent.meta.d, seen, depth + 1, maxDepth, opts);
+        if (vcpNode) {
+          vcpNode.edgeFromParent = { kind: 'REGISTRY', from: vcpEvent.meta.d, to: node.id };
+          parents.push(vcpNode);
+        }
+      }
+    }
+
+    // 3. For VCP (registry inception), find anchor in KEL
     if (meta.t === 'vcp' && meta.i) {
       // The VCP event should be anchored in the controller's KEL
       // We need to find the KEL event that anchors this registry

@@ -93,6 +93,7 @@ export function CredentialRegistry({ registryAID }: CredentialRegistryProps) {
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
+    alert('handleAdd in CredentialRegistry')
     setShowAddDialog(true);
   };
 

@@ -139,6 +139,8 @@ export interface ACDC {
   issuedAt: string;
   /** Edge blocks linking to other credentials */
   edges?: Record<string, EdgeBlock>;
+  /** TEL issuance event SAID (for graph traversal) */
+  issEvent?: string;
 }
 
 /**
