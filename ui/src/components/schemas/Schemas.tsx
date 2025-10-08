@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { SchemaList } from './SchemaList';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
@@ -20,6 +20,7 @@ interface SchemaDisplay {
 
 export function Schemas() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast, showToast, hideToast } = useToast();
   const [dsl, setDsl] = useState<KeritsDSL | null>(null);
   const [schemas, setSchemas] = useState<SchemaDisplay[]>([]);
@@ -27,6 +28,7 @@ export function Schemas() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importText, setImportText] = useState('');
   const [importing, setImporting] = useState(false);
+  const [selectedSchemaId, setSelectedSchemaId] = useState<string | null>(null);
 
   // Initialize DSL
   useEffect(() => {
@@ -41,6 +43,14 @@ export function Schemas() {
     }
     init();
   }, []);
+
+  // Handle selected query parameter
+  useEffect(() => {
+    const selected = searchParams.get('selected');
+    if (selected) {
+      setSelectedSchemaId(selected);
+    }
+  }, [searchParams]);
 
   // Load schemas
   useEffect(() => {
@@ -168,6 +178,7 @@ export function Schemas() {
       ) : (
         <SchemaList
           schemas={schemas}
+          selectedSchemaId={selectedSchemaId}
           onDelete={async () => {
             // Reload schemas after deletion
             if (dsl) {

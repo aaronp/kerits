@@ -2,22 +2,30 @@
  * NodeDetails - Reusable component for displaying KERI data structures
  *
  * Displays structured data with proper formatting for:
- * - AIDs/SAIDs (with visual IDs)
+ * - AIDs/SAIDs (show only VisualId, truncated text for links)
  * - Dates
  * - JSON objects
  * - Arrays
  * - Nested structures
  */
 
+import { Link } from 'react-router-dom';
 import { VisualId } from './visual-id';
+import { route } from '@/config';
 
 interface NodeDetailsProps {
   data: Record<string, any>;
   /** Optional schema to provide field descriptions */
   schema?: Record<string, { type?: string; description?: string }>;
+  /** Use grid layout (responsive columns) instead of stacked */
+  layout?: 'grid' | 'stacked';
 }
 
-export function NodeDetails({ data, schema }: NodeDetailsProps) {
+export function NodeDetails({ data, schema, layout = 'grid' }: NodeDetailsProps) {
+  const isAidOrSaid = (value: any): boolean => {
+    return typeof value === 'string' && /^[A-Z][A-Za-z0-9_-]{43,}$/.test(value);
+  };
+
   const renderValue = (key: string, value: any): React.ReactNode => {
     // Null/undefined
     if (value === null || value === undefined) {
@@ -47,15 +55,44 @@ export function NodeDetails({ data, schema }: NodeDetailsProps) {
       );
     }
 
-    // AID/SAID (starts with capital letter, 44+ chars)
-    if (typeof value === 'string' && /^[A-Z][A-Za-z0-9_-]{43,}$/.test(value)) {
+    // Schema ID (special case - make it a link with query param)
+    if ((key.toLowerCase() === 'schema id' || key.toLowerCase() === 'schema') && isAidOrSaid(value)) {
       return (
-        <div className="flex items-center gap-2">
-          <VisualId variant="marble" value={value} size={24} />
-          <code className="text-xs font-mono bg-muted px-2 py-0.5 rounded">
-            {value.substring(0, 16)}...
-          </code>
-        </div>
+        <Link
+          to={route(`/dashboard/schemas?selected=${value}`)}
+          className="inline-flex items-center gap-1.5 hover:underline"
+        >
+          <VisualId
+            label=""
+            variant="marble"
+            value={value}
+            size={20}
+            showCopy={false}
+            small
+          />
+          <span className="text-xs font-mono text-primary">
+            {value.substring(0, 12)}...
+          </span>
+        </Link>
+      );
+    }
+
+    // Issuer/Holder with alias (show alias as text, not ID)
+    if ((key.toLowerCase() === 'issuer' || key.toLowerCase() === 'holder') && !isAidOrSaid(value)) {
+      return <span className="text-sm font-medium">{value}</span>;
+    }
+
+    // AID/SAID (show only VisualId avatar, no label or copy button)
+    if (isAidOrSaid(value)) {
+      return (
+        <VisualId
+          label=""
+          variant="marble"
+          value={value}
+          size={20}
+          showCopy={false}
+          small
+        />
       );
     }
 
@@ -66,13 +103,13 @@ export function NodeDetails({ data, schema }: NodeDetailsProps) {
       }
 
       return (
-        <div className="space-y-1 pl-4 border-l-2 border-muted">
+        <div className="space-y-1 pl-3 border-l border-muted mt-1">
           {value.map((item, idx) => (
-            <div key={idx} className="flex gap-2">
-              <span className="text-muted-foreground">[{idx}]</span>
+            <div key={idx} className="flex gap-2 items-start">
+              <span className="text-muted-foreground text-xs">[{idx}]</span>
               {typeof item === 'object' ? (
                 <div className="flex-1">
-                  <NodeDetails data={item} />
+                  <NodeDetails data={item} layout="stacked" />
                 </div>
               ) : (
                 renderValue(`${key}[${idx}]`, item)
@@ -86,8 +123,8 @@ export function NodeDetails({ data, schema }: NodeDetailsProps) {
     // Object
     if (typeof value === 'object') {
       return (
-        <div className="pl-4 border-l-2 border-muted">
-          <NodeDetails data={value} />
+        <div className="pl-3 border-l border-muted mt-1">
+          <NodeDetails data={value} layout="stacked" />
         </div>
       );
     }
@@ -100,23 +137,27 @@ export function NodeDetails({ data, schema }: NodeDetailsProps) {
     return schema?.[key]?.description;
   };
 
+  const containerClass = layout === 'grid'
+    ? 'grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2'
+    : 'space-y-2';
+
   return (
-    <div className="space-y-3">
+    <div className={containerClass}>
       {Object.entries(data).map(([key, value]) => {
         const description = getFieldDescription(key);
 
         return (
-          <div key={key} className="space-y-1">
-            <div className="flex items-baseline gap-2">
-              <span className="text-sm font-medium text-muted-foreground min-w-[120px]">
-                {key}
+          <div key={key}>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-medium text-muted-foreground w-24 shrink-0">
+                {key}:
               </span>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0 flex items-center">
                 {renderValue(key, value)}
               </div>
             </div>
             {description && (
-              <p className="text-xs text-muted-foreground pl-[120px]">
+              <p className="text-xs text-muted-foreground mt-0.5 ml-[7rem]">
                 {description}
               </p>
             )}

@@ -17,10 +17,11 @@ interface SchemaDisplay {
 
 interface SchemaListProps {
   schemas: SchemaDisplay[];
+  selectedSchemaId?: string | null;
   onDelete?: () => void;
 }
 
-export function SchemaList({ schemas, onDelete }: SchemaListProps) {
+export function SchemaList({ schemas, selectedSchemaId, onDelete }: SchemaListProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedDefinitions, setExpandedDefinitions] = useState<Set<string>>(new Set());
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -30,6 +31,13 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
   useEffect(() => {
     getDSL().then(setDsl);
   }, []);
+
+  // Auto-expand selected schema from query parameter
+  useEffect(() => {
+    if (selectedSchemaId) {
+      setExpandedId(selectedSchemaId);
+    }
+  }, [selectedSchemaId]);
 
   const copyToClipboard = async (text: string, field: string) => {
     await navigator.clipboard.writeText(text);

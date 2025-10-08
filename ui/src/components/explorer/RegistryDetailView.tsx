@@ -369,22 +369,40 @@ export function RegistryDetailView({
                   acdc={acdc}
                   onExpand={async () => {
                     // Load full ACDC data when expanded
-                    if (!registryDsl) return {};
+                    if (!dsl || !registryDsl) return {};
 
                     const acdcDsl = await registryDsl.acdc(acdc.alias);
                     if (!acdcDsl) return {};
+
+                    // Resolve issuer alias
+                    const issuerAlias = await dsl.store.getSaidAlias('kel', acdc.issuerAid);
+                    const issuerLabel = issuerAlias || acdc.issuerAid;
+
+                    // Resolve holder alias (check contacts and account)
+                    let holderAlias = await dsl.store.getSaidAlias('contact', acdc.holderAid);
+                    if (!holderAlias) {
+                      holderAlias = await dsl.store.getSaidAlias('kel', acdc.holderAid);
+                    }
+                    const holderLabel = holderAlias || acdc.holderAid;
+
+                    // Filter out 'd' and 'i' fields from data
+                    const filteredData = Object.entries(acdcDsl.acdc.data)
+                      .filter(([key]) => key !== 'd' && key !== 'i')
+                      .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {});
 
                     return {
                       'Credential ID': acdc.credentialId,
                       'Alias': acdc.alias,
                       'Registry ID': acdc.registryId,
+                      'Issuer': issuerLabel,
                       'Issuer AID': acdc.issuerAid,
+                      'Holder': holderLabel,
                       'Holder AID': acdc.holderAid,
                       'Schema ID': acdc.schemaId,
                       'Issued At': acdc.issuedAt,
                       'Status': acdc.status,
                       'Revoked': acdc.revoked,
-                      'Data': acdcDsl.acdc.data,
+                      'Data': filteredData,
                     };
                   }}
                 />

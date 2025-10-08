@@ -78,28 +78,54 @@ export function ACDCRecord({ acdc, fullData: initialFullData, onExpand }: ACDCRe
 
       {/* Details - shown when expanded */}
       {expanded && (
-        <div className="border-t bg-muted/20 p-4">
+        <div className="border-t bg-muted/20 p-4 space-y-4">
           {loading ? (
             <div className="text-center py-4 text-muted-foreground">
               Loading details...
             </div>
           ) : fullData ? (
-            <NodeDetails data={fullData} />
+            <>
+              {/* Show credential data first if present */}
+              {fullData.Data && (
+                <div>
+                  <h4 className="text-sm font-semibold mb-2">Credential Data</h4>
+                  <div className="bg-background/50 rounded p-3">
+                    <NodeDetails data={fullData.Data} />
+                  </div>
+                </div>
+              )}
+
+              {/* Show metadata */}
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Metadata</h4>
+                <NodeDetails
+                  data={{
+                    'Credential ID': fullData['Credential ID'],
+                    'Alias': fullData['Alias'],
+                    'Registry ID': fullData['Registry ID'],
+                    'Schema ID': fullData['Schema ID'],
+                    'Issuer': fullData['Issuer'],
+                    'Holder': fullData['Holder'],
+                    'Issued At': fullData['Issued At'],
+                    'Status': fullData['Status'],
+                    'Revoked': fullData['Revoked'],
+                  }}
+                />
+              </div>
+            </>
           ) : (
-            <div className="space-y-3">
-              <NodeDetails
-                data={{
-                  'Credential ID': acdc.credentialId,
-                  'Registry ID': acdc.registryId,
-                  'Issuer AID': acdc.issuerAid,
-                  'Holder AID': acdc.holderAid,
-                  'Schema ID': acdc.schemaId,
-                  'Issued At': acdc.issuedAt,
-                  'Status': acdc.status,
-                  'Revoked': acdc.revoked,
-                }}
-              />
-            </div>
+            <NodeDetails
+              data={{
+                'Credential ID': acdc.credentialId,
+                'Registry ID': acdc.registryId,
+                'Issuer AID': acdc.issuerAid,
+                'Holder AID': acdc.holderAid,
+                'Schema ID': acdc.schemaId,
+                'Issued At': acdc.issuedAt,
+                'Status': acdc.status,
+                'Revoked': acdc.revoked,
+              }}
+            />
           )}
         </div>
       )}
