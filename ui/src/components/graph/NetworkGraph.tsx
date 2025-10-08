@@ -10,6 +10,8 @@ import { getDSL } from '@/lib/dsl';
 import { VisualId } from '../ui/visual-id';
 import { NodeDetails } from '../ui/NodeDetails';
 import { MermaidRenderer } from './MermaidRenderer';
+import { TabularGraph } from './TabularGraph';
+import { AllEvents } from './AllEvents';
 import { createKeriGraph } from '@/../../src/app/graph';
 import { createKeriTraversal, KeriTraversal } from '@/../../src/app/graph/traversal';
 import type { Graph, GraphNode, GraphEdge, PathGraph } from '@/../../src/storage/types';
@@ -616,183 +618,20 @@ export function NetworkGraph() {
         </Card>
       )}
 
-      <Tabs defaultValue="graph" className="w-full">
+      <Tabs defaultValue="all" className="w-full">
         <TabsList className="mb-4">
-          <TabsTrigger value="graph">Graph View</TabsTrigger>
+          <TabsTrigger value="all">All Events</TabsTrigger>
+          <TabsTrigger value="graph">Event History</TabsTrigger>
           <TabsTrigger value="gitgraph">Git Graph</TabsTrigger>
           <TabsTrigger value="json">JSON</TabsTrigger>
         </TabsList>
 
+      <TabsContent value="all">
+        <AllEvents dsl={dsl} />
+      </TabsContent>
+
       <TabsContent value="graph">
-        <div className="flex gap-4 h-[calc(100vh-200px)]">
-          {/* Graph visualization */}
-          <Card className="flex-1 overflow-hidden relative">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Network Graph</CardTitle>
-                  <CardDescription>
-                    {nodes.length} nodes, {edges.length} edges • Git-style commit graph
-                  </CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleZoomIn}>
-                    <ZoomIn className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={handleZoomOut}>
-                    <ZoomOut className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={handleResetView}>
-                    <Maximize2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-        <CardContent className="h-[calc(100%-100px)] overflow-hidden">
-          <svg
-            ref={svgRef}
-            viewBox={`0 0 ${width} ${height}`}
-            width="100%"
-            height="100%"
-            style={{ minHeight: '500px', cursor: isDragging ? 'grabbing' : 'grab' }}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            onWheel={handleWheel}
-          >
-            <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
-              {/* Grid columns */}
-              {Array.from({ length: cols }, (_, c) => (
-                <line
-                  key={`col-${c}`}
-                  x1={padX + c * colGap}
-                  y1={padY - 30}
-                  x2={padX + c * colGap}
-                  y2={padY + (lanes - 1) * laneGap + 30}
-                  stroke={colors.grid}
-                  strokeWidth={0.5}
-                />
-              ))}
-
-              {/* Swim lanes */}
-              {Array.from({ length: lanes }, (_, l) => (
-                <line
-                  key={`lane-${l}`}
-                  x1={padX - 30}
-                  y1={padY + l * laneGap}
-                  x2={width - 30}
-                  y2={padY + l * laneGap}
-                  stroke={colors.lane}
-                  strokeDasharray="6 8"
-                  strokeWidth={1}
-                />
-              ))}
-
-              {/* Edges */}
-              {edges.map(e => {
-                const src = nodes.find(n => n.id === e.from);
-                const dst = nodes.find(n => n.id === e.to);
-                if (!src || !dst) return null;
-
-                const a = rightPort(src);
-                const b = leftPort(dst);
-                const d = orthoRounded(a.x, a.y, b.x, b.y, 16);
-
-                const edgeColor =
-                  e.kind === 'ISSUES' ? colors.regNode :
-                  e.kind === 'REVOKES' ? '#ef4444' :
-                  e.kind === 'USES_SCHEMA' ? colors.schemaNode :
-                  e.kind === 'ANCHOR' ? colors.telNode :
-                  e.kind === 'PRIOR' ? colors.kelNode :
-                  colors.edge;
-
-                return (
-                  <path
-                    key={e.id}
-                    d={d}
-                    fill="none"
-                    stroke={edgeColor}
-                    strokeWidth={e.kind === 'PRIOR' ? 2.5 : 2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity={0.7}
-                  />
-                );
-              })}
-
-              {/* ACDC spines */}
-              {spines.map((s, i) => (
-                <line
-                  key={`spine-${i}`}
-                  x1={s.x}
-                  y1={s.y1}
-                  x2={s.x}
-                  y2={s.y2}
-                  stroke={colors.subtle}
-                  strokeWidth={1.5}
-                />
-              ))}
-
-              {/* Nodes */}
-              {nodes.map(n => (
-                <NodeGlyph
-                  key={n.id}
-                  n={n}
-                  onClick={() => {
-                    setSelectedNode(n);
-                    setSearchParams({ id: n.id });
-                  }}
-                />
-              ))}
-            </g>
-          </svg>
-        </CardContent>
-      </Card>
-
-      {/* Node details panel */}
-      <Card className="w-96 flex-shrink-0 overflow-y-auto">
-        <CardHeader>
-          <CardTitle className="text-lg">
-            {resolvedNode ? (resolvedNode.label || resolvedNode.kind) : 'Node Details'}
-          </CardTitle>
-          <CardDescription>
-            {resolvedNode ? 'Click a different node to view its details' : 'Click a node to view details'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {resolvedNode ? (
-            <div className="space-y-4">
-              <VisualId
-                label="Node ID"
-                value={resolvedNode.id}
-                size={40}
-                maxCharacters={20}
-                linkToGraph={false}
-              />
-
-              <div>
-                <div className="text-sm font-semibold mb-1">Type</div>
-                <div className="px-3 py-2 bg-secondary rounded text-sm font-mono">
-                  {resolvedNode.kind}
-                </div>
-              </div>
-
-              {resolvedNode.meta && Object.keys(resolvedNode.meta).length > 0 && (
-                <div>
-                  <div className="text-sm font-semibold mb-2">Details</div>
-                  <NodeDetails data={resolvedNode.meta} layout="stacked" />
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-12 text-muted-foreground text-sm">
-              Click a node in the graph to view its details
-            </div>
-          )}
-        </CardContent>
-      </Card>
-        </div>
+        <TabularGraph dsl={dsl} selectedId={selectedId} />
       </TabsContent>
 
       <TabsContent value="gitgraph">

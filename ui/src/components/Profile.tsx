@@ -20,6 +20,7 @@ export function Profile() {
   const [rotating, setRotating] = useState<Record<string, boolean>>({});
   const [showMnemonic, setShowMnemonic] = useState<Record<string, boolean>>({});
   const [bannerColor, setBannerColor] = useState<string>('#3b82f6');
+  const [kelAids, setKelAids] = useState<Record<string, string>>({});  // Map alias -> actual KEL AID
 
   useEffect(() => {
     if (currentUser) {
@@ -29,6 +30,32 @@ export function Profile() {
       }
     }
   }, [currentUser]);
+
+  // Load actual KEL AIDs from DSL
+  useEffect(() => {
+    async function loadKelAids() {
+      if (identities.length === 0) return;
+
+      try {
+        const dsl = await getDSL();
+        const accountNames = await dsl.accountNames();
+        const aidMap: Record<string, string> = {};
+
+        for (const accountName of accountNames) {
+          const accountDsl = await dsl.account(accountName);
+          if (accountDsl) {
+            aidMap[accountName] = accountDsl.account.aid;
+          }
+        }
+
+        setKelAids(aidMap);
+      } catch (error) {
+        console.error('Failed to load KEL AIDs:', error);
+      }
+    }
+
+    loadKelAids();
+  }, [identities]);
 
   const handleColorChange = (color: string) => {
     if (!currentUser) return;
@@ -281,14 +308,14 @@ export function Profile() {
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="text-xs font-mono text-muted-foreground">
-                          {identity.prefix}
+                          {kelAids[identity.alias] || identity.prefix}
                         </div>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleCopyAID(identity.prefix)}
+                          onClick={() => handleCopyAID(kelAids[identity.alias] || identity.prefix)}
                           className="h-6 w-6 p-0"
-                          title="Copy AID"
+                          title="Copy KEL AID"
                         >
                           <Copy className="h-3 w-3" />
                         </Button>

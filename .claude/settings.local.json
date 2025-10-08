@@ -4,7 +4,8 @@
       "Bash(npx:*)",
       "Bash(bunx shadcn@latest add:*)",
       "Bash(bunx shadcn@latest search:*)",
-      "Bash(bun add:*)"
+      "Bash(bun add:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []
