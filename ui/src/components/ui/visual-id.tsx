@@ -129,13 +129,14 @@ export function VisualId({
           {displayValue}
         </div>
       </div>
-      {showCopy && (isHovered || copied) && (
+      {showCopy && (
         <Button
           variant="ghost"
           size="sm"
           onClick={handleCopy}
-          className="flex-shrink-0"
+          className={`flex-shrink-0 transition-opacity ${(isHovered || copied) ? 'opacity-100' : 'opacity-0'}`}
           title="Copy to clipboard"
+          tabIndex={-1}
         >
           {copied ? (
             <Check className="h-3 w-3 text-green-500" />
