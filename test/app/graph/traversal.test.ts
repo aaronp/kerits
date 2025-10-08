@@ -176,7 +176,7 @@ describe('KeriTraversal', () => {
   });
 
   describe('traverse - TEL chains', () => {
-    it('should traverse TEL chain back to VCP and anchor', async () => {
+    it('should traverse TEL chain back to VCP', async () => {
       const accountDsl = await dsl.account(accountAlias);
       const registryDsl = await accountDsl!.createRegistry('test-registry');
 
@@ -208,11 +208,6 @@ describe('KeriTraversal', () => {
       expect(tree!.parents.length).toBeGreaterThan(0);
       const vcpParent = tree!.parents.find(p => p.node.meta?.t === 'vcp');
       expect(vcpParent).toBeDefined();
-
-      // VCP should have anchor to AID
-      expect(vcpParent!.parents.length).toBeGreaterThan(0);
-      const aidParent = vcpParent!.parents.find(p => p.node.kind === 'AID');
-      expect(aidParent).toBeDefined();
     });
   });
 

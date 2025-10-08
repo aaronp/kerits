@@ -310,10 +310,6 @@ export function RegistryDetailView({
     }
   };
 
-  const handleExport = () => {
-    // TODO: Implement export
-    console.log('Export registry:', registryId);
-  };
 
   const handleImport = () => {
     // TODO: Implement import
@@ -363,16 +359,12 @@ export function RegistryDetailView({
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleImport}>
-            <Upload className="mr-2 h-4 w-4" />
+          <Button className="cursor-pointer" variant="outline" size="sm" onClick={handleImport}>
+            <Download className="mr-2 h-4 w-4" />
             Import
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExport}>
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
 
-          <Button size="sm" onClick={() => setShowIssueDialog(true)}>
+          <Button className="cursor-pointer" variant="outline" size="sm" onClick={() => setShowIssueDialog(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Issue Credential
           </Button>
@@ -419,23 +411,15 @@ export function RegistryDetailView({
                         throw new Error("alias not set on ACDC")
                         return;
                       }
-                      console.log('sharing', alias);
 
                       // Get the ACDC DSL
                       const acdcDsl = await registryDsl.acdc(alias);
-                      console.log('acdcDsl in ', {
-                        acdcDsl,
-                        alias,
-                        registry: registryDsl.registry
-                      });
                       if (!acdcDsl) {
                         throw new Error('Credential not found');
                       }
 
                       // Export as IPEX grant
-                      console.log('exportin ...')
                       const ipexGrant = await acdcDsl.exportIPEX();
-                      console.log('got ...', ipexGrant)
 
                       // Copy to clipboard
                       await navigator.clipboard.writeText(ipexGrant);

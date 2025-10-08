@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 
 export interface Toast {
   id: string;
@@ -17,9 +17,12 @@ export interface ToastOptions {
 
 const toastListeners = new Set<(toast: Toast) => void>();
 
-export function useToast() {
-  const [toasts, setToasts] = useState<Toast[]>([]);
+export function subscribeToToasts(listener: (toast: Toast) => void) {
+  toastListeners.add(listener);
+  return () => toastListeners.delete(listener);
+}
 
+export function useToast() {
   const toast = useCallback((options: ToastOptions) => {
     const id = Math.random().toString(36).substring(2, 9);
     const newToast: Toast = {
@@ -28,26 +31,13 @@ export function useToast() {
       duration: options.duration || 3000,
     };
 
-    // Notify all listeners
+    // Notify all listeners (e.g., Toaster component)
     toastListeners.forEach(listener => listener(newToast));
-
-    setToasts(prev => [...prev, newToast]);
-
-    // Auto-dismiss
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, newToast.duration);
 
     return id;
   }, []);
 
-  const dismiss = useCallback((id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  }, []);
-
   return {
     toast,
-    toasts,
-    dismiss,
   };
 }

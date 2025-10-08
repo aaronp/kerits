@@ -5,6 +5,7 @@ import { AccountProvider } from './lib/account-provider';
 import { UserCreation } from './components/auth/UserCreation';
 import { UserSelection } from './components/auth/UserSelection';
 import { Dashboard } from './components/Dashboard';
+import { Toaster } from './components/ui/toaster';
 import { BASE_PATH } from './config';
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
               <Route path={`${BASE_PATH}/select-user`} element={<UserSelection />} />
               <Route path={`${BASE_PATH}*`} element={<Dashboard />} />
             </Routes>
+            <Toaster />
           </AccountProvider>
         </UserProvider>
       </ThemeProvider>
