@@ -9,11 +9,10 @@ import { ZoomIn, ZoomOut, Maximize2, ChevronRight } from 'lucide-react';
 import { getDSL } from '@/lib/dsl';
 import { VisualId } from '../ui/visual-id';
 import { NodeDetails } from '../ui/NodeDetails';
-import { GraphTableView } from './GraphTableView';
 import { MermaidRenderer } from './MermaidRenderer';
-import { createKeriGitGraph, createKeriGraph } from '@/../../src/app/graph';
+import { createKeriGraph } from '@/../../src/app/graph';
 import { createKeriTraversal, KeriTraversal } from '@/../../src/app/graph/traversal';
-import type { Graph, GraphNode, GraphEdge } from '@/../../src/storage/types';
+import type { Graph, GraphNode, GraphEdge, PathGraph } from '@/../../src/storage/types';
 import type { KeritsDSL } from '@/../../src/app/dsl/types';
 import type { TraversalNode, ResolvedNode } from '@/../../src/app/graph/traversal';
 
@@ -291,12 +290,7 @@ export function NetworkGraph() {
   const [traversalTree, setTraversalTree] = useState<TraversalNode | null>(null);
   const [resolvedNode, setResolvedNode] = useState<ResolvedNode | null>(null);
   const [availableIds, setAvailableIds] = useState<Array<{ value: string; label: string }>>([]);
-  const [pathGraph, setPathGraph] = useState<{
-    kelRootId: string | null;
-    targetNode: string;
-    paths: string[][];
-    data: Record<string, ResolvedNode>;
-  } | null>(null);
+  const [pathGraph, setPathGraph] = useState<PathGraph | null>(null);
 
   useEffect(() => {
     async function loadGraph() {
@@ -378,10 +372,8 @@ export function NetworkGraph() {
         });
         setAvailableIds(ids);
 
-        // Generate Mermaid gitGraph
-        const gitGraph = createKeriGitGraph(store, dslInstance);
-        const mermaid = await gitGraph.toMermaid({ includeTel: true });
-        setMermaidChart(mermaid);
+        // Generate initial Mermaid gitGraph (will be updated when traversal runs)
+        setMermaidChart('');
       } catch (err) {
         console.error('Failed to load graph:', err);
         setError(err instanceof Error ? err.message : 'Unknown error');
@@ -418,6 +410,11 @@ export function NetworkGraph() {
           // Also create path-based graph structure
           const pathGraphData = await KeriTraversal.treeToPathGraph(tree, dsl);
           setPathGraph(pathGraphData);
+
+          // Generate Mermaid gitGraph from path data
+          const { pathGraphToMermaid } = await import('@/../../src/app/graph/keri-git-graph');
+          const mermaid = pathGraphToMermaid(pathGraphData);
+          setMermaidChart(mermaid);
         }
       } catch (err) {
         console.error('Failed to traverse from ID:', err);
@@ -623,7 +620,6 @@ export function NetworkGraph() {
         <TabsList className="mb-4">
           <TabsTrigger value="graph">Graph View</TabsTrigger>
           <TabsTrigger value="gitgraph">Git Graph</TabsTrigger>
-          <TabsTrigger value="table">Table View</TabsTrigger>
           <TabsTrigger value="json">JSON</TabsTrigger>
         </TabsList>
 
@@ -817,10 +813,6 @@ export function NetworkGraph() {
             )}
           </CardContent>
         </Card>
-      </TabsContent>
-
-      <TabsContent value="table">
-        <GraphTableView />
       </TabsContent>
 
       <TabsContent value="json">

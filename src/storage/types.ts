@@ -244,3 +244,18 @@ export interface Graph {
   nodes: GraphNode[];
   edges: GraphEdge[];
 }
+
+/**
+ * Path-based graph structure for traversal visualization
+ * Provides a clean interface for displaying node relationships as paths
+ */
+export interface PathGraph {
+  /** The KEL root ID of the current user's account (if available) */
+  kelRootId: SAID | null;
+  /** The target node being viewed */
+  targetNode: SAID;
+  /** All unique paths from root nodes to the target node (each path is an array of SAIDs) */
+  paths: SAID[][];
+  /** Mapping of node SAIDs to their full data */
+  data: Record<SAID, GraphNode>;
+}

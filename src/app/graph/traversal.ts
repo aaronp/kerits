@@ -10,7 +10,7 @@
  * - Schemas
  */
 
-import type { KerStore, SAID, AID, EventMeta, GraphNodeKind } from '../../storage/types';
+import type { KerStore, SAID, AID, EventMeta, GraphNodeKind, PathGraph, GraphNode } from '../../storage/types';
 import type { KeritsDSL } from '../dsl/types';
 
 /**
@@ -515,15 +515,10 @@ export class KeriTraversal {
   static async treeToPathGraph(
     tree: TraversalNode,
     dsl: KeritsDSL
-  ): Promise<{
-    kelRootId: SAID | null;
-    targetNode: SAID;
-    paths: SAID[][];
-    data: Record<SAID, ResolvedNode>;
-  }> {
+  ): Promise<PathGraph> {
     const targetNode = tree.node.id;
     const paths: SAID[][] = [];
-    const data: Record<SAID, ResolvedNode> = {};
+    const data: Record<SAID, GraphNode> = {};
 
     // Find KEL root (the user's current account inception event)
     let kelRootId: SAID | null = null;
@@ -543,8 +538,13 @@ export class KeriTraversal {
     function collectPaths(node: TraversalNode, currentPath: SAID[]): void {
       const newPath = [node.node.id, ...currentPath];
 
-      // Store node data
-      data[node.node.id] = node.node;
+      // Store node data as GraphNode
+      data[node.node.id] = {
+        id: node.node.id,
+        kind: node.node.kind,
+        label: node.node.label,
+        meta: node.node.meta,
+      };
 
       if (node.parents.length === 0) {
         // Reached a root node, store the complete path
