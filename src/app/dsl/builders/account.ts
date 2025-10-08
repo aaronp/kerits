@@ -190,12 +190,9 @@ export function createAccountDSL(account: Account, store: KerStore, keyManager?:
       const kelEvents = await store.listKel(account.aid);
       const registryIds = new Set<string>();
 
-      console.log(`Listing registries for ${account.aid}, found ${kelEvents.length} KEL events`);
-
       // Walk KEL and extract registry seals from IXN events
       for (const kelEvent of kelEvents) {
         if (kelEvent.meta.t === 'ixn') {
-          console.log(`Found IXN event: ${kelEvent.meta.d}`);
           // Check for seals in event
           const rawEvent = await store.getEvent(kelEvent.meta.d);
           if (rawEvent) {
@@ -212,16 +209,12 @@ export function createAccountDSL(account: Account, store: KerStore, keyManager?:
 
                 // Extract seals
                 if (event.a && Array.isArray(event.a)) {
-                  console.log(`IXN event has ${event.a.length} seals`);
                   for (const seal of event.a) {
                     if (seal.i) {
                       // This is a registry seal (identifier in 'i' field)
-                      console.log(`Found registry seal: ${seal.i}`);
                       registryIds.add(seal.i);
                     }
                   }
-                } else {
-                  console.log('IXN event has no seals in "a" field');
                 }
               }
             } catch (e) {
@@ -232,25 +225,19 @@ export function createAccountDSL(account: Account, store: KerStore, keyManager?:
         }
       }
 
-      console.log(`Found ${registryIds.size} unique registry IDs from KEL seals`);
-
       // Convert registry IDs to aliases using getSaidAlias (correct direction)
       const aliases: string[] = [];
       const seenAliases = new Set<string>();
 
       for (const registryId of registryIds) {
         const alias = await store.getSaidAlias('tel', registryId);
-        console.log(`Registry ${registryId} -> alias: ${alias || 'NOT FOUND'}`);
 
         if (alias && !seenAliases.has(alias)) {
           aliases.push(alias);
           seenAliases.add(alias);
-        } else if (alias) {
-          console.warn(`Duplicate alias "${alias}" found for registry ${registryId}, skipping`);
         }
       }
 
-      console.log(`Returning ${aliases.length} unique registry aliases:`, aliases);
       return aliases;
     },
 

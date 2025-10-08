@@ -139,7 +139,6 @@ export function RegistryDetailView({
         // Load contacts
         const contactsDsl = dsl.contacts();
         const allContacts = await contactsDsl.getAll();
-        console.log('[RegistryDetailView] Loaded contacts:', allContacts.length, allContacts);
 
         const contacts = [
           { value: accountDsl.account.aid, label: `${accountAlias} (current account)` },
@@ -148,7 +147,6 @@ export function RegistryDetailView({
             label: `${contact.alias} - ${contact.aid.substring(0, 16)}...`,
           }))
         ];
-        console.log('[RegistryDetailView] Available contacts for dropdown:', contacts);
         setAvailableContacts(contacts);
         setCurrentAccountAid(accountDsl.account.aid);
       } catch (error) {

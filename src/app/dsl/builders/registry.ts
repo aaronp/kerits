@@ -128,32 +128,20 @@ export function createRegistryDSL(
     async listACDCs(): Promise<string[]> {
       // Get all ACDC aliases
       const allAcdcAliases = await store.listAliases('acdc');
-      console.log(`[listACDCs] Found ${allAcdcAliases.length} total ACDC aliases:`, allAcdcAliases);
-      console.log(`[listACDCs] Filtering for registry: ${registry.registryId}`);
-
       const filteredAliases: string[] = [];
 
       // Filter to only include ACDCs that belong to this registry
       for (const alias of allAcdcAliases) {
         const credentialId = await store.getAliasSaid('acdc', alias);
         if (!credentialId) {
-          console.log(`[listACDCs] No credentialId found for alias: ${alias}`);
           continue;
         }
 
         // Get the ACDC data
         const acdcData = await store.getACDC(credentialId);
         if (!acdcData) {
-          console.log(`[listACDCs] No ACDC data found for credentialId: ${credentialId}`);
           continue;
         }
-
-        console.log(`[listACDCs] ACDC ${alias}:`, {
-          credentialId,
-          ri: acdcData.ri,
-          expectedRi: registry.registryId,
-          matches: acdcData.ri === registry.registryId,
-        });
 
         // Check if this ACDC belongs to this registry
         if (acdcData.ri === registry.registryId) {
@@ -161,7 +149,6 @@ export function createRegistryDSL(
         }
       }
 
-      console.log(`[listACDCs] Returning ${filteredAliases.length} filtered aliases:`, filteredAliases);
       return filteredAliases;
     },
 
