@@ -47,6 +47,15 @@ export function NodeDetails({ data, schema, layout = 'grid' }: NodeDetailsProps)
       return <span className="text-blue-600 dark:text-blue-400">{value}</span>;
     }
 
+    // Issued At / Date fields (special handling)
+    if ((key.toLowerCase().includes('issued') || key.toLowerCase().includes('date')) && typeof value === 'string') {
+      // Try to parse as date
+      const dateObj = new Date(value);
+      if (!isNaN(dateObj.getTime())) {
+        return <ShowDate date={dateObj} />;
+      }
+    }
+
     // Date string (ISO 8601)
     if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
       return <ShowDate date={value} />;

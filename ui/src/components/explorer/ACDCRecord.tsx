@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Ban } from 'lucide-react';
 import { Button } from '../ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { NodeDetails } from '../ui/NodeDetails';
 import type { IndexedACDC } from '@kerits/app/indexer/types';
 
@@ -101,56 +102,84 @@ export function ACDCRecord({ acdc, fullData: initialFullData, onExpand, onRevoke
               Loading details...
             </div>
           ) : fullData ? (
-            <>
-              {/* Show credential data first if present */}
-              {fullData.Data && (
-                <div>
-                  <h4 className="text-sm font-semibold mb-2">Credential Data</h4>
-                  <div className="bg-background/50 rounded p-3">
-                    <NodeDetails data={fullData.Data} />
+            <Tabs defaultValue="details" className="w-full">
+              <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+                <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                  Details
+                </TabsTrigger>
+                <TabsTrigger value="json" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                  JSON
+                </TabsTrigger>
+                <TabsTrigger value="cesr" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                  CESR
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="details" className="space-y-4 mt-4">
+                {/* Show credential data first if present */}
+                {fullData.Data && Object.keys(fullData.Data).length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Credential Data</h4>
+                    <div className="bg-background/50 rounded p-3">
+                      <NodeDetails data={fullData.Data} />
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Show metadata */}
-              <div>
-                <h4 className="text-sm font-semibold mb-2">Metadata</h4>
-                <NodeDetails
-                  data={{
-                    'Credential ID': fullData['Credential ID'],
-                    'Alias': fullData['Alias'],
-                    'Registry ID': fullData['Registry ID'],
-                    'Schema ID': fullData['Schema ID'],
-                    'Issuer': fullData['Issuer'],
-                    'Holder': fullData['Holder'],
-                    'Issued At': fullData['Issued At'],
-                  }}
-                />
-              </div>
-
-              {/* Action buttons */}
-              {onRevoke && acdc.status === 'issued' && !acdc.revoked && (
-                <div className="pt-2 border-t">
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      setRevoking(true);
-                      try {
-                        await onRevoke();
-                      } finally {
-                        setRevoking(false);
-                      }
+                {/* Show metadata */}
+                <div>
+                  <h4 className="text-sm font-semibold mb-2">Metadata</h4>
+                  <NodeDetails
+                    data={{
+                      'Credential ID': fullData['Credential ID'],
+                      'Alias': fullData['Alias'],
+                      'Registry ID': fullData['Registry ID'],
+                      'Schema ID': fullData['Schema ID'],
+                      'Issuer': fullData['Issuer'],
+                      'Holder': fullData['Holder'],
+                      'Issued At': fullData['Issued At'],
+                      ...(fullData['Public Keys'] && { 'Public Keys': fullData['Public Keys'] }),
+                      ...(fullData['Signatures'] && { 'Signatures': fullData['Signatures'] }),
                     }}
-                    disabled={revoking}
-                  >
-                    <Ban className="h-4 w-4 mr-2" />
-                    {revoking ? 'Revoking...' : 'Revoke Credential'}
-                  </Button>
+                  />
                 </div>
-              )}
-            </>
+
+                {/* Action buttons */}
+                {onRevoke && acdc.status === 'issued' && !acdc.revoked && (
+                  <div className="pt-2 border-t">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        setRevoking(true);
+                        try {
+                          await onRevoke();
+                        } finally {
+                          setRevoking(false);
+                        }
+                      }}
+                      disabled={revoking}
+                    >
+                      <Ban className="h-4 w-4 mr-2" />
+                      {revoking ? 'Revoking...' : 'Revoke Credential'}
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="json" className="mt-4">
+                <pre className="bg-muted/50 rounded p-3 text-xs overflow-x-auto">
+                  {fullData.JSON || 'Loading...'}
+                </pre>
+              </TabsContent>
+
+              <TabsContent value="cesr" className="mt-4">
+                <pre className="bg-muted/50 rounded p-3 text-xs overflow-x-auto font-mono">
+                  {fullData.CESR || 'Loading...'}
+                </pre>
+              </TabsContent>
+            </Tabs>
           ) : (
             <NodeDetails
               data={{

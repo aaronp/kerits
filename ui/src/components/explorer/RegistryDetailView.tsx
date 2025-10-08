@@ -370,6 +370,13 @@ export function RegistryDetailView({
                   key={acdc.credentialId}
                   acdc={acdc}
                   autoExpand={selectedId === acdc.credentialId}
+                  onRevoke={async () => {
+                    // TODO: Implement revocation
+                    console.log('Revoke credential:', acdc.credentialId);
+                    // Reload credentials after revocation
+                    const updatedAcdcs = await registryDsl!.listACDCs();
+                    // ... refresh logic
+                  }}
                   onExpand={async () => {
                     // Load full ACDC data when expanded
                     if (!dsl || !registryDsl) return {};
@@ -403,6 +410,11 @@ export function RegistryDetailView({
                       .filter(([key]) => key !== 'd' && key !== 'i')
                       .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {});
 
+                    // Get ACDC details using the core utility
+                    const { extractACDCDetails } = await import('@kerits/app/dsl/utils/acdc-details');
+                    const exportDsl = await acdcDsl.export();
+                    const details = await extractACDCDetails(exportDsl);
+
                     return {
                       'Credential ID': acdc.credentialId,
                       'Alias': acdc.alias,
@@ -412,6 +424,10 @@ export function RegistryDetailView({
                       'Schema ID': acdc.schemaId,
                       'Issued At': acdc.issuedAt,
                       'Data': filteredData,
+                      'JSON': details.json,
+                      'CESR': details.cesr,
+                      'Public Keys': details.publicKeys,
+                      'Signatures': details.signatures,
                     };
                   }}
                 />

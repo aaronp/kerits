@@ -18,7 +18,7 @@ export function ShowDate({ date, showTime = true }: ShowDateProps) {
     : dateObj.toLocaleDateString();
 
   return (
-    <span className="text-purple-600 dark:text-purple-400">
+    <span className="text-xs text-purple-600 dark:text-purple-400">
       {formatted}
     </span>
   );
