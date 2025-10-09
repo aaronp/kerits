@@ -1,8 +1,8 @@
 /**
  * DSL Singleton for kerits UI
  *
- * Provides a single global instance of the kerits DSL using IndexedDB storage.
- * This replaces the old storage.ts layer with the robust DSL architecture.
+ * Provides a user-aware instance of the kerits DSL using IndexedDB storage.
+ * Each user gets their own isolated database instance.
  */
 
 import { useState, useEffect } from 'react';
@@ -13,76 +13,111 @@ import { createKeritsDSL } from '../../../src/app/dsl';
 import type { KeritsDSL } from '../../../src/app/dsl/types';
 
 /**
- * Global DSL instance
- * Lazy-initialized on first access
+ * User-specific DSL instances
+ * Map of userId -> DSL instance for proper user isolation
  */
-let dslInstance: KeritsDSL | null = null;
+const dslInstances = new Map<string, KeritsDSL>();
 
 /**
- * Get the global DSL instance
+ * Get a user-specific DSL instance
  *
- * On first call, initializes the IndexedDB backend and creates the DSL.
- * Subsequent calls return the same instance.
+ * Each user gets their own isolated IndexedDB database and DSL instance.
+ * This ensures proper data isolation between users.
  *
+ * @param userId - User ID for database namespacing
  * @returns Promise<KeritsDSL>
  */
-export async function getDSL(): Promise<KeritsDSL> {
-  if (dslInstance) {
-    return dslInstance;
+export async function getDSL(userId?: string): Promise<KeritsDSL> {
+  // If no userId provided, throw error - DSL must be user-aware
+  if (!userId) {
+    throw new Error('getDSL requires a userId for proper data isolation');
   }
 
-  // Create IndexedDB KV adapter
-  const kv = new IndexedDBKv('kerits-app');
+  // Return cached instance if exists
+  if (dslInstances.has(userId)) {
+    return dslInstances.get(userId)!;
+  }
+
+  // Create user-specific IndexedDB KV adapter
+  const kv = new IndexedDBKv(`kerits-app-${userId}`);
 
   // Create KerStore with IndexedDB backend
   const store = createKerStore(kv);
 
   // Create DSL
-  dslInstance = createKeritsDSL(store);
+  const dslInstance = createKeritsDSL(store);
+
+  // Cache it
+  dslInstances.set(userId, dslInstance);
 
   return dslInstance;
 }
 
 /**
- * Reset the DSL instance (useful for testing or logout)
+ * Reset DSL instance for a specific user (useful for testing or logout)
  *
+ * @param userId - User ID whose DSL instance to reset
  * @param clearData - If true, clears all data from IndexedDB
  */
-export async function resetDSL(clearData = false): Promise<void> {
-  if (clearData && dslInstance) {
-    const kv = new IndexedDBKv('kerits-app');
+export async function resetDSL(userId: string, clearData = false): Promise<void> {
+  if (clearData) {
+    const kv = new IndexedDBKv(`kerits-app-${userId}`);
     await kv.clear();
     await kv.close();
   }
 
-  dslInstance = null;
+  dslInstances.delete(userId);
 }
 
 /**
- * React hook for accessing the DSL
+ * Reset all DSL instances (useful for testing)
+ */
+export async function resetAllDSL(): Promise<void> {
+  dslInstances.clear();
+}
+
+/**
+ * React hook for accessing the user-aware DSL
  *
  * Usage:
  * ```tsx
- * const dsl = useDSL();
- * const accountDsl = await dsl.account('alice');
+ * import { useUser } from './user-provider';
+ *
+ * const { currentUser } = useUser();
+ * const { dsl, loading, error } = useDSL(currentUser?.id);
+ *
+ * if (dsl) {
+ *   const accountDsl = await dsl.account('alice');
+ * }
  * ```
  */
-export function useDSL() {
+export function useDSL(userId?: string) {
   const [dsl, setDsl] = useState<KeritsDSL | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    getDSL()
+    if (!userId) {
+      setDsl(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    getDSL(userId)
       .then(d => {
         setDsl(d);
         setLoading(false);
       })
       .catch(err => {
         setError(err);
+        setDsl(null);
         setLoading(false);
       });
-  }, []);
+  }, [userId]);
 
   return { dsl, loading, error };
 }

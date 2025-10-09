@@ -10,6 +10,7 @@ import { createMnemonic, deriveSeed, formatMnemonic } from '@/lib/mnemonic';
 import { generateKeypairFromSeed, incept, diger } from '@/lib/keri';
 import { saveIdentity } from '@/lib/storage';
 import { getDSL } from '@/lib/dsl';
+import { useUser } from '@/lib/user-provider';
 import type { StoredIdentity } from '@/lib/storage';
 
 interface IdentityCreatorProps {
@@ -18,6 +19,7 @@ interface IdentityCreatorProps {
 
 export function IdentityCreator({ onCreated }: IdentityCreatorProps) {
   const { toast, showToast, hideToast } = useToast();
+  const { currentUser } = useUser();
   const [alias, setAlias] = useState('');
   const [mnemonic, setMnemonic] = useState('');
   const [showMnemonic, setShowMnemonic] = useState(false);
@@ -42,7 +44,7 @@ export function IdentityCreator({ onCreated }: IdentityCreatorProps) {
     setCreating(true);
     try {
       // Create account in DSL first
-      const dsl = await getDSL();
+      const dsl = await getDSL(currentUser?.id);
       await dsl.newAccount(alias, mnemonic);
 
       // Also create in old storage system for backward compatibility

@@ -8,6 +8,7 @@ import { Toast, useToast } from '../ui/toast';
 import { Plus, Download } from 'lucide-react';
 import { route } from '@/config';
 import { getDSL } from '@/lib/dsl';
+import { useUser } from '@/lib/user-provider';
 import type { KeritsDSL } from '@kerits/app/dsl/types';
 
 interface SchemaDisplay {
@@ -22,6 +23,7 @@ export function Schemas() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast, showToast, hideToast } = useToast();
+  const { currentUser } = useUser();
   const [dsl, setDsl] = useState<KeritsDSL | null>(null);
   const [schemas, setSchemas] = useState<SchemaDisplay[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +36,7 @@ export function Schemas() {
   useEffect(() => {
     async function init() {
       try {
-        const dslInstance = await getDSL();
+        const dslInstance = await getDSL(currentUser?.id);
         setDsl(dslInstance);
       } catch (error) {
         console.error('Failed to initialize DSL:', error);
@@ -42,7 +44,7 @@ export function Schemas() {
       }
     }
     init();
-  }, []);
+  }, [currentUser]);
 
   // Handle selected query parameter
   useEffect(() => {

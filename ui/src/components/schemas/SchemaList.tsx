@@ -5,6 +5,7 @@ import { Copy, Check, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { Toast, useToast } from '../ui/toast';
 import { VisualId } from '../ui/visual-id';
 import { getDSL } from '@/lib/dsl';
+import { useUser } from '@/lib/user-provider';
 import type { KeritsDSL } from '@kerits/app/dsl/types';
 
 interface SchemaDisplay {
@@ -27,10 +28,11 @@ export function SchemaList({ schemas, selectedSchemaId, onDelete }: SchemaListPr
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [dsl, setDsl] = useState<KeritsDSL | null>(null);
   const { toast, showToast, hideToast } = useToast();
+  const { currentUser } = useUser();
 
   useEffect(() => {
-    getDSL().then(setDsl);
-  }, []);
+    getDSL(currentUser?.id).then(setDsl);
+  }, [currentUser]);
 
   // Auto-expand selected schema from query parameter
   useEffect(() => {

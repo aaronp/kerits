@@ -9,6 +9,7 @@ import { Textarea } from '../ui/textarea';
 import { Toast, useToast } from '../ui/toast';
 import { Plus, Trash2, ArrowLeft } from 'lucide-react';
 import { getDSL } from '@/lib/dsl';
+import { useUser } from '@/lib/user-provider';
 import type { KeritsDSL } from '@kerits/app/dsl/types';
 import type { SchemaField } from '@/lib/storage';
 import { route } from '@/config';
@@ -19,6 +20,7 @@ export function SchemaCreator() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast, showToast, hideToast } = useToast();
+  const { currentUser } = useUser();
   const [dsl, setDsl] = useState<KeritsDSL | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -35,7 +37,7 @@ export function SchemaCreator() {
   useEffect(() => {
     async function init() {
       try {
-        const dslInstance = await getDSL();
+        const dslInstance = await getDSL(currentUser?.id);
         setDsl(dslInstance);
       } catch (error) {
         console.error('Failed to initialize DSL:', error);
@@ -43,7 +45,7 @@ export function SchemaCreator() {
       }
     }
     init();
-  }, []);
+  }, [currentUser]);
 
   const addField = () => {
     setFields([...fields, { name: '', type: 'string', required: true }]);

@@ -37,7 +37,7 @@ export function Profile() {
       if (identities.length === 0) return;
 
       try {
-        const dsl = await getDSL();
+        const dsl = await getDSL(currentUser?.id);
         const accountNames = await dsl.accountNames();
         const aidMap: Record<string, string> = {};
 
@@ -55,7 +55,7 @@ export function Profile() {
     }
 
     loadKelAids();
-  }, [identities]);
+  }, [identities, currentUser]);
 
   const handleColorChange = (color: string) => {
     if (!currentUser) return;
@@ -78,7 +78,7 @@ export function Profile() {
 
   const handleShareKEL = async (identity: StoredIdentity) => {
     try {
-      const dsl = await getDSL();
+      const dsl = await getDSL(currentUser?.id);
       const accountNames = await dsl.listAccounts();
 
       // Find the account matching this identity's AID
@@ -136,7 +136,7 @@ export function Profile() {
 
     setRotating(prev => ({ ...prev, [identity.alias]: true }));
     try {
-      const dsl = await getDSL();
+      const dsl = await getDSL(currentUser?.id);
 
       // Get or create account in DSL
       let accountDsl = await dsl.account(identity.alias);

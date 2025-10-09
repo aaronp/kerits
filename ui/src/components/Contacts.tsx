@@ -19,9 +19,11 @@ import { getDSL } from '../lib/dsl';
 import { route } from '../config';
 import type { Contact } from '../lib/storage';
 import { VisualId } from './ui/visual-id';
+import { useUser } from '../lib/user-provider';
 
 export function Contacts() {
   const navigate = useNavigate();
+  const { currentUser } = useUser();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newContactName, setNewContactName] = useState('');
@@ -56,7 +58,7 @@ export function Contacts() {
 
     setLoading(true);
     try {
-      const dsl = await getDSL();
+      const dsl = await getDSL(currentUser?.id);
       let kelData: any[];
       let prefix: string;
 

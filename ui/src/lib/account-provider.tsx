@@ -56,7 +56,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
         const storageKey = `${STORAGE_KEY_PREFIX}${currentUser.id}`;
         const savedAlias = localStorage.getItem(storageKey);
 
-        const dsl = await getDSL();
+        const dsl = await getDSL(currentUser.id);
         let accountNames = await dsl.accountNames();
 
         // If no accounts exist, create a default one for this user
@@ -110,7 +110,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
 
     try {
       // Verify the account exists
-      const dsl = await getDSL();
+      const dsl = await getDSL(currentUser.id);
       const accountDsl = await dsl.account(alias);
 
       if (!accountDsl) {
@@ -138,7 +138,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       const storageKey = `${STORAGE_KEY_PREFIX}${currentUser.id}`;
       const savedAlias = localStorage.getItem(storageKey);
 
-      const dsl = await getDSL();
+      const dsl = await getDSL(currentUser.id);
       const accountNames = await dsl.accountNames();
 
       if (accountNames.length === 0) {

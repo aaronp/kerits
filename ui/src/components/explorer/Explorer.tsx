@@ -12,6 +12,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { getDSL } from '@/lib/dsl';
 import { useAccount } from '@/lib/account-provider';
+import { useUser } from '@/lib/user-provider';
 import { Button } from '../ui/button';
 import type { KeritsDSL, AccountDSL } from '@kerits/app/dsl/types';
 import { RegistryTreeNavigation } from './RegistryTreeNavigation';
@@ -23,6 +24,7 @@ import { route } from '@/config';
 export function Explorer() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { currentUser } = useUser();
   const { currentAccountAlias, loading: accountLoading } = useAccount();
   const { accountAlias: accountParam, '*': registryPathParam } = useParams<{
     accountAlias: string;
@@ -78,7 +80,7 @@ export function Explorer() {
       }
 
       try {
-        const dslInstance = await getDSL();
+        const dslInstance = await getDSL(currentUser?.id);
         setDsl(dslInstance);
 
         // Get account DSL
@@ -99,7 +101,7 @@ export function Explorer() {
     }
 
     init();
-  }, [accountAlias, accountLoading]);
+  }, [accountAlias, accountLoading, currentUser]);
 
   // Build registry alias map for breadcrumbs
   useEffect(() => {

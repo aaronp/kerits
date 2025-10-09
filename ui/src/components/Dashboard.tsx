@@ -51,7 +51,7 @@ export function Dashboard() {
   useEffect(() => {
     async function checkAccounts() {
       try {
-        const dsl = await getDSL();
+        const dsl = await getDSL(currentUser?.id);
         const accountNames = await dsl.accountNames();
         setHasAccounts(accountNames.length > 0);
       } catch (error) {
@@ -127,7 +127,7 @@ export function Dashboard() {
 
       if (hasAccounts) {
         // Use DSL to export account KEL
-        const dsl = await getDSL();
+        const dsl = await getDSL(currentUser?.id);
         const accountNames = await dsl.accountNames();
         if (accountNames.length === 0) {
           showToast('No account to share');

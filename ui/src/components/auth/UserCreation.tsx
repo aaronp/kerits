@@ -51,7 +51,7 @@ export function UserCreation() {
       };
 
       // Create account in DSL first
-      const dsl = await getDSL();
+      const dsl = await getDSL(user.id);
       await dsl.newAccount(alias.trim(), mnemonic);
 
       // Also create in old storage system for backward compatibility

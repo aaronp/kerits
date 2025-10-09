@@ -7,6 +7,7 @@ import { Combobox } from '../ui/combobox';
 import { Label } from '../ui/label';
 import { ZoomIn, ZoomOut, Maximize2, ChevronRight } from 'lucide-react';
 import { getDSL } from '@/lib/dsl';
+import { useUser } from '@/lib/user-provider';
 import { VisualId } from '../ui/visual-id';
 import { NodeDetails } from '../ui/NodeDetails';
 import { MermaidRenderer } from './MermaidRenderer';
@@ -275,6 +276,7 @@ function NodeGlyph({ n, onClick }: { n: LayoutNode; onClick: () => void }) {
 
 export function NetworkGraph() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { currentUser } = useUser();
   const selectedId = searchParams.get('id');
 
   const [graph, setGraph] = useState<Graph | null>(null);
@@ -300,7 +302,7 @@ export function NetworkGraph() {
         setLoading(true);
         setError(null);
 
-        const dslInstance = await getDSL();
+        const dslInstance = await getDSL(currentUser?.id);
         setDsl(dslInstance);
 
         // Initialize traversal
@@ -385,7 +387,7 @@ export function NetworkGraph() {
     }
 
     loadGraph();
-  }, []);
+  }, [currentUser]);
 
   // Handle traversal when selectedId changes
   useEffect(() => {
