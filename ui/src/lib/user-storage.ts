@@ -64,9 +64,46 @@ async function getGlobalDB(): Promise<IDBPDatabase<GlobalKeriDB>> {
           db.createObjectStore('settings', { keyPath: 'key' });
         }
       },
+      blocked() {
+        console.warn('IndexedDB upgrade blocked - close other tabs');
+      },
+      blocking() {
+        console.warn('IndexedDB blocking other connections');
+      },
     });
   }
-  return globalDbPromise;
+
+  try {
+    const db = await globalDbPromise;
+
+    // Check if connection is still valid by attempting to access object stores
+    // This will throw if the connection is closed
+    if (!db.objectStoreNames.contains('users')) {
+      throw new Error('Database connection is invalid');
+    }
+
+    return db;
+  } catch (error) {
+    // If connection is invalid, reset and retry once
+    console.warn('IndexedDB connection error, resetting:', error);
+    globalDbPromise = null;
+
+    // Retry once
+    if (!globalDbPromise) {
+      globalDbPromise = openDB<GlobalKeriDB>(GLOBAL_DB_NAME, GLOBAL_DB_VERSION, {
+        upgrade(db) {
+          if (!db.objectStoreNames.contains('users')) {
+            db.createObjectStore('users', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('settings')) {
+            db.createObjectStore('settings', { keyPath: 'key' });
+          }
+        },
+      });
+    }
+
+    return globalDbPromise;
+  }
 }
 
 // ============================================================================
@@ -74,8 +111,27 @@ async function getGlobalDB(): Promise<IDBPDatabase<GlobalKeriDB>> {
 // ============================================================================
 
 export async function saveUser(user: User): Promise<void> {
-  const db = await getGlobalDB();
-  await db.put('users', user);
+  try {
+    const db = await getGlobalDB();
+    await db.put('users', user);
+  } catch (error) {
+    // If we get a connection closing error or InvalidStateError, reset and retry once
+    if (error instanceof Error &&
+        (error.message.includes('closing') ||
+         error.name === 'InvalidStateError' ||
+         error.message.includes('InvalidStateError'))) {
+      console.warn('Database connection error, retrying:', error.name, error.message);
+      globalDbPromise = null;
+
+      // Wait a bit before retrying to let connection fully close
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const db = await getGlobalDB();
+      await db.put('users', user);
+    } else {
+      throw error;
+    }
+  }
 }
 
 export async function getUsers(): Promise<User[]> {
@@ -101,8 +157,27 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 export async function setCurrentUser(userId: string | null): Promise<void> {
-  const db = await getGlobalDB();
-  await db.put('settings', { key: 'currentUser', value: userId });
+  try {
+    const db = await getGlobalDB();
+    await db.put('settings', { key: 'currentUser', value: userId });
+  } catch (error) {
+    // If we get a connection closing error or InvalidStateError, reset and retry once
+    if (error instanceof Error &&
+        (error.message.includes('closing') ||
+         error.name === 'InvalidStateError' ||
+         error.message.includes('InvalidStateError'))) {
+      console.warn('Database connection error, retrying:', error.name, error.message);
+      globalDbPromise = null;
+
+      // Wait a bit before retrying to let connection fully close
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const db = await getGlobalDB();
+      await db.put('settings', { key: 'currentUser', value: userId });
+    } else {
+      throw error;
+    }
+  }
 }
 
 export async function clearCurrentUser(): Promise<void> {

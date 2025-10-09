@@ -16,7 +16,7 @@ export default defineConfig({
       },
     }),
   ],
-  base: '/kerits',
+  base: process.env.NODE_ENV === 'production' ? '/kerits' : '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

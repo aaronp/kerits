@@ -1,304 +1,57 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Combobox } from '../ui/combobox';
-import { Label } from '../ui/label';
-import { ZoomIn, ZoomOut, Maximize2, ChevronRight } from 'lucide-react';
 import { getDSL } from '@/lib/dsl';
 import { useUser } from '@/lib/user-provider';
-import { VisualId } from '../ui/visual-id';
-import { NodeDetails } from '../ui/NodeDetails';
-import { MermaidRenderer } from './MermaidRenderer';
-import { TabularGraph } from './TabularGraph';
+import { WriteTimeIndexer } from '@/../../src/app/indexer/write-time-indexer';
+import { indexerStateToGraph } from '@/lib/indexer-to-graph';
+import type { VisualizationData, VisualizationEvent } from '@/lib/indexer-to-graph';
+import SocialGraph from './SocialGraph';
+import MermaidGitGraphView from './MermaidGitGraphView';
+import NodeDetailsView from './NodeDetailsView';
+import Legend from './Legend';
 import { AllEvents } from './AllEvents';
-import { createKeriGraph } from '@/../../src/app/graph';
-import { createKeriTraversal, KeriTraversal } from '@/../../src/app/graph/traversal';
-import type { Graph, GraphNode, GraphEdge, PathGraph } from '@/../../src/storage/types';
 import type { KeritsDSL } from '@/../../src/app/dsl/types';
-import type { TraversalNode, ResolvedNode } from '@/../../src/app/graph/traversal';
-
-// Node types for the KERI graph
-export type NodeKind = 'AID' | 'KEL_EVT' | 'TEL_REGISTRY' | 'TEL_EVT' | 'ACDC' | 'SCHEMA';
-
-export interface LayoutNode {
-  id: string;
-  label: string;
-  kind: NodeKind;
-  lane: number; // vertical lane index (0 = top)
-  col: number;  // time/column index (0 = left)
-  meta?: any;
-}
-
-interface LayoutEdge {
-  id: string;
-  from: string;
-  to: string;
-  kind: string;
-}
-
-// Visual constants
-const laneGap = 100;
-const colGap = 240;
-const padX = 60;
-const padY = 50;
-
-const colors = {
-  bg: 'transparent',
-  grid: 'hsl(var(--border))',
-  lane: 'hsl(var(--border) / 0.3)',
-  aidNode: 'hsl(var(--primary))',
-  kelNode: '#58a6ff',
-  regNode: '#3fb950',
-  telNode: '#f59e0b',
-  acdcNode: '#d29922',
-  schemaNode: '#a855f7',
-  edge: 'hsl(var(--muted-foreground))',
-  label: 'hsl(var(--foreground))',
-  subtle: 'hsl(var(--muted-foreground) / 0.5)',
-};
-
-function posOf(n: LayoutNode) {
-  return { x: padX + n.col * colGap, y: padY + n.lane * laneGap };
-}
-
-// Orthogonal-with-rounded-corners Bézier path
-function orthoRounded(ax: number, ay: number, bx: number, by: number, r = 16) {
-  if (Math.abs(by - ay) < 0.5) {
-    return `M ${ax} ${ay} L ${bx} ${by}`;
-  }
-  const mx = ax + (bx - ax) * 0.5;
-  const sgnY = Math.sign(by - ay) || 1;
-  const p1x = mx - r;
-  const p2y = by - sgnY * r;
-
-  return [
-    `M ${ax} ${ay}`,
-    `L ${p1x} ${ay}`,
-    `C ${p1x + r} ${ay}, ${mx} ${ay + sgnY * r}, ${mx} ${ay + sgnY * r}`,
-    `L ${mx} ${p2y}`,
-    `C ${mx} ${by}, ${mx + r} ${by}, ${mx + r} ${by}`,
-    `L ${bx} ${by}`,
-  ].join(' ');
-}
-
-// Convert DSL graph to commit-graph layout
-function convertToCommitGraph(graph: Graph): { nodes: LayoutNode[]; edges: LayoutEdge[] } {
-  const nodes: LayoutNode[] = [];
-  const edges: LayoutEdge[] = [];
-
-  // Group nodes by type
-  const aidNodes = graph.nodes.filter(n => n.kind === 'AID');
-  const kelEvents = graph.nodes.filter(n => n.kind === 'KEL_EVT');
-  const registries = graph.nodes.filter(n => n.kind === 'TEL_REGISTRY');
-  const telEvents = graph.nodes.filter(n => n.kind === 'TEL_EVT');
-  const acdcs = graph.nodes.filter(n => n.kind === 'ACDC');
-  const schemas = graph.nodes.filter(n => n.kind === 'SCHEMA');
-
-  // Lane 0: Main KEL (like git main branch)
-  let col = 0;
-  aidNodes.forEach((aid, idx) => {
-    if (idx === 0) {
-      nodes.push({ id: aid.id, label: aid.label || 'AID', kind: 'AID', lane: 0, col: col++, meta: aid.meta });
-    }
-  });
-
-  // KEL events follow in sequence on lane 0
-  const kelByAid = new Map<string, GraphNode[]>();
-  kelEvents.forEach(evt => {
-    const aid = evt.meta?.eventMeta?.i || evt.meta?.i;
-    if (aid) {
-      if (!kelByAid.has(aid)) kelByAid.set(aid, []);
-      kelByAid.get(aid)!.push(evt);
-    }
-  });
-
-  kelByAid.forEach((events) => {
-    events.sort((a, b) => (parseInt(a.meta?.s || '0', 16)) - (parseInt(b.meta?.s || '0', 16)));
-    events.forEach(evt => {
-      nodes.push({ id: evt.id, label: evt.label || evt.meta?.t || 'KEL', kind: 'KEL_EVT', lane: 0, col: col++, meta: evt.meta });
-    });
-  });
-
-  // Registries branch off on separate lanes (like git branches)
-  let nextLane = 1;
-  const registryLanes = new Map<string, number>();
-
-  registries.forEach((reg) => {
-    const lane = nextLane++;
-    registryLanes.set(reg.id, lane);
-
-    // Find the KEL event that anchors this registry
-    const anchorEdge = graph.edges.find(e => e.to === reg.id && e.kind === 'ANCHOR');
-    const anchorCol = anchorEdge ? nodes.find(n => n.id === anchorEdge.from)?.col ?? col : col;
-
-    nodes.push({ id: reg.id, label: reg.label || 'Registry', kind: 'TEL_REGISTRY', lane, col: anchorCol + 1, meta: reg.meta });
-  });
-
-  // TEL events follow registries
-  const telByRegistry = new Map<string, GraphNode[]>();
-  telEvents.forEach(evt => {
-    const ri = evt.meta?.ri;
-    if (ri) {
-      if (!telByRegistry.has(ri)) telByRegistry.set(ri, []);
-      telByRegistry.get(ri)!.push(evt);
-    }
-  });
-
-  telByRegistry.forEach((events, regId) => {
-    const lane = registryLanes.get(regId) ?? nextLane++;
-    const regNode = nodes.find(n => n.id === regId);
-    const startCol = regNode?.col ?? col;
-
-    events.sort((a, b) => (parseInt(a.meta?.s || '0', 16)) - (parseInt(b.meta?.s || '0', 16)));
-    events.forEach((evt, idx) => {
-      nodes.push({ id: evt.id, label: evt.label || evt.meta?.t || 'TEL', kind: 'TEL_EVT', lane, col: startCol + idx + 1, meta: evt.meta });
-    });
-  });
-
-  // ACDCs branch off from TEL events
-  acdcs.forEach((acdc) => {
-    const issEdge = graph.edges.find(e => e.to === acdc.id && e.kind === 'ISSUES');
-    if (issEdge) {
-      const telNode = nodes.find(n => n.id === issEdge.from);
-      if (telNode) {
-        nodes.push({ id: acdc.id, label: acdc.label || 'ACDC', kind: 'ACDC', lane: telNode.lane, col: telNode.col + 1, meta: acdc.meta });
-      }
-    }
-  });
-
-  // Schemas at the end
-  schemas.forEach((schema, idx) => {
-    const maxCol = Math.max(...nodes.map(n => n.col));
-    nodes.push({ id: schema.id, label: schema.label || 'Schema', kind: 'SCHEMA', lane: nextLane + idx, col: maxCol + 1, meta: schema.meta });
-  });
-
-  // Convert edges
-  graph.edges.forEach(e => {
-    edges.push({ id: e.id, from: e.from, to: e.to, kind: e.kind });
-  });
-
-  return { nodes, edges };
-}
-
-// Compute ACDC stacks for overlapping nodes
-function useAcdcStacks(nodes: LayoutNode[], edges: LayoutEdge[]) {
-  return useMemo(() => {
-    const groups = new Map<string, LayoutNode[]>();
-    nodes.filter(n => n.kind === 'ACDC').forEach(n => {
-      const key = `${n.lane}|${n.col}`;
-      const arr = groups.get(key) ?? [];
-      arr.push(n);
-      groups.set(key, arr);
-    });
-
-    const offsetMap = new Map<string, number>();
-    const spines: Array<{ x: number; y1: number; y2: number }> = [];
-
-    groups.forEach((list) => {
-      list.sort((a, b) => a.id.localeCompare(b.id));
-      const baseY = padY + list[0].lane * laneGap;
-      const colX = padX + list[0].col * colGap;
-      const sep = 32;
-      const startY = baseY - ((list.length - 1) * sep) / 2;
-      list.forEach((n, i) => offsetMap.set(n.id, startY + i * sep - baseY));
-
-      const busX = colX - 100;
-      spines.push({ x: busX, y1: startY, y2: startY + sep * Math.max(0, list.length - 1) });
-    });
-
-    return { offsetMap, spines };
-  }, [nodes, edges]);
-}
-
-// Node rendering component
-function NodeGlyph({ n, onClick }: { n: LayoutNode; onClick: () => void }) {
-  const { x, y } = posOf(n);
-  const fontSize = 13;
-
-  if (n.kind === 'AID') {
-    return (
-      <g onClick={onClick} style={{ cursor: 'pointer' }}>
-        <circle cx={x} cy={y} r={16} fill={colors.aidNode} stroke={colors.aidNode} strokeWidth={4} />
-        <text x={x + 24} y={y + 6} fontSize={fontSize + 2} fill={colors.label} fontWeight="700">{n.label}</text>
-      </g>
-    );
-  }
-
-  if (n.kind === 'KEL_EVT') {
-    return (
-      <g onClick={onClick} style={{ cursor: 'pointer' }}>
-        <circle cx={x} cy={y} r={12} fill={colors.kelNode} stroke="#1f6feb" strokeWidth={2.5} />
-        <text x={x + 18} y={y + 5} fontSize={fontSize} fill={colors.label} fontWeight="600">{n.label}</text>
-      </g>
-    );
-  }
-
-  if (n.kind === 'TEL_REGISTRY') {
-    const w = 200, h = 44, rx = 10;
-    return (
-      <g onClick={onClick} style={{ cursor: 'pointer' }}>
-        <rect x={x - w/2} y={y - h/2} width={w} height={h} rx={rx} fill="#f0fdf4" stroke={colors.regNode} strokeWidth={3} className="dark:fill-green-950" />
-        <text x={x} y={y + 6} fontSize={fontSize + 1} fill={colors.label} textAnchor="middle" fontWeight="600">{n.label}</text>
-      </g>
-    );
-  }
-
-  if (n.kind === 'TEL_EVT') {
-    return (
-      <g onClick={onClick} style={{ cursor: 'pointer' }}>
-        <circle cx={x} cy={y} r={11} fill={colors.telNode} stroke="#f59e0b" strokeWidth={2.5} />
-        <text x={x + 18} y={y + 5} fontSize={fontSize} fill={colors.label} fontWeight="600">{n.label}</text>
-      </g>
-    );
-  }
-
-  if (n.kind === 'ACDC') {
-    const w = 190, h = 36, rx = 18;
-    return (
-      <g onClick={onClick} style={{ cursor: 'pointer' }}>
-        <rect x={x - w/2} y={y - h/2} width={w} height={h} rx={rx} fill="#fef3c7" stroke={colors.acdcNode} strokeWidth={2.5} className="dark:fill-yellow-950" />
-        <text x={x} y={y + 6} fontSize={fontSize} fill={colors.label} textAnchor="middle" fontWeight="600">{n.label}</text>
-      </g>
-    );
-  }
-
-  // Schema
-  const w = 180, h = 36, rx = 10;
-  return (
-    <g onClick={onClick} style={{ cursor: 'pointer' }}>
-      <rect x={x - w/2} y={y - h/2} width={w} height={h} rx={rx} fill="#faf5ff" stroke={colors.schemaNode} strokeWidth={2.5} className="dark:fill-purple-950" />
-      <text x={x} y={y + 6} fontSize={fontSize} fill={colors.label} textAnchor="middle" fontWeight="600">{n.label}</text>
-    </g>
-  );
-}
 
 export function NetworkGraph() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { currentUser } = useUser();
   const selectedId = searchParams.get('id');
-  const graphType = searchParams.get('view') || 'all';
+  const viewType = searchParams.get('view') || 'history';
 
-  const [graph, setGraph] = useState<Graph | null>(null);
+  const [graphData, setGraphData] = useState<VisualizationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedNode, setSelectedNode] = useState<LayoutNode | null>(null);
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const svgRef = useRef<SVGSVGElement>(null);
   const [dsl, setDsl] = useState<KeritsDSL | null>(null);
-  const [mermaidChart, setMermaidChart] = useState<string>('');
-  const [traversal, setTraversal] = useState<KeriTraversal | null>(null);
-  const [traversalTree, setTraversalTree] = useState<TraversalNode | null>(null);
-  const [resolvedNode, setResolvedNode] = useState<ResolvedNode | null>(null);
-  const [availableIds, setAvailableIds] = useState<Array<{ value: string; label: string }>>([]);
-  const [pathGraph, setPathGraph] = useState<PathGraph | null>(null);
+  const [filter, setFilter] = useState('');
+  const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
+  // Initialize selectedNode from URL on mount
   useEffect(() => {
-    async function loadGraph() {
+    if (selectedId) {
+      setSelectedNode(selectedId);
+    }
+  }, [selectedId]);
+
+  // Update URL when selectedNode changes
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams);
+    if (selectedNode) {
+      params.set('id', selectedNode);
+    } else {
+      params.delete('id');
+    }
+    if (viewType) {
+      params.set('view', viewType);
+    }
+    setSearchParams(params, { replace: true });
+  }, [selectedNode, viewType]);
+
+  // Load indexer state on mount
+  useEffect(() => {
+    async function loadIndexerState() {
       try {
         setLoading(true);
         setError(null);
@@ -306,215 +59,58 @@ export function NetworkGraph() {
         const dslInstance = await getDSL(currentUser?.id);
         setDsl(dslInstance);
 
-        // Initialize traversal
+        // Get the store and create indexer
         const store = dslInstance.getStore();
-        const traversalInstance = createKeriTraversal(store, dslInstance);
-        setTraversal(traversalInstance);
+        const indexer = WriteTimeIndexer.withStore(store);
 
-        // Build graph using createKeriGraph
-        const graphBuilder = createKeriGraph(store, dslInstance);
-        const graphData = await graphBuilder.build();
+        // Export indexer state
+        const indexerState = await indexer.exportState();
 
-        // Build alias map from DSL
-        const aliasMap = new Map<string, string>();
-
-        // Resolve account aliases
-        const accountNames = await dslInstance.accountNames();
-        for (const alias of accountNames) {
-          const account = await dslInstance.getAccount(alias);
-          if (account) {
-            aliasMap.set(account.aid, alias);
-          }
-        }
-
-        // Resolve registry aliases
-        for (const accountAlias of accountNames) {
-          const accountDsl = await dslInstance.account(accountAlias);
-          if (accountDsl) {
-            const registryAliases = await accountDsl.listRegistries();
-            for (const regAlias of registryAliases) {
-              const registryDsl = await accountDsl.registry(regAlias);
-              if (registryDsl) {
-                aliasMap.set(registryDsl.registry.registryId, regAlias);
-
-                // Resolve ACDC aliases within this registry
-                const acdcAliases = await registryDsl.listACDCs();
-                for (const acdcAlias of acdcAliases) {
-                  const acdcDsl = await registryDsl.acdc(acdcAlias);
-                  if (acdcDsl) {
-                    aliasMap.set(acdcDsl.acdc.credentialId, acdcAlias);
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        // Resolve schema aliases
-        const schemaAliases = await dslInstance.listSchemas();
-        for (const schemaAlias of schemaAliases) {
-          const schemaDsl = await dslInstance.schema(schemaAlias);
-          if (schemaDsl) {
-            aliasMap.set(schemaDsl.schema.schemaSaid, schemaAlias);
-          }
-        }
-
-        // Enhance graph nodes with aliases
-        graphData.nodes = graphData.nodes.map(node => ({
-          ...node,
-          label: aliasMap.get(node.id) || node.label || node.id.substring(0, 12),
-        }));
-
-        setGraph(graphData);
-
-        // Build available IDs list for selector
-        const ids: Array<{ value: string; label: string }> = [];
-        graphData.nodes.forEach(node => {
-          ids.push({
-            value: node.id,
-            label: `${node.label} (${node.kind})`,
-          });
-        });
-        setAvailableIds(ids);
-
-        // Generate initial Mermaid gitGraph (will be updated when traversal runs)
-        setMermaidChart('');
+        // Convert to visualization format
+        const vizData = indexerStateToGraph(indexerState);
+        setGraphData(vizData);
       } catch (err) {
-        console.error('Failed to load graph:', err);
+        console.error('Failed to load indexer state:', err);
         setError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
         setLoading(false);
       }
     }
 
-    loadGraph();
+    loadIndexerState();
   }, [currentUser]);
 
-  // Handle traversal when selectedId changes
-  useEffect(() => {
-    async function runTraversal() {
-      if (!selectedId || !traversal || !dsl) {
-        setTraversalTree(null);
-        setResolvedNode(null);
-        setPathGraph(null);
-        return;
-      }
+  const handleNodeSelect = (nodeId: string | null) => {
+    setSelectedNode(nodeId);
+  };
 
-      try {
-        setLoading(true);
-        const tree = await traversal.traverse(selectedId);
-        setTraversalTree(tree);
-        setResolvedNode(tree?.node || null);
+  const handleNodeHover = (nodeId: string | null) => {
+    setHoveredNode(nodeId);
+  };
 
-        // Convert tree to graph for visualization
-        if (tree) {
-          const { KeriTraversal } = await import('@/../../src/app/graph/traversal');
-          const graphData = KeriTraversal.treeToGraph(tree);
-          setGraph(graphData);
-
-          // Also create path-based graph structure
-          const pathGraphData = await KeriTraversal.treeToPathGraph(tree, dsl);
-          setPathGraph(pathGraphData);
-
-          // Generate Mermaid gitGraph from path data
-          const { pathGraphToMermaid } = await import('@/../../src/app/graph/keri-git-graph');
-          const mermaid = pathGraphToMermaid(pathGraphData);
-          setMermaidChart(mermaid);
-        }
-      } catch (err) {
-        console.error('Failed to traverse from ID:', err);
-        setError(err instanceof Error ? err.message : 'Traversal failed');
-      } finally {
-        setLoading(false);
-      }
+  const handleViewChange = (value: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('view', value);
+    if (selectedNode) {
+      params.set('id', selectedNode);
     }
-
-    runTraversal();
-  }, [selectedId, traversal, dsl]);
-
-  const { nodes, edges } = useMemo(() => {
-    if (!graph) return { nodes: [], edges: [] };
-    return convertToCommitGraph(graph);
-  }, [graph]);
-
-  const { offsetMap, spines } = useAcdcStacks(nodes, edges);
-
-  const lanes = Math.max(...nodes.map(n => n.lane), 0) + 1;
-  const cols = Math.max(...nodes.map(n => n.col), 0) + 1;
-  const width = padX * 2 + (cols - 1) * colGap + 200;
-  const height = padY * 2 + (lanes - 1) * laneGap + 100;
-
-  // Build position map with ACDC offsets
-  const pos = new Map<string, { x: number; y: number }>(
-    nodes.map(n => {
-      const p = posOf(n);
-      const dy = offsetMap.get(n.id) ?? 0;
-      return [n.id, { x: p.x, y: p.y + dy }];
-    })
-  );
-
-  // Node sizes for port calculation
-  const sizes = new Map<NodeKind, { w: number; h: number }>([
-    ['AID', { w: 16, h: 16 }],
-    ['KEL_EVT', { w: 12, h: 12 }],
-    ['TEL_REGISTRY', { w: 200, h: 44 }],
-    ['TEL_EVT', { w: 11, h: 11 }],
-    ['ACDC', { w: 190, h: 36 }],
-    ['SCHEMA', { w: 180, h: 36 }],
-  ]);
-
-  function rightPort(n: LayoutNode) {
-    const p = pos.get(n.id)!;
-    const sz = sizes.get(n.kind)!;
-    return { x: p.x + sz.w / 2 + 6, y: p.y };
-  }
-
-  function leftPort(n: LayoutNode) {
-    const p = pos.get(n.id)!;
-    const sz = sizes.get(n.kind)!;
-    return { x: p.x - sz.w / 2 - 6, y: p.y };
-  }
-
-  // Zoom and pan handlers
-  const handleZoomIn = () => setZoom(z => Math.min(z * 1.2, 3));
-  const handleZoomOut = () => setZoom(z => Math.max(z / 1.2, 0.3));
-  const handleResetView = () => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
+    setSearchParams(params);
   };
 
-  const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (e.button === 0) {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-    }
-  };
-
-  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (isDragging) {
-      setPan({
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y,
-      });
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleWheel = (e: React.WheelEvent<SVGSVGElement>) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setZoom(z => Math.min(Math.max(z * delta, 0.3), 3));
-  };
+  // Find the selected/hovered node in the data
+  const displayNodeId = selectedNode || hoveredNode;
+  const displayNode: VisualizationEvent | null = displayNodeId && graphData
+    ? graphData.identities
+        .flatMap(id => id.events || [])
+        .find(e => e.id === displayNodeId) || null
+    : null;
 
   if (loading) {
     return (
       <Card>
         <CardContent className="pt-6">
           <div className="text-center py-12 text-muted-foreground">
-            Loading graph...
+            Loading graph data...
           </div>
         </CardContent>
       </Card>
@@ -533,7 +129,7 @@ export function NetworkGraph() {
     );
   }
 
-  if (!graph || nodes.length === 0) {
+  if (!graphData || graphData.identities.length === 0) {
     return (
       <Card>
         <CardContent className="pt-6">
@@ -547,146 +143,74 @@ export function NetworkGraph() {
 
   return (
     <div className="space-y-4">
-      {/* ID Selector */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Filter by ID</CardTitle>
+          <CardTitle>Network Graph</CardTitle>
           <CardDescription>
-            Select a KERI identifier to view its lineage and relationships
+            Visualize KERI event chains and relationships across identities
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Label htmlFor="id-selector">KERI Identifier</Label>
-            <Combobox
-              id="id-selector"
-              placeholder="Select or search for an ID..."
-              emptyText="No IDs found"
-              value={selectedId || ''}
-              onValueChange={(value) => {
-                if (value) {
-                  setSearchParams({ id: value });
-                } else {
-                  setSearchParams({});
-                }
-              }}
-              options={availableIds}
-            />
-            {selectedId && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSearchParams({})}
-                className="mt-2"
-              >
-                Clear Filter
-              </Button>
-            )}
-          </div>
-        </CardContent>
       </Card>
 
-      {/* Breadcrumb Paths */}
-      {pathGraph && pathGraph.paths.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Paths to {pathGraph.targetNode.substring(0, 12)}...</CardTitle>
-            <CardDescription>
-              {pathGraph.paths.length} path{pathGraph.paths.length > 1 ? 's' : ''} found • Click any node to navigate
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {pathGraph.paths.map((path, pathIdx) => (
-                <div key={pathIdx} className="flex items-center gap-1 flex-wrap p-2 rounded-md bg-muted/50 hover:bg-muted/70 transition-colors">
-                  {path.map((nodeId, idx) => (
-                    <div key={`${pathIdx}-${idx}`} className="flex items-center gap-1">
-                      <VisualId
-                        label=""
-                        variant="marble"
-                        value={nodeId}
-                        size={16}
-                        showCopy={false}
-                        small
-                      />
-                      {idx < path.length - 1 && (
-                        <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <Tabs
-        value={graphType}
-        onValueChange={(value) => {
-          const params = new URLSearchParams(searchParams);
-          params.set('view', value);
-          setSearchParams(params);
-        }}
-        className="w-full"
-      >
+      <Tabs value={viewType} onValueChange={handleViewChange} className="w-full">
         <TabsList className="mb-4">
+          <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="graph">Graph</TabsTrigger>
           <TabsTrigger value="all">All Events</TabsTrigger>
-          <TabsTrigger value="graph">Event History</TabsTrigger>
-          <TabsTrigger value="visual">Visual Graph</TabsTrigger>
-          <TabsTrigger value="json">JSON</TabsTrigger>
         </TabsList>
 
-      <TabsContent value="all">
-        <AllEvents dsl={dsl} />
-      </TabsContent>
+        <TabsContent value="history" className="mt-0">
+          <div className="flex flex-col xl:flex-row gap-4">
+            {/* Main Graph Panel */}
+            <Card className="flex-1 min-w-0">
+              <CardContent className="p-0">
+                <div className="flex flex-col h-[calc(100vh-300px)]">
+                  <Legend filter={filter} onFilterChange={setFilter} />
+                  <div className="flex-1 overflow-auto">
+                    <SocialGraph
+                      data={graphData}
+                      filter={filter}
+                      selectedNode={selectedNode}
+                      hoveredNode={hoveredNode}
+                      onNodeSelect={handleNodeSelect}
+                      onNodeHover={handleNodeHover}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-      <TabsContent value="graph">
-        <TabularGraph dsl={dsl} selectedId={selectedId} />
-      </TabsContent>
+            {/* Node Details Panel */}
+            <Card className="xl:w-96 xl:flex-shrink-0">
+              <CardContent className="p-0 h-[calc(100vh-300px)] overflow-auto">
+                <NodeDetailsView
+                  node={displayNode}
+                  allData={graphData}
+                  isPinned={!!selectedNode}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
-      <TabsContent value="visual">
-        <Card>
-          <CardHeader>
-            <CardTitle>Visual Graph View</CardTitle>
-            <CardDescription>
-              KERI event chains visualized as git-style commit graphs
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="min-h-[600px]">
-            {mermaidChart ? (
-              <MermaidRenderer key={mermaidChart} chart={mermaidChart} className="w-full" />
-            ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                {pathGraph ? 'Generating visual graph...' : 'Select an ID above to view its path-based visual graph'}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </TabsContent>
+        <TabsContent value="graph" className="mt-0">
+          <Card>
+            <CardHeader>
+              <CardTitle>Git-Style Graph View</CardTitle>
+              <CardDescription>
+                KERI event chains visualized as git-style commit graphs
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="min-h-[600px]">
+              <MermaidGitGraphView data={graphData} />
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      <TabsContent value="json">
-        <Card>
-          <CardHeader>
-            <CardTitle>JSON Data</CardTitle>
-            <CardDescription>
-              {pathGraph
-                ? `Path-based graph for ${selectedId}`
-                : 'Full graph data (select an ID above to view path graph)'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <pre className="bg-muted p-4 rounded-md overflow-auto max-h-[calc(100vh-300px)] text-xs">
-              {JSON.stringify(
-                pathGraph || { nodes: graph?.nodes || [], edges: graph?.edges || [] },
-                null,
-                2
-              )}
-            </pre>
-          </CardContent>
-        </Card>
-      </TabsContent>
-    </Tabs>
+        <TabsContent value="all" className="mt-0">
+          <AllEvents dsl={dsl} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
