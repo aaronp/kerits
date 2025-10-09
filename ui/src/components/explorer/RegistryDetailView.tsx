@@ -422,12 +422,17 @@ export function RegistryDetailView({
             };
 
             // Check if we have signature data
-            if (signatures.length > 0) {
+            if (signatures.length > 0 && publicKeys.length > 0) {
               checks.validSignature = true;
             } else {
-              // No explicit signatures in ISS event, but structure is valid
-              // In simplified KERI, signatures might be in CESR attachments
-              checks.validSignature = true; // Mark as valid, actual verification happens on import
+              // Missing signatures or public keys
+              checks.validSignature = false;
+              if (signatures.length === 0) {
+                errors.push('ISS event has no signatures');
+              }
+              if (publicKeys.length === 0) {
+                errors.push('ISS event has no public keys');
+              }
             }
           } else {
             checks.validSignature = false;

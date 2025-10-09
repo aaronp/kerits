@@ -480,25 +480,38 @@ export function IdentityEventGraph({
       return;
     }
 
-    // Export the full credential
-    const exportData = {
-      id: credential.id,
-      name: credential.name,
-      issuer: credential.issuer,
-      issuerAlias: credential.issuerAlias,
-      recipient: credential.recipient,
-      recipientAlias: credential.recipientAlias,
-      schema: credential.schema,
-      schemaName: credential.schemaName,
-      sad: credential.sad,
-      tel: credential.tel,
-      registry: credential.registry,
-      createdAt: credential.createdAt,
-    };
+    try {
+      // Use backend's exportIPEX() to get IPEX grant with signatures
+      const dsl = await getDSL();
 
-    const json = JSON.stringify(exportData, null, 2);
-    await navigator.clipboard.writeText(json);
-    showToast('Credential copied to clipboard');
+      // Get the account DSL for the issuer
+      const accountDsl = await dsl.account(currentUser);
+      if (!accountDsl) {
+        showToast('Current account not found');
+        return;
+      }
+
+      // Get registry DSL
+      const registryDsl = accountDsl.registry(credential.registry);
+      if (!registryDsl) {
+        showToast('Registry not found');
+        return;
+      }
+
+      // Get credential DSL and export as IPEX
+      const acdcDsl = registryDsl.credential(credential.id);
+      const ipexJson = await acdcDsl.exportIPEX();
+
+      // Parse to count signatures
+      const ipexData = JSON.parse(ipexJson);
+      const signatures = ipexData.e?.iss?.sigs || [];
+
+      await navigator.clipboard.writeText(ipexJson);
+      showToast(`Credential copied with ${signatures.length} signature(s)`);
+    } catch (error) {
+      console.error('Export failed:', error);
+      showToast('Failed to export credential: ' + String(error));
+    }
   }, [credentials, telRegistries, showToast]);
 
   const handleImportTEL = useCallback(async (node: Node) => {
