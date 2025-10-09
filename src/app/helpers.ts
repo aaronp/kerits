@@ -12,6 +12,7 @@ import { diger } from '../diger';
 import { saidify } from '../saidify';
 import type { KeyManager } from './keymanager';
 import { signKelEvent, signTelEvent } from './signing';
+import { WriteTimeIndexer } from './indexer/write-time-indexer';
 
 // Utility to serialize events as CESR-framed bytes
 function serializeEvent(event: any): Uint8Array {
@@ -76,11 +77,28 @@ export async function createIdentity(
     }
   }
 
-  // Store signed event
+  // Store signed event in KERI storage
   await store.putEvent(finalBytes);
 
-  // Store alias mapping
+  // Store alias mapping in KERI storage
   await store.putAlias('kel', aid, alias);
+
+  // ===== INDEXER UPDATE (parallel book-keeping) =====
+  try {
+    const indexer = new WriteTimeIndexer(store);
+
+    // Add KEL event to indexer (with integrity checks)
+    await indexer.addKelEvent(aid, finalBytes);
+
+    // Update alias in indexer
+    await indexer.setAlias('KELs', aid, alias);
+  } catch (error) {
+    // Fail fast - throw error to show data inconsistency
+    throw new Error(
+      `INTEGRITY ERROR: Failed to update indexer for KEL ${alias}: ${error}. ` +
+      `KERI event was stored but index is now inconsistent.`
+    );
+  }
 
   return { aid, icp };
 }
