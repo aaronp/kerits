@@ -149,7 +149,7 @@ export function ACDCRecord({ acdc, fullData: initialFullData, onExpand, onRevoke
                 className='cursor-pointer'
               >
                 <Share2 className="h-4 w-4 mr-2" />
-                'Share'
+                Share
               </Button>
             )}
             {onRevoke && acdc.status === 'issued' && !acdc.revoked && (

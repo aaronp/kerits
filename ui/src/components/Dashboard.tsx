@@ -6,6 +6,7 @@ import { Toast, useToast } from './ui/toast';
 import { useStore } from '../store/useStore';
 import { getDSL } from '../lib/dsl';
 import { Network, FileText, Award, Moon, Sun, LogOut, UserCircle, User, Pencil, Users, Share2, ChevronRight, ChevronLeft, Home } from 'lucide-react';
+import keritsLogo from '/kerits.jpg';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -204,7 +205,7 @@ export function Dashboard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img
-                src='kerits.jpg'
+                src={keritsLogo}
                 alt="KERI"
                 className="h-12 w-12 rounded-md object-cover "
                 title="Key Event Receipt Infrastructure (TypeScript)"

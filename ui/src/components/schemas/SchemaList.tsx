@@ -63,7 +63,7 @@ export function SchemaList({ schemas, selectedSchemaId, onDelete }: SchemaListPr
 
       const exportFormat = schemaDsl.export();
       await navigator.clipboard.writeText(JSON.stringify(exportFormat, null, 2));
-      showToast('Schema copied to clipboard (KERI SAD format)');
+      showToast('Schema copied to clipboard');
     } catch (error) {
       console.error('Failed to export schema:', error);
       showToast('Failed to export schema');
@@ -220,7 +220,7 @@ export function SchemaList({ schemas, selectedSchemaId, onDelete }: SchemaListPr
                 onClick={() => handleCopySchema(schema)}
               >
                 <Copy className="mr-2 h-4 w-4" />
-                Export Schema (KERI SAD)
+                Export Schema
               </Button>
             </CardContent>
           )}

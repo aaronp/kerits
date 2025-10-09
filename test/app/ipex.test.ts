@@ -187,6 +187,35 @@ describe('IPEX Credential Exchange', () => {
     expect(holderACDCData!.a.name).toBe('Alice');
     expect(holderACDCData!.a.age).toBe(30);
 
+    // ========================================
+    // STEP 8: Verify acceptance event is indexed
+    // ========================================
+
+    const { WriteTimeIndexer } = await import('../../src/app/indexer/write-time-indexer');
+    const holderIndexer = WriteTimeIndexer.withStore(holderStore);
+
+    // Get holder's registry TEL events from indexer
+    const holderRegistryId = holderRegistry.registry.registryId;
+    const holderTelEvents = await holderIndexer.getTelEvents(holderRegistryId);
+
+    console.log('✓ Holder TEL has', holderTelEvents.length, 'indexed events');
+
+    // Should have VCP (registry creation) + ISS (credential acceptance)
+    expect(holderTelEvents.length).toBeGreaterThanOrEqual(2);
+
+    // Find the acceptance ISS event
+    const acceptanceEvent = holderTelEvents.find(
+      e => e.eventType === 'iss' && e.acdcSaid === credential.acdc.credentialId
+    );
+
+    expect(acceptanceEvent).toBeTruthy();
+    console.log('✓ Credential acceptance event found in indexer');
+
+    // Verify credential status via indexer
+    const credStatus = await holderIndexer.getCredentialStatus(credential.acdc.credentialId);
+    expect(credStatus).toBe('issued');
+    console.log('✓ Credential status from indexer:', credStatus);
+
     console.log('✓ Holder successfully imported and sealed credential');
     console.log('✓ IPEX workflow complete!');
   });

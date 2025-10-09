@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { UserPlus, Users } from 'lucide-react';
 import { useUser } from '../../lib/user-provider';
 import { route } from '../../config';
+import keritsLogo from '/kerits.jpg';
 
 export function AuthLayout() {
   const { currentUser, users, loading } = useUser();
@@ -37,7 +38,7 @@ export function AuthLayout() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <img src='kerits.jpg' alt="KERI" className="h-20 w-20 rounded-lg object-cover" />
+            <img src={keritsLogo} alt="KERI" className="h-20 w-20 rounded-lg object-cover" />
           </div>
           <CardTitle className="text-2xl">Welcome to KERITS</CardTitle>
           <CardDescription>

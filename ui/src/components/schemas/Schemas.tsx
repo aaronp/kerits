@@ -105,7 +105,7 @@ export function Schemas() {
 
       // Basic format check
       if (!parsed.alias || !parsed.sed || !parsed.said) {
-        showToast('Invalid schema format. Expected KERI SAD format: { alias, sed, said }');
+        showToast('Invalid schema format. Expected format: { alias, sed, said }');
         setImporting(false);
         return;
       }

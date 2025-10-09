@@ -2,6 +2,8 @@
 
 ![Kerits](./ui/public/kerits.jpg) Kerits is "KERI+TS" - a purely functional implementation of KERI in typescript.
 
+> **⚠️ Proof of Concept**: This is an experimental implementation for educational and research purposes. Not intended for production use.
+
 
 You can run this code [here](https://aaronp.github.io/kerits/) to:
 
@@ -38,3 +40,7 @@ Running the CLI locally:
 ```bash
 cd cli && bun run dev
 ```
+
+## License
+
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.

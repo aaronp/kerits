@@ -336,12 +336,29 @@ export function createRegistryDSL(
       });
 
       const rawIss = serializeEvent(issData.sad);
-      await store.putEvent(rawIss);
+
+      // Sign ISS event with holder's keys if keyManager available
+      let finalIssBytes = rawIss;
+      if (keyManager) {
+        const { signTelEvent } = await import('../../signing');
+        const signer = keyManager.getSigner(account.aid);
+        if (signer) {
+          const signed = await signTelEvent(rawIss, signer);
+          finalIssBytes = signed.combined;
+        }
+      }
+
+      // Store signed ISS event
+      await store.putEvent(finalIssBytes);
 
       // ===== INDEXER UPDATE: ISS event (credential acceptance) =====
-      // Note: This ISS is unsigned (holder accepting credential)
-      // We skip indexer update for unsigned events
-      // Only signed ISS events (from issueCredential) are indexed
+      // Add the acceptance ISS event to the indexer for graph visualization
+      try {
+        await WriteTimeIndexer.withStore(store).addTelEvent(registry.registryId, finalIssBytes);
+      } catch (error) {
+        // If indexer update fails (e.g., unsigned event), log but don't fail the operation
+        console.warn(`Failed to index credential acceptance: ${error}`);
+      }
 
       // Store alias if provided
       if (alias) {
