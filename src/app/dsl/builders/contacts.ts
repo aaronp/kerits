@@ -1,10 +1,15 @@
 /**
  * ContactsDSL - Contact (witness) management
+ *
+ * Follows git-style remotes/ layout:
+ * - remotes/{alias}/meta.json stores contact metadata
+ * - KELs stored in shared kel/{AID}/ directory
  */
 
 import type { KerStore } from '../../../storage/types';
 import type { ContactsDSL, Contact } from '../types';
-import { serializeEvent } from '../utils';
+
+const REMOTES_PREFIX = 'remotes/';
 
 /**
  * Create a ContactsDSL instance
@@ -13,7 +18,8 @@ export function createContactsDSL(store: KerStore): ContactsDSL {
   return {
     async add(alias: string, aid: string, metadata?: Contact['metadata']): Promise<Contact> {
       // Check if alias already exists
-      const existing = await store.aliasToId('contact', alias);
+      const metaKey = `${REMOTES_PREFIX}${alias}/meta.json`;
+      const existing = await store.kv.get(metaKey);
       if (existing) {
         throw new Error(`Contact alias already exists: ${alias}`);
       }
@@ -25,84 +31,71 @@ export function createContactsDSL(store: KerStore): ContactsDSL {
         addedAt: new Date().toISOString(),
       };
 
-      // Store contact metadata as pseudo-event
-      const contactEvent = {
-        v: 'KERI10JSON',
-        t: 'contact',
-        d: aid, // Use AID as SAID for contacts
-        alias,
+      // Store contact metadata in remotes/{alias}/meta.json
+      const metaJson = JSON.stringify({
+        name: metadata?.name || alias,
         aid,
-        metadata,
         addedAt: contact.addedAt,
-      };
+        ...metadata,
+      }, null, 2);
 
-      const rawContact = serializeEvent(contactEvent);
-      await store.putEvent(rawContact);
-
-      // Store alias mapping
-      await store.putAlias('contact', aid, alias);
+      const metaBytes = new TextEncoder().encode(metaJson);
+      await store.kv.put(metaKey, metaBytes);
 
       return contact;
     },
 
     async get(alias: string): Promise<Contact | null> {
-      const aid = await store.aliasToId('contact', alias);
-      if (!aid) {
+      // Read from remotes/{alias}/meta.json
+      const metaKey = `${REMOTES_PREFIX}${alias}/meta.json`;
+      const raw = await store.kv.get(metaKey);
+
+      if (!raw) {
         return null;
       }
 
-      // Get contact from storage
-      const stored = await store.getEvent(aid);
-      if (!stored) {
+      try {
+        const json = new TextDecoder().decode(raw);
+        const meta = JSON.parse(json);
+
+        return {
+          alias,
+          aid: meta.aid,
+          metadata: {
+            name: meta.name,
+            role: meta.role,
+            endpoint: meta.endpoint,
+          },
+          addedAt: meta.addedAt,
+        };
+      } catch (error) {
+        console.error(`Failed to parse contact metadata for ${alias}:`, error);
         return null;
       }
-
-      // Parse the raw event to extract metadata
-      // The raw bytes contain the full CESR-framed event
-      // Convert to Uint8Array if it's a regular array or object (from JSON deserialization)
-      let rawBytes: Uint8Array;
-      if (stored.raw instanceof Uint8Array) {
-        rawBytes = stored.raw;
-      } else if (Array.isArray(stored.raw)) {
-        rawBytes = new Uint8Array(stored.raw);
-      } else {
-        // It's an object like {0: 45, 1: 75, ...}, convert to array
-        rawBytes = new Uint8Array(Object.values(stored.raw as any));
-      }
-
-      const rawText = new TextDecoder().decode(rawBytes);
-
-      // Extract JSON portion (after version string)
-      const jsonMatch = rawText.match(/\{.*\}/s);
-      if (jsonMatch) {
-        try {
-          const eventData = JSON.parse(jsonMatch[0]);
-          return {
-            alias,
-            aid,
-            metadata: eventData.metadata || {},
-            addedAt: eventData.addedAt || stored.meta.dt || new Date().toISOString(),
-          };
-        } catch (e) {
-          // Fall back to basic contact if parse fails
-          console.warn(`Failed to parse contact metadata for ${alias}:`, e);
-        }
-      }
-
-      return {
-        alias,
-        aid,
-        metadata: {},
-        addedAt: stored.meta.dt || new Date().toISOString(),
-      };
     },
 
     async remove(alias: string): Promise<void> {
-      await store.delAlias('contact', alias, true);
+      // Delete remotes/{alias}/meta.json
+      const metaKey = `${REMOTES_PREFIX}${alias}/meta.json`;
+      await store.kv.del(metaKey);
+
+      // Note: KEL data in kel/{AID}/ is NOT deleted, as it may be referenced elsewhere
     },
 
     async list(): Promise<string[]> {
-      return store.listAliases('contact');
+      // List all remotes/*/meta.json entries
+      const results = await store.kv.list(REMOTES_PREFIX, { keysOnly: true });
+
+      // Extract aliases from keys like "remotes/alice/meta.json"
+      const aliases: string[] = [];
+      for (const { key } of results) {
+        const match = key.match(/^remotes\/([^/]+)\/meta\.json$/);
+        if (match) {
+          aliases.push(match[1]);
+        }
+      }
+
+      return aliases;
     },
 
     async getAll(): Promise<Contact[]> {
@@ -151,7 +144,7 @@ export function createContactsDSL(store: KerStore): ContactsDSL {
     },
 
     async importKEL(cesrData: Uint8Array, alias: string): Promise<Contact> {
-      const { parseCesrStream } = await import('../../signing');
+      const { serializeEvent } = await import('../utils');
 
       // Parse CESR to extract events
       const events: any[] = [];
@@ -204,12 +197,13 @@ export function createContactsDSL(store: KerStore): ContactsDSL {
       }
 
       // Check if contact already exists
-      const existing = await store.aliasToId('contact', alias);
+      const metaKey = `${REMOTES_PREFIX}${alias}/meta.json`;
+      const existing = await store.kv.get(metaKey);
       if (existing) {
         throw new Error(`Contact alias already exists: ${alias}`);
       }
 
-      // Store each event in the KEL
+      // Store each event in the shared KEL directory (kel/{AID}/)
       for (const event of events) {
         const rawEvent = serializeEvent(event);
         await store.putEvent(rawEvent);
@@ -222,28 +216,15 @@ export function createContactsDSL(store: KerStore): ContactsDSL {
         addedAt: new Date().toISOString(),
       };
 
-      // Store contact metadata as pseudo-event
-      const contactEvent = {
-        v: 'KERI10JSON',
-        t: 'contact',
-        d: aid, // Use AID as SAID for contacts
-        alias,
+      // Store contact metadata in remotes/{alias}/meta.json
+      const metaJson = JSON.stringify({
+        name: alias,
         aid,
-        metadata: contact.metadata,
         addedAt: contact.addedAt,
-      };
+      }, null, 2);
 
-      const rawContact = serializeEvent(contactEvent);
-      await store.putEvent(rawContact);
-
-      // Create alias mapping: contact alias -> AID
-      await store.putAlias('contact', aid, alias);
-
-      // Also create KEL alias mapping if it doesn't exist
-      const kelAlias = await store.aliasToId('kel', alias);
-      if (!kelAlias) {
-        await store.putAlias('kel', aid, alias);
-      }
+      const metaBytes = new TextEncoder().encode(metaJson);
+      await store.kv.put(metaKey, metaBytes);
 
       return contact;
     },

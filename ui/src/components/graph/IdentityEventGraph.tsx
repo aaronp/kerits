@@ -19,9 +19,18 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '..
 import { Download, Upload } from 'lucide-react';
 import { KeriID } from '../ui/keri-id';
 import { VisualId } from '../ui/visual-id';
-import { getTELRegistriesByIssuer, saveTELRegistry } from '@/lib/storage';
-import type { TELRegistry, StoredCredential } from '@/lib/storage';
+import type { StoredCredential } from '@/lib/storage';
 import { Toast, useToast } from '../ui/toast';
+import { useUser } from '@/lib/user-provider';
+import { getDSL } from '@/lib/dsl';
+
+interface TELRegistry {
+  alias: string;
+  registryId: string;
+  issuerAid: string;
+  tel: any[];
+  inceptionEvent: any;
+}
 
 // Custom node component for SAID root
 function SAIDNode({ data }: NodeProps) {
@@ -114,23 +123,51 @@ export function IdentityEventGraph({
   const [importData, setImportData] = useState('');
   const [graphHeight, setGraphHeight] = useState(500);
   const [isResizing, setIsResizing] = useState(false);
+  const { currentUser } = useUser();
 
   // Load TEL registries for this identity
   useEffect(() => {
-    if (!showTEL || !prefix) return;
+    if (!showTEL || !prefix || !currentUser) return;
 
     const loadRegistries = async () => {
       try {
-        const registries = await getTELRegistriesByIssuer(prefix);
+        const dsl = await getDSL(currentUser.id);
+        const accountDsl = await dsl.accountByAid(prefix);
+
+        if (!accountDsl) {
+          console.log('IdentityEventGraph: Account not found for AID:', prefix);
+          setTelRegistries([]);
+          return;
+        }
+
+        const registryAliases = await accountDsl.listRegistries();
+        const registries: TELRegistry[] = [];
+
+        for (const registryAlias of registryAliases) {
+          const registryDsl = await accountDsl.registry(registryAlias);
+          if (!registryDsl) continue;
+
+          const tel = await registryDsl.getTel();
+
+          registries.push({
+            alias: registryAlias,
+            registryId: registryDsl.registry.registryId,
+            issuerAid: accountDsl.account.aid,
+            tel: tel || [],
+            inceptionEvent: tel && tel.length > 0 ? tel[0] : null,
+          });
+        }
+
         console.log('IdentityEventGraph: Loaded TEL registries for', prefix, ':', registries);
         setTelRegistries(registries);
       } catch (error) {
         console.error('Failed to load TEL registries:', error);
+        setTelRegistries([]);
       }
     };
 
     loadRegistries();
-  }, [prefix, showTEL, telRefreshTrigger]);
+  }, [prefix, showTEL, telRefreshTrigger, currentUser]);
 
   // Build unified graph with SAID root, KEL, and TELs
   const unifiedGraph = useMemo(() => {
@@ -244,7 +281,7 @@ export function IdentityEventGraph({
           position: { x: telXStart, y: telY },
           data: {
             label: registry.alias,
-            registryAID: registry.registryAID,
+            registryAID: registry.registryId,
             registry,
           },
         });
@@ -390,8 +427,8 @@ export function IdentityEventGraph({
   const handleExportCredential = useCallback(async (node: Node) => {
     // If clicking on a registry node, export the entire TEL registry
     if (node.type === 'registry') {
-      const registryAID = node.data.registryAID;
-      const registry = telRegistries.find(r => r.registryAID === registryAID);
+      const registryId = node.data.registryAID;
+      const registry = telRegistries.find(r => r.registryId === registryId);
 
       if (!registry) {
         showToast('Registry not found');
@@ -400,12 +437,11 @@ export function IdentityEventGraph({
 
       // Export the entire TEL registry
       const exportData = {
-        registryAID: registry.registryAID,
+        registryId: registry.registryId,
         alias: registry.alias,
-        issuerAID: registry.issuerAID,
+        issuerAid: registry.issuerAid,
         inceptionEvent: registry.inceptionEvent,
         tel: registry.tel,
-        createdAt: registry.createdAt,
       };
 
       const json = JSON.stringify(exportData, null, 2);
@@ -480,18 +516,23 @@ export function IdentityEventGraph({
       return;
     }
 
+    if (!currentUser) {
+      showToast('No current user');
+      return;
+    }
+
     try {
       const parsed = JSON.parse(importData);
 
       // Validate TEL registry structure
-      if (!parsed.registryAID || !parsed.issuerAID || !parsed.inceptionEvent) {
+      if (!parsed.registryId || !parsed.issuerAid || !parsed.inceptionEvent) {
         showToast('Invalid TEL registry format - missing required fields');
         return;
       }
 
-      // KERI Validation: Verify issuerAID matches the current identity's prefix
-      if (parsed.issuerAID !== prefix) {
-        showToast(`TEL registry issuer (${parsed.issuerAID.substring(0, 12)}...) does not match this identity (${prefix.substring(0, 12)}...)`);
+      // KERI Validation: Verify issuerAid matches the current identity's prefix
+      if (parsed.issuerAid !== prefix) {
+        showToast(`TEL registry issuer (${parsed.issuerAid.substring(0, 12)}...) does not match this identity (${prefix.substring(0, 12)}...)`);
         return;
       }
 
@@ -502,35 +543,44 @@ export function IdentityEventGraph({
         return;
       }
 
-      // Validate registryAID matches inception event
-      if (parsed.registryAID !== inceptionEvent.sad.i) {
-        showToast('Registry AID does not match inception event identifier');
+      // Validate registryId matches inception event
+      if (parsed.registryId !== inceptionEvent.sad.i) {
+        showToast('Registry ID does not match inception event identifier');
         return;
       }
 
-      // Create TEL registry object
-      const telRegistry: TELRegistry = {
-        registryAID: parsed.registryAID,
-        alias: parsed.alias || 'Imported Registry',
-        issuerAID: parsed.issuerAID,
-        inceptionEvent: parsed.inceptionEvent,
-        tel: parsed.tel || [],
-        createdAt: parsed.createdAt || new Date().toISOString(),
-      };
+      // Import via DSL
+      // TODO: Implement proper DSL import for TEL registries
+      showToast('TEL Registry import via DSL not yet fully implemented');
 
-      // Save the TEL registry
-      await saveTELRegistry(telRegistry);
+      // For now, reload registries
+      const dsl = await getDSL(currentUser.id);
+      const accountDsl = await dsl.accountByAid(prefix);
 
-      // Force reload TEL registries to update the graph
-      const registries = await getTELRegistriesByIssuer(prefix);
-      setTelRegistries(registries);
+      if (accountDsl) {
+        const registryAliases = await accountDsl.listRegistries();
+        const registries: TELRegistry[] = [];
 
-      console.log('TEL Registry imported:', telRegistry);
-      console.log('Reloaded registries:', registries);
+        for (const registryAlias of registryAliases) {
+          const registryDsl = await accountDsl.registry(registryAlias);
+          if (!registryDsl) continue;
+
+          const tel = await registryDsl.getTel();
+
+          registries.push({
+            alias: registryAlias,
+            registryId: registryDsl.registry.registryId,
+            issuerAid: accountDsl.account.aid,
+            tel: tel || [],
+            inceptionEvent: tel && tel.length > 0 ? tel[0] : null,
+          });
+        }
+
+        setTelRegistries(registries);
+      }
 
       setImportData('');
       setShowImportDialog(false);
-      showToast('TEL Registry imported successfully');
     } catch (error) {
       console.error('Failed to import TEL registry:', error);
       if (error instanceof SyntaxError) {
@@ -539,7 +589,7 @@ export function IdentityEventGraph({
         showToast(`Failed to import: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
-  }, [importData, prefix, showToast]);
+  }, [importData, prefix, showToast, currentUser]);
 
   return (
     <div className="space-y-0">
@@ -845,7 +895,7 @@ export function IdentityEventGraph({
               <Label htmlFor="tel-data">TEL Registry JSON</Label>
               <Textarea
                 id="tel-data"
-                placeholder='{"registryAID": "...", "alias": "...", "issuerAID": "...", ...}'
+                placeholder='{"registryId": "...", "alias": "...", "issuerAid": "...", ...}'
                 value={importData}
                 onChange={(e) => setImportData(e.target.value)}
                 rows={12}

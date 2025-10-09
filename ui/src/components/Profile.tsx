@@ -7,10 +7,8 @@ import { Toast, useToast } from './ui/toast';
 import { useUser } from '../lib/user-provider';
 import { useStore } from '../store/useStore';
 import { UserCircle, RotateCw, Shield, Eye, EyeOff, Key, Copy, Share, Trash2, Palette } from 'lucide-react';
-import { saveIdentity, clearAllData } from '../lib/storage';
-import { deriveSeed, formatMnemonic } from '../lib/mnemonic';
-import { generateKeypairFromSeed, rotate, diger } from '../lib/keri';
-import { getDSL } from '../lib/dsl';
+import { formatMnemonic } from '../lib/mnemonic';
+import { getDSL, resetDSL } from '../lib/dsl';
 import type { StoredIdentity } from '../lib/storage';
 
 export function Profile() {
@@ -120,7 +118,10 @@ export function Profile() {
     }
 
     try {
-      await clearAllData();
+      // Clear data via DSL
+      if (currentUser) {
+        await resetDSL(currentUser.id, true); // true = clearData
+      }
       // Reload the page to reset all state
       window.location.reload();
     } catch (error) {
@@ -138,62 +139,15 @@ export function Profile() {
     try {
       const dsl = await getDSL(currentUser?.id);
 
-      // Get or create account in DSL
+      // Get account from DSL
       let accountDsl = await dsl.account(identity.alias);
       if (!accountDsl) {
-        // Migrate old account to DSL
-        console.log(`Migrating account "${identity.alias}" to DSL...`);
-        await dsl.newAccount(identity.alias, identity.mnemonic);
-        accountDsl = await dsl.account(identity.alias);
-
-        if (!accountDsl) {
-          throw new Error(`Failed to migrate account: ${identity.alias}`);
-        }
+        throw new Error(`Account "${identity.alias}" not found in DSL`);
       }
 
-      // Generate new mnemonic for rotation
-      const nextRotationSeed = deriveSeed(identity.mnemonic, `next-${identity.kel.length}`);
-      const newMnemonic = dsl.newMnemonic(nextRotationSeed);
+      // Rotate keys using DSL - use existing mnemonic
+      await accountDsl.rotateKeys(identity.mnemonic);
 
-      // Rotate keys using DSL
-      await accountDsl.rotateKeys(newMnemonic);
-
-      // Update old storage system to keep in sync
-      const newNextKeypair = await generateKeypairFromSeed(nextRotationSeed, true);
-      const newNextKeyDigest = diger(newNextKeypair.publicKey);
-
-      const prefix = identity.prefix || identity.inceptionEvent?.pre || identity.inceptionEvent?.ked?.i;
-      if (!prefix) {
-        throw new Error('Identity prefix not found. Please delete and recreate this identity.');
-      }
-
-      const prevEvent = identity.kel[identity.kel.length - 1];
-      const prevDigest = prevEvent.said || prevEvent.d || prevEvent.ked?.d;
-      if (!prevDigest) {
-        throw new Error('Previous event digest not found');
-      }
-
-      const rotationEvent = rotate({
-        pre: prefix,
-        keys: [identity.nextKeys.public],
-        ndigs: [newNextKeyDigest],
-        sn: identity.kel.length,
-        dig: prevDigest,
-      });
-
-      const updatedIdentity: StoredIdentity = {
-        ...identity,
-        prefix: prefix,
-        currentKeys: identity.nextKeys,
-        nextKeys: {
-          public: newNextKeypair.verfer,
-          private: Buffer.from(newNextKeypair.privateKey).toString('hex'),
-          seed: Buffer.from(nextRotationSeed).toString('hex'),
-        },
-        kel: [...identity.kel, rotationEvent],
-      };
-
-      await saveIdentity(updatedIdentity);
       await init();
       showToast(`Keys rotated successfully for "${identity.alias}"`);
     } catch (error) {

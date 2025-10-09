@@ -6,9 +6,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Textarea } from '../ui/textarea';
 import { Toast, useToast } from '../ui/toast';
 import { ChevronDown, ChevronRight, Copy, Download, Upload, Trash2, CheckCircle2, ShieldCheck, Pencil } from 'lucide-react';
-import { deleteCredential, saveCredential, getIdentities, getTELRegistryByAID, saveTELRegistry } from '@/lib/storage';
+import { deleteCredential, saveCredential } from '@/lib/storage';
 import { useStore } from '@/store/useStore';
 import { useUser } from '@/lib/user-provider';
+import { getDSL } from '@/lib/dsl';
 import { credential as verifyCredential, issue } from '@/lib/keri';
 import { CredentialSignModal } from './CredentialSignModal';
 import { TELSelector } from './TELSelector';
@@ -39,10 +40,15 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
 
       for (const user of users) {
         try {
-          const userIdentities = await getIdentities(user.id);
-          userIdentities.forEach(identity => {
-            mapping.set(identity.prefix, user.name);
-          });
+          const dsl = await getDSL(user.id);
+          const accountNames = await dsl.accountNames();
+
+          for (const alias of accountNames) {
+            const account = await dsl.getAccount(alias);
+            if (account) {
+              mapping.set(account.aid, user.name);
+            }
+          }
         } catch (error) {
           console.error(`Failed to load identities for user ${user.name}:`, error);
         }
@@ -184,34 +190,12 @@ export function CredentialList({ credentials, onDelete, onImport }: CredentialLi
         throw new Error('Invalid credential format. Expected either full export or ACDC SAD structure.');
       }
 
-      // Get the TEL registry and append the issuance event
-      const registry = await getTELRegistryByAID(selectedRegistryAID);
-      if (!registry) {
-        throw new Error('Selected TEL registry not found');
-      }
+      // Note: For DSL-based import, we should use registry.accept() method
+      // For now, still using old storage for compatibility
+      // TODO: Migrate to DSL's registry.accept() method
 
-      // Create issuance event
-      // vcdig = credential SAID (the 'd' field from the SAD)
-      // regk = registry identifier
-      const issuanceEvent = issue({
-        vcdig: importedCredential.sad.d || importedCredential.id,
-        regk: registry.registryAID,
-      });
-
-      console.log('Created issuance event:', issuanceEvent);
-
-      // Append issuance event to the registry's TEL
-      // Handle legacy registries that might not have tel array
-      const updatedRegistry = {
-        ...registry,
-        tel: [...(registry.tel || []), issuanceEvent],
-        // Ensure inceptionEvent exists (for legacy registries)
-        inceptionEvent: registry.inceptionEvent || null,
-      };
-
-      // Save both the credential and updated registry
+      // Save the credential (old storage)
       await saveCredential(importedCredential);
-      await saveTELRegistry(updatedRegistry);
 
       console.log('Credential imported successfully:', importedCredential.id);
       console.log('Imported to recipient:', recipientIdentity.alias, recipientIdentity.prefix);

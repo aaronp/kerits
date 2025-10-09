@@ -14,12 +14,20 @@ import {
   DialogTitle,
 } from './ui/dialog';
 import { UserPlus, Users, Trash2, Copy } from 'lucide-react';
-import { saveContact, getContacts, deleteContact, getContactByPrefix } from '../lib/storage';
 import { getDSL } from '../lib/dsl';
 import { route } from '../config';
-import type { Contact } from '../lib/storage';
 import { VisualId } from './ui/visual-id';
 import { useUser } from '../lib/user-provider';
+
+// Local interface matching DSL Contact type
+interface Contact {
+  aid: string;
+  metadata?: {
+    alias?: string;
+    name?: string;
+    createdAt?: string;
+  };
+}
 
 export function Contacts() {
   const navigate = useNavigate();
@@ -33,12 +41,23 @@ export function Contacts() {
 
   useEffect(() => {
     loadContacts();
-  }, []);
+  }, [currentUser]);
 
   const loadContacts = async () => {
     try {
-      const loadedContacts = await getContacts();
-      setContacts(loadedContacts);
+      if (!currentUser) return;
+
+      const dsl = await getDSL(currentUser.id);
+      const contactsDsl = dsl.contacts();
+      const allContacts = await contactsDsl.getAll();
+
+      // Transform DSL contacts to local format
+      const transformedContacts: Contact[] = allContacts.map(c => ({
+        aid: c.aid,
+        metadata: c.metadata,
+      }));
+
+      setContacts(transformedContacts);
     } catch (error) {
       console.error('Failed to load contacts:', error);
       showToast('Failed to load contacts');
@@ -140,33 +159,22 @@ export function Contacts() {
         }
       }
 
-      // Check if contact with this AID already exists
-      const existingContact = await getContactByPrefix(prefix);
+      // Check if contact with this AID already exists via DSL
+      const contactsDsl = dsl.contacts();
+      const alias = newContactName.trim().toLowerCase().replace(/\s+/g, '-');
+      const existingContact = await contactsDsl.get(alias);
+
       if (existingContact) {
-        showToast(`Contact already exists by the name '${existingContact.name}'`);
+        showToast(`Contact already exists with alias '${alias}'`);
         setLoading(false);
         return;
       }
 
-      // Use DSL to import the contact KEL and create alias mappings
-      const contactsDsl = dsl.contacts();
-      const alias = newContactName.trim().toLowerCase().replace(/\s+/g, '-');
-
-      // Convert CESR text back to Uint8Array for DSL import
+      // Convert CESR text to Uint8Array for DSL import
       const cesrBytes = new TextEncoder().encode(newContactKEL.trim());
       const importedContact = await contactsDsl.importKEL(cesrBytes, alias);
 
       console.log(`[Contacts] Imported contact via DSL: ${alias} -> ${importedContact.aid}`);
-
-      // Also save to old storage for backwards compatibility
-      const contact: Contact = {
-        id: crypto.randomUUID(),
-        name: newContactName.trim(),
-        kel: kelData,
-        prefix: prefix,
-        createdAt: new Date().toISOString(),
-      };
-      await saveContact(contact);
 
       await loadContacts();
 
@@ -184,14 +192,20 @@ export function Contacts() {
   };
 
   const handleDeleteContact = async (contact: Contact) => {
-    if (!confirm(`Delete contact "${contact.name}"?`)) {
+    const contactName = contact.metadata?.name || contact.metadata?.alias || contact.aid.substring(0, 8);
+    const contactAlias = contact.metadata?.alias || contactName.toLowerCase().replace(/\s+/g, '-');
+
+    if (!confirm(`Delete contact "${contactName}"?`)) {
       return;
     }
 
     try {
-      await deleteContact(contact.id);
+      const dsl = await getDSL(currentUser?.id);
+      const contactsDsl = dsl.contacts();
+      await contactsDsl.remove(contactAlias);
+
       await loadContacts();
-      showToast(`Contact "${contact.name}" deleted`);
+      showToast(`Contact "${contactName}" deleted`);
     } catch (error) {
       console.error('Failed to delete contact:', error);
       showToast('Failed to delete contact');
@@ -201,12 +215,6 @@ export function Contacts() {
   const handleCopyPrefix = async (prefix: string) => {
     await navigator.clipboard.writeText(prefix);
     showToast('Prefix copied to clipboard');
-  };
-
-  const handleCopyKEL = async (kel: any[]) => {
-    const kelString = JSON.stringify(kel, null, 2);
-    await navigator.clipboard.writeText(kelString);
-    showToast('KEL copied to clipboard');
   };
 
   const handleCancelAdd = () => {
@@ -242,52 +250,56 @@ export function Contacts() {
             </div>
           ) : (
             <div className="space-y-4">
-              {contacts.map((contact) => (
-                <Card key={contact.id} className="border-2">
-                  <CardContent className="pt-6">
-                    <div className="space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-2 flex-1">
-                          <div
-                            className="cursor-pointer"
-                            onClick={() => navigate(route(`/dashboard/contacts/${contact.prefix}`))}
-                          >
-                            <VisualId
-                              label={contact.name}
-                              value={contact.prefix}
-                              showCopy={false}
-                              bold={true}
-                              size={40}
-                              maxCharacters={12}
-                            />
+              {contacts.map((contact) => {
+                const contactName = contact.metadata?.name || contact.metadata?.alias || contact.aid.substring(0, 8);
+                const createdAt = contact.metadata?.createdAt || new Date().toISOString();
+
+                return (
+                  <Card key={contact.aid} className="border-2">
+                    <CardContent className="pt-6">
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-2 flex-1">
+                            <div
+                              className="cursor-pointer"
+                              onClick={() => navigate(route(`/dashboard/contacts/${contact.aid}`))}
+                            >
+                              <VisualId
+                                label={contactName}
+                                value={contact.aid}
+                                showCopy={false}
+                                bold={true}
+                                size={40}
+                                maxCharacters={12}
+                              />
+                            </div>
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <span>Added: {new Date(createdAt).toLocaleDateString()}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <span>Added: {new Date(contact.createdAt).toLocaleDateString()}</span>
-                            <span>KEL Events: {contact.kel.length}</span>
+                          <div className="flex gap-2 ml-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCopyPrefix(contact.aid)}
+                            >
+                              <Copy className="h-4 w-4 mr-2" />
+                              Copy AID
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteContact(contact)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
-                        </div>
-                        <div className="flex gap-2 ml-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleCopyKEL(contact.kel)}
-                          >
-                            <Copy className="h-4 w-4 mr-2" />
-                            Copy KEL
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteContact(contact)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </CardContent>

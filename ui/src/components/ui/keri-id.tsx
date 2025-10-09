@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Copy } from 'lucide-react';
 import { Button } from './button';
-import { getAliasBySAID } from '@/lib/storage';
+import { useUser } from '@/lib/user-provider';
+import { getDSL } from '@/lib/dsl';
 
 interface KeriIDProps {
   id: string;
@@ -13,23 +14,82 @@ interface KeriIDProps {
 
 export function KeriID({ id, type, showCopy = true, className = '', onCopy }: KeriIDProps) {
   const [alias, setAlias] = useState<string | null>(null);
+  const { currentUser } = useUser();
 
   useEffect(() => {
     const loadAlias = async () => {
-      if (!id) return;
+      if (!id || !currentUser) return;
 
       try {
-        const aliasMapping = await getAliasBySAID(id);
-        if (aliasMapping && aliasMapping.type === type) {
-          setAlias(aliasMapping.alias);
+        const dsl = await getDSL(currentUser.id);
+
+        // Try to find alias based on type
+        if (type === 'kel') {
+          // Check if it's an account AID
+          const account = await dsl.getAccountByAid(id);
+          if (account) {
+            setAlias(account.alias);
+            return;
+          }
+        } else if (type === 'tel') {
+          // Check registries
+          const accountNames = await dsl.accountNames();
+          for (const accountName of accountNames) {
+            const accountDsl = await dsl.account(accountName);
+            if (!accountDsl) continue;
+
+            const registryAliases = await accountDsl.listRegistries();
+            for (const registryAlias of registryAliases) {
+              const registryDsl = await accountDsl.registry(registryAlias);
+              if (registryDsl && registryDsl.registry.registryId === id) {
+                setAlias(registryAlias);
+                return;
+              }
+            }
+          }
+        } else if (type === 'schema') {
+          // Check schemas
+          const schemaAliases = await dsl.listSchemas();
+          for (const schemaAlias of schemaAliases) {
+            const schemaDsl = await dsl.schema(schemaAlias);
+            if (schemaDsl && schemaDsl.schema.schemaId === id) {
+              setAlias(schemaAlias);
+              return;
+            }
+          }
+        } else if (type === 'acdc') {
+          // Check credentials across all registries
+          const accountNames = await dsl.accountNames();
+          for (const accountName of accountNames) {
+            const accountDsl = await dsl.account(accountName);
+            if (!accountDsl) continue;
+
+            const registryAliases = await accountDsl.listRegistries();
+            for (const registryAlias of registryAliases) {
+              const registryDsl = await accountDsl.registry(registryAlias);
+              if (!registryDsl) continue;
+
+              const credentials = await registryDsl.listCredentials();
+              for (const cred of credentials) {
+                if (cred.credentialId === id && cred.alias) {
+                  setAlias(cred.alias);
+                  return;
+                }
+              }
+            }
+          }
         }
+
+        // No alias found
+        setAlias(null);
       } catch (error) {
         console.error('Failed to load alias:', error);
+        setAlias(null);
       }
     };
 
     loadAlias();
-  }, [id, type]);
+  }, [id, type, currentUser]);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(id);

@@ -355,6 +355,44 @@ export interface ContactsDSL {
 }
 
 /**
+ * AppDataDSL - Application preferences and settings
+ *
+ * Stores user-scoped preferences under prefs/ directory
+ */
+export interface AppDataDSL {
+  /**
+   * Get a preference value
+   * @param key - Preference key
+   * @returns Value or null if not found
+   */
+  get<T = any>(key: string): Promise<T | null>;
+
+  /**
+   * Set a preference value
+   * @param key - Preference key
+   * @param value - Value to store (will be JSON-serialized)
+   */
+  set(key: string, value: any): Promise<void>;
+
+  /**
+   * Delete a preference
+   * @param key - Preference key
+   */
+  delete(key: string): Promise<void>;
+
+  /**
+   * List all preference keys
+   * @returns Array of preference keys
+   */
+  list(): Promise<string[]>;
+
+  /**
+   * Clear all preferences
+   */
+  clear(): Promise<void>;
+}
+
+/**
  * KeritsDSL - Top-level DSL for KERI operations
  */
 export interface KeritsDSL {
@@ -453,6 +491,12 @@ export interface KeritsDSL {
    * @returns ContactSyncDSL instance
    */
   sync(): ContactSyncDSL;
+
+  /**
+   * Get AppDataDSL for managing user preferences
+   * @returns AppDataDSL instance
+   */
+  appData(): AppDataDSL;
 
   /**
    * Get the underlying KerStore instance

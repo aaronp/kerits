@@ -7,9 +7,8 @@ import { Textarea } from '../ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Toast, useToast } from '../ui/toast';
 import { Copy, Check, RefreshCw, ArrowLeft } from 'lucide-react';
-import { createMnemonic, deriveSeed, formatMnemonic } from '../../lib/mnemonic';
-import { generateKeypairFromSeed, incept, diger } from '../../lib/keri';
-import { saveUser, saveIdentity, type User, type StoredIdentity } from '../../lib/storage';
+import { createMnemonic, formatMnemonic } from '../../lib/mnemonic';
+import { saveUser, type User } from '../../lib/user-storage';
 import { getDSL } from '../../lib/dsl';
 import { useUser } from '../../lib/user-provider';
 import { route } from '../../config';
@@ -50,45 +49,11 @@ export function UserCreation() {
         createdAt: new Date().toISOString(),
       };
 
-      // Create account in DSL first
+      // Create account in DSL - this is the only source of truth now
       const dsl = await getDSL(user.id);
       await dsl.newAccount(alias.trim(), mnemonic);
 
-      // Also create in old storage system for backward compatibility
-      const currentSeed = deriveSeed(mnemonic, 'current');
-      const nextSeed = deriveSeed(mnemonic, 'next');
-
-      const currentKeypair = await generateKeypairFromSeed(currentSeed, true);
-      const nextKeypair = await generateKeypairFromSeed(nextSeed, true);
-
-      const nextKeyDigest = diger(nextKeypair.publicKey);
-
-      const inceptionEvent = incept({
-        keys: [currentKeypair.verfer],
-        ndigs: [nextKeyDigest],
-      });
-
-      const identity: StoredIdentity = {
-        alias: alias.trim(),
-        prefix: inceptionEvent.pre,
-        mnemonic,
-        currentKeys: {
-          public: currentKeypair.verfer,
-          private: Buffer.from(currentKeypair.privateKey).toString('hex'),
-          seed: Buffer.from(currentSeed).toString('hex'),
-        },
-        nextKeys: {
-          public: nextKeypair.verfer,
-          private: Buffer.from(nextKeypair.privateKey).toString('hex'),
-          seed: Buffer.from(nextSeed).toString('hex'),
-        },
-        inceptionEvent,
-        kel: [inceptionEvent],
-        createdAt: new Date().toISOString(),
-      };
-
       await saveUser(user);
-      await saveIdentity(identity, user.id);
       await refreshUsers();
       await setCurrentUser(user);
       navigate(route('/'));

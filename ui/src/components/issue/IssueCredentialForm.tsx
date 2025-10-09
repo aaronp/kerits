@@ -10,9 +10,15 @@ import { ArrowLeft, Award, Copy } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { useUser } from '@/lib/user-provider';
 import { credential as createCredential, diger } from '@/lib/keri';
-import { saveCredential, getIdentities, getContacts } from '@/lib/storage';
+import { saveCredential } from '@/lib/storage';
 import { route } from '@/config';
-import type { StoredSchema, StoredCredential, StoredIdentity, Contact } from '@/lib/storage';
+import { getDSL } from '@/lib/dsl';
+import type { StoredSchema, StoredCredential } from '@/lib/storage';
+
+interface Contact {
+  alias: string;
+  aid: string;
+}
 
 export function IssueCredentialForm() {
   const { schemaId } = useParams<{ schemaId: string }>();
@@ -45,16 +51,28 @@ export function IssueCredentialForm() {
   // Load contacts
   useEffect(() => {
     const loadContacts = async () => {
+      if (!currentUser) {
+        setContacts([]);
+        return;
+      }
+
       try {
-        const loadedContacts = await getContacts();
-        setContacts(loadedContacts);
+        const dsl = await getDSL(currentUser.id);
+        const contactsDsl = dsl.contacts();
+        const allContacts = await contactsDsl.getAll();
+
+        // Transform to expected format
+        setContacts(allContacts.map(c => ({
+          alias: c.alias,
+          aid: c.aid,
+        })));
       } catch (error) {
         console.error('Failed to load contacts:', error);
       }
     };
 
     loadContacts();
-  }, []);
+  }, [currentUser]);
 
   const handleFieldChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -126,22 +144,23 @@ export function IssueCredentialForm() {
 
       const cred = createCredential({
         schema: schema.id,
-        issuer: issuerIdentity.prefix,
+        issuer: issuerIdentity.aid,
         recipient: recipientAID,
         data: credentialData,
       });
 
       // Find recipient alias from contacts
-      const recipientContact = contacts.find(c => c.prefix === recipientAID);
+      const recipientContact = contacts.find(c => c.aid === recipientAID);
 
-      // Save credential
+      // Save credential (old storage for now)
+      // TODO: Use DSL registry.issue() instead
       const storedCredential: StoredCredential = {
         id: cred.said,
         name: schema.name,
-        issuer: issuerIdentity.prefix,
+        issuer: issuerIdentity.aid,
         issuerAlias: issuerIdentity.alias,
         recipient: recipientAID,
-        recipientAlias: recipientContact?.name,
+        recipientAlias: recipientContact?.alias,
         schema: schema.id,
         schemaName: schema.name,
         sad: cred.sad,
@@ -270,16 +289,16 @@ export function IssueCredentialForm() {
               // Add current user identity first
               ...(identities.find(i => i.alias.toLowerCase() === currentUser?.name.toLowerCase())
                 ? [{
-                    value: identities.find(i => i.alias.toLowerCase() === currentUser?.name.toLowerCase())!.prefix,
+                    value: identities.find(i => i.alias.toLowerCase() === currentUser?.name.toLowerCase())!.aid,
                     label: currentUser?.name + ' (me)',
-                    description: identities.find(i => i.alias.toLowerCase() === currentUser?.name.toLowerCase())!.prefix.substring(0, 40) + '...',
+                    description: identities.find(i => i.alias.toLowerCase() === currentUser?.name.toLowerCase())!.aid.substring(0, 40) + '...',
                   }]
                 : []),
               // Then add contacts
               ...contacts.map((contact) => ({
-                value: contact.prefix,
-                label: contact.name,
-                description: contact.prefix.substring(0, 40) + '...',
+                value: contact.aid,
+                label: contact.alias,
+                description: contact.aid.substring(0, 40) + '...',
               }))
             ]}
             value={recipientAID}

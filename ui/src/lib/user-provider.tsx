@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { getCurrentUser, setCurrentUser as saveCurrentUser, clearCurrentUser, getUsers, type User } from './storage';
+import { getCurrentUser, setCurrentUser as saveCurrentUser, clearCurrentUser, getUsers, type User } from './user-storage';
 
 interface UserContextValue {
   currentUser: User | null;

@@ -6,12 +6,9 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Toast, useToast } from '../ui/toast';
 import { Copy, Check, RefreshCw } from 'lucide-react';
-import { createMnemonic, deriveSeed, formatMnemonic } from '@/lib/mnemonic';
-import { generateKeypairFromSeed, incept, diger } from '@/lib/keri';
-import { saveIdentity } from '@/lib/storage';
+import { createMnemonic, formatMnemonic } from '@/lib/mnemonic';
 import { getDSL } from '@/lib/dsl';
 import { useUser } from '@/lib/user-provider';
-import type { StoredIdentity } from '@/lib/storage';
 
 interface IdentityCreatorProps {
   onCreated?: () => void;
@@ -43,49 +40,9 @@ export function IdentityCreator({ onCreated }: IdentityCreatorProps) {
 
     setCreating(true);
     try {
-      // Create account in DSL first
+      // Create account in DSL - this is the only source of truth now
       const dsl = await getDSL(currentUser?.id);
       await dsl.newAccount(alias, mnemonic);
-
-      // Also create in old storage system for backward compatibility
-      // Derive seeds from mnemonic
-      const currentSeed = deriveSeed(mnemonic, 'current');
-      const nextSeed = deriveSeed(mnemonic, 'next');
-
-      // Generate keypairs
-      const currentKeypair = await generateKeypairFromSeed(currentSeed, true);
-      const nextKeypair = await generateKeypairFromSeed(nextSeed, true);
-
-      // Compute digest of next key (using raw publicKey bytes)
-      const nextKeyDigest = diger(nextKeypair.publicKey);
-
-      // Create inception event (using verfer string)
-      const inceptionEvent = incept({
-        keys: [currentKeypair.verfer],
-        ndigs: [nextKeyDigest],
-      });
-
-      // Save identity
-      const identity: StoredIdentity = {
-        alias,
-        prefix: inceptionEvent.pre,
-        mnemonic,
-        currentKeys: {
-          public: currentKeypair.verfer,
-          private: Buffer.from(currentKeypair.privateKey).toString('hex'),
-          seed: Buffer.from(currentSeed).toString('hex'),
-        },
-        nextKeys: {
-          public: nextKeypair.verfer,
-          private: Buffer.from(nextKeypair.privateKey).toString('hex'),
-          seed: Buffer.from(nextSeed).toString('hex'),
-        },
-        inceptionEvent,
-        kel: [inceptionEvent],
-        createdAt: new Date().toISOString(),
-      };
-
-      await saveIdentity(identity);
 
       // Reset form
       setAlias('');

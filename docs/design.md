@@ -63,6 +63,11 @@ Example layout:
     heads.json
     cursors.json
 
+  prefs/
+    bannerColor
+    sidebarExpanded
+    theme
+
   xref/
     reg-to-acdcs.json
     acdc-to-issuer-holder.json
@@ -77,6 +82,7 @@ Top-Level:
   schemas/            # JSON Schemas (by SAID)
   refs/               # Git-like aliases/tags for human names → SAIDs
   remotes/            # Remote endpoints + sync cursors; small metadata only
+  prefs/              # Application preferences (user-scoped; UI settings, colors, etc)
   xref/               # Optional cross-reference accelerators (indexes)
 ```
 
@@ -200,6 +206,32 @@ Example ```cursors.json```
 Fetch flow: pull new events since cursors.json until reaching heads.json; verify; store under kel/*, tel/*, acdc/*, schemas/*; advance cursors; update heads if changed.
 
 
+## Prefs (application preferences; user-scoped)
+
+Application-specific preferences are stored in the `prefs/` directory. These are simple key-value pairs for UI settings, colors, and other non-KERI application data.
+
+```
+.keri/prefs/
+  bannerColor           # → "#3b82f6" (text/JSON value)
+  sidebarExpanded       # → true (text/JSON value)
+  theme                 # → "dark" (text/JSON value)
+  lastSelectedAccount   # → "alice" (text/JSON value)
+```
+
+Keys are simple strings; values are stored as JSON-serialized strings. These preferences are user-scoped:
+- In CLI: stored in `.keri/prefs/` within the user's KERI_ROOT
+- In Browser: stored in user-specific IndexedDB (`kerits-app-${userId}`) under `prefs/` prefix
+
+Example storage:
+```typescript
+// Set preference
+await kv.put('prefs/bannerColor', JSON.stringify('#3b82f6'));
+
+// Get preference
+const raw = await kv.get('prefs/bannerColor');
+const color = JSON.parse(new TextDecoder().decode(raw)); // "#3b82f6"
+```
+
 # Notes & rules
  * Immutability: filenames keyed by SAID; bytes must re-hash to same SAID.
  * HEAD update last: write event, update indexes, then set HEAD.
@@ -207,3 +239,4 @@ Fetch flow: pull new events since cursors.json until reaching heads.json; verify
  * Imports: remote objects are identical; only remotes/* and refs/remotes/* differ.
  * Verification on import: re-compute SAIDs; verify CESR parsing, signatures, and chain continuity before writing.
  * Recovery: if HEAD missing, rebuild from log.index.json or scan events by sequence.
+ * User isolation: In browser environments, each user gets a separate IndexedDB database (`kerits-app-${userId}`) to ensure data isolation. All storage paths (kel/, tel/, prefs/, etc.) remain consistent within each user's database.

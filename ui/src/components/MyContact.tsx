@@ -14,15 +14,26 @@ import {
   DialogTitle,
 } from './ui/dialog';
 import { ArrowLeft, Users, RefreshCw, ChevronDown, ChevronRight, Search, Copy } from 'lucide-react';
-import { getContactByPrefix, getContactByName, saveContact } from '../lib/storage';
 import { Toast, useToast } from './ui/toast';
 import { route } from '../config';
-import type { Contact } from '../lib/storage';
 import { IdentityEventGraph } from './graph/IdentityEventGraph';
+import { useUser } from '../lib/user-provider';
+import { getDSL } from '../lib/dsl';
+
+interface Contact {
+  alias: string;
+  aid: string;
+  kel: any[];
+  metadata?: {
+    createdAt?: string;
+    notes?: string;
+  };
+}
 
 export function MyContact() {
   const { identifier } = useParams<{ identifier: string }>();
   const navigate = useNavigate();
+  const { currentUser } = useUser();
   const [contact, setContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(true);
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
@@ -41,19 +52,35 @@ export function MyContact() {
   }, [identifier]);
 
   const loadContact = async () => {
-    if (!identifier) {
+    if (!identifier || !currentUser) {
       setLoading(false);
       return;
     }
 
     try {
-      // Try to find by prefix (SAID) first, then by name
-      let foundContact = await getContactByPrefix(identifier);
+      const dsl = await getDSL(currentUser.id);
+      const contactsDsl = dsl.contacts();
+
+      // Try to find by alias first
+      let foundContact = await contactsDsl.get(identifier);
+
+      // If not found by alias, search all contacts by AID prefix
       if (!foundContact) {
-        foundContact = await getContactByName(identifier);
+        const allContacts = await contactsDsl.getAll();
+        foundContact = allContacts.find(c => c.aid.startsWith(identifier) || c.aid === identifier) || null;
       }
 
-      setContact(foundContact || null);
+      // Transform DSL Contact to component Contact format
+      if (foundContact) {
+        setContact({
+          alias: foundContact.alias,
+          aid: foundContact.aid,
+          kel: foundContact.kel || [],
+          metadata: foundContact.metadata,
+        });
+      } else {
+        setContact(null);
+      }
     } catch (error) {
       console.error('Failed to load contact:', error);
       showToast('Failed to load contact');
@@ -91,11 +118,11 @@ export function MyContact() {
         return;
       }
 
-      // Verify prefix matches
+      // Verify AID matches
       const firstEvent = kelData[0];
-      const prefix = firstEvent.pre || firstEvent.i || firstEvent.ked?.i;
-      if (prefix !== contact.prefix) {
-        setKelError('KEL prefix does not match contact prefix');
+      const aid = firstEvent.pre || firstEvent.i || firstEvent.ked?.i;
+      if (aid !== contact.aid) {
+        setKelError('KEL AID does not match contact AID');
         setIsKelValid(false);
         return;
       }
@@ -113,19 +140,27 @@ export function MyContact() {
   }, [updatedKEL, contact]);
 
   const handleUpdateKEL = async () => {
-    if (!contact || !isKelValid) return;
+    if (!contact || !isKelValid || !currentUser) return;
 
     setUpdating(true);
     try {
       const kelData = JSON.parse(updatedKEL);
+      const dsl = await getDSL(currentUser.id);
+      const contactsDsl = dsl.contacts();
 
-      const updatedContact: Contact = {
-        ...contact,
+      // Remove old contact and add updated one
+      await contactsDsl.remove(contact.alias);
+      const updatedContact = await contactsDsl.add(contact.alias, contact.aid, {
+        ...contact.metadata,
         kel: kelData,
-      };
+      });
 
-      await saveContact(updatedContact);
-      setContact(updatedContact);
+      setContact({
+        alias: updatedContact.alias,
+        aid: updatedContact.aid,
+        kel: kelData,
+        metadata: updatedContact.metadata,
+      });
       setIsUpdateDialogOpen(false);
       setUpdatedKEL('');
       showToast('Contact KEL updated successfully');
@@ -144,10 +179,10 @@ export function MyContact() {
     setIsUpdateDialogOpen(false);
   };
 
-  const handleCopyPrefix = async () => {
+  const handleCopyAID = async () => {
     if (contact) {
-      await navigator.clipboard.writeText(contact.prefix);
-      showToast('Prefix copied to clipboard');
+      await navigator.clipboard.writeText(contact.aid);
+      showToast('AID copied to clipboard');
     }
   };
 
@@ -248,15 +283,15 @@ export function MyContact() {
               <div className="flex items-center gap-3">
                 <Users className="h-8 w-8" />
                 <div>
-                  <CardTitle>{contact.name}</CardTitle>
+                  <CardTitle>{contact.alias}</CardTitle>
                   <div className="flex items-center gap-2 mt-1">
                     <div className="text-xs font-mono text-muted-foreground">
-                      {contact.prefix}
+                      {contact.aid}
                     </div>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleCopyPrefix()}
+                      onClick={() => handleCopyAID()}
                       className="h-5 w-5 p-0"
                       title="Copy AID"
                     >
@@ -373,7 +408,7 @@ export function MyContact() {
               <div>
                 <div className="font-medium">Added</div>
                 <div className="text-muted-foreground">
-                  {new Date(contact.createdAt).toLocaleDateString()}
+                  {contact.metadata?.createdAt ? new Date(contact.metadata.createdAt).toLocaleDateString() : 'Unknown'}
                 </div>
               </div>
               <div>
@@ -386,8 +421,8 @@ export function MyContact() {
       </Card>
 
       <IdentityEventGraph
-        alias={contact.name}
-        prefix={contact.prefix}
+        alias={contact.alias}
+        prefix={contact.aid}
         inceptionEvent={contact.kel[0]}
         kelEvents={contact.kel.slice(1)}
         showTEL={true}
@@ -400,7 +435,7 @@ export function MyContact() {
           <DialogHeader>
             <DialogTitle>Update KEL</DialogTitle>
             <DialogDescription>
-              Paste the updated KEL for {contact.name}. The KEL must be valid and cannot be shorter than the current KEL.
+              Paste the updated KEL for {contact.alias}. The KEL must be valid and cannot be shorter than the current KEL.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">

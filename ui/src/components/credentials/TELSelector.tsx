@@ -2,9 +2,16 @@ import { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { Combobox } from '../ui/combobox';
 import type { ComboboxOption } from '../ui/combobox';
-import { getTELRegistries } from '@/lib/storage';
-import type { TELRegistry } from '@/lib/storage';
 import { CreateTELModal } from './CreateTELModal';
+import { useUser } from '@/lib/user-provider';
+import { getDSL } from '@/lib/dsl';
+import { useStore } from '@/store/useStore';
+
+interface TELRegistry {
+  alias: string;
+  registryId: string;
+  issuerAid: string;
+}
 
 interface TELSelectorProps {
   value: string; // Selected registry AID
@@ -16,13 +23,44 @@ export function TELSelector({ value, onChange, className }: TELSelectorProps) {
   const [registries, setRegistries] = useState<TELRegistry[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { currentUser } = useUser();
+  const { identities } = useStore();
 
   // Load registries
   const loadRegistries = async () => {
+    if (!currentUser) {
+      setRegistries([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      const loaded = await getTELRegistries();
-      setRegistries(loaded);
+      const dsl = await getDSL(currentUser.id);
+      const accountNames = await dsl.accountNames();
+
+      const allRegistries: TELRegistry[] = [];
+
+      // Iterate through all accounts and their registries
+      for (const accountAlias of accountNames) {
+        const accountDsl = await dsl.account(accountAlias);
+        if (!accountDsl) continue;
+
+        const registryAliases = await accountDsl.listRegistries();
+
+        for (const registryAlias of registryAliases) {
+          const registryDsl = await accountDsl.registry(registryAlias);
+          if (!registryDsl) continue;
+
+          allRegistries.push({
+            alias: registryAlias,
+            registryId: registryDsl.registry.registryId,
+            issuerAid: accountDsl.account.aid,
+          });
+        }
+      }
+
+      setRegistries(allRegistries);
     } catch (error) {
       console.error('Failed to load TEL registries:', error);
     } finally {
@@ -44,9 +82,9 @@ export function TELSelector({ value, onChange, className }: TELSelectorProps) {
     },
     // Add existing registries
     ...registries.map((registry) => ({
-      value: registry.registryAID,
+      value: registry.registryId,
       label: registry.alias,
-      description: registry.registryAID.substring(0, 40) + '...',
+      description: registry.registryId.substring(0, 40) + '...',
     })),
   ];
 
@@ -55,23 +93,26 @@ export function TELSelector({ value, onChange, className }: TELSelectorProps) {
       setShowCreateModal(true);
     } else {
       // Find the registry to get its alias
-      const registry = registries.find((r) => r.registryAID === selectedValue);
+      const registry = registries.find((r) => r.registryId === selectedValue);
       onChange(selectedValue, registry?.alias);
     }
   };
 
-  const handleCreated = (newRegistry: TELRegistry) => {
+  const handleCreated = (registryAlias: string) => {
     // Reload registries
     loadRegistries();
-    // Auto-select the new registry
-    onChange(newRegistry.registryAID, newRegistry.alias);
+    // Auto-select the new registry - find it by alias
+    const registry = registries.find((r) => r.alias === registryAlias);
+    if (registry) {
+      onChange(registry.registryId, registry.alias);
+    }
   };
 
   // Get display value
   const getDisplayValue = () => {
     if (value === '__CREATE_NEW__') return '';
 
-    const registry = registries.find((r) => r.registryAID === value);
+    const registry = registries.find((r) => r.registryId === value);
     if (registry) {
       return registry.alias;
     }

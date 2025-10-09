@@ -4,16 +4,14 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Toast, useToast } from '../ui/toast';
-import { saveTELRegistry, getTELRegistryByAlias } from '@/lib/storage';
-import { registryIncept } from '@/lib/keri';
 import { useStore } from '@/store/useStore';
 import { useUser } from '@/lib/user-provider';
-import type { TELRegistry } from '@/lib/storage';
+import { getDSL } from '@/lib/dsl';
 
 interface CreateTELModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreated: (registry: TELRegistry) => void;
+  onCreated: (registryAlias: string) => void;
 }
 
 export function CreateTELModal({ isOpen, onClose, onCreated }: CreateTELModalProps) {
@@ -33,49 +31,41 @@ export function CreateTELModal({ isOpen, onClose, onCreated }: CreateTELModalPro
     const issuerIdentity = identities.find(
       i => i.alias.toLowerCase() === currentUser?.name.toLowerCase()
     );
-    if (!issuerIdentity) {
+    if (!issuerIdentity || !currentUser) {
       showToast('Current user identity not found');
       return;
     }
 
     setCreating(true);
     try {
-      // Check if alias already exists
-      const existing = await getTELRegistryByAlias(alias);
-      if (existing) {
+      const dsl = await getDSL(currentUser.id);
+      const accountDsl = await dsl.account(issuerIdentity.alias);
+
+      if (!accountDsl) {
+        showToast('Account not found');
+        setCreating(false);
+        return;
+      }
+
+      // Check if registry already exists
+      const existingRegistries = await accountDsl.listRegistries();
+      if (existingRegistries.includes(alias.trim())) {
         showToast('A registry with this name already exists');
         setCreating(false);
         return;
       }
 
-      // Create registry inception event using KERI
-      const inception = registryIncept({
-        issuer: issuerIdentity.prefix,
-        // nonce and toad will be auto-generated
-        // baks defaults to empty array (backerless registry)
-      });
+      // Create registry using DSL
+      const registryDsl = await accountDsl.createRegistry(alias.trim());
 
-      console.log('Registry inception:', inception);
-      console.log('Registry AID:', inception.regk);
-
-      const newRegistry: TELRegistry = {
-        id: crypto.randomUUID(),
-        alias: alias.trim(),
-        registryAID: inception.regk, // Use the registry identifier from inception
-        issuerAID: issuerIdentity.prefix, // Track the issuer
-        inceptionEvent: inception, // Store the full vcp inception event
-        tel: [], // Initialize empty TEL - will be populated as credentials are issued
-        createdAt: new Date().toISOString(),
-      };
-
-      await saveTELRegistry(newRegistry);
+      console.log('Registry created:', registryDsl.registry);
       showToast(`Credential registry "${alias}" created successfully`);
 
       // Reset form
       setAlias('');
 
-      // Notify parent
-      onCreated(newRegistry);
+      // Notify parent with registry alias
+      onCreated(alias.trim());
       onClose();
     } catch (error) {
       console.error('Failed to create TEL registry:', error);

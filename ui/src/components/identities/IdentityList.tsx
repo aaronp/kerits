@@ -4,9 +4,9 @@ import { Button } from '../ui/button';
 import { Toast, useToast } from '../ui/toast';
 import { Copy, Check, Trash2, Eye, EyeOff, RotateCw } from 'lucide-react';
 import type { StoredIdentity } from '@/lib/storage';
-import { deleteIdentity, saveIdentity } from '@/lib/storage';
-import { formatMnemonic, deriveSeed } from '@/lib/mnemonic';
-import { generateKeypairFromSeed, rotate, diger } from '@/lib/keri';
+import { formatMnemonic } from '@/lib/mnemonic';
+import { getDSL } from '@/lib/dsl';
+import { useUser } from '@/lib/user-provider';
 
 interface IdentityListProps {
   identities: StoredIdentity[];
@@ -15,6 +15,7 @@ interface IdentityListProps {
 }
 
 export function IdentityList({ identities, onDelete, onUpdate }: IdentityListProps) {
+  const { currentUser } = useUser();
   const { toast, showToast, hideToast } = useToast();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -31,10 +32,14 @@ export function IdentityList({ identities, onDelete, onUpdate }: IdentityListPro
   };
 
   const handleDelete = async (alias: string) => {
-    if (confirm(`Are you sure you want to delete identity "${alias}"?`)) {
-      await deleteIdentity(alias);
-      if (onDelete) onDelete();
-    }
+    // DSL doesn't support delete yet - skip for now
+    showToast('Delete operation not yet supported. Please use storage directly if needed.');
+    // TODO: Implement delete via DSL when available
+    // if (confirm(`Are you sure you want to delete identity "${alias}"?`)) {
+    //   const dsl = await getDSL(currentUser?.id);
+    //   // await dsl.deleteAccount(alias); // Not available yet
+    //   if (onDelete) onDelete();
+    // }
   };
 
   const toggleMnemonic = (alias: string) => {
@@ -48,51 +53,18 @@ export function IdentityList({ identities, onDelete, onUpdate }: IdentityListPro
 
     setRotating(prev => ({ ...prev, [identity.alias]: true }));
     try {
-      // Derive new next keypair from mnemonic with incremented path
-      const nextRotationSeed = deriveSeed(identity.mnemonic, `next-${identity.kel.length}`);
-      const newNextKeypair = await generateKeypairFromSeed(nextRotationSeed, true);
+      // Use DSL to rotate keys
+      const dsl = await getDSL(currentUser?.id);
+      const accountDsl = await dsl.account(identity.alias);
 
-      // Compute digest of new next key
-      const newNextKeyDigest = diger(newNextKeypair.publicKey);
-
-      // Get the prefix from the inception event if not stored directly
-      const prefix = identity.prefix || identity.inceptionEvent?.pre || identity.inceptionEvent?.ked?.i;
-
-      if (!prefix) {
-        throw new Error('Identity prefix not found. Please delete and recreate this identity.');
+      if (!accountDsl) {
+        throw new Error(`Account "${identity.alias}" not found in DSL`);
       }
 
-      // Get the previous event digest
-      const prevEvent = identity.kel[identity.kel.length - 1];
-      const prevDigest = prevEvent.said || prevEvent.d || prevEvent.ked?.d;
+      // Generate new mnemonic for rotation (use the existing one for now)
+      // Note: In a real scenario, you might want to generate a new path from the same mnemonic
+      await accountDsl.rotateKeys(identity.mnemonic);
 
-      if (!prevDigest) {
-        throw new Error('Previous event digest not found');
-      }
-
-      // Current "next" keys become "current" keys
-      const rotationEvent = rotate({
-        pre: prefix,
-        keys: [identity.nextKeys.public],
-        ndigs: [newNextKeyDigest],
-        sn: identity.kel.length,
-        dig: prevDigest,
-      });
-
-      // Update identity
-      const updatedIdentity: StoredIdentity = {
-        ...identity,
-        prefix: prefix, // Ensure prefix is always set
-        currentKeys: identity.nextKeys, // Next becomes current
-        nextKeys: {
-          public: newNextKeypair.verfer,
-          private: Buffer.from(newNextKeypair.privateKey).toString('hex'),
-          seed: Buffer.from(nextRotationSeed).toString('hex'),
-        },
-        kel: [...identity.kel, rotationEvent],
-      };
-
-      await saveIdentity(updatedIdentity);
       if (onUpdate) onUpdate();
     } catch (error) {
       console.error('Failed to rotate keys:', error);

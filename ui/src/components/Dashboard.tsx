@@ -35,7 +35,7 @@ import { route } from '../config';
 export function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { identities, credentials, schemas, loading, init } = useStore();
+  const { identities, credentials, schemas, loading, init, setUserId } = useStore();
   const { theme, setTheme } = useTheme();
   const { currentUser, logout } = useUser();
   const { toast, showToast, hideToast } = useToast();
@@ -43,9 +43,13 @@ export function Dashboard() {
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [hasAccounts, setHasAccounts] = useState(false);
 
+  // Set userId in store when currentUser changes
   useEffect(() => {
-    init();
-  }, [init]);
+    setUserId(currentUser?.id || null);
+    if (currentUser) {
+      init();
+    }
+  }, [currentUser, setUserId, init]);
 
   // Check for accounts in the new DSL system
   useEffect(() => {
