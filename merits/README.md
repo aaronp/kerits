@@ -1,18 +1,48 @@
 # MERITS - KERI Credential REST API
 
-REST API server for KERITS credential operations, built with Elysia and Eden Treaty for type-safe client-server communication.
+Minimal, Stateless WebSocket API for KERI Clients (Bun + Elysia)
 
-## Overview
+A tiny **relay** that lets KERI clients:
+- **discover** counterparties by **AID**
+- **establish a secure channel** by proving control of their **current AID key** and then negotiating **end-to-end encryption** (shape is client-defined)
+- remain **un-opinionated** about application messages (the server routes opaque bytes only)
 
-MERITS (KERI REST API Server) provides HTTP access to KERITS credential functionality. It uses Elysia for the server and Eden Treaty for type-safe client generation.
+Server holds **no durable storage**; all presence lives **in memory**.
 
-## Features
+---
 
-- ⚡ **Fast** - Built on Bun and Elysia (one of the fastest TypeScript frameworks)
-- 🔒 **Type-safe** - End-to-end type safety with Eden Treaty
-- 🎯 **Simple** - Clean, declarative API design
-- 🔄 **Auto-reload** - Development mode with hot reloading
-- 📦 **Zero config** - Works out of the box
+## 0) Principles
+
+- **Stateless relay**: keeps only in-memory presence/session maps; restart loses presence.
+- **Agnostic payloads**: server neither parses nor decrypts frames (`bytes` are opaque).
+- **KERI-native identity proof**: client signs a server nonce with **current AID key** (`kelSeq` supplied); server *may* verify via OOBI/KEL (stubbed for dev).
+- **Client-negotiated crypto**: clients do ECDH/AEAD handshake **inside** their exchanged bytes; server just relays.
+
+
+---
+
+## 1) HTTP (discovery / presence)
+
+- `GET /aids` → **200**: list online AIDs  
+  Returns:  
+  ```ts
+  type AidOnline = {
+    aid: string           // AID (qb64)
+    since: string         // ISO
+    last: string          // ISO
+    sessions: number      // concurrent sockets (devices/tabs)
+    about?: any           // arbitrary self-published JSON (optional)
+  }
+
+
+
+
+
+# Development Principals
+
+Follow Elysia 
+
+
 
 ## Installation
 
@@ -38,12 +68,6 @@ bun run start
 ```
 
 Server runs on `http://localhost:3000`
-
-### Available Endpoints
-
-- `GET /` - Server info and status
-- `GET /hello` - Simple hello message
-- `GET /hello/:name` - Personalized hello
 
 ### Test with curl
 
@@ -108,61 +132,3 @@ make test     # Test endpoints with curl
 make client   # Run Eden client test
 make help     # Show all targets
 ```
-
-### Adding New Routes
-
-```typescript
-import { Elysia } from 'elysia';
-
-const app = new Elysia()
-  .get('/your-route', () => {
-    return { data: 'your response' };
-  })
-  .post('/your-post', ({ body }) => {
-    return { received: body };
-  })
-  .listen(3000);
-
-export type App = typeof app;
-```
-
-The client will automatically get types for new routes!
-
-## Eden Treaty Benefits
-
-1. **Full type inference** - No manual type definitions needed
-2. **Autocomplete everywhere** - IDE knows all routes and responses
-3. **Compile-time safety** - TypeScript catches API misuse
-4. **Runtime validation** - Elysia validates requests automatically
-5. **Zero overhead** - Types are erased at runtime
-
-## Future Integration
-
-This server will be extended to expose KERITS DSL functionality:
-
-- Create and manage credentials (ACDCs)
-- Issue and revoke credentials
-- Verify credential signatures
-- Query registries and schemas
-- Export/import credential data
-
-## Architecture
-
-```
-Client (Eden Treaty) ←→ HTTP ←→ MERITS (Elysia) ←→ KERITS DSL ←→ KerStore
-```
-
-Type safety flows from database to client through the entire stack.
-
-## Performance
-
-Elysia is built on Bun and is one of the fastest TypeScript frameworks:
-
-- ~100,000+ req/s for simple routes
-- Sub-millisecond response times
-- Low memory footprint
-- Native TypeScript support
-
-## License
-
-Part of the KERITS project.
