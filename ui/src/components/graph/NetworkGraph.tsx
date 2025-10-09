@@ -11,7 +11,6 @@ import SocialGraph from './SocialGraph';
 import MermaidGitGraphView from './MermaidGitGraphView';
 import NodeDetailsView from './NodeDetailsView';
 import Legend from './Legend';
-import { AllEvents } from './AllEvents';
 import type { KeritsDSL } from '@/../../src/app/dsl/types';
 
 export function NetworkGraph() {
@@ -101,8 +100,8 @@ export function NetworkGraph() {
   const displayNodeId = selectedNode || hoveredNode;
   const displayNode: VisualizationEvent | null = displayNodeId && graphData
     ? graphData.identities
-        .flatMap(id => id.events || [])
-        .find(e => e.id === displayNodeId) || null
+      .flatMap(id => id.events || [])
+      .find(e => e.id === displayNodeId) || null
     : null;
 
   if (loading) {
@@ -153,10 +152,9 @@ export function NetworkGraph() {
       </Card>
 
       <Tabs value={viewType} onValueChange={handleViewChange} className="w-full">
-        <TabsList className="mb-4">
+        <TabsList className="mb-4 grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="history">History</TabsTrigger>
           <TabsTrigger value="graph">Graph</TabsTrigger>
-          <TabsTrigger value="all">All Events</TabsTrigger>
         </TabsList>
 
         <TabsContent value="history" className="mt-0">
@@ -205,10 +203,6 @@ export function NetworkGraph() {
               <MermaidGitGraphView data={graphData} />
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="all" className="mt-0">
-          <AllEvents dsl={dsl} />
         </TabsContent>
       </Tabs>
     </div>

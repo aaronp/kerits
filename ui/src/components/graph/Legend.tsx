@@ -57,12 +57,6 @@ export default function Legend({ filter, onFilterChange }: LegendProps) {
           </div>
         </div>
 
-        {/* Instructions */}
-        <div className="text-xs text-muted-foreground space-y-1">
-          <p>• Click a node to pin details</p>
-          <p>• Click identity sidebar to collapse/expand</p>
-          <p>• Right-click identity sidebar to change color</p>
-        </div>
       </div>
     </div>
   );

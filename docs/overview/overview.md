@@ -13,7 +13,7 @@ Presentation Skeleton:
 
 1. What we think is important
 2. What we did
-3. 
+3. what is the architecture?
 
 
 This is what's in my head for the story I think (or I would like) to tell with this submission:

@@ -561,43 +561,56 @@ function renderGraph(
       }).join('')}
 
       <!-- Edges -->
-      ${edges.map(edge => {
-        const fromNode = nodes.find(n => n.id === edge.from);
-        const toNode = nodes.find(n => n.id === edge.to);
-        if (!fromNode || !toNode) return '';
+      ${(() => {
+        // Deduplicate cross-identity edges (keep only one direction)
+        const seenCrossEdges = new Set<string>();
+        return edges.map(edge => {
+          const fromNode = nodes.find(n => n.id === edge.from);
+          const toNode = nodes.find(n => n.id === edge.to);
+          if (!fromNode || !toNode) return '';
 
-        const isCrossIdentity = edge.type === 'cross-identity' || fromNode.identity !== toNode.identity;
+          const isCrossIdentity = edge.type === 'cross-identity' || fromNode.identity !== toNode.identity;
 
-        const color = isCrossIdentity ? '#ff6b6b' : 'hsl(var(--muted-foreground))';
-        const strokeWidth = isCrossIdentity ? 2.5 : 2;
-        const dashArray = isCrossIdentity ? '5,3' : 'none';
+          // For cross-identity edges, deduplicate by creating a canonical key
+          if (isCrossIdentity) {
+            const edgeKey = [edge.from, edge.to].sort().join('->');
+            if (seenCrossEdges.has(edgeKey)) {
+              return ''; // Skip duplicate
+            }
+            seenCrossEdges.add(edgeKey);
+          }
 
-        const dx = toNode.x - fromNode.x;
-        const dy = toNode.y - fromNode.y;
+          const color = isCrossIdentity ? '#ff6b6b' : '#868e96';
+          const strokeWidth = isCrossIdentity ? 2.5 : 2;
+          const dashArray = isCrossIdentity ? '5,3' : 'none';
 
-        const controlPointOffset = Math.max(Math.abs(dx) / 2, 60);
-        const cp1x = fromNode.x + controlPointOffset;
-        const cp1y = fromNode.y;
-        const cp2x = toNode.x - controlPointOffset;
-        const cp2y = toNode.y;
+          const dx = toNode.x - fromNode.x;
+          const dy = toNode.y - fromNode.y;
 
-        const path = `M ${fromNode.x} ${fromNode.y} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${toNode.x} ${toNode.y}`;
+          const controlPointOffset = Math.max(Math.abs(dx) / 2, 60);
+          const cp1x = fromNode.x + controlPointOffset;
+          const cp1y = fromNode.y;
+          const cp2x = toNode.x - controlPointOffset;
+          const cp2y = toNode.y;
 
-        return `
-          <path d="${path}"
-                stroke="${color}"
-                stroke-width="${strokeWidth}"
-                stroke-dasharray="${dashArray}"
-                fill="none"
-                opacity="${isCrossIdentity ? 0.7 : 0.5}"
-                marker-end="url(#arrowhead-${isCrossIdentity ? 'cross' : 'normal'})" />
-        `;
-      }).join('')}
+          const path = `M ${fromNode.x} ${fromNode.y} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${toNode.x} ${toNode.y}`;
+
+          return `
+            <path d="${path}"
+                  stroke="${color}"
+                  stroke-width="${strokeWidth}"
+                  stroke-dasharray="${dashArray}"
+                  fill="none"
+                  opacity="${isCrossIdentity ? 0.7 : 0.5}"
+                  marker-end="url(#arrowhead-${isCrossIdentity ? 'cross' : 'normal'})" />
+          `;
+        }).join('');
+      })()}
 
       <!-- Arrow markers -->
       <defs>
         <marker id="arrowhead-normal" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-          <polygon points="0 0, 10 3, 0 6" fill="hsl(var(--muted-foreground))" opacity="0.4" />
+          <polygon points="0 0, 10 3, 0 6" fill="#868e96" opacity="0.4" />
         </marker>
         <marker id="arrowhead-cross" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
           <polygon points="0 0, 10 3, 0 6" fill="#ff6b6b" opacity="0.7" />
@@ -622,6 +635,14 @@ function renderGraph(
                   rx="4"
                   opacity="0.8" />` : ''}
 
+          ${isSelected && !isMatching ? `<rect x="${node.x - 45}" y="${node.y - 40}" width="90" height="80"
+                  fill="transparent"
+                  stroke="hsl(var(--primary))"
+                  stroke-width="3"
+                  rx="6"
+                  opacity="0.6"
+                  stroke-dasharray="8,4" />` : ''}
+
           <circle cx="${node.x}" cy="${node.y}" r="${radius + 8}"
                   fill="transparent"
                   stroke="none" />
@@ -636,7 +657,7 @@ function renderGraph(
                   fill="none"
                   stroke="hsl(var(--primary))"
                   stroke-width="2"
-                  opacity="0.3" />` : ''}
+                  opacity="0.5" />` : ''}
 
           ${isHovered && !isSelected ? `<circle cx="${node.x}" cy="${node.y}" r="${radius + 3}"
                   fill="none"

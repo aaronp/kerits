@@ -276,18 +276,6 @@ export function Dashboard() {
               <Home className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
               {sidebarExpanded && <span>Home</span>}
             </Button>
-            {schemas.length > 0 && (
-              <Button
-                variant={activeTab === 'issue' ? 'default' : 'ghost'}
-                size={sidebarExpanded ? 'default' : 'icon'}
-                className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'issue' ? 'bg-primary text-primary-foreground' : ''}`}
-                onClick={() => navigate(route('/issue'))}
-                title="Issue"
-              >
-                <Award className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
-                {sidebarExpanded && <span>Issue</span>}
-              </Button>
-            )}
             <Button
               variant={activeTab === 'contacts' ? 'default' : 'ghost'}
               size={sidebarExpanded ? 'default' : 'icon'}
@@ -308,16 +296,6 @@ export function Dashboard() {
               <FileText className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
               {sidebarExpanded && <span>Schemas</span>}
             </Button>
-            {/* <Button
-              variant={activeTab === 'credentials' ? 'default' : 'ghost'}
-              size={sidebarExpanded ? 'default' : 'icon'}
-              className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'credentials' ? 'bg-primary text-primary-foreground' : ''}`}
-              onClick={() => navigate(route('/credentials'))}
-              title="Credentials"
-            >
-              <Award className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
-              {sidebarExpanded && <span>Credentials</span>}
-            </Button> */}
             <Button
               variant={activeTab === 'sign' ? 'default' : 'ghost'}
               size={sidebarExpanded ? 'default' : 'icon'}
