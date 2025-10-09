@@ -27,11 +27,11 @@ export function RegistryBreadcrumbs({
   const handleNavigate = (depth: number) => {
     if (depth === 0) {
       // Navigate to account root (no registry selected)
-      navigate(route(`/dashboard/explorer/${accountAlias}`));
+      navigate(route(`/explorer/${accountAlias}`));
     } else {
       // Navigate to registry at this depth
       const pathSegment = registryPath.slice(0, depth).join('/');
-      navigate(route(`/dashboard/explorer/${accountAlias}/${pathSegment}`));
+      navigate(route(`/explorer/${accountAlias}/${pathSegment}`));
     }
   };
 
@@ -56,7 +56,7 @@ export function RegistryBreadcrumbs({
               onClick={() => handleNavigate(index + 1)}
               disabled={isLast}
               className={`
-                px-2 py-1 rounded-md text-sm transition-colors
+                px-2 py-1 rounded-md text-sm transition-colors cursor-pointer
                 ${isLast
                   ? 'font-medium text-foreground cursor-default'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'}

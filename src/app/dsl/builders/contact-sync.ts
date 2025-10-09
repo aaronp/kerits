@@ -20,9 +20,19 @@ const SYNC_STATE_PREFIX = 'contact-sync-state';
 export function createContactSyncDSL(store: KerStore): ContactSyncDSL {
   return {
     async getState(contactAlias: string): Promise<ContactSyncState | null> {
-      // Resolve contact AID
-      const contactAid = await store.aliasToId('contact', contactAlias);
-      if (!contactAid) {
+      // Resolve contact AID from remotes/{alias}/meta.json
+      const metaKey = `remotes/${contactAlias}/meta.json`;
+      const raw = await store.kv.get(metaKey);
+      if (!raw) {
+        return null;
+      }
+
+      let contactAid: string;
+      try {
+        const json = new TextDecoder().decode(raw);
+        const meta = JSON.parse(json);
+        contactAid = meta.aid;
+      } catch (error) {
         return null;
       }
 
@@ -198,8 +208,19 @@ export function createContactSyncDSL(store: KerStore): ContactSyncDSL {
     },
 
     async resetState(contactAlias: string): Promise<void> {
-      const contactAid = await store.aliasToId('contact', contactAlias);
-      if (!contactAid) {
+      // Get contact AID from remotes/{alias}/meta.json
+      const metaKey = `remotes/${contactAlias}/meta.json`;
+      const raw = await store.kv.get(metaKey);
+      if (!raw) {
+        throw new Error(`Contact not found: ${contactAlias}`);
+      }
+
+      let contactAid: string;
+      try {
+        const json = new TextDecoder().decode(raw);
+        const meta = JSON.parse(json);
+        contactAid = meta.aid;
+      } catch (error) {
         throw new Error(`Contact not found: ${contactAlias}`);
       }
 
@@ -224,8 +245,17 @@ export function createContactSyncDSL(store: KerStore): ContactSyncDSL {
     },
 
     async listSynced(): Promise<string[]> {
-      // Get all contact aliases
-      const allContacts = await store.listAliases('contact');
+      // Get all contacts from remotes/*/meta.json
+      const results = await store.kv.list('remotes/', { keysOnly: true });
+      const allContacts: string[] = [];
+
+      for (const { key } of results) {
+        const match = key.match(/^remotes\/([^/]+)\/meta\.json$/);
+        if (match) {
+          allContacts.push(match[1]);
+        }
+      }
+
       const synced: string[] = [];
 
       for (const alias of allContacts) {

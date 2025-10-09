@@ -539,7 +539,7 @@ export function RegistryDetailView({
     if (value === '__create__') {
       // Navigate to schema creation with return URL
       navigate(
-        route(`/dashboard/schemas/new?returnTo=/dashboard/explorer/${accountAlias}/${registryId}`)
+        route(`/schemas/new?returnTo=/explorer/${accountAlias}/${registryId}`)
       );
     } else {
       setSelectedSchema(value);
@@ -817,7 +817,7 @@ export function RegistryDetailView({
           <DialogHeader>
             <DialogTitle>Issue Credential</DialogTitle>
             <DialogDescription>
-              Issue a new ACDC in the "{registryDsl.registry.alias}" registry
+              Credential in the "{registryDsl.registry.alias}" registry
             </DialogDescription>
           </DialogHeader>
 
@@ -965,7 +965,7 @@ export function RegistryDetailView({
                   <div>
                     <Label className="text-base font-semibold">Link to Other Credentials (Optional)</Label>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Create edges linking this credential to existing credentials
+                      Does this credential reference other credentials?
                     </p>
                   </div>
 
@@ -981,7 +981,7 @@ export function RegistryDetailView({
                           </div>
                         </div>
                         <Button
-                          variant="ghost"
+                          variant="destructive"
                           size="sm"
                           onClick={() => {
                             const newEdges = { ...credentialEdges };
@@ -998,7 +998,7 @@ export function RegistryDetailView({
                   {/* Add new edge */}
                   <div className="space-y-3 p-3 border rounded">
                     <div className="grid gap-2">
-                      <Label>Edge Name</Label>
+                      <Label>Name (just for clarity)</Label>
                       <Input
                         placeholder="e.g., evidence, parent, prerequisite"
                         value={edgeFilter}
@@ -1047,7 +1047,8 @@ export function RegistryDetailView({
                           />
                           <Button
                             type="button"
-                            variant="ghost"
+                            variant="link"
+                            className="cursor-pointer"
                             size="sm"
                             onClick={() => setEdgeFilter('')}
                           >
@@ -1063,10 +1064,10 @@ export function RegistryDetailView({
                         variant="outline"
                         size="sm"
                         onClick={() => setEdgeFilter('edge_')}
-                        className="w-full"
+                        className="w-full cursor-pointer"
                       >
                         <Plus className="mr-2 h-4 w-4" />
-                        Add Edge Link
+                        Add Link
                       </Button>
                     )}
                   </div>
@@ -1084,7 +1085,8 @@ export function RegistryDetailView({
           {/* Wizard Footer */}
           <DialogFooter className="flex-row justify-between border-t pt-4">
             <Button
-              variant="outline"
+              variant="link"
+              className="cursor-pointer"
               onClick={() => {
                 if (issueStep === 1) {
                   setShowIssueDialog(false);
@@ -1106,6 +1108,8 @@ export function RegistryDetailView({
 
             {issueStep < 3 ? (
               <Button
+                variant="outline"
+                className="cursor-pointer"
                 onClick={() => setIssueStep(issueStep + 1)}
                 disabled={
                   (issueStep === 1 && (!credentialAlias.trim() || !selectedHolder)) ||

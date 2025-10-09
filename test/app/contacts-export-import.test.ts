@@ -114,22 +114,18 @@ describe('Contact Export/Import', () => {
 
     await bobContactsDsl.importKEL(kelCesr, 'alice');
 
-    // Check contact alias mapping
-    const contactAid = await bobStore.aliasToId('contact', 'alice');
-    expect(contactAid).toBe(alice!.aid);
-    console.log('✓ Contact alias mapping created: alice ->', contactAid);
-
-    // Check KEL alias mapping
-    const kelAid = await bobStore.aliasToId('kel', 'alice');
-    expect(kelAid).toBe(alice!.aid);
-    console.log('✓ KEL alias mapping created: alice ->', kelAid);
-
-    // Verify we can access via both aliases
+    // Check contact exists in remotes/alice/meta.json
     const viaContact = await bobContactsDsl.get('alice');
     expect(viaContact).not.toBeNull();
     expect(viaContact!.aid).toBe(alice!.aid);
+    console.log('✓ Contact stored in remotes/alice/meta.json');
 
-    console.log('✓ Both alias mappings work correctly');
+    // Verify KEL data is accessible
+    const kelEvents = await bobStore.listKel(alice!.aid);
+    expect(kelEvents.length).toBeGreaterThan(0);
+    console.log('✓ KEL data imported to kel/', alice!.aid);
+
+    console.log('✓ Contact and KEL import work correctly');
   });
 
   it('should handle account with key rotation in export/import', async () => {

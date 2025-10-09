@@ -12,15 +12,16 @@ describe('Credential Revocation', () => {
     const dsl = createKeritsDSL(store);
 
     // 1. Create account
-    const accountDsl = await dsl.createAccount('alice', 'password123');
+    const seed = new Uint8Array(32);
+    crypto.getRandomValues(seed);
+    const mnemonic = dsl.newMnemonic(seed);
+    await dsl.newAccount('alice', mnemonic);
+    const accountDsl = await dsl.account('alice');
     expect(accountDsl).toBeDefined();
 
-    // 2. Create registry
-    const registryDsl = await accountDsl.createRegistry('public-registry');
-    expect(registryDsl).toBeDefined();
-
-    // 3. Create schema
-    const schemaDsl = await registryDsl.createSchema('person-schema', {
+    // 2. Create schema (at DSL level, not registry level)
+    const schemaDsl = await dsl.createSchema('person-schema', {
+      title: 'Person Schema',
       type: 'object',
       properties: {
         name: { type: 'string' },
@@ -28,6 +29,10 @@ describe('Credential Revocation', () => {
       },
     });
     expect(schemaDsl).toBeDefined();
+
+    // 3. Create registry
+    const registryDsl = await accountDsl!.createRegistry('public-registry');
+    expect(registryDsl).toBeDefined();
 
     // 4. Issue credential
     const credentialDsl = await registryDsl.issue({
@@ -58,19 +63,23 @@ describe('Credential Revocation', () => {
     expect(revEvents[0].i).toBe(credentialDsl.acdc.credentialId);
 
     // 9. Verify credential appears as revoked in list
-    const credentials = await registryDsl.listACDCs();
+    const credentials = await registryDsl.listCredentials();
     expect(credentials.length).toBe(1);
     expect(credentials[0].status).toBe('revoked');
-    expect(credentials[0].revoked).toBe(true);
   });
 
   it('should index revoked credential correctly', async () => {
     const store = createKerStore(new MemoryKv());
     const dsl = createKeritsDSL(store);
 
-    const accountDsl = await dsl.createAccount('alice', 'password123');
-    const registryDsl = await accountDsl.createRegistry('registry');
-    const schemaDsl = await registryDsl.createSchema('schema', {
+    const seed = new Uint8Array(32);
+    crypto.getRandomValues(seed);
+    const mnemonic = dsl.newMnemonic(seed);
+    await dsl.newAccount('alice', mnemonic);
+    const accountDsl = await dsl.account('alice');
+    const registryDsl = await accountDsl!.createRegistry('registry');
+    const schemaDsl = await dsl.createSchema('schema', {
+      title: 'schema',
       type: 'object',
       properties: { name: { type: 'string' } },
     });

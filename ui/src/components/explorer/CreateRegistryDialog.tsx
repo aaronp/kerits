@@ -90,7 +90,7 @@ export function CreateRegistryDialog({
           <DialogDescription>
             {isSubRegistry
               ? `Create a sub-registry under "${parentRegistryDsl?.registry.alias}". This will be anchored in the parent registry's TEL.`
-              : 'Create a new top-level credential registry for issuing ACDCs.'}
+              : 'Create a new top-level credential registry.'}
           </DialogDescription>
         </DialogHeader>
 

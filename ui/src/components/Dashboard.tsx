@@ -54,8 +54,13 @@ export function Dashboard() {
   // Check for accounts in the new DSL system
   useEffect(() => {
     async function checkAccounts() {
+      if (!currentUser) {
+        setHasAccounts(false);
+        return;
+      }
+
       try {
-        const dsl = await getDSL(currentUser?.id);
+        const dsl = await getDSL(currentUser.id);
         const accountNames = await dsl.accountNames();
         setHasAccounts(accountNames.length > 0);
       } catch (error) {
@@ -64,7 +69,7 @@ export function Dashboard() {
       }
     }
     checkAccounts();
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     // Redirect to root if no user is logged in

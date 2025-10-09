@@ -82,7 +82,7 @@ export function UserCreation() {
           <>
             <CardHeader>
               <CardTitle>Create User Profile</CardTitle>
-              <CardDescription>Enter your name to get started with KERI</CardDescription>
+              <CardDescription>Enter your name to get started</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -98,16 +98,17 @@ export function UserCreation() {
               </div>
               <div className="flex gap-2">
                 <Button
-                  variant="outline"
+                  variant="link"
                   onClick={() => navigate(route('/'))}
-                  className="flex-1"
+                  className="flex-1 cursor-pointer"
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={handleContinueToIdentity}
                   disabled={!name.trim()}
-                  className="flex-1 shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                  variant="outline"
+                  className="flex-1 shadow-lg hover:shadow-xl hover:scale-105 transition-all cursor-pointer"
                 >
                   Continue
                 </Button>
@@ -167,7 +168,7 @@ export function UserCreation() {
               {/* Action Buttons */}
               <div className="flex gap-2">
                 <Button
-                  variant="outline"
+                  variant="link"
                   onClick={handleBack}
                   disabled={creating}
                 >
@@ -175,10 +176,10 @@ export function UserCreation() {
                   Back
                 </Button>
                 <Button
-                  variant="default"
+                  variant="outline"
                   onClick={handleCreateUser}
                   disabled={!alias || !mnemonic || creating}
-                  className="flex-1 shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                  className="flex-1 shadow-lg hover:shadow-xl hover:scale-105 transition-all cursor-pointer"
                 >
                   {creating ? 'Creating...' : 'Create User'}
                 </Button>

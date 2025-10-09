@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach } from 'bun:test';
 import { createKerStore } from '../../storage/core';
 import { MemoryKv } from '../../storage/adapters/memory';
 import { createKeritsDSL } from '../dsl';
-import { createKeriGitGraph } from './keri-git-graph';
+import { KeriGitGraph } from './keri-git-graph';
 
 describe('KeriGitGraph', () => {
   it('should generate Mermaid gitGraph for simple KEL', async () => {
