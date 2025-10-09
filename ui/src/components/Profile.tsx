@@ -9,6 +9,7 @@ import { useStore } from '../store/useStore';
 import { UserCircle, RotateCw, Shield, Copy, Share, Trash2, Palette, Key } from 'lucide-react';
 import { getDSL, resetDSL } from '../lib/dsl';
 import { MnemonicPromptModal } from './MnemonicPromptModal';
+import { createMnemonic } from '../lib/mnemonic';
 
 export function Profile() {
   const { currentUser } = useUser();
@@ -153,9 +154,8 @@ export function Profile() {
     // If skip prompt is enabled, generate a new mnemonic automatically
     if (skipMnemonicPrompt) {
       try {
-        const dsl = await getDSL(currentUser.id);
-        // Generate a fresh mnemonic for the new keys
-        const newMnemonic = dsl.newMnemonic();
+        // Generate a fresh random mnemonic for the new keys
+        const newMnemonic = createMnemonic();
         await performKeyRotation(alias, newMnemonic);
         return;
       } catch (error) {

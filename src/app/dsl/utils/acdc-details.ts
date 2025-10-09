@@ -57,9 +57,9 @@ export async function extractACDCDetails(exportDsl: ExportDSL): Promise<ACDCEven
         event = JSON.parse(eventText.substring(jsonStart));
         acdcEvent = event;
 
-        // Get issuer AID from ACDC attributes
-        if (event.a && event.a.i) {
-          publicKeys.push(event.a.i);
+        // Get issuer AID from ACDC (the 'i' field is the issuer's identifier)
+        if (event.i) {
+          publicKeys.push(event.i);
         }
       }
     } catch (error) {
@@ -77,6 +77,11 @@ export async function extractACDCDetails(exportDsl: ExportDSL): Promise<ACDCEven
       const jsonStart = telEventText.indexOf('{');
       if (jsonStart >= 0) {
         telEvent = JSON.parse(telEventText.substring(jsonStart));
+
+        // Extract public keys from TEL event's 'k' field
+        if (telEvent.k && Array.isArray(telEvent.k)) {
+          publicKeys.push(...telEvent.k);
+        }
       }
 
       // Extract indexed signatures from TEL issuance event
