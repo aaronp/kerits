@@ -259,19 +259,25 @@ export async function createSchema(
 ): Promise<{ schemaId: string; schema: any }> {
   const { alias, schema } = params;
 
-  // Add 'd' field for SAID computation
-  const schemaWithD = { ...schema, d: '' };
+  // JSON Schema should use $id as the SAID field, not d
+  // Create schema with $id and $schema fields
+  const schemaWithId = {
+    $id: '', // Placeholder for SAID
+    $schema: 'http://json-schema.org/draft-07/schema#',
+    type: 'object',
+    ...schema,
+  };
 
-  // SAIDify the schema
-  const saidified = saidify(schemaWithD);
-  const schemaId = saidified.d;
+  // SAIDify using $id as the label field
+  const saidified = saidify(schemaWithId, { label: '$id' });
+  const schemaId = saidified.$id;
 
   // Store schema as a special event
   // For now, we'll store it as a pseudo-event with type "schema"
   const schemaEvent = {
     v: 'KERI10JSON',
     t: 'schema',
-    d: schemaId,
+    d: schemaId, // Use d for event SAID reference
     ...saidified,
   };
 
@@ -279,9 +285,7 @@ export async function createSchema(
   await store.putEvent(rawSchema);
 
   // Also store schema in schema storage for direct retrieval
-  // Add $id field for schema storage compatibility
-  const schemaForStorage = { ...saidified, $id: schemaId };
-  await store.putSchema(schemaForStorage);
+  await store.putSchema(saidified);
 
   // Store alias mapping
   await store.putAlias('schema', schemaId, alias);

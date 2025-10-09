@@ -182,7 +182,7 @@ export function Contacts() {
       setNewContactName('');
       setNewContactKEL('');
       setIsDialogOpen(false);
-      showToast(`Contact "${contact.name}" added successfully`);
+      showToast(`Contact "${alias}" added successfully`);
     } catch (error) {
       console.error('Failed to add contact:', error);
       showToast(`Failed to add contact: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -262,7 +262,7 @@ export function Contacts() {
                           <div className="space-y-2 flex-1">
                             <div
                               className="cursor-pointer"
-                              onClick={() => navigate(route(`/dashboard/contacts/${contact.aid}`))}
+                              onClick={() => navigate(route(`/contacts/${contact.aid}`))}
                             >
                               <VisualId
                                 label={contactName}

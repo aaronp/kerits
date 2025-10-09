@@ -79,6 +79,15 @@ export interface AccountDSL {
   export(): Promise<ExportDSL>;
 
   /**
+   * Import external TEL data (registry events and optionally credentials)
+   * TEL events are globally unique by registry ID, so they can be safely
+   * imported alongside the user's own TELs for edge resolution.
+   * @param data - CESR bundle, raw bytes, or ExportDSL
+   * @returns Number of events and ACDCs imported
+   */
+  importTEL(data: CESRBundle | Uint8Array | ExportDSL): Promise<{ eventsImported: number; acdcsImported: number; registryId?: string }>;
+
+  /**
    * Get ContactsDSL for managing contacts
    * @returns ContactsDSL instance
    */
@@ -138,9 +147,10 @@ export interface RegistryDSL {
 
   /**
    * Export TEL events for this registry
+   * @param options - Export options (includeACDCs to export referenced credentials)
    * @returns ExportDSL for creating CESR bundle
    */
-  export(): Promise<ExportDSL>;
+  export(options?: ExportOptions): Promise<ExportDSL>;
 
   /**
    * Get indexed view of this registry

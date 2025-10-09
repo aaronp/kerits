@@ -237,21 +237,32 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
         throw new Error(`SAID verification failed: expected ${schemaData.said}, got ${recomputed.$id}`);
       }
 
-      // Convert KERI SAD format ($id) to internal format (d)
-      // Remove $id and $schema fields, keep rest of the schema
-      const { $schema, ...schemaContent } = sedContent;
+      // Now that verification passed, store the schema with its original SAID
+      // We store the complete sed (with $id and $schema) to preserve the SAID
+      const schemaId = schemaData.said;
 
-      // Now that verification passed, store the schema
-      const { schemaId, schema: storedSchema } = await createSchemaHelper(store, {
-        alias: schemaData.alias,
-        schema: schemaContent,
-      });
+      // Store schema as a special event
+      const schemaEvent = {
+        v: 'KERI10JSON',
+        t: 'schema',
+        d: schemaId,
+        ...schemaData.sed,
+      };
+
+      const rawSchema = serializeEvent(schemaEvent);
+      await store.putEvent(rawSchema);
+
+      // Also store schema in schema storage for direct retrieval
+      await store.putSchema(schemaData.sed);
+
+      // Store alias mapping
+      await store.putAlias('schema', schemaId, schemaData.alias);
 
       const schemaObj = {
         alias: schemaData.alias,
         schemaId,
-        schemaSaid: schemaId, // Set both for API consistency
-        schema: storedSchema,
+        schemaSaid: schemaId,
+        schema: schemaData.sed,
       };
 
       return createSchemaDSL(schemaObj, store);

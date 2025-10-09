@@ -149,7 +149,7 @@ export function Explorer() {
             if (acdcDsl && acdcDsl.acdc.credentialId === selectedId) {
               // Found the ACDC! Navigate to its registry
               hasAutoNavigatedRef.current = true;
-              navigate(route(`/dashboard/explorer/${accountAlias}/${registryDsl.registry.registryId}?selected=${selectedId}`), { replace: true });
+              navigate(route(`/explorer/${accountAlias}/${registryDsl.registry.registryId}?selected=${selectedId}`), { replace: true });
               return;
             }
           }
@@ -157,7 +157,7 @@ export function Explorer() {
           // Check if the selected ID is the registry itself
           if (registryDsl.registry.registryId === selectedId) {
             hasAutoNavigatedRef.current = true;
-            navigate(route(`/dashboard/explorer/${accountAlias}/${selectedId}`), { replace: true });
+            navigate(route(`/explorer/${accountAlias}/${selectedId}`), { replace: true });
             return;
           }
         }

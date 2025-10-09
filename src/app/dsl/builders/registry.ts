@@ -6,6 +6,7 @@ import type { KerStore } from '../../../storage/types';
 import type { RegistryDSL, Registry, Account, IssueParams, TelEvent, GraphOptions, ExportDSL, IndexedRegistry, IndexedACDC } from '../types';
 import type { ACDCDSL } from '../types';
 import type { KeyManager } from '../../keymanager';
+import type { ExportOptions } from '../types/sync';
 import { createACDCDSL } from './acdc';
 import { exportTel } from './export';
 import { TELIndexer } from '../../indexer/index.js';
@@ -213,8 +214,8 @@ export function createRegistryDSL(
       });
     },
 
-    async export(): Promise<ExportDSL> {
-      return exportTel(store, registry.registryId, account.aid);
+    async export(options?: ExportOptions): Promise<ExportDSL> {
+      return exportTel(store, registry.registryId, account.aid, options);
     },
 
     async index(): Promise<IndexedRegistry> {

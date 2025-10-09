@@ -13,8 +13,9 @@ import { mnemonicToSeed } from '../utils';
 import { serializeEvent } from '../utils';
 import { createRegistryDSL } from './registry';
 import { createContactsDSL } from './contacts';
-import { exportKel } from './export';
+import { exportKel, importTel } from './export';
 import { WriteTimeIndexer } from '../../indexer/write-time-indexer';
+import type { CESRBundle } from '../types/sync';
 
 /**
  * Create an AccountDSL for a specific account
@@ -298,6 +299,10 @@ export function createAccountDSL(account: Account, store: KerStore, keyManager?:
 
     async export(): Promise<ExportDSL> {
       return exportKel(store, account.aid);
+    },
+
+    async importTEL(data: CESRBundle | Uint8Array | ExportDSL): Promise<{ eventsImported: number; acdcsImported: number; registryId?: string }> {
+      return importTel(store, data);
     },
 
     contacts(): ContactsDSL {

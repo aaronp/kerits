@@ -85,6 +85,8 @@ export interface SaidifyOptions {
   label?: string;
   /** CESR code for Blake3-256 (default: "E") */
   code?: string;
+  /** Additional labels to replace with placeholder (e.g., ["i"] for TEL inception) */
+  labels?: string[];
 }
 
 /**
@@ -107,8 +109,9 @@ export function saidify<T extends Record<string, any>>(
 ): T & Record<string, string> {
   const label = options.label || 'd';
   const code = options.code || 'E'; // Blake3-256 code in CESR
+  const additionalLabels = options.labels || [];
 
-  // Check that field exists
+  // Check that primary field exists
   if (!(label in obj)) {
     throw new Error(`Missing id field labeled=${label} in sad.`);
   }
@@ -116,6 +119,13 @@ export function saidify<T extends Record<string, any>>(
   // Create a copy with placeholder (44 '#' chars, matching CESR output length)
   const placeholder = '#'.repeat(44);
   const sad = { ...obj, [label]: placeholder };
+
+  // Replace additional labels with placeholder too (e.g., 'i' for TEL inception)
+  for (const additionalLabel of additionalLabels) {
+    if (additionalLabel in obj) {
+      sad[additionalLabel] = placeholder;
+    }
+  }
 
   // Serialize to JSON (compact, sorted keys)
   const serialized = serializeCanonical(sad);
@@ -126,8 +136,15 @@ export function saidify<T extends Record<string, any>>(
   // Encode as CESR
   const said = encodeCESR(hash, code);
 
-  // Return object with computed SAID
-  return { ...obj, [label]: said } as T & Record<string, string>;
+  // Return object with computed SAID (set both primary and additional labels to same SAID)
+  const result = { ...obj, [label]: said } as T & Record<string, string>;
+  for (const additionalLabel of additionalLabels) {
+    if (additionalLabel in obj) {
+      result[additionalLabel] = said;
+    }
+  }
+
+  return result;
 }
 
 /**

@@ -102,8 +102,14 @@ export default function NodeDetailsView({ node, allData, isPinned = false }: Nod
         // Parse the event JSON
         const eventJson = JSON.parse(eventJsonToVerify);
 
+        // For TEL inception events (vcp), both 'd' and 'i' need to be replaced during SAID computation
+        const isTelInception = eventJson.t === 'vcp';
+        const saidifyOptions = isTelInception
+          ? { label: 'd', code: 'E', labels: ['i'] }
+          : { label: 'd', code: 'E' };
+
         // Recompute SAID from the event data
-        const saidifiedObj = saidify(eventJson, { label: 'd', code: 'E' });
+        const saidifiedObj = saidify(eventJson, saidifyOptions);
         computedSaid = saidifiedObj.d;
 
         // Check if computed SAID matches the node ID

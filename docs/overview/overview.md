@@ -11,9 +11,21 @@ Plan:
 
 Presentation Skeleton:
 
-1. What we think is important
+1. What we think is important / wanted to do
 2. What we did
-3. what is the architecture?
+  a. false start with BFF
+  b. kerits
+    i. keripy regression tests
+    ii. kerits architecture - core keri functions -> storage -> DSL -> UI / CLI
+  c. keritokens
+    i. simple reference to KERI AID
+    ii. separation of governance and issued tokens
+  d. MCP
+  e. merits
+  f. STEX
+
+
+
 
 
 This is what's in my head for the story I think (or I would like) to tell with this submission:

@@ -22,6 +22,7 @@ export interface CESRBundle {
 export interface ExportOptions {
   format?: 'bundle' | 'raw';  // Bundle with metadata or raw CESR
   includeAttachments?: boolean; // Future: signatures, receipts
+  includeACDCs?: boolean; // Include referenced ACDC credentials in TEL exports
 }
 
 export interface ExportDSL {

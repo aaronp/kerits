@@ -99,11 +99,36 @@ export async function exportTel(
   options: ExportOptions = {}
 ): Promise<ExportDSL> {
   const telEvents = await store.listTel(registryId);
+  const events: Uint8Array[] = telEvents.map(e => ensureUint8Array(e.raw));
+
+  // Optionally include referenced ACDC credentials
+  if (options.includeACDCs) {
+    // Find all credential IDs referenced in ISS events
+    const credentialIds = new Set<string>();
+    for (const event of telEvents) {
+      if (event.meta.t === 'iss' && event.meta.i) {
+        credentialIds.add(event.meta.i);
+      }
+    }
+
+    // Fetch and include ACDC events
+    for (const credId of credentialIds) {
+      try {
+        const credEvent = await store.getEvent(credId);
+        if (credEvent) {
+          events.push(ensureUint8Array(credEvent.raw));
+        }
+      } catch (err) {
+        // Skip if credential not found
+        console.warn(`Could not find ACDC ${credId} for TEL export`);
+      }
+    }
+  }
 
   const bundle: CESRBundle = {
-    type: 'tel',
+    type: options.includeACDCs ? 'mixed' : 'tel',
     version: '1.0',
-    events: telEvents.map(e => ensureUint8Array(e.raw)),
+    events,
     metadata: {
       source: issuerAid,
       created: new Date().toISOString(),
@@ -243,4 +268,96 @@ export async function exportTelIncremental(
   };
 
   return new ExportDSLImpl(bundle);
+}
+
+/**
+ * Import TEL data from CESR bundle or raw bytes
+ *
+ * TEL events are globally unique by their registry ID, so they can be safely
+ * imported into the store alongside the user's own TELs.
+ *
+ * @param store - KerStore to import into
+ * @param data - CESR bundle, raw bytes, or ExportDSL
+ * @returns Number of events imported
+ */
+export async function importTel(
+  store: KerStore,
+  data: CESRBundle | Uint8Array | ExportDSL
+): Promise<{ eventsImported: number; acdcsImported: number; registryId?: string }> {
+  let events: Uint8Array[];
+  let registryId: string | undefined;
+
+  // Handle different input formats
+  if (data instanceof Uint8Array) {
+    // Raw CESR bytes - split into individual events
+    // For now, treat as single concatenated stream
+    events = [data];
+  } else if ('asBundle' in data) {
+    // ExportDSL
+    const bundle = data.asBundle();
+    events = bundle.events;
+    registryId = bundle.metadata.scope?.registryId;
+  } else {
+    // CESRBundle
+    events = data.events;
+    registryId = data.metadata.scope?.registryId;
+  }
+
+  let eventsImported = 0;
+  let acdcsImported = 0;
+
+  // Import each event
+  for (const eventBytes of events) {
+    try {
+      // Store the event (putEvent handles deduplication)
+      await store.putEvent(ensureUint8Array(eventBytes));
+
+      // Parse the event to count it
+      const eventText = new TextDecoder().decode(eventBytes);
+
+      // Find the JSON portion (after version string)
+      // Format: -KERI10JSON<size>_{"t":"vcp",...}
+      const jsonStart = eventText.indexOf('{');
+      if (jsonStart >= 0) {
+        // Find the closing brace for the JSON object
+        let jsonEnd = jsonStart;
+        let braceCount = 0;
+        for (let i = jsonStart; i < eventText.length; i++) {
+          if (eventText[i] === '{') braceCount++;
+          if (eventText[i] === '}') {
+            braceCount--;
+            if (braceCount === 0) {
+              jsonEnd = i + 1;
+              break;
+            }
+          }
+        }
+
+        const jsonStr = eventText.substring(jsonStart, jsonEnd);
+        const eventJson = JSON.parse(jsonStr);
+
+        // ACDC events have no 't' field at top level, or t='acdc'
+        // TEL events have t='vcp', 'iss', 'rev', 'bis', 'brv'
+        if (!eventJson.t || eventJson.t === 'acdc') {
+          acdcsImported++;
+
+          // Also store in JSON format for quick retrieval
+          const acdcKey = {
+            path: ['acdc', eventJson.d],
+            type: 'json' as const,
+            meta: { immutable: true },
+          };
+          const encodeJson = (obj: any) => new TextEncoder().encode(JSON.stringify(obj));
+          await store.kv.putStructured!(acdcKey, encodeJson(eventJson));
+        } else {
+          eventsImported++;
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to import event:', err);
+      // Continue with next event
+    }
+  }
+
+  return { eventsImported, acdcsImported, registryId };
 }

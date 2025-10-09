@@ -4,7 +4,6 @@
 
 import type { KerStore } from '../../../storage/types';
 import type { SchemaDSL, Schema, SchemaExport } from '../types';
-import { saidify } from '../../../saidify';
 
 /**
  * Create a SchemaDSL for a specific schema
@@ -50,30 +49,26 @@ export function createSchemaDSL(schema: Schema, store: KerStore): SchemaDSL {
 
     export(): SchemaExport {
       // Export in KERI SAD format with alias
-      // Convert internal format (d) to KERI SAD format ($id, $schema)
-      const { d, ...schemaContent } = schema.schema;
+      // Schema is already stored with $id as the SAID field
+      const sed = schema.schema as any;
 
-      // Recompute SAID based on schema content
-      // This ensures $id matches the actual schema content
-      const schemaWithId = {
-        $id: '', // Start with empty $id
-        $schema: 'http://json-schema.org/draft-07/schema#',
-        ...schemaContent,
-      };
-
-      // Compute the SAID using $id as the label field
-      const saidified = saidify(schemaWithId, { label: '$id' });
-      const computedSaid = saidified.$id;
-
-      // Use computed SAID as both $id and said
-      const sed = {
-        ...saidified,
-      };
+      // Ensure required fields are present
+      if (!sed.$id) {
+        throw new Error('Schema missing $id field');
+      }
+      if (!sed.$schema) {
+        // Add $schema if missing (for backward compatibility)
+        sed.$schema = 'http://json-schema.org/draft-07/schema#';
+      }
+      if (!sed.type) {
+        // Add type if missing (for backward compatibility)
+        sed.type = 'object';
+      }
 
       return {
         alias: schema.alias,
         sed,
-        said: computedSaid,
+        said: sed.$id,
       };
     },
 
