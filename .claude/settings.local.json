@@ -11,7 +11,8 @@
       "Bash(make test:*)",
       "Bash(npm install:*)",
       "Bash(npm --prefix ui run build)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(bun:*)"
     ],
     "deny": [],
     "ask": []

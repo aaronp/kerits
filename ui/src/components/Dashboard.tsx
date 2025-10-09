@@ -22,8 +22,6 @@ import { VerifyCredential } from './credentials/VerifyCredential';
 import { NetworkGraph } from './graph/NetworkGraph';
 import { Profile } from './Profile';
 import { Sign } from './signing/Sign';
-import { IssueSchemaList } from './issue/IssueSchemaList';
-import { IssueCredentialForm } from './issue/IssueCredentialForm';
 import { Contacts } from './Contacts';
 import { MyContact } from './MyContact';
 import { Explorer } from './explorer/Explorer';
@@ -35,7 +33,7 @@ import { route } from '../config';
 export function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { identities, credentials, schemas, loading, init, setUserId } = useStore();
+  const { identities, schemas, loading, init, setUserId } = useStore();
   const { theme, setTheme } = useTheme();
   const { currentUser, logout } = useUser();
   const { toast, showToast, hideToast } = useToast();
@@ -382,8 +380,6 @@ export function Dashboard() {
                   <Route path="/explorer/:accountAlias/*" element={<Explorer />} />
                   <Route path="/schemas" element={<div className="container mx-auto px-4 py-6"><Schemas /></div>} />
                   <Route path="/schemas/new" element={<div className="container mx-auto px-4 py-6"><SchemaCreator /></div>} />
-                  <Route path="/issue" element={<div className="container mx-auto px-4 py-6"><IssueSchemaList /></div>} />
-                  <Route path="/issue/:schemaId" element={<div className="container mx-auto px-4 py-6"><IssueCredentialForm /></div>} />
                   <Route path="/credentials" element={<div className="container mx-auto px-4 py-6"><Credentials /></div>} />
                   <Route path="/credentials/new" element={<div className="container mx-auto px-4 py-6"><CredentialIssuer /></div>} />
                   <Route path="/verify" element={<div className="container mx-auto px-4 py-6"><VerifyCredential /></div>} />
