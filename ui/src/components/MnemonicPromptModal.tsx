@@ -124,7 +124,7 @@ export function MnemonicPromptModal({
               htmlFor="dont-prompt"
               className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
             >
-              Don't prompt for mnemonic again (store for automatic use)
+              Don't prompt again (auto-generate new mnemonics for future rotations)
             </label>
           </div>
 
@@ -132,8 +132,8 @@ export function MnemonicPromptModal({
             <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted p-3 rounded">
               <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
               <span>
-                Your recovery phrase will be stored in your user preferences for automatic key rotation.
-                You can disable this in your profile settings.
+                Future key rotations will automatically generate fresh mnemonics without prompting.
+                You can change this preference in your profile settings.
               </span>
             </div>
           )}

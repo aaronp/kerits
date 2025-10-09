@@ -21,6 +21,7 @@ export function Profile() {
   const [rotatingAlias, setRotatingAlias] = useState<string | null>(null);
   const [skipMnemonicPrompt, setSkipMnemonicPrompt] = useState(false);
   const [identityKeys, setIdentityKeys] = useState<Record<string, { currentKeys: string[]; nextKeys: string[] }>>({});
+  const [kelRefreshTrigger, setKelRefreshTrigger] = useState(0);
 
   useEffect(() => {
     if (currentUser) {
@@ -84,7 +85,7 @@ export function Profile() {
     }
 
     loadKelData();
-  }, [identities, currentUser]);
+  }, [identities, currentUser, kelRefreshTrigger]);
 
   const handleColorChange = (color: string) => {
     if (!currentUser) return;
@@ -149,23 +150,18 @@ export function Profile() {
   const handleRotateKeys = async (alias: string) => {
     if (!currentUser) return;
 
-    // Check if we should skip the prompt and use stored mnemonic
+    // If skip prompt is enabled, generate a new mnemonic automatically
     if (skipMnemonicPrompt) {
       try {
         const dsl = await getDSL(currentUser.id);
-        const appData = dsl.appData();
-        const storedMnemonic = await appData.get<string>('storedMnemonic');
-
-        if (storedMnemonic) {
-          await performKeyRotation(alias, storedMnemonic);
-          return;
-        } else {
-          // No stored mnemonic, fall through to prompt
-          showToast('No stored mnemonic found. Please enter it manually.');
-        }
+        // Generate a fresh mnemonic for the new keys
+        const newMnemonic = dsl.newMnemonic();
+        await performKeyRotation(alias, newMnemonic);
+        return;
       } catch (error) {
-        console.error('Failed to load stored mnemonic:', error);
-        showToast('Failed to load stored mnemonic. Please enter it manually.');
+        console.error('Failed to auto-generate mnemonic for rotation:', error);
+        showToast('Failed to auto-rotate keys. Please try manually.');
+        return;
       }
     }
 
@@ -179,14 +175,14 @@ export function Profile() {
 
     if (!rotatingAlias || !currentUser) return;
 
-    // Save preference if requested
+    // Save preference if requested (only save the skip flag, not the mnemonic)
     if (dontPromptAgain) {
       try {
         const dsl = await getDSL(currentUser.id);
         const appData = dsl.appData();
         await appData.set('skipMnemonicPrompt', true);
-        await appData.set('storedMnemonic', mnemonic);
         setSkipMnemonicPrompt(true);
+        showToast('Auto-rotation enabled - new mnemonics will be generated automatically');
       } catch (error) {
         console.error('Failed to save mnemonic preference:', error);
         showToast('Warning: Failed to save preference');
@@ -206,23 +202,14 @@ export function Profile() {
       if (!accountDsl) throw new Error(`Account "${alias}" not found`);
 
       await accountDsl.rotateKeys(mnemonic);
+
+      // Reset DSL cache to ensure fresh data is loaded
+      await resetDSL(currentUser.id);
+
       await init();
 
-      // Reload KEL event counts and keys
-      const kel = await accountDsl.getKel();
-      setKelEventCounts(prev => ({ ...prev, [alias]: kel.length }));
-
-      // Update keys from latest event
-      if (kel.length > 0) {
-        const latestEvent = kel[kel.length - 1];
-        setIdentityKeys(prev => ({
-          ...prev,
-          [alias]: {
-            currentKeys: latestEvent.k || [],
-            nextKeys: latestEvent.n || [],
-          },
-        }));
-      }
+      // Trigger KEL data refresh by incrementing the trigger
+      setKelRefreshTrigger(prev => prev + 1);
 
       showToast(`Keys rotated successfully for "${alias}"`);
     } catch (error) {
@@ -244,11 +231,9 @@ export function Profile() {
       setSkipMnemonicPrompt(checked);
 
       if (!checked) {
-        // If disabling, also remove stored mnemonic
-        await appData.delete('storedMnemonic');
-        showToast('Mnemonic prompt re-enabled and stored mnemonic cleared');
+        showToast('Mnemonic prompt re-enabled');
       } else {
-        showToast('Mnemonic prompt disabled');
+        showToast('Auto-rotation enabled - new mnemonics will be generated automatically');
       }
     } catch (error) {
       console.error('Failed to update mnemonic preference:', error);
@@ -350,12 +335,12 @@ export function Profile() {
                 htmlFor="skip-mnemonic"
                 className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
               >
-                Don't prompt for mnemonic during key rotation
+                Auto-rotate keys without prompting (new mnemonics generated automatically)
               </label>
             </div>
             {skipMnemonicPrompt && (
               <div className="text-xs text-muted-foreground pl-6">
-                Your recovery phrase is stored in preferences for automatic key rotation.
+                Fresh mnemonics will be automatically generated for each key rotation.
               </div>
             )}
           </div>
@@ -411,7 +396,7 @@ export function Profile() {
 
                     {/* Keys */}
                     <div className="space-y-3 pt-2 border-t">
-                      {identityKeys[identity.alias]?.currentKeys && identityKeys[identity.alias].currentKeys.length > 0 && (
+                      {identityKeys[identity.alias]?.currentKeys && identityKeys[identity.alias].currentKeys.length > 0 ? (
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
                             <Key className="h-4 w-4 text-green-600 dark:text-green-400" />
@@ -423,6 +408,8 @@ export function Profile() {
                             </div>
                           ))}
                         </div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground">No current keys available</div>
                       )}
 
                       {identityKeys[identity.alias]?.nextKeys && identityKeys[identity.alias].nextKeys.length > 0 && (
