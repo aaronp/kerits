@@ -71,6 +71,8 @@ export async function signEvent(
     }
   }
 
+  const verferQb64 = typeof signers[0].verfer === 'string' ? signers[0].verfer : signers[0].verfer.qb64;
+
   // Sign with each signer
   const indexedSigs: IndexedSignature[] = [];
   for (let i = 0; i < signers.length; i++) {

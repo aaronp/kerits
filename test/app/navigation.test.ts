@@ -37,14 +37,16 @@ describe('Event Navigation', () => {
 
     // Setup holder
     const holderSeed = new Uint8Array(32).fill(2);
+    const holderMnemonic = seedToMnemonic(holderSeed);
     const holderKeypair = await generateKeypairFromSeed(holderSeed);
     const holderAid = holderKeypair.verfer;
+    await keyManager.unlock(holderAid, holderMnemonic);
 
     await createIdentity(store, {
       alias: 'holder',
       keys: [holderKeypair.verfer],
       nextKeys: [holderKeypair.verfer],
-    });
+    }, keyManager);
 
     // Create registry
     const { registryId } = await createRegistry(store, {
@@ -198,14 +200,16 @@ describe('Event Navigation', () => {
 
     // Setup holder
     const holderSeed = new Uint8Array(32).fill(2);
+    const holderMnemonic = seedToMnemonic(holderSeed);
     const holderKeypair = await generateKeypairFromSeed(holderSeed);
     const holderAid = holderKeypair.verfer;
+    await keyManager.unlock(holderAid, holderMnemonic);
 
     await createIdentity(store, {
       alias: 'holder',
       keys: [holderKeypair.verfer],
       nextKeys: [holderKeypair.verfer],
-    });
+    }, keyManager);
 
     // Create registry
     const { registryId } = await createRegistry(store, {

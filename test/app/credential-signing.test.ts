@@ -41,14 +41,16 @@ describe('Credential Signing', () => {
 
     // Setup holder
     const holderSeed = new Uint8Array(32).fill(2);
+    const holderMnemonic = seedToMnemonic(holderSeed);
     const holderKeypair = await generateKeypairFromSeed(holderSeed);
     holderAid = holderKeypair.verfer;
+    await keyManager.unlock(holderAid, holderMnemonic);
 
     await createIdentity(store, {
       alias: 'holder',
       keys: [holderKeypair.verfer],
       nextKeys: [holderKeypair.verfer],
-    });
+    }, keyManager);
 
     // Create registry
     const regResult = await createRegistry(store, {

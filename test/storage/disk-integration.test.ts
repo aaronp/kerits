@@ -13,6 +13,8 @@ import {
   createSchema,
   issueCredential,
 } from '../../src/app/helpers';
+import { KeyManager } from '../../src/app/keymanager';
+import { seedToMnemonic } from '../../src/app/dsl/utils/mnemonic';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -42,13 +44,16 @@ describe('DiskKv Integration', () => {
 
     // Generate keys
     const kp = await generateKeypairFromSeed(TEST_SEED_1);
+    const mnemonic = seedToMnemonic(TEST_SEED_1);
+    const keyManager = new KeyManager();
+    await keyManager.unlock(kp.verfer, mnemonic);
 
     // Create identity
     const { aid } = await createIdentity(store, {
       alias: 'alice',
       keys: [kp.verfer],
       nextKeys: [kp.verfer],
-    });
+    }, keyManager);
 
     // Verify stored on disk
     expect(await kv.size()).toBeGreaterThan(0);
@@ -77,23 +82,29 @@ describe('DiskKv Integration', () => {
     const issuerKp = await generateKeypairFromSeed(TEST_SEED_1);
     const holderKp = await generateKeypairFromSeed(TEST_SEED_2);
 
+    const issuerMnemonic = seedToMnemonic(TEST_SEED_1);
+    const holderMnemonic = seedToMnemonic(TEST_SEED_2);
+    const keyManager = new KeyManager();
+    await keyManager.unlock(issuerKp.verfer, issuerMnemonic);
+    await keyManager.unlock(holderKp.verfer, holderMnemonic);
+
     const { aid: issuerAid } = await createIdentity(store, {
       alias: 'issuer',
       keys: [issuerKp.verfer],
       nextKeys: [issuerKp.verfer],
-    });
+    }, keyManager);
 
     const { aid: holderAid } = await createIdentity(store, {
       alias: 'holder',
       keys: [holderKp.verfer],
       nextKeys: [holderKp.verfer],
-    });
+    }, keyManager);
 
     // Create registry
     const { registryId } = await createRegistry(store, {
       alias: 'credentials',
       issuerAid,
-    });
+    }, keyManager);
 
     // Create schema
     const { schemaId } = await createSchema(store, {
@@ -111,7 +122,7 @@ describe('DiskKv Integration', () => {
       issuerAid,
       holderAid,
       credentialData: { name: 'Test Badge' },
-    });
+    }, keyManager);
 
     console.log('✓ Complete workflow stored to disk');
 
@@ -170,6 +181,7 @@ describe('DiskKv Integration', () => {
   it('should handle large numbers of events on disk', async () => {
     const kv = new DiskKv({ baseDir: TEST_DIR });
     const store = createKerStore(kv);
+    const keyManager = new KeyManager();
 
     // Create multiple identities
     const numIdentities = 10;
@@ -178,12 +190,14 @@ describe('DiskKv Integration', () => {
     for (let i = 0; i < numIdentities; i++) {
       const seed = new Uint8Array(32).fill(i + 1);
       const kp = await generateKeypairFromSeed(seed);
+      const mnemonic = seedToMnemonic(seed);
+      await keyManager.unlock(kp.verfer, mnemonic);
 
       const { aid } = await createIdentity(store, {
         alias: `user-${i}`,
         keys: [kp.verfer],
         nextKeys: [kp.verfer],
-      });
+      }, keyManager);
 
       aids.push(aid);
     }
@@ -208,18 +222,21 @@ describe('DiskKv Integration', () => {
 
   it('should maintain data integrity across multiple sessions', async () => {
     const kp = await generateKeypairFromSeed(TEST_SEED_1);
+    const mnemonic = seedToMnemonic(TEST_SEED_1);
     let aid: string;
 
     // Session 1: Create identity
     {
       const kv = new DiskKv({ baseDir: TEST_DIR });
       const store = createKerStore(kv);
+      const keyManager = new KeyManager();
+      await keyManager.unlock(kp.verfer, mnemonic);
 
       const result = await createIdentity(store, {
         alias: 'persistent',
         keys: [kp.verfer],
         nextKeys: [kp.verfer],
-      });
+      }, keyManager);
       aid = result.aid;
     }
 
@@ -227,11 +244,13 @@ describe('DiskKv Integration', () => {
     {
       const kv = new DiskKv({ baseDir: TEST_DIR });
       const store = createKerStore(kv);
+      const keyManager = new KeyManager();
+      await keyManager.unlock(aid, mnemonic);
 
       await createRegistry(store, {
         alias: 'registry-1',
         issuerAid: aid,
-      });
+      }, keyManager);
     }
 
     // Session 3: Verify everything

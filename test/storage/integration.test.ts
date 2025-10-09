@@ -23,6 +23,8 @@ import {
   getByAlias,
 } from '../../src/app/helpers';
 import { generateKeypairFromSeed } from '../../src/signer';
+import { KeyManager } from '../../src/app/keymanager';
+import { seedToMnemonic } from '../../src/app/dsl/utils/mnemonic';
 
 // Deterministic test seeds
 const TEST_SEED_ISSUER = new Uint8Array(32).fill(1);
@@ -36,18 +38,21 @@ describe('KERI Storage Integration', () => {
 
     // Generate deterministic keys
     const kp = await generateKeypairFromSeed(TEST_SEED_3);
+    const mnemonic = seedToMnemonic(TEST_SEED_3);
+    const keyManager = new KeyManager();
+    await keyManager.unlock(kp.verfer, mnemonic);
 
     // Create entities in different scopes
     const { aid } = await createIdentity(store, {
       alias: 'test-identity',
       keys: [kp.verfer],
       nextKeys: [kp.verfer],
-    });
+    }, keyManager);
 
     const { registryId } = await createRegistry(store, {
       alias: 'test-registry',
       issuerAid: aid,
-    });
+    }, keyManager);
 
     const { schemaId } = await createSchema(store, {
       alias: 'test-schema',
@@ -76,19 +81,22 @@ describe('KERI Storage Integration', () => {
 
     // Generate deterministic keys
     const kp = await generateKeypairFromSeed(TEST_SEED_3);
+    const mnemonic = seedToMnemonic(TEST_SEED_3);
+    const keyManager = new KeyManager();
+    await keyManager.unlock(kp.verfer, mnemonic);
 
     // Create identity
     const { aid } = await createIdentity(store, {
       alias: 'test',
       keys: [kp.verfer],
       nextKeys: [kp.verfer],
-    });
+    }, keyManager);
 
     // Create registry (adds interaction event)
     await createRegistry(store, {
       alias: 'test-reg',
       issuerAid: aid,
-    });
+    }, keyManager);
 
     // Get KEL events
     const events = await listIdentityEvents(store, aid);

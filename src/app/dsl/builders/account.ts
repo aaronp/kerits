@@ -14,6 +14,7 @@ import { serializeEvent } from '../utils';
 import { createRegistryDSL } from './registry';
 import { createContactsDSL } from './contacts';
 import { exportKel } from './export';
+import { WriteTimeIndexer } from '../../indexer/write-time-indexer';
 
 /**
  * Create an AccountDSL for a specific account
@@ -43,10 +44,12 @@ export function createAccountDSL(account: Account, store: KerStore, keyManager?:
         throw new Error(`No KEL found for account: ${account.aid}`);
       }
 
+
       // Get the last event
       const lastEvent = kelEvents[kelEvents.length - 1];
       const sn = kelEvents.length; // Next sequence number
       const priorSaid = lastEvent.meta.d;
+
 
       // Compute next key digest
       const nextKeyDigest = diger(newKp.verfer);
@@ -72,15 +75,22 @@ export function createAccountDSL(account: Account, store: KerStore, keyManager?:
           throw new Error(`Account not unlocked: ${account.aid}`);
         }
 
+
         const signed = await signKelEvent(rawRot, signer);
         finalBytes = signed.combined;
       }
 
-      // Store signed rotation event
+      // Store signed rotation event in KERI storage
       await store.putEvent(finalBytes);
+
+      // ===== INDEXER UPDATE: ROT event =====
+      await WriteTimeIndexer.withStore(store).addKelEvent(account.aid, finalBytes);
 
       // Update KeyManager with new mnemonic for future operations
       if (keyManager) {
+        // Lock the old signer first, then unlock with new mnemonic
+        // This is necessary because unlock() returns early if AID is already unlocked
+        keyManager.lock(account.aid);
         await keyManager.unlock(account.aid, newMnemonic);
       }
 
@@ -89,6 +99,9 @@ export function createAccountDSL(account: Account, store: KerStore, keyManager?:
         ...account,
         verfer: newKp.verfer,
       };
+
+      // Update the DSL's internal account reference
+      Object.assign(account, updatedAccount);
 
       return updatedAccount;
     },

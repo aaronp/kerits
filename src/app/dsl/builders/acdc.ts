@@ -3,6 +3,7 @@
  */
 
 import type { KerStore } from '../../../storage/types';
+import type { KeyManager } from '../../keymanager';
 import { type ACDCDSL, type ACDC, type Registry, type CredentialStatus, type ExportDSL, type IndexedACDC, type SchemaUsage, type CounterpartyInfo, type TELEventSummary } from '../types';
 import { revokeCredential } from '../../helpers';
 import { exportAcdc } from './export';
@@ -15,7 +16,8 @@ import { createGrant, type ExchangeMessage } from '../../../ipex';
 export function createACDCDSL(
   acdc: ACDC,
   registry: Registry,
-  store: KerStore
+  store: KerStore,
+  keyManager?: KeyManager
 ): ACDCDSL {
   return {
     acdc,
@@ -26,7 +28,7 @@ export function createACDCDSL(
         registryId: registry.registryId,
         credentialId: acdc.credentialId,
         issuerAid: acdc.issuerAid,
-      });
+      }, keyManager);
     },
 
     async status(): Promise<CredentialStatus> {
@@ -114,7 +116,7 @@ export function createACDCDSL(
             data: linkedAcdcData.a || {},
             issuedAt: linkedAcdcData.dt || new Date().toISOString(),
           };
-          linked.push(createACDCDSL(linkedAcdcObj, registry, store));
+          linked.push(createACDCDSL(linkedAcdcObj, registry, store, keyManager));
         }
       }
 
@@ -138,7 +140,7 @@ export function createACDCDSL(
             data: linkedAcdcData.a || {},
             issuedAt: linkedAcdcData.dt || new Date().toISOString(),
           };
-          linkedFrom.push(createACDCDSL(linkedAcdcObj, registry, store));
+          linkedFrom.push(createACDCDSL(linkedAcdcObj, registry, store, keyManager));
         }
       }
 

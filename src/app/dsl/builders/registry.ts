@@ -9,6 +9,7 @@ import type { KeyManager } from '../../keymanager';
 import { createACDCDSL } from './acdc';
 import { exportTel } from './export';
 import { TELIndexer } from '../../indexer/index.js';
+import { WriteTimeIndexer } from '../../indexer/write-time-indexer';
 
 /**
  * Create a RegistryDSL for a specific registry
@@ -97,7 +98,7 @@ export function createRegistryDSL(
         issEvent: iss.sad.d, // Store ISS event SAID for traversal
       };
 
-      return createACDCDSL(acdcObj, registry, store);
+      return createACDCDSL(acdcObj, registry, store, keyManager);
     },
 
     async acdc(alias: string): Promise<ACDCDSL | null> {
@@ -140,7 +141,7 @@ export function createRegistryDSL(
         issEvent: issEventSaid, // Store ISS event SAID for traversal
       };
 
-      return createACDCDSL(acdcObj, registry, store);
+      return createACDCDSL(acdcObj, registry, store, keyManager);
     },
 
     async listACDCs(): Promise<string[]> {
@@ -336,9 +337,17 @@ export function createRegistryDSL(
       const rawIss = serializeEvent(issData.sad);
       await store.putEvent(rawIss);
 
+      // ===== INDEXER UPDATE: ISS event (credential acceptance) =====
+      // Note: This ISS is unsigned (holder accepting credential)
+      // We skip indexer update for unsigned events
+      // Only signed ISS events (from issueCredential) are indexed
+
       // Store alias if provided
       if (alias) {
         await store.putAlias('acdc', credentialId, alias);
+
+        // ===== INDEXER UPDATE: ACDC alias =====
+        await WriteTimeIndexer.withStore(store).setAlias('ACDCs', credentialId, alias);
       }
 
       // Create ACDC DSL object
@@ -353,7 +362,7 @@ export function createRegistryDSL(
         issuedAt: issData.sad.dt || new Date().toISOString(),
       };
 
-      return createACDCDSL(acdcObj, registry, store);
+      return createACDCDSL(acdcObj, registry, store, keyManager);
     },
 
     async createRegistry(alias: string, opts?: any): Promise<RegistryDSL> {

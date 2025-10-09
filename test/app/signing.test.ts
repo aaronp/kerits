@@ -196,29 +196,24 @@ describe('Event Signing and Verification', () => {
     console.log('✓ VCP signed');
   });
 
-  test('should reject unsigned events (backward compatibility check)', async () => {
-    // Create unsigned identity (no keyManager)
+  test('should reject unsigned events (write-time indexer enforces signatures)', async () => {
+    // Try to create unsigned identity (no keyManager)
     const seed = new Uint8Array(32).fill(2);
     const keypair = await generateKeypairFromSeed(seed);
 
-    const { aid } = await createIdentity(
-      store,
-      {
-        alias: 'bob',
-        keys: [keypair.verfer],
-        nextKeys: [keypair.verfer],
-      }
-      // No keyManager = unsigned
-    );
+    // With write-time indexer, unsigned events should be rejected
+    await expect(
+      createIdentity(
+        store,
+        {
+          alias: 'bob',
+          keys: [keypair.verfer],
+          nextKeys: [keypair.verfer],
+        }
+        // No keyManager = unsigned, should fail
+      )
+    ).rejects.toThrow(/INTEGRITY ERROR.*has no signatures/);
 
-    // Get KEL
-    const kelEvents = await store.listKel(aid);
-    const icpEvent = kelEvents[0];
-
-    // Check that event does NOT have signatures
-    const hasSigs = hasSignatures(icpEvent.raw);
-    expect(hasSigs).toBe(false);
-
-    console.log('✓ Unsigned event created (backward compatibility)');
+    console.log('✓ Unsigned events correctly rejected by write-time indexer');
   });
 });

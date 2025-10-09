@@ -84,21 +84,11 @@ export async function createIdentity(
   await store.putAlias('kel', aid, alias);
 
   // ===== INDEXER UPDATE (parallel book-keeping) =====
-  try {
-    const indexer = new WriteTimeIndexer(store);
+  // Add KEL event to indexer (with integrity checks)
+  await WriteTimeIndexer.withStore(store).addKelEvent(aid, finalBytes);
 
-    // Add KEL event to indexer (with integrity checks)
-    await indexer.addKelEvent(aid, finalBytes);
-
-    // Update alias in indexer
-    await indexer.setAlias('KELs', aid, alias);
-  } catch (error) {
-    // Fail fast - throw error to show data inconsistency
-    throw new Error(
-      `INTEGRITY ERROR: Failed to update indexer for KEL ${alias}: ${error}. ` +
-      `KERI event was stored but index is now inconsistent.`
-    );
-  }
+  // Update alias in indexer
+  await WriteTimeIndexer.withStore(store).setAlias('KELs', aid, alias);
 
   return { aid, icp };
 }
@@ -143,8 +133,11 @@ export async function createRegistry(
     finalVcpBytes = signed.combined;
   }
 
-  // Store signed VCP
+  // Store signed VCP in KERI storage
   await store.putEvent(finalVcpBytes);
+
+  // ===== INDEXER UPDATE: VCP event =====
+  await WriteTimeIndexer.withStore(store).addTelEvent(registryId, finalVcpBytes);
 
   // ALWAYS anchor in KEL with interaction event (even for nested registries)
   const kelEvents = await store.listKel(issuerAid);
@@ -183,8 +176,11 @@ export async function createRegistry(
     finalIxnBytes = signed.combined;
   }
 
-  // Store signed IXN
+  // Store signed IXN in KERI storage
   await store.putEvent(finalIxnBytes);
+
+  // ===== INDEXER UPDATE: IXN event (KEL anchor) =====
+  await WriteTimeIndexer.withStore(store).addKelEvent(issuerAid, finalIxnBytes);
 
   // If there's a parent registry, also anchor in parent TEL with IXN
   if (parentRegistryId) {
@@ -230,12 +226,18 @@ export async function createRegistry(
       finalParentIxnBytes = signed.combined;
     }
 
-    // Store signed parent TEL IXN
+    // Store signed parent TEL IXN in KERI storage
     await store.putEvent(finalParentIxnBytes);
+
+    // ===== INDEXER UPDATE: Parent TEL IXN =====
+    await WriteTimeIndexer.withStore(store).addTelEvent(parentRegistryId, finalParentIxnBytes);
   }
 
-  // Store alias mapping
+  // Store alias mapping in KERI storage
   await store.putAlias('tel', registryId, alias);
+
+  // ===== INDEXER UPDATE: Alias =====
+  await WriteTimeIndexer.withStore(store).setAlias('TELs', registryId, alias);
 
   return { registryId, vcp, ixn };
 }
@@ -401,8 +403,11 @@ export async function issueCredential(
     };
   }
 
-  // Store signed ISS event
+  // Store signed ISS event in KERI storage
   await store.putEvent(finalIssBytes);
+
+  // ===== INDEXER UPDATE: ISS event =====
+  await WriteTimeIndexer.withStore(store).addTelEvent(registryId, finalIssBytes);
 
   return { credentialId, acdc: saidified, iss: { sad: issWithSigs } };
 }
@@ -453,8 +458,11 @@ export async function revokeCredential(
     finalRevBytes = signed.combined;
   }
 
-  // Store signed REV event
+  // Store signed REV event in KERI storage
   await store.putEvent(finalRevBytes);
+
+  // ===== INDEXER UPDATE: REV event =====
+  await WriteTimeIndexer.withStore(store).addTelEvent(registryId, finalRevBytes);
 
   return { rev };
 }
