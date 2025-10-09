@@ -193,13 +193,38 @@ export function createACDCDSL(
         throw new Error(`No KEL events found for issuer: ${acdc.issuerAid}`);
       }
 
+      // If anchoring event is IXN (no keys), add keys from the most recent establishment event
+      let ancEventData = { ...ancEvent.meta };
+      if (ancEvent.meta.t === 'ixn') {
+        // Find the most recent establishment event (ICP or ROT) before this IXN
+        for (let i = kelEvents.length - 1; i >= 0; i--) {
+          const event = kelEvents[i];
+          if (event.meta.t === 'icp' || event.meta.t === 'rot') {
+            // Parse the raw CESR to get the full event with keys
+            const rawText = new TextDecoder().decode(event.raw);
+            const jsonMatch = rawText.match(/\{[^]*\}/); // Extract JSON object
+            if (jsonMatch) {
+              try {
+                const eventJson = JSON.parse(jsonMatch[0]);
+                if (eventJson.k && Array.isArray(eventJson.k)) {
+                  ancEventData.k = eventJson.k;
+                }
+              } catch (e) {
+                console.warn('Failed to parse KEL event JSON:', e);
+              }
+            }
+            break;
+          }
+        }
+      }
+
       // Create IPEX grant message
       const grantMessage = createGrant({
         sender: acdc.issuerAid,
         recipient: acdc.holderAid,
         credential: acdcData,
         issEvent: issEventWithSigs,
-        ancEvent: ancEvent.meta,
+        ancEvent: ancEventData,
         message: `Credential: ${acdc.credentialId.substring(0, 12)}...`,
       });
 

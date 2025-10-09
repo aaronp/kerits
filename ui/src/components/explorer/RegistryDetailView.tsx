@@ -412,63 +412,33 @@ export function RegistryDetailView({
             // Extract signatures (from 'sigs' array if present)
             const signatures = issEvent.sigs || [];
 
-            // Try to fetch public keys from issuer's KEL
+            // Extract public keys from the IPEX data itself (self-contained)
+            // IPEX credentials should include the anchoring event with keys
             let publicKeys: string[] = [];
-            try {
-              // Check if issuer is current account
-              const accountDsl = await dsl.account(accountAlias);
-              if (accountDsl && accountDsl.account.aid === signerAid) {
-                // Get current keys from account's KEL
-                const kel = await accountDsl.getKel();
-                if (kel.length > 0) {
-                  const latestEvent = kel[kel.length - 1];
-                  publicKeys = latestEvent.k || [];
-                }
-              } else {
-                // Try to get keys from imported KEL (contact)
-                const contactsDsl = dsl.contacts();
-                const allContacts = await contactsDsl.getAll();
-                const contact = allContacts.find(c => c.aid === signerAid);
 
-                if (contact && contact.metadata?.kel && Array.isArray(contact.metadata.kel)) {
-                  const kelEvents = contact.metadata.kel;
-                  // Get the anchoring event sequence number if available
-                  let targetSeq = 0; // Default to inception
-                  if (ipexData.e.anc && ipexData.e.anc.s !== undefined) {
-                    // Use the sequence number from the anchoring event
-                    targetSeq = parseInt(ipexData.e.anc.s);
-                  }
-
-                  // Check if the anchoring event itself has keys (if it's a ROT)
-                  if (ipexData.e.anc && ipexData.e.anc.k && Array.isArray(ipexData.e.anc.k)) {
-                    // The anchoring event is a ROT with keys embedded
-                    publicKeys = ipexData.e.anc.k;
-                  } else {
-                    // Find the most recent establishment event (ICP or ROT) at or before the target sequence
-                    // IXN events don't have keys - they inherit from the previous establishment event
-                    let establishmentEvent = null;
-                    for (let i = 0; i < kelEvents.length; i++) {
-                      const event = kelEvents[i];
-                      // KEL events from contacts are stored as JSON objects
-                      const eventJson = event.ked || event;
-                      const seq = parseInt(eventJson.s || '0');
-
-                      if (seq > targetSeq) break; // Don't go past the anchoring event
-
-                      // ICP and ROT are establishment events with keys
-                      if (eventJson.t === 'icp' || eventJson.t === 'rot') {
-                        establishmentEvent = eventJson;
-                      }
-                    }
-
-                    if (establishmentEvent) {
-                      publicKeys = establishmentEvent.k || [];
-                    }
-                  }
-                }
+            // First, try to get keys from the anchoring event (anc) embedded in IPEX
+            if (ipexData.e.anc && ipexData.e.anc.k && Array.isArray(ipexData.e.anc.k)) {
+              // The anchoring event has keys embedded (ICP or ROT)
+              publicKeys = ipexData.e.anc.k;
+              console.log('[IPEX] Using keys from anchoring event:', publicKeys);
+            } else if (ipexData.e.anc) {
+              // Anchoring event exists but has no keys (might be IXN)
+              // Try to get keys from the ISS event itself if present
+              if (issEvent.k && Array.isArray(issEvent.k)) {
+                publicKeys = issEvent.k;
+                console.log('[IPEX] Using keys from ISS event:', publicKeys);
               }
-            } catch (err) {
-              console.warn('Could not fetch issuer public keys:', err);
+            }
+
+            // If still no keys, log the IPEX structure for debugging
+            if (publicKeys.length === 0) {
+              console.log('[IPEX] No keys found in IPEX data. Structure:', {
+                hasAnc: !!ipexData.e.anc,
+                ancKeys: ipexData.e.anc?.k,
+                issKeys: issEvent.k,
+                ancType: ipexData.e.anc?.t,
+                fullAnc: ipexData.e.anc,
+              });
             }
 
             // Debug logging
@@ -497,7 +467,7 @@ export function RegistryDetailView({
                 errors.push('ISS event has no signatures');
               }
               if (publicKeys.length === 0) {
-                errors.push(`ISS event has no public keys (issuer KEL not imported or no keys found at seq ${ipexData.e.anc?.s || 0})`);
+                errors.push('IPEX grant missing public keys (should be embedded in anchoring event)');
               }
             }
           } else {

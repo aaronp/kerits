@@ -118,6 +118,19 @@ describe('IPEX Credential Exchange', () => {
     const grantMessage = JSON.parse(grantJSON);
     console.log('✓ Generated IPEX grant message:', grantMessage.d.substring(0, 12) + '...');
 
+    // Verify anchoring event includes public keys
+    expect(grantMessage.e.anc).toBeTruthy();
+    expect(grantMessage.e.anc.k).toBeTruthy();
+    expect(Array.isArray(grantMessage.e.anc.k)).toBe(true);
+    expect(grantMessage.e.anc.k.length).toBeGreaterThan(0);
+    console.log('✓ Anchoring event includes', grantMessage.e.anc.k.length, 'public key(s)');
+
+    // Verify ISS event includes signatures
+    expect(grantMessage.e.iss.sigs).toBeTruthy();
+    expect(Array.isArray(grantMessage.e.iss.sigs)).toBe(true);
+    expect(grantMessage.e.iss.sigs.length).toBeGreaterThan(0);
+    console.log('✓ ISS event includes', grantMessage.e.iss.sigs.length, 'signature(s)');
+
     // ========================================
     // STEP 5: Holder imports IPEX grant
     // ========================================
