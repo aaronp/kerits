@@ -98,31 +98,62 @@ export function MyContact() {
     }
 
     try {
-      const kelData = JSON.parse(updatedKEL);
+      // Parse CESR format
+      const events: any[] = [];
+      const cesrText = updatedKEL.trim();
+      let offset = 0;
 
-      if (!Array.isArray(kelData)) {
-        setKelError('KEL must be a JSON array');
+      while (offset < cesrText.length) {
+        // Skip non-JSON characters (version strings, whitespace)
+        while (offset < cesrText.length && cesrText[offset] !== '{') {
+          offset++;
+        }
+
+        if (offset >= cesrText.length) break;
+
+        // Find balanced JSON object
+        let braceCount = 0;
+        let start = offset;
+
+        for (let i = offset; i < cesrText.length; i++) {
+          if (cesrText[i] === '{') {
+            braceCount++;
+          } else if (cesrText[i] === '}') {
+            braceCount--;
+            if (braceCount === 0) {
+              const jsonText = cesrText.slice(start, i + 1);
+              try {
+                const eventJson = JSON.parse(jsonText);
+                events.push(eventJson);
+              } catch (e) {
+                // Skip invalid JSON
+              }
+              offset = i + 1;
+              break;
+            }
+          }
+        }
+
+        if (braceCount !== 0) break; // Incomplete JSON
+      }
+
+      if (events.length === 0) {
+        setKelError('No valid events found in CESR data');
         setIsKelValid(false);
         return;
       }
 
-      if (kelData.length === 0) {
-        setKelError('KEL cannot be empty');
-        setIsKelValid(false);
-        return;
-      }
-
-      if (kelData.length < contact.kel.length) {
-        setKelError(`KEL is shorter than current KEL (${kelData.length} vs ${contact.kel.length} events)`);
+      if (events.length < contact.kel.length) {
+        setKelError(`KEL is shorter than current KEL (${events.length} vs ${contact.kel.length} events)`);
         setIsKelValid(false);
         return;
       }
 
       // Verify AID matches
-      const firstEvent = kelData[0];
-      const aid = firstEvent.pre || firstEvent.i || firstEvent.ked?.i;
+      const firstEvent = events[0];
+      const aid = firstEvent.pre || firstEvent.i || firstEvent.d;
       if (aid !== contact.aid) {
-        setKelError('KEL AID does not match contact AID');
+        setKelError(`KEL AID (${aid?.substring(0, 12)}...) does not match contact AID (${contact.aid.substring(0, 12)}...)`);
         setIsKelValid(false);
         return;
       }
@@ -130,11 +161,7 @@ export function MyContact() {
       setKelError('');
       setIsKelValid(true);
     } catch (error) {
-      if (error instanceof SyntaxError) {
-        setKelError('Invalid JSON format');
-      } else {
-        setKelError('Failed to validate KEL');
-      }
+      setKelError('Failed to validate KEL: ' + (error instanceof Error ? error.message : 'Unknown error'));
       setIsKelValid(false);
     }
   }, [updatedKEL, contact]);
@@ -144,29 +171,25 @@ export function MyContact() {
 
     setUpdating(true);
     try {
-      const kelData = JSON.parse(updatedKEL);
       const dsl = await getDSL(currentUser.id);
       const contactsDsl = dsl.contacts();
 
-      // Remove old contact and add updated one
+      // Remove old contact
       await contactsDsl.remove(contact.alias);
-      const updatedContact = await contactsDsl.add(contact.alias, contact.aid, {
-        ...contact.metadata,
-        kel: kelData,
-      });
 
-      setContact({
-        alias: updatedContact.alias,
-        aid: updatedContact.aid,
-        kel: kelData,
-        metadata: updatedContact.metadata,
-      });
+      // Import updated KEL using importKEL (accepts CESR format)
+      const cesrBytes = new TextEncoder().encode(updatedKEL.trim());
+      const updatedContact = await contactsDsl.importKEL(cesrBytes, contact.alias);
+
+      // Reload contact to get updated KEL
+      await loadContact();
+
       setIsUpdateDialogOpen(false);
       setUpdatedKEL('');
       showToast('Contact KEL updated successfully');
     } catch (error) {
       console.error('Failed to update contact:', error);
-      showToast('Failed to update contact');
+      showToast('Failed to update contact: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setUpdating(false);
     }
@@ -440,10 +463,10 @@ export function MyContact() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="updated-kel">Updated KEL Data (JSON)</Label>
+              <Label htmlFor="updated-kel">Updated KEL Data (CESR)</Label>
               <Textarea
                 id="updated-kel"
-                placeholder="Paste the updated KEL JSON data here..."
+                placeholder="Paste the updated KEL in CESR format here..."
                 value={updatedKEL}
                 onChange={(e) => setUpdatedKEL(e.target.value)}
                 className="font-mono text-xs resize-none"

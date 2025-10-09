@@ -406,14 +406,77 @@ export function RegistryDetailView({
           // Extract signature info from ISS event
           const issEvent = ipexData.e.iss;
           if (issEvent) {
-            // Extract signer AID (from 'i' field)
-            const signerAid = issEvent.i || issuerAid || '';
+            // Extract signer AID (the issuer AID from the ACDC 'i' field)
+            const signerAid = issuerAid || '';
 
             // Extract signatures (from 'sigs' array if present)
             const signatures = issEvent.sigs || [];
 
-            // Extract public keys (from 'k' field if present, or derive from signer AID)
-            const publicKeys = issEvent.k || [];
+            // Try to fetch public keys from issuer's KEL
+            let publicKeys: string[] = [];
+            try {
+              // Check if issuer is current account
+              const accountDsl = await dsl.account(accountAlias);
+              if (accountDsl && accountDsl.account.aid === signerAid) {
+                // Get current keys from account's KEL
+                const kel = await accountDsl.getKel();
+                if (kel.length > 0) {
+                  const latestEvent = kel[kel.length - 1];
+                  publicKeys = latestEvent.k || [];
+                }
+              } else {
+                // Try to get keys from imported KEL (contact)
+                const kelEvents = await store.listKel(signerAid);
+                if (kelEvents.length > 0) {
+                  // Get the anchoring event sequence number if available
+                  let targetSeq = 0; // Default to inception
+                  if (ipexData.e.anc && ipexData.e.anc.s !== undefined) {
+                    // Use the sequence number from the anchoring event
+                    targetSeq = parseInt(ipexData.e.anc.s);
+                  }
+
+                  // Find the most recent establishment event (ICP or ROT) at or before the target sequence
+                  // IXN events don't have keys - they inherit from the previous establishment event
+                  let establishmentEvent = null;
+                  for (let i = 0; i < kelEvents.length; i++) {
+                    const event = kelEvents[i];
+                    const seq = parseInt(event.meta.s || '0');
+                    if (seq > targetSeq) break; // Don't go past the anchoring event
+
+                    // Parse to check event type
+                    const eventText = new TextDecoder().decode(event.raw);
+                    const jsonStart = eventText.indexOf('{');
+                    if (jsonStart >= 0) {
+                      let jsonEnd = jsonStart;
+                      let braceCount = 0;
+                      for (let j = jsonStart; j < eventText.length; j++) {
+                        if (eventText[j] === '{') braceCount++;
+                        if (eventText[j] === '}') {
+                          braceCount--;
+                          if (braceCount === 0) {
+                            jsonEnd = j + 1;
+                            break;
+                          }
+                        }
+                      }
+                      const jsonStr = eventText.substring(jsonStart, jsonEnd);
+                      const eventJson = JSON.parse(jsonStr);
+
+                      // ICP and ROT are establishment events with keys
+                      if (eventJson.t === 'icp' || eventJson.t === 'rot') {
+                        establishmentEvent = eventJson;
+                      }
+                    }
+                  }
+
+                  if (establishmentEvent) {
+                    publicKeys = establishmentEvent.k || [];
+                  }
+                }
+              }
+            } catch (err) {
+              console.warn('Could not fetch issuer public keys:', err);
+            }
 
             signatureInfo = {
               signerAid,
@@ -431,7 +494,7 @@ export function RegistryDetailView({
                 errors.push('ISS event has no signatures');
               }
               if (publicKeys.length === 0) {
-                errors.push('ISS event has no public keys');
+                errors.push('ISS event has no public keys (issuer KEL not imported)');
               }
             }
           } else {
