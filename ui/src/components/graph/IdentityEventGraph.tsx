@@ -435,18 +435,44 @@ export function IdentityEventGraph({
         return;
       }
 
-      // Export the entire TEL registry
-      const exportData = {
-        registryId: registry.registryId,
-        alias: registry.alias,
-        issuerAid: registry.issuerAid,
-        inceptionEvent: registry.inceptionEvent,
-        tel: registry.tel,
-      };
+      try {
+        // Use DSL's registry export method
+        const dsl = await getDSL();
 
-      const json = JSON.stringify(exportData, null, 2);
-      await navigator.clipboard.writeText(json);
-      showToast('TEL Registry copied to clipboard');
+        // Find the account that owns this registry
+        const accountNames = await dsl.accountNames();
+        let registryDsl = null;
+
+        for (const accountName of accountNames) {
+          const accountDsl = await dsl.account(accountName);
+          if (accountDsl && accountDsl.account.aid === registry.issuerAid) {
+            const registryAliases = await accountDsl.listRegistries();
+            for (const regAlias of registryAliases) {
+              const regDsl = await accountDsl.registry(regAlias);
+              if (regDsl && regDsl.registry.registryId === registry.registryId) {
+                registryDsl = regDsl;
+                break;
+              }
+            }
+            if (registryDsl) break;
+          }
+        }
+
+        if (!registryDsl) {
+          showToast('Registry not found in DSL');
+          return;
+        }
+
+        // Export using DSL method (includes all TEL events with signatures)
+        const exported = await registryDsl.export();
+        const json = exported.toJSON();
+
+        await navigator.clipboard.writeText(json);
+        showToast('TEL Registry copied to clipboard');
+      } catch (error) {
+        console.error('Registry export failed:', error);
+        showToast('Failed to export registry: ' + String(error));
+      }
       return;
     }
 

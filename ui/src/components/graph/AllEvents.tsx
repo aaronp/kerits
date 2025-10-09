@@ -18,8 +18,11 @@ import {
   TableRow,
 } from '../ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Button } from '../ui/button';
+import { Download } from 'lucide-react';
 import { CellSummary } from './CellSummary';
 import { parseKeriEvent } from './parse-event';
+import { Toast, useToast } from '../ui/toast';
 import type { KeritsDSL } from '@kerits/app/dsl/types';
 import type { KerStore, KelEvent, TelEvent, SAID, AID } from '@kerits/storage/types';
 
@@ -50,6 +53,7 @@ export function AllEvents({ dsl }: AllEventsProps) {
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<RegistryRow[]>([]);
   const [maxColumns, setMaxColumns] = useState(0);
+  const { showToast, ...toastProps } = useToast();
 
   useEffect(() => {
     async function loadAllEvents() {
@@ -128,6 +132,37 @@ export function AllEvents({ dsl }: AllEventsProps) {
     loadAllEvents();
   }, [dsl]);
 
+  async function handleExportIndexerState() {
+    if (!dsl) {
+      showToast('DSL not available');
+      return;
+    }
+
+    try {
+      // Get the WriteTimeIndexer instance
+      const { WriteTimeIndexer } = await import('@kerits/app/indexer/write-time-indexer');
+      const indexer = WriteTimeIndexer.withStore(dsl.getStore());
+
+      // Export the complete indexer state
+      const state = await indexer.exportState();
+
+      // Convert to JSON and copy to clipboard
+      const json = JSON.stringify(state, null, 2);
+      await navigator.clipboard.writeText(json);
+
+      // Show success message with statistics
+      const kelCount = Object.keys(state.kels).length;
+      const telCount = Object.keys(state.tels).length;
+      const totalEvents = Object.values(state.kels).reduce((sum, events) => sum + events.length, 0) +
+                         Object.values(state.tels).reduce((sum, events) => sum + events.length, 0);
+
+      showToast(`Exported ${kelCount} KELs, ${telCount} TELs (${totalEvents} events total)`);
+    } catch (error) {
+      console.error('Failed to export indexer state:', error);
+      showToast('Failed to export: ' + String(error));
+    }
+  }
+
   async function parseEvent(
     raw: Uint8Array,
     said: SAID,
@@ -182,14 +217,28 @@ export function AllEvents({ dsl }: AllEventsProps) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>All Events</CardTitle>
-        <CardDescription>
-          {rows.length} registries • {rows.reduce((sum, r) => sum + r.events.length, 0)} total events
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle>All Events</CardTitle>
+              <CardDescription>
+                {rows.length} registries • {rows.reduce((sum, r) => sum + r.events.length, 0)} total events
+              </CardDescription>
+            </div>
+            <Button
+              onClick={handleExportIndexerState}
+              variant="outline"
+              size="sm"
+              title="Export full indexer state with all signatures"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export State
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
         <div className="overflow-x-auto relative">
           <Table>
             <TableHeader>
@@ -243,5 +292,7 @@ export function AllEvents({ dsl }: AllEventsProps) {
         </div>
       </CardContent>
     </Card>
+    <Toast {...toastProps} />
+    </>
   );
 }
