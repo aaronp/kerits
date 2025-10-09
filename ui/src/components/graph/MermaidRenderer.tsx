@@ -41,6 +41,7 @@ export function MermaidRenderer({ chart, className = '' }: MermaidRendererProps)
         showCommitLabel: true,
         mainBranchName: 'KEL',
         rotateCommitLabel: false,
+        parallelCommits: false,
       },
     });
   }, []);

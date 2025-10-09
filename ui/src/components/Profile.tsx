@@ -2,23 +2,25 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
 import { Toast, useToast } from './ui/toast';
+import { Checkbox } from './ui/checkbox';
 import { useUser } from '../lib/user-provider';
 import { useStore } from '../store/useStore';
-import { UserCircle, RotateCw, Shield, Eye, EyeOff, Key, Copy, Share, Trash2, Palette } from 'lucide-react';
-import { formatMnemonic } from '../lib/mnemonic';
+import { UserCircle, RotateCw, Shield, Copy, Share, Trash2, Palette, Key } from 'lucide-react';
 import { getDSL, resetDSL } from '../lib/dsl';
-import type { StoredIdentity } from '../lib/storage';
+import { MnemonicPromptModal } from './MnemonicPromptModal';
 
 export function Profile() {
   const { currentUser } = useUser();
   const { identities, init } = useStore();
   const { toast, showToast, hideToast } = useToast();
   const [rotating, setRotating] = useState<Record<string, boolean>>({});
-  const [showMnemonic, setShowMnemonic] = useState<Record<string, boolean>>({});
   const [bannerColor, setBannerColor] = useState<string>('#3b82f6');
-  const [kelAids, setKelAids] = useState<Record<string, string>>({});  // Map alias -> actual KEL AID
+  const [kelEventCounts, setKelEventCounts] = useState<Record<string, number>>({});  // Map alias -> KEL event count
+  const [showMnemonicPrompt, setShowMnemonicPrompt] = useState(false);
+  const [rotatingAlias, setRotatingAlias] = useState<string | null>(null);
+  const [skipMnemonicPrompt, setSkipMnemonicPrompt] = useState(false);
+  const [identityKeys, setIdentityKeys] = useState<Record<string, { currentKeys: string[]; nextKeys: string[] }>>({});
 
   useEffect(() => {
     if (currentUser) {
@@ -29,30 +31,59 @@ export function Profile() {
     }
   }, [currentUser]);
 
-  // Load actual KEL AIDs from DSL
+  // Load skip mnemonic prompt preference
   useEffect(() => {
-    async function loadKelAids() {
-      if (identities.length === 0) return;
+    async function loadMnemonicPref() {
+      if (!currentUser) return;
 
       try {
-        const dsl = await getDSL(currentUser?.id);
-        const accountNames = await dsl.accountNames();
-        const aidMap: Record<string, string> = {};
-
-        for (const accountName of accountNames) {
-          const accountDsl = await dsl.account(accountName);
-          if (accountDsl) {
-            aidMap[accountName] = accountDsl.account.aid;
-          }
-        }
-
-        setKelAids(aidMap);
+        const dsl = await getDSL(currentUser.id);
+        const appData = dsl.appData();
+        const pref = await appData.get<boolean>('skipMnemonicPrompt');
+        setSkipMnemonicPrompt(pref === true);
       } catch (error) {
-        console.error('Failed to load KEL AIDs:', error);
+        console.error('Failed to load mnemonic preference:', error);
       }
     }
 
-    loadKelAids();
+    loadMnemonicPref();
+  }, [currentUser]);
+
+  // Load KEL event counts and keys from DSL
+  useEffect(() => {
+    async function loadKelData() {
+      if (identities.length === 0 || !currentUser) return;
+
+      try {
+        const dsl = await getDSL(currentUser.id);
+        const counts: Record<string, number> = {};
+        const keys: Record<string, { currentKeys: string[]; nextKeys: string[] }> = {};
+
+        for (const identity of identities) {
+          const accountDsl = await dsl.account(identity.alias);
+          if (accountDsl) {
+            const kel = await accountDsl.getKel();
+            counts[identity.alias] = kel.length;
+
+            // Get current and next keys from the latest KEL event
+            if (kel.length > 0) {
+              const latestEvent = kel[kel.length - 1];
+              keys[identity.alias] = {
+                currentKeys: latestEvent.k || [],
+                nextKeys: latestEvent.n || [],
+              };
+            }
+          }
+        }
+
+        setKelEventCounts(counts);
+        setIdentityKeys(keys);
+      } catch (error) {
+        console.error('Failed to load KEL data:', error);
+      }
+    }
+
+    loadKelData();
   }, [identities, currentUser]);
 
   const handleColorChange = (color: string) => {
@@ -65,43 +96,28 @@ export function Profile() {
     showToast('Banner color updated!');
   };
 
-  const toggleMnemonic = (alias: string) => {
-    setShowMnemonic(prev => ({ ...prev, [alias]: !prev[alias] }));
-  };
-
   const handleCopyAID = async (aid: string) => {
     await navigator.clipboard.writeText(aid);
-    showToast('User\'s AID copied to clipboard');
+    showToast('AID copied to clipboard');
   };
 
-  const handleShareKEL = async (identity: StoredIdentity) => {
+  const handleShareKEL = async (alias: string) => {
     try {
-      const dsl = await getDSL(currentUser?.id);
-      const accountNames = await dsl.listAccounts();
+      if (!currentUser) return;
 
-      // Find the account matching this identity's AID
-      let accountDsl = null;
-      for (const accountName of accountNames) {
-        const acc = await dsl.account(accountName);
-        if (acc && acc.account.aid === identity.aid) {
-          accountDsl = acc;
-          break;
-        }
+      const dsl = await getDSL(currentUser.id);
+      const accountDsl = await dsl.account(alias);
+
+      if (!accountDsl) {
+        throw new Error(`Account "${alias}" not found`);
       }
 
-      if (accountDsl) {
-        // Use DSL to export in CESR format
-        const exportDsl = await accountDsl.export();
-        const cesr = exportDsl.toCESR();
-        const text = new TextDecoder().decode(cesr);
-        await navigator.clipboard.writeText(text);
-        showToast('KEL copied to clipboard (CESR format)');
-      } else {
-        // Fallback to JSON if no DSL account found
-        const kelString = JSON.stringify(identity.kel, null, 2);
-        await navigator.clipboard.writeText(kelString);
-        showToast('KEL copied to clipboard (JSON format)');
-      }
+      // Use DSL to export in CESR format
+      const exportDsl = await accountDsl.export();
+      const cesr = exportDsl.toCESR();
+      const text = new TextDecoder().decode(cesr);
+      await navigator.clipboard.writeText(text);
+      showToast('KEL copied to clipboard (CESR format)');
     } catch (error) {
       console.error('Failed to share KEL:', error);
       showToast(`Failed to share: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -130,31 +146,113 @@ export function Profile() {
     }
   };
 
-  const handleRotateKeys = async (identity: StoredIdentity) => {
-    if (!confirm(`Rotate keys for "${identity.alias}"? This will create a new rotation event.`)) {
-      return;
+  const handleRotateKeys = async (alias: string) => {
+    if (!currentUser) return;
+
+    // Check if we should skip the prompt and use stored mnemonic
+    if (skipMnemonicPrompt) {
+      try {
+        const dsl = await getDSL(currentUser.id);
+        const appData = dsl.appData();
+        const storedMnemonic = await appData.get<string>('storedMnemonic');
+
+        if (storedMnemonic) {
+          await performKeyRotation(alias, storedMnemonic);
+          return;
+        } else {
+          // No stored mnemonic, fall through to prompt
+          showToast('No stored mnemonic found. Please enter it manually.');
+        }
+      } catch (error) {
+        console.error('Failed to load stored mnemonic:', error);
+        showToast('Failed to load stored mnemonic. Please enter it manually.');
+      }
     }
 
-    setRotating(prev => ({ ...prev, [identity.alias]: true }));
-    try {
-      const dsl = await getDSL(currentUser?.id);
+    // Show prompt to get mnemonic
+    setRotatingAlias(alias);
+    setShowMnemonicPrompt(true);
+  };
 
-      // Get account from DSL
-      let accountDsl = await dsl.account(identity.alias);
-      if (!accountDsl) {
-        throw new Error(`Account "${identity.alias}" not found in DSL`);
+  const handleMnemonicSubmit = async (mnemonic: string, dontPromptAgain: boolean) => {
+    setShowMnemonicPrompt(false);
+
+    if (!rotatingAlias || !currentUser) return;
+
+    // Save preference if requested
+    if (dontPromptAgain) {
+      try {
+        const dsl = await getDSL(currentUser.id);
+        const appData = dsl.appData();
+        await appData.set('skipMnemonicPrompt', true);
+        await appData.set('storedMnemonic', mnemonic);
+        setSkipMnemonicPrompt(true);
+      } catch (error) {
+        console.error('Failed to save mnemonic preference:', error);
+        showToast('Warning: Failed to save preference');
+      }
+    }
+
+    await performKeyRotation(rotatingAlias, mnemonic);
+    setRotatingAlias(null);
+  };
+
+  const performKeyRotation = async (alias: string, mnemonic: string) => {
+    setRotating(prev => ({ ...prev, [alias]: true }));
+    try {
+      if (!currentUser) return;
+      const dsl = await getDSL(currentUser.id);
+      const accountDsl = await dsl.account(alias);
+      if (!accountDsl) throw new Error(`Account "${alias}" not found`);
+
+      await accountDsl.rotateKeys(mnemonic);
+      await init();
+
+      // Reload KEL event counts and keys
+      const kel = await accountDsl.getKel();
+      setKelEventCounts(prev => ({ ...prev, [alias]: kel.length }));
+
+      // Update keys from latest event
+      if (kel.length > 0) {
+        const latestEvent = kel[kel.length - 1];
+        setIdentityKeys(prev => ({
+          ...prev,
+          [alias]: {
+            currentKeys: latestEvent.k || [],
+            nextKeys: latestEvent.n || [],
+          },
+        }));
       }
 
-      // Rotate keys using DSL - use existing mnemonic
-      await accountDsl.rotateKeys(identity.mnemonic);
-
-      await init();
-      showToast(`Keys rotated successfully for "${identity.alias}"`);
+      showToast(`Keys rotated successfully for "${alias}"`);
     } catch (error) {
       console.error('Failed to rotate keys:', error);
-      showToast('Failed to rotate keys. See console for details.');
+      showToast(`Failed to rotate keys: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
-      setRotating(prev => ({ ...prev, [identity.alias]: false }));
+      setRotating(prev => ({ ...prev, [alias]: false }));
+    }
+  };
+
+  const handleToggleSkipMnemonicPrompt = async (checked: boolean) => {
+    if (!currentUser) return;
+
+    try {
+      const dsl = await getDSL(currentUser.id);
+      const appData = dsl.appData();
+
+      await appData.set('skipMnemonicPrompt', checked);
+      setSkipMnemonicPrompt(checked);
+
+      if (!checked) {
+        // If disabling, also remove stored mnemonic
+        await appData.delete('storedMnemonic');
+        showToast('Mnemonic prompt re-enabled and stored mnemonic cleared');
+      } else {
+        showToast('Mnemonic prompt disabled');
+      }
+    } catch (error) {
+      console.error('Failed to update mnemonic preference:', error);
+      showToast('Failed to update preference');
     }
   };
 
@@ -179,19 +277,21 @@ export function Profile() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleShareKEL(identities[0])}
+                  onClick={() => handleShareKEL(identities[0].alias)}
+                  className="cursor-pointer"
                 >
                   <Share className="h-4 w-4 mr-2" />
-                  Share
+                  Share KEL
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleRotateKeys(identities[0])}
+                  onClick={() => handleRotateKeys(identities[0].alias)}
                   disabled={rotating[identities[0].alias]}
+                  className="cursor-pointer"
                 >
                   <RotateCw className={`h-4 w-4 mr-2 ${rotating[identities[0].alias] ? 'animate-spin' : ''}`} />
-                  {rotating[identities[0].alias] ? 'Rotating...' : 'Rotate Keys'}
+                  Rotate Keys
                 </Button>
               </div>
             )}
@@ -228,22 +328,49 @@ export function Profile() {
                 variant="outline"
                 size="sm"
                 onClick={() => handleColorChange('#3b82f6')}
+                className="cursor-pointer"
               >
                 Reset
               </Button>
             </div>
           </div>
 
-          <div className="border-t pt-4 mt-4">
+          <div className="space-y-2 border-t pt-4 mt-4">
+            <div className="flex items-center gap-2">
+              <RotateCw className="h-5 w-5" />
+              <Label>Key Rotation Preferences</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="skip-mnemonic"
+                checked={skipMnemonicPrompt}
+                onCheckedChange={(checked) => handleToggleSkipMnemonicPrompt(checked === true)}
+              />
+              <label
+                htmlFor="skip-mnemonic"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              >
+                Don't prompt for mnemonic during key rotation
+              </label>
+            </div>
+            {skipMnemonicPrompt && (
+              <div className="text-xs text-muted-foreground pl-6">
+                Your recovery phrase is stored in preferences for automatic key rotation.
+              </div>
+            )}
+          </div>
+
+          {/* <div className="border-t pt-4 mt-4">
             <Button
               variant="destructive"
               size="sm"
               onClick={handleClearData}
+              className="cursor-pointer"
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Clear All Data
             </Button>
-          </div>
+          </div> */}
 
           {identities.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground border-t mt-4 pt-4">
@@ -261,71 +388,55 @@ export function Profile() {
                         <h3 className="text-lg font-semibold">{identity.alias}</h3>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="text-xs font-mono text-muted-foreground">
-                          {kelAids[identity.alias] || identity.prefix}
+                        <div className="text-xs font-mono text-muted-foreground break-all">
+                          {identity.aid}
                         </div>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleCopyAID(kelAids[identity.alias] || identity.prefix)}
-                          className="h-6 w-6 p-0"
-                          title="Copy KEL AID"
+                          onClick={() => handleCopyAID(identity.aid)}
+                          className="h-6 w-6 p-0 flex-shrink-0 cursor-pointer"
+                          title="Copy AID"
                         >
                           <Copy className="h-3 w-3" />
                         </Button>
                       </div>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span>Created: {new Date(identity.createdAt).toLocaleDateString()}</span>
-                        <span>KEL Events: {identity.kel.length}</span>
+                        {kelEventCounts[identity.alias] !== undefined && (
+                          <span>KEL Events: {kelEventCounts[identity.alias]}</span>
+                        )}
                       </div>
                     </div>
 
                     {/* Keys */}
                     <div className="space-y-3 pt-2 border-t">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Key className="h-4 w-4 text-green-600 dark:text-green-400" />
-                          <Label className="text-sm">Current Public Key</Label>
+                      {identityKeys[identity.alias]?.currentKeys && identityKeys[identity.alias].currentKeys.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Key className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            <Label className="text-sm">Current Public Key{identityKeys[identity.alias].currentKeys.length > 1 ? 's' : ''}</Label>
+                          </div>
+                          {identityKeys[identity.alias].currentKeys.map((key, idx) => (
+                            <div key={idx} className="text-xs font-mono bg-muted p-2 rounded break-all">
+                              {key}
+                            </div>
+                          ))}
                         </div>
-                        <div className="text-xs font-mono bg-muted p-2 rounded">
-                          {identity.currentKeys.public}
-                        </div>
-                      </div>
+                      )}
 
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Key className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                          <Label className="text-sm">Next Public Key</Label>
+                      {identityKeys[identity.alias]?.nextKeys && identityKeys[identity.alias].nextKeys.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Key className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                            <Label className="text-sm">Next Key Digest{identityKeys[identity.alias].nextKeys.length > 1 ? 's' : ''}</Label>
+                          </div>
+                          {identityKeys[identity.alias].nextKeys.map((key, idx) => (
+                            <div key={idx} className="text-xs font-mono bg-muted p-2 rounded break-all">
+                              {key}
+                            </div>
+                          ))}
                         </div>
-                        <div className="text-xs font-mono bg-muted p-2 rounded">
-                          {identity.nextKeys.public}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Mnemonic */}
-                    <div className="space-y-2 pt-2 border-t">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm">Recovery Phrase (24 words)</Label>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleMnemonic(identity.alias)}
-                        >
-                          {showMnemonic[identity.alias] ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
-                      {showMnemonic[identity.alias] && (
-                        <Textarea
-                          value={formatMnemonic(identity.mnemonic)}
-                          readOnly
-                          className="font-mono text-xs resize-none"
-                          rows={6}
-                        />
                       )}
                     </div>
                   </CardContent>
@@ -335,6 +446,17 @@ export function Profile() {
           )}
         </CardContent>
       </Card>
+
+      <MnemonicPromptModal
+        isOpen={showMnemonicPrompt}
+        onClose={() => {
+          setShowMnemonicPrompt(false);
+          setRotatingAlias(null);
+        }}
+        onSubmit={handleMnemonicSubmit}
+        title="Authorize Key Rotation"
+        description="Please enter your 24-word recovery phrase to rotate keys for this identity."
+      />
 
       <Toast message={toast.message} show={toast.show} onClose={hideToast} />
     </div>

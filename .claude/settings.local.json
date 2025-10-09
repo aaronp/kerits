@@ -8,7 +8,9 @@
       "Bash(npm run build:*)",
       "Bash(bun test:*)",
       "Bash(npm test:*)",
-      "Bash(make test:*)"
+      "Bash(make test:*)",
+      "Bash(npm install:*)",
+      "Bash(npm --prefix ui run build)"
     ],
     "deny": [],
     "ask": []

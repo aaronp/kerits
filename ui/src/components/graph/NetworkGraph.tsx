@@ -278,6 +278,7 @@ export function NetworkGraph() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { currentUser } = useUser();
   const selectedId = searchParams.get('id');
+  const graphType = searchParams.get('view') || 'all';
 
   const [graph, setGraph] = useState<Graph | null>(null);
   const [loading, setLoading] = useState(true);
@@ -620,11 +621,19 @@ export function NetworkGraph() {
         </Card>
       )}
 
-      <Tabs defaultValue="all" className="w-full">
+      <Tabs
+        value={graphType}
+        onValueChange={(value) => {
+          const params = new URLSearchParams(searchParams);
+          params.set('view', value);
+          setSearchParams(params);
+        }}
+        className="w-full"
+      >
         <TabsList className="mb-4">
           <TabsTrigger value="all">All Events</TabsTrigger>
           <TabsTrigger value="graph">Event History</TabsTrigger>
-          <TabsTrigger value="gitgraph">Git Graph</TabsTrigger>
+          <TabsTrigger value="visual">Visual Graph</TabsTrigger>
           <TabsTrigger value="json">JSON</TabsTrigger>
         </TabsList>
 
@@ -636,10 +645,10 @@ export function NetworkGraph() {
         <TabularGraph dsl={dsl} selectedId={selectedId} />
       </TabsContent>
 
-      <TabsContent value="gitgraph">
+      <TabsContent value="visual">
         <Card>
           <CardHeader>
-            <CardTitle>Git Graph View</CardTitle>
+            <CardTitle>Visual Graph View</CardTitle>
             <CardDescription>
               KERI event chains visualized as git-style commit graphs
             </CardDescription>
@@ -649,7 +658,7 @@ export function NetworkGraph() {
               <MermaidRenderer key={mermaidChart} chart={mermaidChart} className="w-full" />
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
-                {pathGraph ? 'Generating git graph...' : 'Select an ID above to view its path-based git graph'}
+                {pathGraph ? 'Generating visual graph...' : 'Select an ID above to view its path-based visual graph'}
               </div>
             )}
           </CardContent>

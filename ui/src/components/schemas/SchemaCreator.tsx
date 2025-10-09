@@ -247,10 +247,10 @@ export function SchemaCreator() {
 
           {/* Actions */}
           <div className="flex gap-3 pt-4">
-            <Button onClick={handleCreate} disabled={creating} className="flex-1">
+            <Button onClick={handleCreate} disabled={creating} className="flex-1  cursor-pointer" variant="outline">
               {creating ? 'Creating...' : 'Create Schema'}
             </Button>
-            <Button variant="outline" onClick={() => navigate(route('/schemas'))}>
+            <Button variant="link" onClick={() => navigate(route('/schemas'))}>
               Cancel
             </Button>
           </div>

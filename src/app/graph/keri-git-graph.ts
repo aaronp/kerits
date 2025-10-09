@@ -48,6 +48,11 @@ export class KeriGitGraph {
       const commitLine = this.formatMermaidCommit(commit);
       lines.push(`  ${commitLine}`);
       addedCommits.add(nodeId);
+
+      // Add spacing commit after certain event types for better readability
+      if (node.kind === 'AID' || node.kind === 'TEL_REGISTRY') {
+        lines.push(`  commit id: "space${i}" msg: "" type: NORMAL`);
+      }
     }
 
     // Process remaining paths
