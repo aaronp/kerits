@@ -131,6 +131,12 @@ describe('IPEX Credential Exchange', () => {
     expect(grantMessage.e.iss.sigs.length).toBeGreaterThan(0);
     console.log('✓ ISS event includes', grantMessage.e.iss.sigs.length, 'signature(s)');
 
+    // Check if ISS event includes public keys
+    console.log('✓ ISS event has public keys?', !!grantMessage.e.iss.k);
+    if (grantMessage.e.iss.k) {
+      console.log('✓ ISS event includes', grantMessage.e.iss.k.length, 'public key(s)');
+    }
+
     // ========================================
     // STEP 5: Holder imports IPEX grant
     // ========================================
@@ -216,7 +222,35 @@ describe('IPEX Credential Exchange', () => {
     expect(credStatus).toBe('issued');
     console.log('✓ Credential status from indexer:', credStatus);
 
-    console.log('✓ Holder successfully imported and sealed credential');
+    // ========================================
+    // STEP 9: Holder re-exports the credential (sharing with a third party)
+    // ========================================
+
+    // Holder should be able to export the credential they received
+    const holderExportedIPEX = await holderACDCDSL!.exportIPEX();
+    expect(holderExportedIPEX).toBeTruthy();
+
+    const holderGrantMessage = JSON.parse(holderExportedIPEX);
+    console.log('✓ Holder exported IPEX grant:', holderGrantMessage.d.substring(0, 12) + '...');
+
+    // Verify the holder's export includes the ISS event with signatures and public keys
+    expect(holderGrantMessage.e.iss).toBeTruthy();
+    expect(holderGrantMessage.e.iss.sigs).toBeTruthy();
+    expect(Array.isArray(holderGrantMessage.e.iss.sigs)).toBe(true);
+    expect(holderGrantMessage.e.iss.sigs.length).toBeGreaterThan(0);
+    console.log('✓ Holder export includes', holderGrantMessage.e.iss.sigs.length, 'signature(s)');
+
+    // The ISS event should have public keys (from the original issuer)
+    expect(holderGrantMessage.e.iss.k).toBeTruthy();
+    expect(Array.isArray(holderGrantMessage.e.iss.k)).toBe(true);
+    expect(holderGrantMessage.e.iss.k.length).toBeGreaterThan(0);
+    console.log('✓ Holder export includes', holderGrantMessage.e.iss.k.length, 'public key(s) in ISS event');
+
+    // The sender should be the holder (not the original issuer)
+    expect(holderGrantMessage.i).toBe(holderAccount.account.aid);
+    console.log('✓ Holder export sender is holder:', holderGrantMessage.i.substring(0, 12) + '...');
+
+    console.log('✓ Holder successfully re-exported credential');
     console.log('✓ IPEX workflow complete!');
   });
 });

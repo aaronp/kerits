@@ -76,6 +76,15 @@ export function createRegistryDSL(
         edges: params.edges,
       }, keyManager);
 
+      // Store ISS event metadata with signatures and keys (for IPEX export)
+      const issMetaKey = {
+        path: ['acdc', credentialId, 'iss-meta'],
+        type: 'json' as const,
+        meta: { immutable: true },
+      };
+      const encodeJson = (obj: any) => new TextEncoder().encode(JSON.stringify(obj));
+      await store.kv.putStructured!(issMetaKey, encodeJson(iss.sad));
+
       // Store alias if provided
       if (params.alias) {
         // Check if alias already exists
@@ -325,6 +334,17 @@ export function createRegistryDSL(
       };
       const encodeJson = (obj: any) => new TextEncoder().encode(JSON.stringify(obj));
       await store.kv.putStructured!(acdcKey, encodeJson(credentialObj));
+
+      // Store original ISS event metadata if provided (for IPEX re-export)
+      // This preserves the issuer's signature and public keys
+      if (issEvent) {
+        const issMetaKey = {
+          path: ['acdc', credentialId, 'iss-meta'],
+          type: 'json' as const,
+          meta: { immutable: true },
+        };
+        await store.kv.putStructured!(issMetaKey, encodeJson(issEvent));
+      }
 
       // Create an issuance event in the holder's registry so the credential shows up in their TEL
       // This represents the holder accepting/anchoring the credential in their registry

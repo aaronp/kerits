@@ -154,73 +154,97 @@ export function createACDCDSL(
         throw new Error(`ACDC not found: ${acdc.credentialId}`);
       }
 
-      // Get the issuance event from TEL
-      const telEvents = await store.listTel(registry.registryId);
-      const issEvent = telEvents.find(e =>
-        e.meta.t === 'iss' && e.meta.acdcSaid === acdc.credentialId
-      );
-      if (!issEvent) {
-        throw new Error(`Issuance event not found for credential: ${acdc.credentialId}`);
+      // Try to get the original ISS event metadata (preserved from IPEX import)
+      // This includes the issuer's signature and public keys
+      const issMetaKey = {
+        path: ['acdc', acdc.credentialId, 'iss-meta'],
+        type: 'json' as const,
+      };
+      let issEventWithSigs: any;
+
+      try {
+        const issMetaBytes = await store.kv.getStructured!(issMetaKey);
+        if (issMetaBytes) {
+          const issMetaJson = new TextDecoder().decode(issMetaBytes);
+          issEventWithSigs = JSON.parse(issMetaJson);
+          console.log('Using preserved ISS event metadata with signatures');
+        }
+      } catch (error) {
+        console.log('No preserved ISS metadata, extracting from TEL');
       }
 
-      // Parse signatures from CESR attachments if present
-      let issEventWithSigs = { ...issEvent.meta };
-      if (issEvent.raw) {
-        try {
-          const { parseCesrStream, parseIndexedSignatures } = await import('../../signing');
-          const { signatures } = parseCesrStream(issEvent.raw);
-          if (signatures) {
-            const parsedSigs = parseIndexedSignatures(signatures);
-            issEventWithSigs.sigs = parsedSigs.map(s => s.signature);
+      // Fallback: Extract ISS event from TEL if no preserved metadata
+      if (!issEventWithSigs) {
+        const telEvents = await store.listTel(registry.registryId);
+        const issEvent = telEvents.find(e =>
+          e.meta.t === 'iss' && e.meta.acdcSaid === acdc.credentialId
+        );
+        if (!issEvent) {
+          throw new Error(`Issuance event not found for credential: ${acdc.credentialId}`);
+        }
 
-            // Try to get public key from KEL
-            const kelEvents = await store.listKel(acdc.issuerAid);
-            const icpEvent = kelEvents.find(e => e.meta.t === 'icp');
-            if (icpEvent?.meta.k) {
-              issEventWithSigs.k = icpEvent.meta.k;
+        // Parse signatures from CESR attachments if present
+        issEventWithSigs = { ...issEvent.meta };
+        if (issEvent.raw) {
+          try {
+            const { parseCesrStream, parseIndexedSignatures } = await import('../../signing');
+            const { signatures } = parseCesrStream(issEvent.raw);
+            if (signatures) {
+              const parsedSigs = parseIndexedSignatures(signatures);
+              issEventWithSigs.sigs = parsedSigs.map(s => s.signature);
+
+              // Try to get public key from KEL
+              const kelEvents = await store.listKel(acdc.issuerAid);
+              const icpEvent = kelEvents.find(e => e.meta.t === 'icp');
+              if (icpEvent?.meta.k) {
+                issEventWithSigs.k = icpEvent.meta.k;
+              }
             }
+          } catch (error) {
+            // If parsing fails, continue without signatures
+            console.warn('Failed to parse ISS event signatures:', error);
           }
-        } catch (error) {
-          // If parsing fails, continue without signatures
-          console.warn('Failed to parse ISS event signatures:', error);
         }
       }
 
-      // Get the latest KEL event for anchoring
+      // Get the latest KEL event for anchoring (if available)
+      // When a holder shares an accepted credential, they may not have the issuer's KEL
       const kelEvents = await store.listKel(acdc.issuerAid);
-      const ancEvent = kelEvents[kelEvents.length - 1];
-      if (!ancEvent) {
-        throw new Error(`No KEL events found for issuer: ${acdc.issuerAid}`);
-      }
+      let ancEventData: any = undefined;
 
-      // If anchoring event is IXN (no keys), add keys from the most recent establishment event
-      let ancEventData = { ...ancEvent.meta };
-      if (ancEvent.meta.t === 'ixn') {
-        // Find the most recent establishment event (ICP or ROT) before this IXN
-        for (let i = kelEvents.length - 1; i >= 0; i--) {
-          const event = kelEvents[i];
-          if (event.meta.t === 'icp' || event.meta.t === 'rot') {
-            // Parse the raw CESR to get the full event with keys
-            const rawText = new TextDecoder().decode(event.raw);
-            const jsonMatch = rawText.match(/\{[^]*\}/); // Extract JSON object
-            if (jsonMatch) {
-              try {
-                const eventJson = JSON.parse(jsonMatch[0]);
-                if (eventJson.k && Array.isArray(eventJson.k)) {
-                  ancEventData.k = eventJson.k;
+      if (kelEvents.length > 0) {
+        const ancEvent = kelEvents[kelEvents.length - 1];
+        ancEventData = { ...ancEvent.meta };
+
+        // If anchoring event is IXN (no keys), add keys from the most recent establishment event
+        if (ancEvent.meta.t === 'ixn') {
+          // Find the most recent establishment event (ICP or ROT) before this IXN
+          for (let i = kelEvents.length - 1; i >= 0; i--) {
+            const event = kelEvents[i];
+            if (event.meta.t === 'icp' || event.meta.t === 'rot') {
+              // Parse the raw CESR to get the full event with keys
+              const rawText = new TextDecoder().decode(event.raw);
+              const jsonMatch = rawText.match(/\{[^]*\}/); // Extract JSON object
+              if (jsonMatch) {
+                try {
+                  const eventJson = JSON.parse(jsonMatch[0]);
+                  if (eventJson.k && Array.isArray(eventJson.k)) {
+                    ancEventData.k = eventJson.k;
+                  }
+                } catch (e) {
+                  console.warn('Failed to parse KEL event JSON:', e);
                 }
-              } catch (e) {
-                console.warn('Failed to parse KEL event JSON:', e);
               }
+              break;
             }
-            break;
           }
         }
       }
 
       // Create IPEX grant message
+      // Sender is the owner of the registry (current user sharing the credential)
       const grantMessage = createGrant({
-        sender: acdc.issuerAid,
+        sender: registry.issuerAid,
         recipient: acdc.holderAid,
         credential: acdcData,
         issEvent: issEventWithSigs,

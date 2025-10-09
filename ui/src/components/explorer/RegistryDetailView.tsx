@@ -413,21 +413,18 @@ export function RegistryDetailView({
             const signatures = issEvent.sigs || [];
 
             // Extract public keys from the IPEX data itself (self-contained)
-            // IPEX credentials should include the anchoring event with keys
+            // IPEX credentials should include keys in either the ISS event or anchoring event
             let publicKeys: string[] = [];
 
-            // First, try to get keys from the anchoring event (anc) embedded in IPEX
-            if (ipexData.e.anc && ipexData.e.anc.k && Array.isArray(ipexData.e.anc.k)) {
-              // The anchoring event has keys embedded (ICP or ROT)
+            // First, try to get keys from the ISS event (most reliable for re-exported credentials)
+            if (issEvent.k && Array.isArray(issEvent.k)) {
+              publicKeys = issEvent.k;
+              console.log('[IPEX] Using keys from ISS event:', publicKeys);
+            }
+            // Fallback: try to get keys from the anchoring event (anc) if present
+            else if (ipexData.e.anc && ipexData.e.anc.k && Array.isArray(ipexData.e.anc.k)) {
               publicKeys = ipexData.e.anc.k;
               console.log('[IPEX] Using keys from anchoring event:', publicKeys);
-            } else if (ipexData.e.anc) {
-              // Anchoring event exists but has no keys (might be IXN)
-              // Try to get keys from the ISS event itself if present
-              if (issEvent.k && Array.isArray(issEvent.k)) {
-                publicKeys = issEvent.k;
-                console.log('[IPEX] Using keys from ISS event:', publicKeys);
-              }
             }
 
             // If still no keys, log the IPEX structure for debugging
@@ -467,7 +464,7 @@ export function RegistryDetailView({
                 errors.push('ISS event has no signatures');
               }
               if (publicKeys.length === 0) {
-                errors.push('IPEX grant missing public keys (should be embedded in anchoring event)');
+                errors.push('IPEX grant missing public keys (should be in ISS event or anchoring event)');
               }
             }
           } else {

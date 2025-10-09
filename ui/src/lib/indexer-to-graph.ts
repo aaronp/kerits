@@ -151,6 +151,13 @@ export function indexerStateToGraph(state: IndexerState): VisualizationData {
             if (kelEvent) {
               vizEvent.parent = kelEvent.eventId;
             }
+
+            // Link VCP to the first ISS event in this registry (if any)
+            const firstIssEvent = telEvents.find(e => e.eventType === 'iss');
+            if (firstIssEvent) {
+              vizEvent.links = vizEvent.links || [];
+              vizEvent.links.push(firstIssEvent.eventId);
+            }
           }
 
           // Check if this TEL event creates a child registry
