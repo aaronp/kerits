@@ -16,7 +16,6 @@ import {
 import { ArrowLeft, Users, RefreshCw, ChevronDown, ChevronRight, Search, Copy } from 'lucide-react';
 import { Toast, useToast } from './ui/toast';
 import { route } from '../config';
-import { IdentityEventGraph } from './graph/IdentityEventGraph';
 import { useUser } from '../lib/user-provider';
 import { getDSL } from '../lib/dsl';
 
@@ -43,7 +42,6 @@ export function MyContact() {
   const [updating, setUpdating] = useState(false);
   const [showAllKeys, setShowAllKeys] = useState(false);
   const [keyFilter, setKeyFilter] = useState('');
-  const [telRefreshTrigger, setTelRefreshTrigger] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
   const { toast, showToast, hideToast } = useToast();
 
@@ -443,15 +441,55 @@ export function MyContact() {
         )}
       </Card>
 
-      <IdentityEventGraph
-        alias={contact.alias}
-        prefix={contact.aid}
-        inceptionEvent={contact.kel[0]}
-        kelEvents={contact.kel.slice(1)}
-        showTEL={true}
-        credentials={[]}
-        telRefreshTrigger={telRefreshTrigger}
-      />
+      {/* KEL History */}
+      <Card>
+        <CardHeader>
+          <CardTitle>KEL History</CardTitle>
+          <CardDescription>Public key evolution and key rotation events</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {contact.kel.map((event: any, index: number) => {
+              const eventType = event.t || event.ked?.t;
+              const seq = event.s ?? event.ked?.s ?? index;
+              const keys = event.k || event.ked?.k || [];
+              const nextKeys = event.n || event.ked?.n || [];
+
+              return (
+                <div key={index} className="border-l-2 border-muted pl-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-mono text-sm font-semibold">
+                      {eventType === 'icp' ? 'Inception' : eventType === 'rot' ? 'Rotation' : 'Interaction'} (seq {seq})
+                    </span>
+                  </div>
+
+                  {keys.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-xs text-muted-foreground">Current Signing Keys:</div>
+                      {keys.map((key: string, i: number) => (
+                        <div key={i} className="font-mono text-xs bg-muted px-2 py-1 rounded">
+                          {key}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {nextKeys.length > 0 && (
+                    <div className="space-y-1 mt-2">
+                      <div className="text-xs text-muted-foreground">Next Key Digests:</div>
+                      {nextKeys.map((digest: string, i: number) => (
+                        <div key={i} className="font-mono text-xs bg-muted/50 px-2 py-1 rounded">
+                          {digest}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">

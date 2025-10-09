@@ -426,8 +426,12 @@ export function RegistryDetailView({
                 }
               } else {
                 // Try to get keys from imported KEL (contact)
-                const kelEvents = await store.listKel(signerAid);
-                if (kelEvents.length > 0) {
+                const contactsDsl = dsl.contacts();
+                const allContacts = await contactsDsl.getAll();
+                const contact = allContacts.find(c => c.aid === signerAid);
+
+                if (contact && contact.metadata?.kel && Array.isArray(contact.metadata.kel)) {
+                  const kelEvents = contact.metadata.kel;
                   // Get the anchoring event sequence number if available
                   let targetSeq = 0; // Default to inception
                   if (ipexData.e.anc && ipexData.e.anc.s !== undefined) {
@@ -435,48 +439,47 @@ export function RegistryDetailView({
                     targetSeq = parseInt(ipexData.e.anc.s);
                   }
 
-                  // Find the most recent establishment event (ICP or ROT) at or before the target sequence
-                  // IXN events don't have keys - they inherit from the previous establishment event
-                  let establishmentEvent = null;
-                  for (let i = 0; i < kelEvents.length; i++) {
-                    const event = kelEvents[i];
-                    const seq = parseInt(event.meta.s || '0');
-                    if (seq > targetSeq) break; // Don't go past the anchoring event
+                  // Check if the anchoring event itself has keys (if it's a ROT)
+                  if (ipexData.e.anc && ipexData.e.anc.k && Array.isArray(ipexData.e.anc.k)) {
+                    // The anchoring event is a ROT with keys embedded
+                    publicKeys = ipexData.e.anc.k;
+                  } else {
+                    // Find the most recent establishment event (ICP or ROT) at or before the target sequence
+                    // IXN events don't have keys - they inherit from the previous establishment event
+                    let establishmentEvent = null;
+                    for (let i = 0; i < kelEvents.length; i++) {
+                      const event = kelEvents[i];
+                      // KEL events from contacts are stored as JSON objects
+                      const eventJson = event.ked || event;
+                      const seq = parseInt(eventJson.s || '0');
 
-                    // Parse to check event type
-                    const eventText = new TextDecoder().decode(event.raw);
-                    const jsonStart = eventText.indexOf('{');
-                    if (jsonStart >= 0) {
-                      let jsonEnd = jsonStart;
-                      let braceCount = 0;
-                      for (let j = jsonStart; j < eventText.length; j++) {
-                        if (eventText[j] === '{') braceCount++;
-                        if (eventText[j] === '}') {
-                          braceCount--;
-                          if (braceCount === 0) {
-                            jsonEnd = j + 1;
-                            break;
-                          }
-                        }
-                      }
-                      const jsonStr = eventText.substring(jsonStart, jsonEnd);
-                      const eventJson = JSON.parse(jsonStr);
+                      if (seq > targetSeq) break; // Don't go past the anchoring event
 
                       // ICP and ROT are establishment events with keys
                       if (eventJson.t === 'icp' || eventJson.t === 'rot') {
                         establishmentEvent = eventJson;
                       }
                     }
-                  }
 
-                  if (establishmentEvent) {
-                    publicKeys = establishmentEvent.k || [];
+                    if (establishmentEvent) {
+                      publicKeys = establishmentEvent.k || [];
+                    }
                   }
                 }
               }
             } catch (err) {
               console.warn('Could not fetch issuer public keys:', err);
             }
+
+            // Debug logging
+            console.log('[IPEX Validation]', {
+              signerAid,
+              signaturesCount: signatures.length,
+              publicKeysCount: publicKeys.length,
+              publicKeys,
+              anchorSeq: ipexData.e.anc?.s,
+              anchorType: ipexData.e.anc?.t,
+            });
 
             signatureInfo = {
               signerAid,
@@ -494,7 +497,7 @@ export function RegistryDetailView({
                 errors.push('ISS event has no signatures');
               }
               if (publicKeys.length === 0) {
-                errors.push('ISS event has no public keys (issuer KEL not imported)');
+                errors.push(`ISS event has no public keys (issuer KEL not imported or no keys found at seq ${ipexData.e.anc?.s || 0})`);
               }
             }
           } else {
