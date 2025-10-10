@@ -288,7 +288,7 @@ describe('AccountDSL.listAllACDCs', () => {
     expect(allCreds).toHaveLength(5);
   });
 
-  it('should only return credentials issued by this account', async () => {
+  it('should include both issued and imported credentials', async () => {
     // Create two accounts
     const seed1 = new Uint8Array(32).fill(1);
     const mnemonic1 = dsl.newMnemonic(seed1);
@@ -312,28 +312,129 @@ describe('AccountDSL.listAllACDCs', () => {
       },
     });
 
-    // Account 1 issues a credential
-    await registry1.issue({
-      alias: 'cred-account1',
-      schema: schemaDsl.schema.schemaId,
-      holder: account1Dsl!.account.aid,
-      data: { name: 'Account 1 Cred' },
-    });
-
-    // Account 2 issues a credential
-    await registry2.issue({
-      alias: 'cred-account2',
+    // Account 1 issues a credential to account 2
+    const issuedCred = await registry1.issue({
+      alias: 'cred-from-account1',
       schema: schemaDsl.schema.schemaId,
       holder: account2Dsl!.account.aid,
-      data: { name: 'Account 2 Cred' },
+      data: { name: 'Issued to Account 2' },
     });
 
-    // List credentials for account 1
-    const account1Creds = await account1Dsl!.listAllACDCs();
+    // Account 1 also creates a credential for itself
+    await registry1.issue({
+      alias: 'cred-self-issued',
+      schema: schemaDsl.schema.schemaId,
+      holder: account1Dsl!.account.aid,
+      data: { name: 'Self Issued' },
+    });
 
-    // Should only see account 1's credential
-    expect(account1Creds).toHaveLength(1);
-    expect(account1Creds[0].alias).toBe('cred-account1');
-    expect(account1Creds[0].issuerAid).toBe(account1Dsl!.account.aid);
+    // Account 2 imports the credential from account 1
+    const ipexGrant = await issuedCred.exportIPEX();
+    const { parseExchangeMessage } = await import('../../src/ipex');
+    const grantMessage = parseExchangeMessage(ipexGrant);
+
+    await registry2.accept({
+      credential: grantMessage.e.acdc,
+      issEvent: grantMessage.e.iss,
+      alias: 'imported-from-account1',
+    });
+
+    // Account 2 also issues its own credential
+    await registry2.issue({
+      alias: 'cred-account2-self',
+      schema: schemaDsl.schema.schemaId,
+      holder: account2Dsl!.account.aid,
+      data: { name: 'Account 2 Self Issued' },
+    });
+
+    // List credentials for account 2
+    const account2Creds = await account2Dsl!.listAllACDCs();
+
+    // Should see both imported and self-issued credentials
+    expect(account2Creds.length).toBeGreaterThanOrEqual(2);
+
+    // Check that we have the imported credential (issued by account1)
+    const importedCred = account2Creds.find(c => c.issuerAid === account1Dsl!.account.aid);
+    expect(importedCred).toBeDefined();
+    // The alias may be preserved from the original credential or use the provided alias
+    expect(importedCred!.alias).toBeTruthy();
+
+    // Check that we have the self-issued credential
+    const selfIssued = account2Creds.find(c => c.alias === 'cred-account2-self');
+    expect(selfIssued).toBeDefined();
+    expect(selfIssued!.issuerAid).toBe(account2Dsl!.account.aid);
+  });
+
+  it('should include imported credentials when linking edges', async () => {
+    // Create two accounts: issuer and holder
+    const seed1 = new Uint8Array(32).fill(1);
+    const mnemonic1 = dsl.newMnemonic(seed1);
+    await dsl.newAccount('issuer', mnemonic1);
+
+    const seed2 = new Uint8Array(32).fill(2);
+    const mnemonic2 = dsl.newMnemonic(seed2);
+    await dsl.newAccount('holder', mnemonic2);
+
+    const issuerDsl = await dsl.account('issuer');
+    const holderDsl = await dsl.account('holder');
+
+    const issuerRegistry = await issuerDsl!.createRegistry('issuer-registry');
+    const holderRegistry = await holderDsl!.createRegistry('holder-registry');
+
+    const schemaDsl = await dsl.createSchema('test-schema', {
+      $schema: 'http://json-schema.org/draft-07/schema#',
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+      },
+    });
+
+    // Issuer creates a credential for holder
+    const sourceCred = await issuerRegistry.issue({
+      alias: 'source-credential',
+      schema: schemaDsl.schema.schemaId,
+      holder: holderDsl!.account.aid,
+      data: { name: 'Source Credential' },
+    });
+
+    // Holder imports the credential
+    const ipexGrant = await sourceCred.exportIPEX();
+    const { parseExchangeMessage } = await import('../../src/ipex');
+    const grantMessage = parseExchangeMessage(ipexGrant);
+
+    await holderRegistry.accept({
+      credential: grantMessage.e.acdc,
+      issEvent: grantMessage.e.iss,
+      alias: 'imported-source',
+    });
+
+    // Now holder wants to issue a new credential that links to the imported one
+    // First, verify the imported credential shows up in listAllACDCs
+    const availableCreds = await holderDsl!.listAllACDCs();
+
+    expect(availableCreds.length).toBeGreaterThanOrEqual(1);
+    const importedCred = availableCreds.find(c => c.alias === 'imported-source');
+    expect(importedCred).toBeDefined();
+    expect(importedCred!.issuerAid).toBe(issuerDsl!.account.aid);
+
+    // Now issue a new credential with an edge to the imported credential
+    const linkedCred = await holderRegistry.issue({
+      alias: 'credential-with-link',
+      schema: schemaDsl.schema.schemaId,
+      holder: holderDsl!.account.aid,
+      data: { name: 'Linked Credential' },
+      edges: {
+        source: { n: importedCred!.credentialId },
+      },
+    });
+
+    // Verify the edge was created successfully
+    const exportDsl = await linkedCred.export();
+    const { extractACDCDetails } = await import('../../src/app/dsl/utils/acdc-details');
+    const details = await extractACDCDetails(exportDsl);
+
+    expect(details.acdcEvent?.e).toBeDefined();
+    expect(details.acdcEvent!.e.source).toBeDefined();
+    expect(details.acdcEvent!.e.source.n).toBe(importedCred!.credentialId);
   });
 });

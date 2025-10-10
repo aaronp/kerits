@@ -342,9 +342,6 @@ export function createAccountDSL(account: Account, store: KerStore, keyManager?:
         const acdcData = await store.getACDC(credentialId);
         if (!acdcData) continue;
 
-        // Only include credentials issued by this account
-        if (acdcData.i !== account.aid) continue;
-
         // Build credential info
         const credInfo = {
           credentialId,
