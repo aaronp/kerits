@@ -51,6 +51,7 @@ export function Explorer() {
   // Track if we've already redirected to prevent loops
   const hasRedirectedRef = useRef(false);
   const hasAutoNavigatedRef = useRef(false);
+  const hasRestoredLastRegistryRef = useRef(false);
 
   // Wait for account context to load before proceeding
   useEffect(() => {
@@ -128,6 +129,31 @@ export function Explorer() {
     buildAliasMap();
   }, [accountDsl, refreshKey]);
 
+  // Auto-navigate to last selected registry when landing on root Explorer
+  useEffect(() => {
+    if (!dsl || !accountAlias || selectedRegistryId || hasRestoredLastRegistryRef.current) {
+      return;
+    }
+
+    async function restoreLastRegistry() {
+      try {
+        const appData = dsl!.appData();
+        const lastSelected = await appData.get<Record<string, { registryId: string; path: string[] }>>('explorer.lastSelectedRegistry');
+
+        if (lastSelected && lastSelected[accountAlias]) {
+          const { path } = lastSelected[accountAlias];
+          hasRestoredLastRegistryRef.current = true;
+          const pathParam = path.join('/');
+          navigate(route(`/explorer/${accountAlias}/${pathParam}`), { replace: true });
+        }
+      } catch (error) {
+        console.error('[Explorer] Failed to restore last selected registry:', error);
+      }
+    }
+
+    restoreLastRegistry();
+  }, [dsl, accountAlias, selectedRegistryId, navigate]);
+
   // Auto-navigate to selected ACDC or registry
   useEffect(() => {
     if (!selectedId || !dsl || !accountDsl || hasAutoNavigatedRef.current) {
@@ -171,6 +197,8 @@ export function Explorer() {
 
   const handleRegistryCreated = () => {
     // Trigger refresh of navigation tree and alias map
+    // Note: This will cause RegistryTreeNavigation to remount due to key change,
+    // but the expandedRegistryIds from URL will be re-applied
     setRefreshKey(prev => prev + 1);
   };
 

@@ -355,7 +355,7 @@ export function Dashboard() {
                 </Card>
               ) : (
                 <Routes>
-                  <Route path="/" element={<Explorer />} />
+                  {/* More specific routes first - explorer with account alias */}
                   <Route path="/explorer/:accountAlias/*" element={<Explorer />} />
                   <Route path="/schemas" element={<div className="container mx-auto px-4 py-6"><Schemas /></div>} />
                   <Route path="/schemas/new" element={<div className="container mx-auto px-4 py-6"><SchemaCreator /></div>} />
@@ -368,6 +368,8 @@ export function Dashboard() {
                   <Route path="/contacts" element={<div className="container mx-auto px-4 py-6"><Contacts /></div>} />
                   <Route path="/contacts/:identifier" element={<div className="container mx-auto px-4 py-6"><MyContact /></div>} />
                   <Route path="/profile" element={<div className="container mx-auto px-4 py-6"><Profile /></div>} />
+                  {/* Default route - Explorer without account alias (uses current account) */}
+                  <Route path="/" element={<Explorer />} />
                 </Routes>
               )}
             </main>

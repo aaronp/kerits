@@ -1101,7 +1101,7 @@ export function RegistryDetailView({
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setEdgeFilter('edge_')}
+                        onClick={() => setEdgeFilter('')}
                         className="w-full cursor-pointer"
                       >
                         <Plus className="mr-2 h-4 w-4" />

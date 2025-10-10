@@ -1,9 +1,9 @@
 /**
  * Incept - Create KERI Inception Event
  *
- * MVP implementation supporting:
+ * Implementation supporting:
  * - Single or multiple signing keys
- * - Numeric thresholds only
+ * - Numeric and weighted thresholds
  * - No witnesses (bt=0, b=[])
  * - No configuration (c=[])
  * - No data seals (a=[])
@@ -12,8 +12,13 @@
 
 import { versify, Protocol, Kind, VERSION_1_0 } from './versify';
 import { numToHex } from './number';
-import { Tholder, defaultThreshold, defaultNextThreshold } from './tholder';
+import { Tholder, defaultThreshold, defaultNextThreshold, type ThresholdValue } from './tholder';
 import { saidify } from './saidify';
+
+/**
+ * Threshold type - can be numeric or weighted
+ */
+export type Threshold = ThresholdValue;
 
 /**
  * Inception event options
@@ -24,9 +29,11 @@ export interface InceptOptions {
   /** Next key digests (diger qb64 strings), default: [] */
   ndigs?: string[];
   /** Current signing threshold, default: ceil(keys.length/2) */
-  isith?: number;
+  isith?: Threshold;
   /** Next signing threshold, default: ceil(ndigs.length/2) */
-  nsith?: number;
+  nsith?: Threshold;
+  /** Delegator identifier prefix (for delegated inception) */
+  delpre?: string;
 }
 
 /**
@@ -67,7 +74,13 @@ export function incept(options: InceptOptions): InceptionEvent {
     ndigs = [],
     isith,
     nsith,
+    delpre,
   } = options;
+
+  // Check if threshold parameters were explicitly provided (even if undefined)
+  // This is used to determine derivation mode (basic vs self-addressing)
+  const hasExplicitIsith = 'isith' in options;
+  const hasExplicitNsith = 'nsith' in options;
 
   // Validate keys
   if (!keys || keys.length === 0) {
@@ -96,32 +109,58 @@ export function incept(options: InceptOptions): InceptionEvent {
   // Start with version size=0, will be updated after SAID computation
   const vs = versify(Protocol.KERI, VERSION_1_0, Kind.JSON, 0);
 
+  // Format thresholds for KED
+  // Thresholds can be: number, string (numeric), or string[] (weighted)
+  const ktValue = formatThreshold(currentThreshold);
+  const ntValue = formatThreshold(nextThreshold);
+
   const ked: Record<string, any> = {
     v: vs,
-    t: 'icp',  // inception
+    t: delpre ? 'dip' : 'icp',  // delegated inception or regular inception
     d: '',     // SAID placeholder
     i: '',     // prefix placeholder
     s: numToHex(0),  // sequence number 0
-    kt: numToHex(currentThreshold),
+    kt: ktValue,
     k: keys,
-    nt: numToHex(nextThreshold),
+    nt: ntValue,
     n: ndigs,
-    bt: numToHex(0),  // witness threshold (MVP: no witnesses)
-    b: [],   // witnesses (MVP: empty)
-    c: [],   // configuration (MVP: empty)
-    a: [],   // data seals (MVP: empty)
+    bt: numToHex(0),  // witness threshold (no witnesses)
+    b: [],   // witnesses (empty)
+    c: [],   // configuration (empty)
+    a: [],   // data seals (empty)
   };
 
-  // For single key with no explicit code, use first key as prefix
-  // (MVP: only support this case)
-  if (keys.length === 1 && currentThreshold === 1) {
+  // Add delegator identifier for delegated inception
+  if (delpre) {
+    ked.di = delpre;
+  }
+
+  // Prefix derivation mode selection:
+  // keripy's eventing.incept() behavior:
+  // - If called WITHOUT explicit threshold parameters: uses basic derivation (prefix = first key)
+  // - If called WITH explicit threshold parameters (even if None/null): uses self-addressing (prefix = SAID)
+  //
+  // We match this behavior by checking if threshold properties exist in options object:
+  // - Single key + thresholds NOT in options object → basic derivation
+  // - Everything else (including explicit undefined/null thresholds) → self-addressing
+  const useBasicDerivation = keys.length === 1 &&
+    !hasExplicitIsith &&
+    !hasExplicitNsith;
+
+  if (useBasicDerivation) {
+    // Basic derivation: prefix equals first key
     ked.i = keys[0];
   } else {
-    throw new Error('MVP: Only single key with threshold=1 supported for now');
+    // Self-addressing: prefix will be set to SAID
+    ked.i = '';  // Placeholder, will be set to SAID later
   }
 
   // Compute size with temporary SAID to get correct version string
-  ked.d = '#'.repeat(44);  // Temporary placeholder
+  ked.d = '#'.repeat(44);  // Temporary SAID placeholder
+  if (!useBasicDerivation) {
+    ked.i = '#'.repeat(44);  // Temporary prefix placeholder (for self-addressing)
+  }
+
   let serialized = JSON.stringify(ked);
   const size = serialized.length;
 
@@ -129,9 +168,14 @@ export function incept(options: InceptOptions): InceptionEvent {
   ked.v = versify(Protocol.KERI, VERSION_1_0, Kind.JSON, size);
 
   // Now compute SAID with the correct version string
-  // saidify will use placeholder for 'd' and compute digest
   const saidified = saidify(ked, { label: 'd' });
   ked.d = saidified.d;
+
+  if (!useBasicDerivation) {
+    // Self-addressing: prefix equals SAID
+    ked.i = saidified.d;
+  }
+  // For basic derivation, ked.i already equals keys[0]
 
   // Final serialization
   serialized = JSON.stringify(ked);
@@ -142,4 +186,23 @@ export function incept(options: InceptOptions): InceptionEvent {
     pre: ked.i,
     said: ked.d,
   };
+}
+
+/**
+ * Format threshold value for KED
+ * Converts number/string/array to proper format for serialization
+ */
+function formatThreshold(threshold: Threshold): string | string[] {
+  if (Array.isArray(threshold)) {
+    // Weighted threshold: keep as array of strings
+    return threshold;
+  } else if (typeof threshold === 'number') {
+    // Numeric threshold: convert to hex string
+    return numToHex(threshold);
+  } else {
+    // Already a string: check if it's numeric or weighted
+    // If it looks like a hex string or number, keep as-is
+    // If it's weighted (contains '/'), keep as-is
+    return threshold;
+  }
 }

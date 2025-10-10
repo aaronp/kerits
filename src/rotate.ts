@@ -1,16 +1,19 @@
 import { versify, Protocol, VERSION_1_0, Kind } from './versify';
 import { numToHex } from './number';
-import { Tholder, defaultThreshold, defaultNextThreshold } from './tholder';
+import { Tholder, defaultThreshold, defaultNextThreshold, type ThresholdValue } from './tholder';
 import { saidify } from './saidify';
+
+export type Threshold = ThresholdValue;
 
 export interface RotateOptions {
   pre: string;          // identifier prefix (AID)
   keys: string[];       // new signing keys (verfers)
   dig: string;          // SAID of prior event
   sn?: number;          // sequence number (default: 1)
-  isith?: number;       // current signing threshold
+  isith?: Threshold;    // current signing threshold (numeric or weighted)
   ndigs?: string[];     // next key digests
-  nsith?: number;       // next signing threshold
+  nsith?: Threshold;    // next signing threshold (numeric or weighted)
+  delpre?: string;      // delegator identifier (for delegated rotation)
 }
 
 export interface RotationEvent {
@@ -20,10 +23,11 @@ export interface RotationEvent {
 }
 
 /**
- * Create a KERI rotation event (MVP - no witnesses, numeric thresholds only)
+ * Create a KERI rotation event
  *
  * Pure function that creates a rotation event for key rotation.
  * The rotation event updates the signing keys and establishes next keys.
+ * Supports both numeric and weighted thresholds.
  *
  * @param options - Rotation event options
  * @returns Rotation event with KED, raw serialization, and SAID
@@ -36,7 +40,8 @@ export function rotate(options: RotateOptions): RotationEvent {
     sn = 1,
     isith,
     ndigs = [],
-    nsith
+    nsith,
+    delpre
   } = options;
 
   // Validate inputs
@@ -72,23 +77,32 @@ export function rotate(options: RotateOptions): RotationEvent {
   // Create initial version string
   const vs = versify(Protocol.KERI, VERSION_1_0, Kind.JSON, 0);
 
+  // Format thresholds for KED (can be numeric or weighted)
+  const ktValue = formatThreshold(currentThreshold);
+  const ntValue = formatThreshold(nextThreshold);
+
   // Build KED (Key Event Dict)
   const ked: Record<string, any> = {
     v: vs,
-    t: 'rot',
+    t: delpre ? 'drt' : 'rot',  // delegated rotation or regular rotation
     d: '',
     i: pre,
     s: numToHex(sn),
     p: dig,
-    kt: numToHex(currentThreshold),
+    kt: ktValue,
     k: keys,
-    nt: numToHex(nextThreshold),
+    nt: ntValue,
     n: ndigs,
-    bt: numToHex(0),    // witness threshold (0 for MVP)
-    br: [],             // witness cuts (empty for MVP)
-    ba: [],             // witness adds (empty for MVP)
-    a: [],              // anchors/seals (empty for MVP)
+    bt: numToHex(0),    // witness threshold (0 for now)
+    br: [],             // witness cuts (empty for now)
+    ba: [],             // witness adds (empty for now)
+    a: [],              // anchors/seals (empty for now)
   };
+
+  // Add delegator identifier for delegated rotation
+  if (delpre) {
+    ked.di = delpre;
+  }
 
   // Compute size first with placeholder SAID
   ked.d = '#'.repeat(44);
@@ -110,4 +124,21 @@ export function rotate(options: RotateOptions): RotationEvent {
     raw: serialized,
     said: ked.d,
   };
+}
+
+/**
+ * Format threshold value for KED
+ * Converts number/string/array to proper format for serialization
+ */
+function formatThreshold(threshold: Threshold): string | string[] {
+  if (Array.isArray(threshold)) {
+    // Weighted threshold: keep as array of strings
+    return threshold;
+  } else if (typeof threshold === 'number') {
+    // Numeric threshold: convert to hex string
+    return numToHex(threshold);
+  } else {
+    // Already a string: keep as-is
+    return threshold;
+  }
 }
