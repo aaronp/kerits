@@ -8,6 +8,7 @@
 import { versify, Protocol, Kind, VERSION_1_0 } from './versify';
 import { numToHex } from './number';
 import { saidify } from './saidify';
+import type { InteractionEvent as KeriInteractionEvent } from './types/keri';
 
 /**
  * Seal structure for anchoring external events
@@ -41,8 +42,8 @@ export interface InteractionOptions {
  * Interaction event result
  */
 export interface InteractionEvent {
-  /** Key Event Dict */
-  ked: Record<string, any>;
+  /** Key Event Dict - conforms to canonical KelEvent type */
+  ked: KeriInteractionEvent;
   /** Serialized event (JSON) */
   raw: string;
   /** SAID (digest) */

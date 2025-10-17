@@ -29,7 +29,13 @@
       "Bash(for:*)",
       "Bash(do cp -r \"$dir\" /Users/aaron/dev/sandbox/keripy/ferrets/merits/src/)",
       "Bash(done)",
-      "Bash(rsync:*)"
+      "Bash(rsync:*)",
+      "Bash(tsc:*)",
+      "Bash(vite build)",
+      "Bash(bunx vite:*)",
+      "Bash(echo:*)",
+      "Bash(CONVEX_URL=https://accurate-penguin-901.convex.cloud bun test tests/messaging-flow.test.ts)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

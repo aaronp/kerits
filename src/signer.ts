@@ -1,10 +1,8 @@
 /**
  * Signer - Ed25519 key generation and signing for KERI
  *
- * Generates Ed25519 keypairs and encodes public keys in CESR format.
+ * Uses @noble/ed25519 for browser-compatible Ed25519 operations.
  */
-
-import * as ed from '@noble/ed25519';
 
 /**
  * CESR matter codes for Ed25519 keys
@@ -139,18 +137,15 @@ export async function generateKeypairFromSeed(
     throw new Error('Seed must be exactly 32 bytes');
   }
 
-  // Use seed as private key
-  const privateKey = seed;
+  // Use browser-compatible CESR implementation
+  const { Signer } = await import('./cesr/signer.js');
+  const signer = new Signer({ raw: seed, transferable });
 
-  // Derive public key
-  const publicKey = await ed.getPublicKeyAsync(privateKey);
-
-  // Encode public key in CESR format
-  const code = transferable ? KeyCode.Ed25519 : KeyCode.Ed25519N;
-  const verfer = encodeCESR(publicKey, code);
+  const verfer = signer.verfer.qb64;
+  const publicKey = signer.verfer.raw;
 
   return {
-    privateKey,
+    privateKey: seed,
     publicKey,
     verfer,
   };

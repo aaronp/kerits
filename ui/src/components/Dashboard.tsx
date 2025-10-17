@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Toast, useToast } from './ui/toast';
 import { useStore } from '../store/useStore';
 import { getDSL } from '../lib/dsl';
-import { Network, FileText, Award, Moon, Sun, LogOut, UserCircle, User, Pencil, Users, Share2, ChevronRight, ChevronLeft, Home } from 'lucide-react';
+import { Network, FileText, Moon, Sun, LogOut, UserCircle, User, Pencil, Users, Share2, ChevronRight, ChevronLeft, Home, MessageCircle, Bug } from 'lucide-react';
 import keritsLogo from '/kerits.jpg';
 import {
   DropdownMenu,
@@ -25,7 +25,10 @@ import { Profile } from './Profile';
 import { Sign } from './signing/Sign';
 import { Contacts } from './Contacts';
 import { MyContact } from './MyContact';
+import { Messages } from './Messages';
+import { StatusFooter } from './StatusFooter';
 import { Explorer } from './explorer/Explorer';
+import { AuthDebugger } from './AuthDebugger';
 import { AuthLayout } from './auth/AuthLayout';
 import { useTheme } from '../lib/theme-provider';
 import { useUser } from '../lib/user-provider';
@@ -122,6 +125,7 @@ export function Dashboard() {
     if (path.includes(route('/verify'))) return 'verify';
     if (path.includes(route('/sign'))) return 'sign';
     if (path.includes(route('/graph'))) return 'graph';
+    if (path.includes(route('/messages'))) return 'messages';
     if (path.includes(route('/contacts'))) return 'contacts';
     if (path.includes(route('/profile'))) return 'profile';
     return 'home';
@@ -213,7 +217,7 @@ export function Dashboard() {
               <div>
                 <h1 className="text-2xl font-bold text-white">KERITS</h1>
                 <p className="text-sm text-white/80">
-                  Secure Data Ownership
+                  Personal Blockchains
                 </p>
               </div>
             </div>
@@ -276,6 +280,26 @@ export function Dashboard() {
             >
               <Home className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
               {sidebarExpanded && <span>Home</span>}
+            </Button>
+            <Button
+              variant={activeTab === 'messages' ? 'default' : 'ghost'}
+              size={sidebarExpanded ? 'default' : 'icon'}
+              className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'messages' ? 'bg-primary text-primary-foreground' : ''}`}
+              onClick={() => navigate(route('/messages'))}
+              title="Messages"
+            >
+              <MessageCircle className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
+              {sidebarExpanded && <span>Messages</span>}
+            </Button>
+            <Button
+              variant={location.pathname.includes('/debug/auth') ? 'default' : 'ghost'}
+              size={sidebarExpanded ? 'default' : 'icon'}
+              className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${location.pathname.includes('/debug/auth') ? 'bg-orange-500 text-white' : 'text-orange-500'}`}
+              onClick={() => navigate(route('/debug/auth'))}
+              title="Auth Debugger"
+            >
+              <Bug className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
+              {sidebarExpanded && <span>Auth Debug</span>}
             </Button>
             <Button
               variant={activeTab === 'contacts' ? 'default' : 'ghost'}
@@ -346,7 +370,7 @@ export function Dashboard() {
         {/* Main content */}
         <div className="flex-1 overflow-hidden">
           <div className="h-full">
-            <main className="h-full overflow-y-auto">
+            <main className="h-full overflow-y-auto pb-6">
               {loading ? (
                 <Card className="container mx-auto px-4 py-6">
                   <CardContent className="text-center py-12 text-muted-foreground">
@@ -357,6 +381,8 @@ export function Dashboard() {
                 <Routes>
                   {/* More specific routes first - explorer with account alias */}
                   <Route path="/explorer/:accountAlias/*" element={<Explorer />} />
+                  <Route path="/messages" element={<div className="container mx-auto px-4 py-6"><Messages /></div>} />
+                  <Route path="/debug/auth" element={<div className="container mx-auto px-4 py-6"><AuthDebugger /></div>} />
                   <Route path="/schemas" element={<div className="container mx-auto px-4 py-6"><Schemas /></div>} />
                   <Route path="/schemas/new" element={<div className="container mx-auto px-4 py-6"><SchemaCreator /></div>} />
                   <Route path="/credentials" element={<div className="container mx-auto px-4 py-6"><Credentials /></div>} />
@@ -374,6 +400,14 @@ export function Dashboard() {
               )}
             </main>
           </div>
+        </div>
+      </div>
+
+      {/* Status Footer - at bottom, offset by sidebar width */}
+      <div className="flex flex-shrink-0">
+        <div className={`${sidebarExpanded ? 'w-64' : 'w-16'} flex-shrink-0`}></div>
+        <div className="flex-1">
+          <StatusFooter />
         </div>
       </div>
 

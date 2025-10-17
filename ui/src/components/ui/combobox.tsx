@@ -129,6 +129,7 @@ export interface ComboboxProps {
   allowCustomValue?: boolean;
   className?: string;
   id?: string;
+  onKeyDown?: (e: React.KeyboardEvent) => void;
 }
 
 export function Combobox({
@@ -142,6 +143,7 @@ export function Combobox({
   allowCustomValue = false,
   className,
   id,
+  onKeyDown,
 }: ComboboxProps) {
   // Support both onChange and onValueChange for compatibility
   const handleChange = onValueChange || onChange || (() => {});
@@ -188,6 +190,7 @@ export function Combobox({
             placeholder={placeholder}
             value={search}
             onValueChange={handleSearchChange}
+            onKeyDown={onKeyDown}
           />
           <CommandList>
             <CommandEmpty>{emptyMsg}</CommandEmpty>

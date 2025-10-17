@@ -14,6 +14,7 @@ import { versify, Protocol, Kind, VERSION_1_0 } from './versify';
 import { numToHex } from './number';
 import { Tholder, defaultThreshold, defaultNextThreshold, type ThresholdValue } from './tholder';
 import { saidify } from './saidify';
+import type { InceptionEvent as KeriInceptionEvent, DelegatedInceptionEvent as KeriDelegatedInceptionEvent } from './types/keri';
 
 /**
  * Threshold type - can be numeric or weighted
@@ -40,8 +41,8 @@ export interface InceptOptions {
  * Inception event result
  */
 export interface InceptionEvent {
-  /** Key Event Dict */
-  ked: Record<string, any>;
+  /** Key Event Dict - conforms to canonical KelEvent type */
+  ked: KeriInceptionEvent | KeriDelegatedInceptionEvent;
   /** Serialized event (JSON) */
   raw: string;
   /** Prefix (identifier) */

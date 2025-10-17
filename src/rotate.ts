@@ -2,6 +2,7 @@ import { versify, Protocol, VERSION_1_0, Kind } from './versify';
 import { numToHex } from './number';
 import { Tholder, defaultThreshold, defaultNextThreshold, type ThresholdValue } from './tholder';
 import { saidify } from './saidify';
+import type { RotationEvent as KeriRotationEvent, DelegatedRotationEvent as KeriDelegatedRotationEvent } from './types/keri';
 
 export type Threshold = ThresholdValue;
 
@@ -17,7 +18,8 @@ export interface RotateOptions {
 }
 
 export interface RotationEvent {
-  ked: Record<string, any>;
+  /** Key Event Dict - conforms to canonical KelEvent type */
+  ked: KeriRotationEvent | KeriDelegatedRotationEvent;
   raw: string;
   said: string;
 }

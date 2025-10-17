@@ -5,6 +5,9 @@
  * compatible with the Python keripy library.
  */
 
+// Core KERI types
+export * from './types/keri';
+
 export { saidify, type SaidifyOptions } from './saidify';
 
 // Storage system

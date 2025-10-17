@@ -2,12 +2,13 @@
  * Core types for KERI storage system
  */
 
+import type { SAID, AID, KelEventType } from '../types/keri';
+
 export type QB64 = string;
-export type AID = string;
-export type SAID = string;
+export type { SAID, AID };
 
 export type EventType =
-  | "icp" | "rot" | "ixn"              // KEL
+  | KelEventType                       // KEL
   | "vcp" | "iss" | "rev" | "upg" | "vtc" | "nrx"; // TEL
 
 export interface StoredEvent {

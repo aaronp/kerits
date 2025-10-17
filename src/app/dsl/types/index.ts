@@ -407,6 +407,12 @@ export interface AppDataDSL {
  */
 export interface KeritsDSL {
   /**
+   * KeyManager for managing signing keys
+   * @internal - Used by MessageBus and other internal components
+   */
+  readonly keyManager: any;
+
+  /**
    * Generate a new mnemonic from a seed (deterministic)
    * @param seed - 32-byte seed for deterministic generation
    * @returns 24-word mnemonic

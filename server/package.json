@@ -1,0 +1,23 @@
+{
+  "name": "convex-messagebus",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "cli": "bun run cli/index.ts",
+    "test": "CONVEX_URL=https://accurate-penguin-901.convex.cloud bun test tests/integration.test.ts",
+    "test:all": "CONVEX_URL=https://accurate-penguin-901.convex.cloud bun test",
+    "test:unit": "bun test tests/crypto.test.ts tests/signature-debug.test.ts tests/timestamp-fix.test.ts tests/end-to-end-simple.test.ts",
+    "dev": "bunx convex dev"
+  },
+  "dependencies": {
+    "cesr-ts": "github:weboftrust/cesr-ts",
+    "convex": "^1.16.0",
+    "libsodium-wrappers-sumo": "^0.7.13"
+  },
+  "devDependencies": {
+    "@clack/prompts": "^0.7.0",
+    "@types/bun": "latest",
+    "typescript": "^5.3.3"
+  }
+}

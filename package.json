@@ -6,7 +6,8 @@
   "private": true,
   "scripts": {
     "test": "bun run src/test-runner.ts",
-    "verify": "bun run src/verify.ts"
+    "verify": "bun run src/verify.ts",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/bun": "latest"
@@ -15,8 +16,11 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@noble/curves": "^1.2.0",
     "@noble/ed25519": "^3.0.0",
     "@noble/hashes": "^2.0.1",
-    "@scure/bip39": "^2.0.1"
+    "@scure/bip39": "^2.0.1",
+    "cesr-ts": "github:weboftrust/cesr-ts",
+    "libsodium-wrappers-sumo": "^0.7.13"
   }
 }

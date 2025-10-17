@@ -8,9 +8,12 @@ import { Matter, type MatterParams } from './matter.js';
 import { MatterCodex } from './codex.js';
 import * as ed from '@noble/ed25519';
 import { sha512 } from '@noble/hashes/sha2.js';
+import { concatBytes } from '@noble/hashes/utils.js';
 
-// Set sha512 for noble/ed25519
-(ed as any).hashes.sha512 = (...m: Uint8Array[]) => sha512(ed.etc.concatBytes(...m));
+// Configure noble/ed25519 for both v2.x and v3.x APIs
+ed.etc.sha512Sync = (...m) => sha512(ed.etc.concatBytes(...m));
+(ed as any).hashes.sha512 = (...m: Uint8Array[]) => sha512(concatBytes(...m));
+(ed as any).hashes.sha512Async = async (...m: Uint8Array[]) => sha512(concatBytes(...m));
 
 export interface SignerParams extends MatterParams {
   transferable?: boolean;

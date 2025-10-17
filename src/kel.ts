@@ -5,11 +5,13 @@
  * Events are stored as newline-delimited JSON strings.
  */
 
+import type { SAID, AID } from './types/keri';
+
 export interface KeyEvent {
   ked: Record<string, any>;
   raw: string;
-  said?: string;
-  pre?: string;
+  said?: SAID;
+  pre?: AID;
 }
 
 /**

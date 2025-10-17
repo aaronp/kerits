@@ -4,8 +4,8 @@
  * Implements attachment of indexed signatures to KERI events per the CESR spec.
  */
 
-import type { Signer } from '../cesr/signer';
-import type { Cigar } from '../cesr/signer';
+import type { Signer } from 'cesr-ts/src/signer.js';
+import type { Cigar } from 'cesr-ts/src/cigar.js';
 
 /**
  * Signed event with CESR-compliant indexed signatures

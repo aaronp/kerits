@@ -31,6 +31,8 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
   });
 
   return {
+    keyManager,
+
     newMnemonic(seed: Uint8Array): Mnemonic {
       return seedToMnemonic(seed);
     },

@@ -5,8 +5,7 @@
  * Keys are derived from mnemonics and cached in memory for performance.
  */
 
-import { Signer } from '../cesr/signer';
-import { MatterCodex } from '../cesr/codex';
+import { Signer } from '../cesr/signer.js';
 import type { Kv } from '../storage/types';
 import type { Mnemonic } from './dsl/types/common';
 import { mnemonicToSeed } from './dsl/utils/mnemonic';
@@ -57,12 +56,8 @@ export class KeyManager {
     // Convert mnemonic to seed (or use seed directly if Uint8Array)
     const seed = mnemonic instanceof Uint8Array ? mnemonic : mnemonicToSeed(mnemonic);
 
-    // Create signer from seed
-    const signer = new Signer({
-      raw: seed,
-      code: MatterCodex.Ed25519_Seed,
-      transferable: true,
-    });
+    // Create signer from seed using browser-compatible CESR implementation
+    const signer = new Signer({ raw: seed, transferable: true });
 
     this.signers.set(aid, signer);
 
