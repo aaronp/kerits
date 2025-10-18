@@ -249,7 +249,7 @@ export function createKerStore(kv: Kv, opts?: StoreOptions): KerStore {
     for (const { key, value } of results) {
       if (!value) continue;
 
-      const said = key.path[2];
+      const said = key.path[2] as SAID;
       const metaKey: StorageKey = {
         path: ['meta', said],
         type: 'json'
@@ -290,7 +290,7 @@ export function createKerStore(kv: Kv, opts?: StoreOptions): KerStore {
     for (const { key, value } of results) {
       if (!value) continue;
 
-      const said = key.path[2];
+      const said = key.path[2] as SAID;
       const metaKey: StorageKey = {
         path: ['meta', said],
         type: 'json'
@@ -318,7 +318,7 @@ export function createKerStore(kv: Kv, opts?: StoreOptions): KerStore {
     const bytes = await kv.getStructured!(headKey);
     if (!bytes) return null;
 
-    return utf8Decode(bytes);
+    return utf8Decode(bytes) as SAID;
   }
 
   /**
@@ -345,7 +345,7 @@ export function createKerStore(kv: Kv, opts?: StoreOptions): KerStore {
     const bytes = await kv.getStructured!(headKey);
     if (!bytes) return null;
 
-    return utf8Decode(bytes);
+    return utf8Decode(bytes) as SAID;
   }
 
   /**
@@ -462,7 +462,7 @@ export function createKerStore(kv: Kv, opts?: StoreOptions): KerStore {
     const bytes = await kv.getStructured!(aliasKey);
     if (!bytes) return null;
 
-    return utf8Decode(bytes);
+    return utf8Decode(bytes) as SAID;
   }
 
   /**
@@ -556,7 +556,7 @@ export function createKerStore(kv: Kv, opts?: StoreOptions): KerStore {
 
     for (const { value } of results) {
       if (!value) continue;
-      const said = utf8Decode(value);
+      const said = utf8Decode(value) as SAID;
       const event = await getEvent(said);
       if (event) {
         events.push(event);
@@ -572,7 +572,7 @@ export function createKerStore(kv: Kv, opts?: StoreOptions): KerStore {
   }
 
   async function idToAlias(scope: string, id: string): Promise<string | null> {
-    return getSaidAlias(scope as any, id);
+    return getSaidAlias(scope as any, id as SAID);
   }
 
   return {

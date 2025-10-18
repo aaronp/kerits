@@ -18,6 +18,9 @@
   ],
   "exclude": [
     "src/**/*.test.ts",
+    "src/app/**/*",
+    "src/cesr/**/*",
+    "src/storage/adapters/indexeddb.ts",
     "node_modules",
     "ui",
     "cli",

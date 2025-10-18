@@ -1,0 +1,308 @@
+🔍 Type checking core (src only, excluding ui/cli/mcp)...
+src/app/dsl/builders/account.ts(43,45): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "AID"; }'.
+  Type 'Signer' is missing the following properties from type 'Signer': _sign, _ed25519, _size, transferable, digestive
+src/app/dsl/builders/account.ts(88,59): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/account.ts(157,32): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/app/dsl/builders/account.ts(157,32): error TS18048: 'store.aliasToId' is possibly 'undefined'.
+src/app/dsl/builders/account.ts(167,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/account.ts(204,45): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "AID"; }'.
+src/app/dsl/builders/account.ts(247,55): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/account.ts(261,42): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "AID"; }'.
+src/app/dsl/builders/account.ts(338,36): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/app/dsl/builders/account.ts(338,36): error TS18048: 'store.aliasToId' is possibly 'undefined'.
+src/app/dsl/builders/account.ts(342,46): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/account.ts(360,46): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/acdc.ts(36,45): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/acdc.ts(71,32): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/acdc.ts(76,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/acdc.ts(82,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/acdc.ts(88,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/acdc.ts(94,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/acdc.ts(99,44): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/acdc.ts(128,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/acdc.ts(152,44): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/acdc.ts(178,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/acdc.ts(197,53): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "AID"; }'.
+src/app/dsl/builders/acdc.ts(199,34): error TS2339: Property 'k' does not exist on type 'EventMeta'.
+src/app/dsl/builders/acdc.ts(200,52): error TS2339: Property 'k' does not exist on type 'EventMeta'.
+src/app/dsl/builders/acdc.ts(212,45): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "AID"; }'.
+src/app/dsl/builders/contact-sync.ts(41,43): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/contact-sync.ts(141,45): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "AID"; }'.
+src/app/dsl/builders/contact-sync.ts(180,45): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/contacts.ts(122,45): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "AID"; }'.
+src/app/dsl/builders/export.ts(5,31): error TS2307: Cannot find module '../../storage/types' or its corresponding type declarations.
+src/app/dsl/builders/export.ts(81,27): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/app/dsl/builders/export.ts(102,46): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/app/dsl/builders/export.ts(160,35): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/app/dsl/builders/export.ts(213,38): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/app/dsl/builders/export.ts(215,38): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/app/dsl/builders/export.ts(226,32): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/app/dsl/builders/export.ts(251,38): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/app/dsl/builders/export.ts(262,32): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/app/dsl/builders/group-account.ts(18,15): error TS2305: Module '"../../../tholder"' has no exported member 'Threshold'.
+src/app/dsl/builders/group-account.ts(169,35): error TS2339: Property 'nt' does not exist on type 'InceptionEvent'.
+  Property 'nt' does not exist on type 'InceptionEvent'.
+src/app/dsl/builders/group-account.ts(249,35): error TS2339: Property 'nt' does not exist on type 'RotationEvent'.
+  Property 'nt' does not exist on type 'RotationEvent'.
+src/app/dsl/builders/kerits.ts(42,30): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/app/dsl/builders/kerits.ts(42,30): error TS18048: 'store.aliasToId' is possibly 'undefined'.
+src/app/dsl/builders/kerits.ts(112,25): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/app/dsl/builders/kerits.ts(112,25): error TS18048: 'store.aliasToId' is possibly 'undefined'.
+src/app/dsl/builders/kerits.ts(118,45): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "AID"; }'.
+src/app/dsl/builders/kerits.ts(128,26): error TS2339: Property 'keys' does not exist on type 'EventMeta'.
+src/app/dsl/builders/kerits.ts(156,45): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "AID"; }'.
+src/app/dsl/builders/kerits.ts(164,35): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/app/dsl/builders/kerits.ts(164,35): error TS18048: 'store.aliasToId' is possibly 'undefined'.
+src/app/dsl/builders/kerits.ts(175,26): error TS2339: Property 'keys' does not exist on type 'EventMeta'.
+src/app/dsl/builders/kerits.ts(222,36): error TS2304: Cannot find name 'SchemaExport'.
+src/app/dsl/builders/kerits.ts(275,45): error TS2554: Expected 2 arguments, but got 3.
+src/app/dsl/builders/kerits.ts(279,30): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/app/dsl/builders/kerits.ts(279,30): error TS18048: 'store.aliasToId' is possibly 'undefined'.
+src/app/dsl/builders/kerits.ts(285,43): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/kerits.ts(312,30): error TS2345: Argument of type '{ alias: string; schemaId: string; schema: any; }' is not assignable to parameter of type 'Schema'.
+  Property 'schemaSaid' is missing in type '{ alias: string; schemaId: string; schema: any; }' but required in type 'Schema'.
+src/app/dsl/builders/registry.ts(51,40): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/app/dsl/builders/registry.ts(51,40): error TS18048: 'store.aliasToId' is possibly 'undefined'.
+src/app/dsl/builders/registry.ts(62,41): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/app/dsl/builders/registry.ts(62,41): error TS18048: 'store.aliasToId' is possibly 'undefined'.
+src/app/dsl/builders/registry.ts(95,38): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/registry.ts(115,34): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/app/dsl/builders/registry.ts(115,34): error TS18048: 'store.aliasToId' is possibly 'undefined'.
+src/app/dsl/builders/registry.ts(121,44): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/registry.ts(142,22): error TS2304: Cannot find name 'ACDC'.
+src/app/dsl/builders/registry.ts(187,42): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/registry.ts(232,36): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/registry.ts(237,51): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/registry.ts(254,51): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+  Type 'Signer' is missing the following properties from type 'Signer': _sign, _ed25519, _size, transferable, digestive
+src/app/dsl/builders/registry.ts(377,61): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/registry.ts(385,38): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/registry.ts(388,67): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/dsl/builders/schema.ts(77,52): error TS2554: Expected 2 arguments, but got 3.
+src/app/dsl/types/index.ts(88,19): error TS2304: Cannot find name 'CESRBundle'.
+src/app/dsl/types/index.ts(153,20): error TS2552: Cannot find name 'ExportOptions'. Did you mean 'ErrorOptions'?
+src/app/dsl/types/index.ts(259,38): error TS2304: Cannot find name 'EdgeBlock'.
+src/app/graph/keri-graph.ts(73,50): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "AID"; }'.
+src/app/graph/keri-graph.ts(117,50): error TS2339: Property 'anchorEvent' does not exist on type 'Registry'.
+src/app/graph/text-graph.ts(112,58): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/graph/text-graph.ts(126,52): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "AID"; }'.
+src/app/graph/text-graph.ts(159,48): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "AID"; }'.
+src/app/graph/text-graph.ts(239,48): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/graph/text-graph.ts(349,50): error TS2345: Argument of type 'SAID' is not assignable to parameter of type 'AID'.
+  Type 'SAID' is not assignable to type '{ readonly __brand: "AID"; }'.
+    Types of property '__brand' are incompatible.
+      Type '"SAID"' is not assignable to type '"AID"'.
+src/app/graph/text-graph.ts(371,50): error TS2345: Argument of type 'SAID' is not assignable to parameter of type 'AID'.
+  Type 'SAID' is not assignable to type '{ readonly __brand: "AID"; }'.
+    Types of property '__brand' are incompatible.
+      Type '"SAID"' is not assignable to type '"AID"'.
+src/app/graph/traversal.ts(102,39): error TS2345: Argument of type 'SAID' is not assignable to parameter of type 'AID'.
+  Type 'SAID' is not assignable to type '{ readonly __brand: "AID"; }'.
+    Types of property '__brand' are incompatible.
+      Type '"SAID"' is not assignable to type '"AID"'.
+src/app/graph/traversal.ts(151,65): error TS2345: Argument of type 'AID' is not assignable to parameter of type 'SAID'.
+  Type 'AID' is not assignable to type '{ readonly __brand: "SAID"; }'.
+    Types of property '__brand' are incompatible.
+      Type '"AID"' is not assignable to type '"SAID"'.
+src/app/graph/traversal.ts(153,9): error TS2322: Type '`${string} (icp)` | `${string} (rot)` | `${string} (ixn)` | `${string} (dip)` | `${string} (drt)` | `${string} (vcp)` | `${string} (iss)` | `${string} (rev)` | `${string} (upg)` | `${string} (vtc)` | `${string} (nrx)`' is not assignable to type 'EventType'.
+  Type '`${string} (icp)`' is not assignable to type 'EventType'.
+src/app/graph/traversal.ts(180,9): error TS2322: Type '`${string} (icp)` | `${string} (rot)` | `${string} (ixn)` | `${string} (dip)` | `${string} (drt)` | `${string} (vcp)` | `${string} (iss)` | `${string} (rev)` | `${string} (upg)` | `${string} (vtc)` | `${string} (nrx)`' is not assignable to type 'EventType'.
+  Type '`${string} (icp)`' is not assignable to type 'EventType'.
+src/app/graph/traversal.ts(223,58): error TS2345: Argument of type 'AID' is not assignable to parameter of type 'SAID'.
+  Type 'AID' is not assignable to type '{ readonly __brand: "SAID"; }'.
+    Types of property '__brand' are incompatible.
+      Type '"AID"' is not assignable to type '"SAID"'.
+src/app/graph/traversal.ts(227,9): error TS2322: Type 'AID' is not assignable to type 'SAID'.
+  Type 'AID' is not assignable to type '{ readonly __brand: "SAID"; }'.
+    Types of property '__brand' are incompatible.
+      Type '"AID"' is not assignable to type '"SAID"'.
+src/app/graph/traversal.ts(351,57): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/graph/traversal.ts(353,70): error TS2322: Type 'string' is not assignable to type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/graph/traversal.ts(418,38): error TS2322: Type '"REGISTRY"' is not assignable to type '"PRIOR" | "ANCHOR" | "ISSUES" | "REVOKES" | "USES_SCHEMA" | "EDGE" | "ISSUER" | "HOLDER"'.
+src/app/graph/traversal.ts(433,54): error TS2345: Argument of type 'AID' is not assignable to parameter of type 'SAID'.
+  Type 'AID' is not assignable to type '{ readonly __brand: "SAID"; }'.
+    Types of property '__brand' are incompatible.
+      Type '"AID"' is not assignable to type '"SAID"'.
+src/app/graph/traversal.ts(435,54): error TS2322: Type 'AID' is not assignable to type 'SAID'.
+  Type 'AID' is not assignable to type '{ readonly __brand: "SAID"; }'.
+    Types of property '__brand' are incompatible.
+      Type '"AID"' is not assignable to type '"SAID"'.
+src/app/graph/traversal.ts(478,48): error TS2345: Argument of type 'SAID' is not assignable to parameter of type 'AID'.
+  Type 'SAID' is not assignable to type '{ readonly __brand: "AID"; }'.
+    Types of property '__brand' are incompatible.
+      Type '"SAID"' is not assignable to type '"AID"'.
+src/app/graph/traversal.ts(544,11): error TS2322: Type 'string' is not assignable to type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/group-account.ts(18,15): error TS2305: Module '"../tholder"' has no exported member 'Threshold'.
+src/app/helpers.ts(66,20): error TS7017: Element implicitly has an 'any' type because type 'typeof globalThis' has no index signature.
+  Type 'Signer' is missing the following properties from type 'Signer': _sign, _ed25519, _size, transferable, digestive
+src/app/helpers.ts(75,20): error TS7017: Element implicitly has an 'any' type because type 'typeof globalThis' has no index signature.
+src/app/helpers.ts(84,31): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/helpers.ts(88,55): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/helpers.ts(91,60): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+  Type 'Signer' is missing the following properties from type 'Signer': _sign, _ed25519, _size, transferable, digestive
+src/app/helpers.ts(143,41): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "AID"; }'.
+  Type 'Signer' is missing the following properties from type 'Signer': _sign, _ed25519, _size, transferable, digestive
+src/app/helpers.ts(183,55): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/helpers.ts(191,43): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+  Type 'Signer' is missing the following properties from type 'Signer': _sign, _ed25519, _size, transferable, digestive
+src/app/helpers.ts(233,57): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/helpers.ts(291,34): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/helpers.ts(317,46): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/helpers.ts(375,41): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+  Type 'Signer' is missing the following properties from type 'Signer': _sign, _ed25519, _size, transferable, digestive
+src/app/helpers.ts(414,55): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/helpers.ts(434,41): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+  Type 'Signer' is missing the following properties from type 'Signer': _sign, _ed25519, _size, transferable, digestive
+src/app/helpers.ts(469,55): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/helpers.ts(482,10): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/app/helpers.ts(492,24): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "AID"; }'.
+src/app/helpers.ts(502,24): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/indexer/write-time-indexer.ts(63,49): error TS2345: Argument of type '{ event: Uint8Array<ArrayBufferLike>; signatures: Uint8Array<ArrayBufferLike> | null; }' is not assignable to parameter of type '{ event: Uint8Array<ArrayBufferLike>; signatures?: Uint8Array<ArrayBufferLike> | undefined; }'.
+  Types of property 'signatures' are incompatible.
+    Type 'Uint8Array<ArrayBufferLike> | null' is not assignable to type 'Uint8Array<ArrayBufferLike> | undefined'.
+      Type 'null' is not assignable to type 'Uint8Array<ArrayBufferLike> | undefined'.
+src/app/indexer/write-time-indexer.ts(119,49): error TS2345: Argument of type '{ event: Uint8Array<ArrayBufferLike>; signatures: Uint8Array<ArrayBufferLike> | null; }' is not assignable to parameter of type '{ event: Uint8Array<ArrayBufferLike>; signatures?: Uint8Array<ArrayBufferLike> | undefined; }'.
+  Types of property 'signatures' are incompatible.
+    Type 'Uint8Array<ArrayBufferLike> | null' is not assignable to type 'Uint8Array<ArrayBufferLike> | undefined'.
+      Type 'null' is not assignable to type 'Uint8Array<ArrayBufferLike> | undefined'.
+src/app/indexer/write-time-indexer.ts(230,46): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/indexer/write-time-indexer.ts(267,46): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/indexer/write-time-indexer.ts(364,51): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/indexer/write-time-indexer.ts(370,51): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/indexer/write-time-indexer.ts(379,5): error TS2322: Type 'Record<string, string>' is not assignable to type '{ [alias: string]: SAID; }'.
+  'string' index signatures are incompatible.
+    Type 'string' is not assignable to type 'SAID'.
+      Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/indexer/write-time-indexer.ts(380,5): error TS2322: Type 'Record<string, string>' is not assignable to type '{ [alias: string]: SAID; }'.
+  'string' index signatures are incompatible.
+    Type 'string' is not assignable to type 'SAID'.
+      Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/indexer/write-time-indexer.ts(381,5): error TS2322: Type 'Record<string, string>' is not assignable to type '{ [alias: string]: SAID; }'.
+  'string' index signatures are incompatible.
+    Type 'string' is not assignable to type 'SAID'.
+      Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/indexer/write-time-indexer.ts(382,5): error TS2322: Type 'Record<string, string>' is not assignable to type '{ [alias: string]: SAID; }'.
+  'string' index signatures are incompatible.
+    Type 'string' is not assignable to type 'SAID'.
+      Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/indexer/write-time-indexer.ts(400,55): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/indexer/write-time-indexer.ts(401,53): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "AID"; }'.
+src/app/indexer/write-time-indexer.ts(408,13): error TS2322: Type 'string' is not assignable to type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/indexer/write-time-indexer.ts(421,15): error TS2322: Type 'string' is not assignable to type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/indexer/write-time-indexer.ts(433,11): error TS2322: Type 'string' is not assignable to type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/indexer/write-time-indexer.ts(443,55): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/indexer/write-time-indexer.ts(444,53): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/indexer/write-time-indexer.ts(451,13): error TS2322: Type 'string' is not assignable to type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/indexer/write-time-indexer.ts(464,15): error TS2322: Type 'string' is not assignable to type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/indexer/write-time-indexer.ts(476,11): error TS2322: Type 'string' is not assignable to type 'SAID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "SAID"; }'.
+src/app/indexer/write-time-indexer.ts(660,58): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "AID"; }'.
+src/app/keystate.ts(60,48): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "AID"; }'.
+src/app/keystate.ts(161,48): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "AID"; }'.
+src/app/keystate.ts(162,47): error TS18048: 'e.meta.s' is possibly 'undefined'.
+src/app/keystate.ts(162,47): error TS2365: Operator '<' cannot be applied to types 'string' and 'number'.
+src/app/keystate.ts(212,48): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AID'.
+  Type 'string' is not assignable to type '{ readonly __brand: "AID"; }'.
+src/app/keystate.ts(213,48): error TS18048: 'e.meta.s' is possibly 'undefined'.
+src/app/keystate.ts(213,48): error TS2365: Operator '<=' cannot be applied to types 'string' and 'number'.
+src/app/signing.ts(80,43): error TS2322: Type 'Cigar | Siger' is not assignable to type 'Cigar'.
+  Type 'Siger' is missing the following properties from type 'Cigar': _size, size, transferable, digestive, both
+src/cesr/diger.ts(71,19): error TS2551: Property 'Blake2s_256' does not exist on type 'typeof DigDex'. Did you mean 'Blake2b_256'?
+src/cesr/signer.ts(14,8): error TS2339: Property 'sha512Sync' does not exist on type '{ bytesToHex: (b: Bytes) => string; hexToBytes: (hex: string) => Bytes; concatBytes: (...arrs: Bytes[]) => Bytes; mod: (a: bigint, b?: bigint | undefined) => bigint; invert: (num: bigint, md: bigint) => bigint; randomBytes: (len?: number | undefined) => Bytes; }'.
+src/cesr/signer.ts(14,22): error TS7019: Rest parameter 'm' implicitly has an 'any[]' type.
+src/cesr/signer.ts(165,23): error TS2339: Property 'randomPrivateKey' does not exist on type '{ bytesToHex: (b: Bytes) => string; hexToBytes: (hex: string) => Bytes; concatBytes: (...arrs: Bytes[]) => Bytes; mod: (a: bigint, b?: bigint | undefined) => bigint; invert: (num: bigint, md: bigint) => bigint; randomBytes: (len?: number | undefined) => Bytes; }'.
+src/incept.ts(185,5): error TS2322: Type 'Record<string, any>' is not assignable to type 'InceptionEvent'.
+  Type 'Record<string, any>' is missing the following properties from type 'KelEvent': v, t, d, i, and 4 more.
+src/index.ts(17,1): error TS2308: Module './types/keri' has already exported a member named 'KelEvent'. Consider explicitly re-exporting to resolve the ambiguity.
+src/interaction.ts(126,5): error TS2322: Type 'Record<string, any>' is not assignable to type 'InteractionEvent'.
+  Type 'Record<string, any>' is missing the following properties from type 'KelEvent': v, t, d, i, and 4 more.
+src/rotate.ts(125,5): error TS2322: Type 'Record<string, any>' is not assignable to type 'RotationEvent'.
+  Type 'Record<string, any>' is missing the following properties from type 'KelEvent': v, t, d, i, and 4 more.
+src/saidify.ts(126,7): error TS2862: Type 'T & { [x: string]: string; }' is generic and can only be indexed for reading.
+src/saidify.ts(143,7): error TS2862: Type 'T & Record<string, string>' is generic and can only be indexed for reading.
+src/signer.ts(108,27): error TS2304: Cannot find name 'ed'.
+src/storage/adapters/indexeddb.ts(20,30): error TS2304: Cannot find name 'IDBDatabase'.
+src/storage/adapters/indexeddb.ts(26,49): error TS2304: Cannot find name 'IDBDatabase'.
+src/storage/adapters/indexeddb.ts(28,23): error TS2552: Cannot find name 'indexedDB'. Did you mean 'IndexedDBKv'?
+src/storage/adapters/indexeddb.ts(33,34): error TS7006: Parameter 'event' implicitly has an 'any' type.
+src/storage/adapters/indexeddb.ts(34,37): error TS2304: Cannot find name 'IDBOpenDBRequest'.
+src/storage/adapters/indexeddb.ts(99,21): error TS2304: Cannot find name 'IDBKeyRange'.
+src/storage/adapters/indexeddb.ts(108,28): error TS7006: Parameter 'event' implicitly has an 'any' type.
+src/storage/adapters/indexeddb.ts(109,41): error TS2552: Cannot find name 'IDBRequest'. Did you mean 'Request'?
+src/storage/adapters/indexeddb.ts(109,52): error TS2304: Cannot find name 'IDBCursorWithValue'.
+❌ Type errors found in source code

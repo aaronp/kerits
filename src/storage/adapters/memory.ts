@@ -71,7 +71,7 @@ export class MemoryKv implements Kv {
   }
 
   // Helper methods for testing
-  clear(): void {
+  async clear(): Promise<void> {
     this.map.clear();
   }
 

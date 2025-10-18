@@ -102,6 +102,9 @@ export interface Kv {
   putStructured?(key: StorageKey, value: Uint8Array): Promise<void>;
   delStructured?(key: StorageKey): Promise<void>;
   listStructured?(keyPrefix: StorageKey, opts?: { keysOnly?: boolean; limit?: number }): Promise<Array<{ key: StorageKey; value?: Uint8Array }>>;
+
+  // Clear all data (optional, for testing)
+  clear?(): Promise<void>;
 }
 
 /**

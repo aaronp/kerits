@@ -111,7 +111,7 @@ export class DefaultJsonCesrParser implements Parser {
 export class CesrHasher implements Hasher {
   computeSaid(sadBytes: Uint8Array): SAID {
     const diger = new Diger({ ser: sadBytes });
-    return diger.qb64;
+    return diger.qb64 as SAID;
   }
 }
 
@@ -129,6 +129,6 @@ export class NonCryptoHasher implements Hasher {
       h = (h * prime) & BigInt("0xFFFFFFFFFFFFFFFF");
     }
     // Represent as a pseudo qb64-ish string for dev
-    return "E" + h.toString(36).toUpperCase().padStart(20, "0");
+    return ("E" + h.toString(36).toUpperCase().padStart(20, "0")) as SAID;
   }
 }
