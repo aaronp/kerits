@@ -20,9 +20,45 @@ import { createKerStore } from "../../src/storage/core";
 import { MemoryKv } from "../../src/storage/adapters/memory";
 import { ConvexMessageBusFactory } from "../../ui/src/merits/lib/message-bus";
 import type { MessageBus } from "../../ui/src/merits/lib/message-bus/types";
+import { ConvexClient } from "convex/browser";
 
 const CONVEX_URL =
   process.env.VITE_CONVEX_URL || "https://accurate-penguin-901.convex.cloud";
+
+/**
+ * Helper to register key state with Convex
+ */
+async function registerKeyState(
+  client: ConvexClient,
+  dsl: ReturnType<typeof createKeritsDSL>,
+  alias: string,
+  aid: string
+) {
+  const accountDsl = await dsl.account(alias);
+  if (!accountDsl) throw new Error(`Account ${alias} not found`);
+
+  const kelEvents = await accountDsl.getKel();
+  if (kelEvents.length === 0) throw new Error("No KEL events found");
+
+  const latestEvent = kelEvents[kelEvents.length - 1];
+  const ked = latestEvent.meta?.ked || latestEvent;
+
+  const keys = ked.k || ked.keys || [];
+  const threshold = ked.kt || ked.threshold || "1";
+  const lastEvtSaid = ked.d || latestEvent.meta?.d || "";
+  const ksn = kelEvents.length - 1;
+
+  // @ts-ignore - Using Convex without generated types
+  await client.mutation("auth:registerKeyState", {
+    aid,
+    ksn,
+    keys,
+    threshold,
+    lastEvtSaid,
+  });
+
+  console.log(`✓ Key state registered for ${alias} (${aid})`);
+}
 
 describe("Auth Integration - High-Level APIs", () => {
   let aliceMessageBus: MessageBus;
@@ -51,6 +87,17 @@ describe("Auth Integration - High-Level APIs", () => {
     const bobAccount = await dsl.newAccount("bob", bobMnemonic);
     bobAid = bobAccount.aid;
     console.log("✓ Bob account created:", bobAid);
+
+    console.log("\n=== Registering Key States with Convex ===");
+
+    // Create shared Convex client for key state registration
+    const client = new ConvexClient(CONVEX_URL);
+
+    // Register Alice's key state
+    await registerKeyState(client, dsl, "alice", aliceAid);
+
+    // Register Bob's key state
+    await registerKeyState(client, dsl, "bob", bobAid);
 
     console.log("\n=== Setting up MessageBus ===");
 
@@ -97,6 +144,9 @@ describe("Auth Integration - High-Level APIs", () => {
       backendConfig: { convexUrl: CONVEX_URL },
     });
     console.log("✓ Bob MessageBus connected");
+
+    // Close the setup client (each MessageBus has its own)
+    client.close();
   });
 
   afterAll(() => {

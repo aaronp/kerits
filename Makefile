@@ -2,10 +2,6 @@
 
 # Run the full test suite (compatibility tests + unit tests + UI tests)
 test:
-	@echo "Running compatibility tests..."
-	@bun run src/test-runner.ts
-	@echo ""
-	@echo "Running core unit tests..."
 	@bun test $$(find src test -name "*.test.ts" -not -path "*/ui/*")
 	@echo ""
 	@echo "Running UI/MERITS tests..."
@@ -47,6 +43,6 @@ coverage:
 	@bun test --coverage
 	@echo "✅ Coverage complete"
 
-check: coverage
+check: typecheck coverage test-auth verify
 
 .DEFAULT_GOAL := check

@@ -35,7 +35,10 @@
       "Bash(bunx vite:*)",
       "Bash(echo:*)",
       "Bash(CONVEX_URL=https://accurate-penguin-901.convex.cloud bun test tests/messaging-flow.test.ts)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(mkdir:*)",
+      "Bash(git mv:*)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": []
