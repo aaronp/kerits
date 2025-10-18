@@ -1,10 +1,8 @@
-Please help me design and plan this next phase of work.
+# Model
 
-I want a very clear data model in core ./kerits/src/model to represent the concern of modeling contacts, connections and groups.
+This model describes how we can leverage SAIDs and our keri schemas work to ensure we have a SAID (unique ID) representing all of our core data structures.
 
-My initial thoughts are:
-
-leverage SAIDs and our keri schemas work to ensure we have a SAID (unique ID) representing all of our core data structures.
+We should be sure to follow the [KERI specification](./reference.md) any time we're not sure what to do.
 
 This also should let us easily store these as ACDCs if we need to (but we don't have to). Ulimatley that would just be an implementation detail behind some clean, simple APIs.
 
