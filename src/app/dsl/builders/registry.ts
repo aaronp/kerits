@@ -3,10 +3,11 @@
  */
 
 import type { KerStore } from '../../../storage/types';
-import type { RegistryDSL, Registry, Account, IssueParams, TelEvent, GraphOptions, ExportDSL, IndexedRegistry, IndexedACDC } from '../types';
+import type { RegistryDSL, Registry, Account, IssueParams, TelEvent, GraphOptions, ExportDSL, IndexedRegistry, IndexedACDC, ACDC } from '../types';
 import type { ACDCDSL } from '../types';
 import type { KeyManager } from '../../keymanager';
 import type { ExportOptions } from '../types/sync';
+import { s } from '../../../types/keri';
 import { createACDCDSL } from './acdc';
 import { exportTel } from './export';
 import { TELIndexer } from '../../indexer/index.js';
@@ -48,7 +49,7 @@ export function createRegistryDSL(
       let schemaId = params.schema;
       if (!schemaId.startsWith('E')) {
         // Assume it's an alias
-        const resolvedSchemaId = await store.aliasToId('schema', params.schema);
+        const resolvedSchemaId = await store.getAliasSaid('schema', params.schema);
         if (!resolvedSchemaId) {
           throw new Error(`Schema not found: ${params.schema}`);
         }
@@ -59,7 +60,7 @@ export function createRegistryDSL(
       let holderAid = params.holder;
       if (!holderAid.startsWith('D') && !holderAid.startsWith('E')) {
         // Assume it's an alias
-        const resolvedHolderAid = await store.aliasToId('kel', params.holder);
+        const resolvedHolderAid = await store.getAliasSaid('kel', params.holder);
         if (!resolvedHolderAid) {
           throw new Error(`Holder account not found: ${params.holder}`);
         }
@@ -92,7 +93,7 @@ export function createRegistryDSL(
         if (existingCredentialId) {
           throw new Error(`Credential alias "${params.alias}" already exists`);
         }
-        await store.putAlias('acdc', credentialId, params.alias);
+        await store.putAlias('acdc', s(credentialId).asSAID(), params.alias);
       }
 
       const acdcObj = {
@@ -112,13 +113,13 @@ export function createRegistryDSL(
     },
 
     async acdc(alias: string): Promise<ACDCDSL | null> {
-      const credentialId = await store.aliasToId('acdc', alias);
+      const credentialId = await store.getAliasSaid('acdc', alias);
       if (!credentialId) {
         return null;
       }
 
       // Get credential data from JSON storage (dual storage fix)
-      const acdcData = await store.getACDC(credentialId);
+      const acdcData = await store.getACDC(s(credentialId).asSAID());
       if (!acdcData) {
         console.warn(`ACDC data not found for ${alias} (${credentialId})`);
         return null;
@@ -127,9 +128,9 @@ export function createRegistryDSL(
       // Find the ISS event SAID from TEL
       let issEventSaid: string | undefined;
       try {
-        const telEvents = await store.listTel(acdcData.ri || registry.registryId);
+        const telEvents = await store.listTel(s(acdcData.ri || registry.registryId).asSAID());
         const issEvent = telEvents.find(e =>
-          e.meta.t === 'iss' && e.meta.i === credentialId
+          e.meta.t === 'iss' && e.meta.i === s(credentialId).asAID()
         );
         if (issEvent) {
           issEventSaid = issEvent.meta.d;
@@ -167,7 +168,7 @@ export function createRegistryDSL(
         }
 
         // Get the ACDC data
-        const acdcData = await store.getACDC(credentialId);
+        const acdcData = await store.getACDC(s(credentialId).asSAID());
         if (!acdcData) {
           continue;
         }
@@ -184,11 +185,11 @@ export function createRegistryDSL(
     async getTel(): Promise<TelEvent[]> {
       const { parseCesrStream, parseIndexedSignatures } = await import('../../signing');
 
-      const events = await store.listTel(registry.registryId);
+      const events = await store.listTel(s(registry.registryId).asSAID());
 
       // Parse each event to extract signatures and full event data
       return events.map(e => {
-        let signatures: Array<{index: number; signature: string}> | undefined;
+        let signatures: Array<{ index: number; signature: string }> | undefined;
         let eventData: any = {};
 
         // Parse signatures and event JSON from raw CESR
@@ -229,12 +230,12 @@ export function createRegistryDSL(
 
     async index(): Promise<IndexedRegistry> {
       const indexer = new TELIndexer(store);
-      return indexer.indexRegistry(registry.registryId);
+      return indexer.indexRegistry(s(registry.registryId).asSAID());
     },
 
     async listCredentials(): Promise<IndexedACDC[]> {
       const indexer = new TELIndexer(store);
-      const indexed = await indexer.indexRegistry(registry.registryId);
+      const indexed = await indexer.indexRegistry(s(registry.registryId).asSAID());
       return indexed.credentials;
     },
 
@@ -251,7 +252,7 @@ export function createRegistryDSL(
 
       // Validate credential exists and belongs to this registry
       const indexer = new TELIndexer(store);
-      const indexed = await indexer.indexRegistry(registry.registryId);
+      const indexed = await indexer.indexRegistry(s(registry.registryId).asSAID());
       const credential = indexed.credentials.find(c => c.credentialId === credentialId);
 
       if (!credential) {
@@ -374,7 +375,7 @@ export function createRegistryDSL(
       // ===== INDEXER UPDATE: ISS event (credential acceptance) =====
       // Add the acceptance ISS event to the indexer for graph visualization
       try {
-        await WriteTimeIndexer.withStore(store).addTelEvent(registry.registryId, finalIssBytes);
+        await WriteTimeIndexer.withStore(store).addTelEvent(s(registry.registryId).asSAID(), finalIssBytes);
       } catch (error) {
         // If indexer update fails (e.g., unsigned event), log but don't fail the operation
         console.warn(`Failed to index credential acceptance: ${error}`);
@@ -382,10 +383,10 @@ export function createRegistryDSL(
 
       // Store alias if provided
       if (alias) {
-        await store.putAlias('acdc', credentialId, alias);
+        await store.putAlias('acdc', s(credentialId).asSAID(), alias);
 
         // ===== INDEXER UPDATE: ACDC alias =====
-        await WriteTimeIndexer.withStore(store).setAlias('ACDCs', credentialId, alias);
+        await WriteTimeIndexer.withStore(store).setAlias('ACDCs', s(credentialId).asSAID(), alias);
       }
 
       // Create ACDC DSL object

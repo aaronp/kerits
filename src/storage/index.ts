@@ -11,7 +11,6 @@ export type {
   SAID,
   EventType,
   StoredEvent,
-  EventMeta,
   AttachmentType,
   Attachment,
   ParsedEvent,

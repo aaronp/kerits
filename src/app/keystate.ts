@@ -6,6 +6,7 @@
  */
 
 import type { KerStore } from '../storage/types';
+import { s } from '../types/keri';
 
 /**
  * Key state for a KERI identifier
@@ -57,7 +58,7 @@ export class KeyStateManager {
     }
 
     // Replay KEL to build key state
-    const kelEvents = await this.store.listKel(aid);
+    const kelEvents = await this.store.listKel(s(aid).asAID());
 
     if (kelEvents.length === 0) {
       throw new Error(`No KEL found for AID: ${aid}`);
@@ -158,8 +159,8 @@ export class KeyStateManager {
     }
 
     // Get KEL up to sn-1
-    const kelEvents = await this.store.listKel(aid);
-    const priorEvents = kelEvents.filter(e => e.meta.s < sn);
+    const kelEvents = await this.store.listKel(s(aid).asAID());
+    const priorEvents = kelEvents.filter(e => parseInt(e.meta.s || '0') < sn);
 
     if (priorEvents.length === 0) {
       throw new Error(`No prior events found for rotation at sn=${sn}`);
@@ -209,8 +210,8 @@ export class KeyStateManager {
    */
   async getKeyStateAt(aid: string, sn: number): Promise<KeyState> {
     // Get KEL up to sn
-    const kelEvents = await this.store.listKel(aid);
-    const eventsUpToSn = kelEvents.filter(e => e.meta.s <= sn);
+    const kelEvents = await this.store.listKel(s(aid).asAID());
+    const eventsUpToSn = kelEvents.filter(e => parseInt(e.meta.s || '0') <= sn);
 
     if (eventsUpToSn.length === 0) {
       throw new Error(`No events found up to sn=${sn}`);

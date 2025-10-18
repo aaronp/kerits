@@ -2,9 +2,10 @@
  * Export DSL for creating CESR bundles from KEL/TEL data
  */
 
-import type { KerStore } from '../../storage/types';
+import type { KerStore } from '../../../storage/types';
 import type { CESRBundle, ExportDSL, ExportOptions } from '../types/sync';
 import type { IncrementalExportOptions } from '../types/contact-sync';
+import { s } from '../../../types/keri';
 
 // Helper to ensure Uint8Array from various storage formats
 function ensureUint8Array(raw: any): Uint8Array {
@@ -22,7 +23,7 @@ function ensureUint8Array(raw: any): Uint8Array {
 export class ExportDSLImpl implements ExportDSL {
   constructor(
     private readonly bundle: CESRBundle
-  ) {}
+  ) { }
 
   asBundle(): CESRBundle {
     return this.bundle;
@@ -73,7 +74,7 @@ export async function exportKel(
   aid: string,
   options: ExportOptions = {}
 ): Promise<ExportDSL> {
-  const kelEvents = await store.listKel(aid);
+  const kelEvents = await store.listKel(s(aid).asAID());
 
   const bundle: CESRBundle = {
     type: 'kel',
@@ -98,7 +99,7 @@ export async function exportTel(
   issuerAid?: string,
   options: ExportOptions = {}
 ): Promise<ExportDSL> {
-  const telEvents = await store.listTel(registryId);
+  const telEvents = await store.listTel(s(registryId).asSAID());
   const events: Uint8Array[] = telEvents.map(e => ensureUint8Array(e.raw));
 
   // Optionally include referenced ACDC credentials
@@ -114,7 +115,7 @@ export async function exportTel(
     // Fetch and include ACDC events
     for (const credId of credentialIds) {
       try {
-        const credEvent = await store.getEvent(credId);
+        const credEvent = await store.getEvent(s(credId).asSAID());
         if (credEvent) {
           events.push(ensureUint8Array(credEvent.raw));
         }
@@ -150,13 +151,13 @@ export async function exportAcdc(
   options: ExportOptions = {}
 ): Promise<ExportDSL> {
   // Get credential ACDC
-  const credStored = await store.getEvent(credentialId);
+  const credStored = await store.getEvent(s(credentialId).asSAID());
   if (!credStored) {
     throw new Error(`Credential not found: ${credentialId}`);
   }
 
   // Get TEL events to find issuance
-  const telEvents = await store.listTel(registryId);
+  const telEvents = await store.listTel(s(registryId).asSAID());
   const issEvent = telEvents.find(e =>
     e.meta.t === 'iss' && e.meta.i === credentialId
   );
@@ -205,7 +206,7 @@ export async function exportKelIncremental(
   aid: string,
   options: IncrementalExportOptions = {}
 ): Promise<ExportDSL> {
-  const allEvents = await store.listKel(aid);
+  const allEvents = await store.listKel(s(aid).asAID());
 
   // Find starting point
   let startIndex = 0;
@@ -243,7 +244,7 @@ export async function exportTelIncremental(
   issuerAid?: string,
   options: IncrementalExportOptions = {}
 ): Promise<ExportDSL> {
-  const allEvents = await store.listTel(registryId);
+  const allEvents = await store.listTel(s(registryId).asSAID());
 
   // Find starting point
   let startIndex = 0;

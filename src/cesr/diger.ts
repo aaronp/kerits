@@ -68,7 +68,6 @@ export class Diger extends Matter {
       case MatterCodex.Blake2b_512:
         return blake2b(ser, { dkLen: 64 });
 
-      case DigDex.Blake2s_256:
       case MatterCodex.Blake2s_256:
         return blake2s(ser, { dkLen: 32 });
 

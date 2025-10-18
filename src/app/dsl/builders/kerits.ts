@@ -3,11 +3,12 @@
  */
 
 import type { KerStore } from '../../../storage/types';
-import type { KeritsDSL, Account, Mnemonic, AccountDSL, SchemaDSL, ContactsDSL, ContactSyncDSL, AppDataDSL } from '../types';
+import type { KeritsDSL, Account, Mnemonic, AccountDSL, SchemaDSL, ContactsDSL, ContactSyncDSL, AppDataDSL, SchemaExport } from '../types';
 import { generateKeypairFromSeed } from '../../../signer';
 import { createIdentity, createSchema as createSchemaHelper } from '../../helpers';
 import { seedToMnemonic, mnemonicToSeed, serializeEvent } from '../utils';
 import { saidify } from '../../../saidify';
+import { s } from '../../../types/keri';
 import { createAccountDSL } from './account';
 import { createSchemaDSL } from './schema';
 import { createContactsDSL } from './contacts';
@@ -39,7 +40,7 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
 
     async newAccount(alias: string, mnemonic: Mnemonic): Promise<Account> {
       // Check if alias already exists
-      const existing = await store.aliasToId('kel', alias);
+      const existing = await store.getAliasSaid('kel', alias);
       if (existing) {
         throw new Error(`Account alias already exists: ${alias}`);
       }
@@ -109,13 +110,13 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
       }
 
       // Lookup AID by alias
-      const aid = await store.aliasToId('kel', alias);
+      const aid = await store.getAliasSaid('kel', alias);
       if (!aid) {
         return null;
       }
 
       // Get KEL events
-      const kelEvents = await store.listKel(aid);
+      const kelEvents = await store.listKel(s(aid).asAID());
       if (kelEvents.length === 0) {
         return null;
       }
@@ -153,7 +154,7 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
       }
 
       // Get KEL events
-      const kelEvents = await store.listKel(aid);
+      const kelEvents = await store.listKel(s(aid).asAID());
       if (kelEvents.length === 0) {
         return null;
       }
@@ -161,7 +162,7 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
       // Try to find alias by reverse lookup
       const aliases = await this.accountNames();
       for (const alias of aliases) {
-        const resolvedAid = await store.aliasToId('kel', alias);
+        const resolvedAid = await store.getAliasSaid('kel', alias);
         if (resolvedAid === aid) {
           return this.getAccount(alias);
         }
@@ -258,7 +259,7 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
       await store.putSchema(schemaData.sed);
 
       // Store alias mapping
-      await store.putAlias('schema', schemaId, schemaData.alias);
+      await store.putAlias('schema', s(schemaId).asSAID(), schemaData.alias);
 
       const schemaObj = {
         alias: schemaData.alias,
@@ -272,17 +273,17 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
 
     async deleteSchema(alias: string): Promise<void> {
       // Delete the schema by deleting its alias mapping
-      await store.delAlias('schema', alias, true);
+      await store.delAlias('schema', alias);
     },
 
     async schema(alias: string): Promise<SchemaDSL | null> {
-      const schemaId = await store.aliasToId('schema', alias);
+      const schemaId = await store.getAliasSaid('schema', alias);
       if (!schemaId) {
         return null;
       }
 
       // Get schema from storage
-      const stored = await store.getEvent(schemaId);
+      const stored = await store.getEvent(s(schemaId).asSAID());
       if (!stored) {
         return null;
       }
@@ -306,6 +307,7 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
       const schemaObj = {
         alias,
         schemaId,
+        schemaSaid: schemaId,
         schema: schemaFields,
       };
 

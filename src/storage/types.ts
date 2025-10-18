@@ -28,6 +28,13 @@ export interface EventMeta {
   s?: string;             // sequence number as string
   p?: SAID;               // prior SAID
   dt?: string;            // ISO timestamp
+  // KEL fields
+  k?: string[];           // current signing keys (for KEL events)
+  keys?: string[];        // alternative name for current signing keys
+  n?: string[];           // next key digests
+  kt?: string;            // key threshold
+  bt?: string;            // backer threshold
+  b?: string[];           // backers (witness identifiers)
   // TEL
   ri?: SAID;              // registry SAID (for TEL events)
   // ACDC refs (from TEL iss/rev payloads)

@@ -213,7 +213,7 @@ export interface GraphOptions {
 /**
  * KEL event metadata
  */
-export interface KelEvent {
+export interface KelEventMeta {
   t: string;  // Event type
   d: string;  // SAID
   i?: string; // AID
@@ -277,4 +277,26 @@ export interface IssueParams {
   alias?: string;
   /** Optional edge blocks linking to other credentials */
   edges?: Record<string, EdgeBlock>;
+}
+
+/**
+ * Event metadata for storage
+ */
+export interface EventMeta {
+  /** Event SAID */
+  d: string;
+  /** Sequence number */
+  s?: string;
+  /** Event type */
+  t: string;
+  /** Registry ID for TEL events */
+  ri?: string;
+  /** AID for KEL events */
+  i?: string;
+  /** ACDC SAID for TEL events */
+  acdcSaid?: string;
+  /** Keys for KEL events */
+  k?: string[];
+  /** Keys for KEL events (alternative) */
+  keys?: string[];
 }

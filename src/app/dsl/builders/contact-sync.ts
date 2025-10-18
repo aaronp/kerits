@@ -11,6 +11,7 @@ import type {
   SyncReport,
 } from '../types/contact-sync';
 import { serializeEvent } from '../utils';
+import { s } from '../../../types/keri';
 
 const SYNC_STATE_PREFIX = 'contact-sync-state';
 
@@ -38,7 +39,7 @@ export function createContactSyncDSL(store: KerStore): ContactSyncDSL {
 
       // Get sync state from storage
       const stateId = `${SYNC_STATE_PREFIX}:${contactAlias}`;
-      const stored = await store.getEvent(stateId);
+      const stored = await store.getEvent(s(stateId).asSAID());
 
       if (!stored) {
         // Initialize empty state
@@ -138,7 +139,7 @@ export function createContactSyncDSL(store: KerStore): ContactSyncDSL {
       const syncPointer = state?.kelSync[aid];
 
       // Get all KEL events
-      const allEvents = await store.listKel(aid);
+      const allEvents = await store.listKel(s(aid).asAID());
 
       // Find where to start
       let startIndex = 0;
@@ -177,7 +178,7 @@ export function createContactSyncDSL(store: KerStore): ContactSyncDSL {
       const syncPointer = state?.telSync[registryId];
 
       // Get all TEL events
-      const allEvents = await store.listTel(registryId);
+      const allEvents = await store.listTel(s(registryId).asSAID());
 
       // Find where to start
       let startIndex = 0;

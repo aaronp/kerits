@@ -106,7 +106,7 @@ export interface SaidifyOptions {
 export function saidify<T extends Record<string, any>>(
   obj: T,
   options: SaidifyOptions = {}
-): T & Record<string, string> {
+): T {
   const label = options.label || 'd';
   const code = options.code || 'E'; // Blake3-256 code in CESR
   const additionalLabels = options.labels || [];
@@ -123,7 +123,7 @@ export function saidify<T extends Record<string, any>>(
   // Replace additional labels with placeholder too (e.g., 'i' for TEL inception)
   for (const additionalLabel of additionalLabels) {
     if (additionalLabel in obj) {
-      sad[additionalLabel] = placeholder;
+      (sad as any)[additionalLabel] = placeholder;
     }
   }
 
@@ -137,10 +137,10 @@ export function saidify<T extends Record<string, any>>(
   const said = encodeCESR(hash, code);
 
   // Return object with computed SAID (set both primary and additional labels to same SAID)
-  const result = { ...obj, [label]: said } as T & Record<string, string>;
+  const result = { ...obj, [label]: said } as T;
   for (const additionalLabel of additionalLabels) {
     if (additionalLabel in obj) {
-      result[additionalLabel] = said;
+      (result as any)[additionalLabel] = said;
     }
   }
 

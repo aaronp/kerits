@@ -122,7 +122,7 @@ export function rotate(options: RotateOptions): RotationEvent {
   serialized = JSON.stringify(ked);
 
   return {
-    ked,
+    ked: ked as KeriRotationEvent,
     raw: serialized,
     said: ked.d,
   };

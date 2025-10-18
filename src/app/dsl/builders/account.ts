@@ -3,7 +3,7 @@
  */
 
 import type { KerStore } from '../../../storage/types';
-import type { AccountDSL, Account, Mnemonic, KelEvent, GraphOptions, RegistryOptions, ExportDSL, ContactsDSL } from '../types';
+import type { AccountDSL, Account, Mnemonic, GraphOptions, RegistryOptions, ExportDSL, ContactsDSL } from '../types';
 import type { RegistryDSL } from '../types';
 import type { KeyManager } from '../../keymanager';
 import { generateKeypairFromSeed } from '../../../signer';
@@ -16,6 +16,8 @@ import { createContactsDSL } from './contacts';
 import { exportKel, importTel } from './export';
 import { WriteTimeIndexer } from '../../indexer/write-time-indexer';
 import type { CESRBundle } from '../types/sync';
+import type { KelEvent } from '../../../types/keri';
+import { s } from '../../../types/keri';
 
 /**
  * Create an AccountDSL for a specific account
@@ -40,7 +42,7 @@ export function createAccountDSL(account: Account, store: KerStore, keyManager?:
       const newKp = await generateKeypairFromSeed(seed);
 
       // Get current KEL
-      const kelEvents = await store.listKel(account.aid);
+      const kelEvents = await store.listKel(s(account.aid).asAID());
       if (kelEvents.length === 0) {
         throw new Error(`No KEL found for account: ${account.aid}`);
       }
@@ -85,7 +87,7 @@ export function createAccountDSL(account: Account, store: KerStore, keyManager?:
       await store.putEvent(finalBytes);
 
       // ===== INDEXER UPDATE: ROT event =====
-      await WriteTimeIndexer.withStore(store).addKelEvent(account.aid, finalBytes);
+      await WriteTimeIndexer.withStore(store).addKelEvent(s(account.aid).asAID(), finalBytes);
 
       // Update KeyManager with new mnemonic for future operations
       if (keyManager) {
@@ -154,7 +156,7 @@ export function createAccountDSL(account: Account, store: KerStore, keyManager?:
     async registry(alias: string): Promise<RegistryDSL | null> {
       const { parseCesrStream } = await import('../../signing');
 
-      const registryId = await store.aliasToId('tel', alias);
+      const registryId = await store.getAliasSaid('tel', alias);
       if (!registryId) {
         return null;
       }
@@ -164,7 +166,7 @@ export function createAccountDSL(account: Account, store: KerStore, keyManager?:
 
       try {
         // Get the VCP event for this registry
-        const vcpEvent = await store.getEvent(registryId);
+        const vcpEvent = await store.getEvent(s(registryId).asSAID());
         if (vcpEvent) {
           // Parse CESR stream to extract just the event (without signatures)
           const { event: eventBytes } = parseCesrStream(vcpEvent.raw);
@@ -201,7 +203,7 @@ export function createAccountDSL(account: Account, store: KerStore, keyManager?:
       const { parseCesrStream } = await import('../../signing');
 
       // Get registries from KEL seals
-      const kelEvents = await store.listKel(account.aid);
+      const kelEvents = await store.listKel(s(account.aid).asAID());
       const registryIds = new Set<string>();
 
       // Walk KEL and extract registry seals from IXN events
@@ -244,7 +246,7 @@ export function createAccountDSL(account: Account, store: KerStore, keyManager?:
       const seenAliases = new Set<string>();
 
       for (const registryId of registryIds) {
-        const alias = await store.getSaidAlias('tel', registryId);
+        const alias = await store.getSaidAlias('tel', s(registryId).asSAID());
 
         if (alias && !seenAliases.has(alias)) {
           aliases.push(alias);
@@ -258,11 +260,11 @@ export function createAccountDSL(account: Account, store: KerStore, keyManager?:
     async getKel(): Promise<KelEvent[]> {
       const { parseCesrStream, parseIndexedSignatures } = await import('../../signing');
 
-      const events = await store.listKel(account.aid);
+      const events = await store.listKel(s(account.aid).asAID());
 
       // Parse each event to extract signatures and full event data
       return events.map(e => {
-        let signatures: Array<{index: number; signature: string}> | undefined;
+        let signatures: Array<{ index: number; signature: string }> | undefined;
         let eventData: any = {};
 
         // Parse signatures and event JSON from raw CESR
@@ -335,11 +337,11 @@ export function createAccountDSL(account: Account, store: KerStore, keyManager?:
       }> = [];
 
       for (const alias of acdcAliases) {
-        const credentialId = await store.aliasToId('acdc', alias);
+        const credentialId = await store.getAliasSaid('acdc', alias);
         if (!credentialId) continue;
 
         // Get ACDC data
-        const acdcData = await store.getACDC(credentialId);
+        const acdcData = await store.getACDC(s(credentialId).asSAID());
         if (!acdcData) continue;
 
         // Build credential info
@@ -357,7 +359,7 @@ export function createAccountDSL(account: Account, store: KerStore, keyManager?:
         // Apply filter if provided
         if (filter) {
           // Get the full ACDC event with signatures for comprehensive filtering
-          const event = await store.getEvent(credentialId);
+          const event = await store.getEvent(s(credentialId).asSAID());
           if (event) {
             try {
               // Parse CESR to get signatures and public keys

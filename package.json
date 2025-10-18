@@ -20,7 +20,10 @@
     "@noble/ed25519": "^3.0.0",
     "@noble/hashes": "^2.0.1",
     "@scure/bip39": "^2.0.1",
+    "@types/json-schema": "^7.0.15",
+    "ajv": "^8.17.1",
     "cesr-ts": "github:weboftrust/cesr-ts",
+    "json-canonicalize": "^2.0.0",
     "libsodium-wrappers-sumo": "^0.7.13"
   }
 }

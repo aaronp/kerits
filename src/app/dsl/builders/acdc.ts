@@ -9,6 +9,7 @@ import { revokeCredential } from '../../helpers';
 import { exportAcdc } from './export';
 import { TELIndexer } from '../../indexer/index.js';
 import { createGrant, type ExchangeMessage } from '../../../ipex';
+import { s } from '../../../types/keri';
 
 /**
  * Create an ACDCDSL for a specific ACDC
@@ -33,7 +34,7 @@ export function createACDCDSL(
 
     async status(): Promise<CredentialStatus> {
       // Get TEL events for this registry
-      const telEvents = await store.listTel(registry.registryId);
+      const telEvents = await store.listTel(s(registry.registryId).asSAID());
 
       // Find events related to this credential, sorted by sequence number (newest last)
       const credEvents = telEvents
@@ -68,35 +69,35 @@ export function createACDCDSL(
 
     async index(): Promise<IndexedACDC> {
       const indexer = new TELIndexer(store);
-      return indexer.indexACDC(acdc.credentialId, registry.registryId);
+      return indexer.indexACDC(s(acdc.credentialId).asSAID(), s(registry.registryId).asSAID());
     },
 
     async getLatestData(): Promise<Record<string, any>> {
       const indexer = new TELIndexer(store);
-      const indexed = await indexer.indexACDC(acdc.credentialId, registry.registryId);
+      const indexed = await indexer.indexACDC(s(acdc.credentialId).asSAID(), s(registry.registryId).asSAID());
       return indexed.latestData;
     },
 
     async getSchemas(): Promise<SchemaUsage[]> {
       const indexer = new TELIndexer(store);
-      const indexed = await indexer.indexACDC(acdc.credentialId, registry.registryId);
+      const indexed = await indexer.indexACDC(s(acdc.credentialId).asSAID(), s(registry.registryId).asSAID());
       return indexed.schemas;
     },
 
     async getCounterparties(): Promise<CounterpartyInfo[]> {
       const indexer = new TELIndexer(store);
-      const indexed = await indexer.indexACDC(acdc.credentialId, registry.registryId);
+      const indexed = await indexer.indexACDC(s(acdc.credentialId).asSAID(), s(registry.registryId).asSAID());
       return indexed.counterparties;
     },
 
     async getHistory(): Promise<TELEventSummary[]> {
       const indexer = new TELIndexer(store);
-      const indexed = await indexer.indexACDC(acdc.credentialId, registry.registryId);
+      const indexed = await indexer.indexACDC(s(acdc.credentialId).asSAID(), s(registry.registryId).asSAID());
       return indexed.telEvents;
     },
 
     async getEdges(): Promise<Record<string, import('../types').EdgeBlock>> {
-      const acdcData = await store.getACDC(acdc.credentialId);
+      const acdcData = await store.getACDC(s(acdc.credentialId).asSAID());
       return acdcData?.e || {};
     },
 
@@ -125,11 +126,11 @@ export function createACDCDSL(
 
     async getLinkedFrom(): Promise<ACDCDSL[]> {
       const indexer = new TELIndexer(store);
-      const indexed = await indexer.indexACDC(acdc.credentialId, registry.registryId);
+      const indexed = await indexer.indexACDC(s(acdc.credentialId).asSAID(), s(registry.registryId).asSAID());
       const linkedFrom: ACDCDSL[] = [];
 
       for (const linkedFromId of indexed.linkedFrom) {
-        const linkedAcdcData = await store.getACDC(linkedFromId);
+        const linkedAcdcData = await store.getACDC(s(linkedFromId).asSAID());
         if (linkedAcdcData) {
           const linkedAcdcObj = {
             credentialId: linkedFromId,
@@ -149,7 +150,7 @@ export function createACDCDSL(
 
     async exportIPEX(): Promise<string> {
       // Get the ACDC data
-      const acdcData = await store.getACDC(acdc.credentialId);
+      const acdcData = await store.getACDC(s(acdc.credentialId).asSAID());
       if (!acdcData) {
         throw new Error(`ACDC not found: ${acdc.credentialId}`);
       }
@@ -175,7 +176,7 @@ export function createACDCDSL(
 
       // Fallback: Extract ISS event from TEL if no preserved metadata
       if (!issEventWithSigs) {
-        const telEvents = await store.listTel(registry.registryId);
+        const telEvents = await store.listTel(s(registry.registryId).asSAID());
         const issEvent = telEvents.find(e =>
           e.meta.t === 'iss' && e.meta.acdcSaid === acdc.credentialId
         );
@@ -194,7 +195,7 @@ export function createACDCDSL(
               issEventWithSigs.sigs = parsedSigs.map(s => s.signature);
 
               // Try to get public key from KEL
-              const kelEvents = await store.listKel(acdc.issuerAid);
+              const kelEvents = await store.listKel(s(acdc.issuerAid).asAID());
               const icpEvent = kelEvents.find(e => e.meta.t === 'icp');
               if (icpEvent?.meta.k) {
                 issEventWithSigs.k = icpEvent.meta.k;
@@ -209,7 +210,7 @@ export function createACDCDSL(
 
       // Get the latest KEL event for anchoring (if available)
       // When a holder shares an accepted credential, they may not have the issuer's KEL
-      const kelEvents = await store.listKel(acdc.issuerAid);
+      const kelEvents = await store.listKel(s(acdc.issuerAid).asAID());
       let ancEventData: any = undefined;
 
       if (kelEvents.length > 0) {

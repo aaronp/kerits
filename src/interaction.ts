@@ -123,7 +123,7 @@ export function interaction(options: InteractionOptions): InteractionEvent {
   serialized = JSON.stringify(ked);
 
   return {
-    ked,
+    ked: ked as KeriInteractionEvent,
     raw: serialized,
     said: ked.d,
   };

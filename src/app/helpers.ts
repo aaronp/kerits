@@ -13,6 +13,7 @@ import { saidify } from '../saidify';
 import type { KeyManager } from './keymanager';
 import { signKelEvent, signTelEvent } from './signing';
 import { WriteTimeIndexer } from './indexer/write-time-indexer';
+import { s } from '../types/keri';
 
 // Utility to serialize events as CESR-framed bytes
 function serializeEvent(event: any): Uint8Array {
@@ -63,7 +64,7 @@ export async function createIdentity(
     }
 
     // DEBUG: Log what we're signing
-    if (globalThis.DEBUG_SIGNING) {
+    if ((globalThis as any).DEBUG_SIGNING) {
       console.log('[DEBUG createIdentity] Signing event:');
       console.log('  Event bytes length:', eventBytes.length);
       console.log('  Event text:', new TextDecoder().decode(eventBytes).substring(0, 150));
@@ -72,7 +73,7 @@ export async function createIdentity(
     const signed = await signKelEvent(eventBytes, signer);
     finalBytes = signed.combined;
 
-    if (globalThis.DEBUG_SIGNING) {
+    if ((globalThis as any).DEBUG_SIGNING) {
       console.log('  Signed combined length:', signed.combined.length);
     }
   }
@@ -81,14 +82,14 @@ export async function createIdentity(
   await store.putEvent(finalBytes);
 
   // Store alias mapping in KERI storage
-  await store.putAlias('kel', aid, alias);
+  await store.putAlias('kel', s(aid).asSAID(), alias);
 
   // ===== INDEXER UPDATE (parallel book-keeping) =====
   // Add KEL event to indexer (with integrity checks)
-  await WriteTimeIndexer.withStore(store).addKelEvent(aid, finalBytes);
+  await WriteTimeIndexer.withStore(store).addKelEvent(s(aid).asAID(), finalBytes);
 
   // Update alias in indexer
-  await WriteTimeIndexer.withStore(store).setAlias('KELs', aid, alias);
+  await WriteTimeIndexer.withStore(store).setAlias('KELs', s(aid).asSAID(), alias);
 
   return { aid, icp };
 }
@@ -137,10 +138,10 @@ export async function createRegistry(
   await store.putEvent(finalVcpBytes);
 
   // ===== INDEXER UPDATE: VCP event =====
-  await WriteTimeIndexer.withStore(store).addTelEvent(registryId, finalVcpBytes);
+  await WriteTimeIndexer.withStore(store).addTelEvent(s(registryId).asSAID(), finalVcpBytes);
 
   // ALWAYS anchor in KEL with interaction event (even for nested registries)
-  const kelEvents = await store.listKel(issuerAid);
+  const kelEvents = await store.listKel(s(issuerAid).asAID());
   const lastEvent = kelEvents[kelEvents.length - 1];
 
   if (!lastEvent) {
@@ -180,7 +181,7 @@ export async function createRegistry(
   await store.putEvent(finalIxnBytes);
 
   // ===== INDEXER UPDATE: IXN event (KEL anchor) =====
-  await WriteTimeIndexer.withStore(store).addKelEvent(issuerAid, finalIxnBytes);
+  await WriteTimeIndexer.withStore(store).addKelEvent(s(issuerAid).asAID(), finalIxnBytes);
 
   // If there's a parent registry, also anchor in parent TEL with IXN
   if (parentRegistryId) {
@@ -188,7 +189,7 @@ export async function createRegistry(
     const { interact } = await import('../tel');
 
     // Get parent TEL to find prior event and sequence number
-    const parentTel = await store.listTel(parentRegistryId);
+    const parentTel = await store.listTel(s(parentRegistryId).asSAID());
 
     if (parentTel.length === 0) {
       throw new Error(`Parent registry TEL is empty: ${parentRegistryId}`);
@@ -230,14 +231,14 @@ export async function createRegistry(
     await store.putEvent(finalParentIxnBytes);
 
     // ===== INDEXER UPDATE: Parent TEL IXN =====
-    await WriteTimeIndexer.withStore(store).addTelEvent(parentRegistryId, finalParentIxnBytes);
+    await WriteTimeIndexer.withStore(store).addTelEvent(s(parentRegistryId).asSAID(), finalParentIxnBytes);
   }
 
   // Store alias mapping in KERI storage
-  await store.putAlias('tel', registryId, alias);
+  await store.putAlias('tel', s(registryId).asSAID(), alias);
 
   // ===== INDEXER UPDATE: Alias =====
-  await WriteTimeIndexer.withStore(store).setAlias('TELs', registryId, alias);
+  await WriteTimeIndexer.withStore(store).setAlias('TELs', s(registryId).asSAID(), alias);
 
   return { registryId, vcp, ixn };
 }
@@ -288,7 +289,7 @@ export async function createSchema(
   await store.putSchema(saidified);
 
   // Store alias mapping
-  await store.putAlias('schema', schemaId, alias);
+  await store.putAlias('schema', s(schemaId).asSAID(), alias);
 
   return { schemaId, schema: saidified };
 }
@@ -314,7 +315,7 @@ export async function issueCredential(
   if (edges) {
     for (const [edgeName, edge] of Object.entries(edges)) {
       // Check if linked ACDC exists
-      const linkedAcdc = await store.getACDC(edge.n);
+      const linkedAcdc = await store.getACDC(s(edge.n).asSAID());
       if (!linkedAcdc) {
         throw new Error(`Linked ACDC not found: ${edge.n} (edge: ${edgeName})`);
       }
@@ -372,7 +373,7 @@ export async function issueCredential(
   await store.kv.putStructured!(acdcKey, encodeJson(saidified));
 
   // Create issuance event in TEL
-  const telEvents = await store.listTel(registryId);
+  const telEvents = await store.listTel(s(registryId).asSAID());
   const sn = telEvents.length; // Next sequence number
 
   const iss = issue({
@@ -411,7 +412,7 @@ export async function issueCredential(
   await store.putEvent(finalIssBytes);
 
   // ===== INDEXER UPDATE: ISS event =====
-  await WriteTimeIndexer.withStore(store).addTelEvent(registryId, finalIssBytes);
+  await WriteTimeIndexer.withStore(store).addTelEvent(s(registryId).asSAID(), finalIssBytes);
 
   return { credentialId, acdc: saidified, iss: { sad: issWithSigs } };
 }
@@ -431,7 +432,7 @@ export async function revokeCredential(
   const { registryId, credentialId, issuerAid } = params;
 
   // Find the issuance event to get its SAID (dig)
-  const telEvents = await store.listTel(registryId);
+  const telEvents = await store.listTel(s(registryId).asSAID());
   const issEvent = telEvents.find(
     e => e.meta.t === 'iss' && e.meta.acdcSaid === credentialId
   );
@@ -466,7 +467,7 @@ export async function revokeCredential(
   await store.putEvent(finalRevBytes);
 
   // ===== INDEXER UPDATE: REV event =====
-  await WriteTimeIndexer.withStore(store).addTelEvent(registryId, finalRevBytes);
+  await WriteTimeIndexer.withStore(store).addTelEvent(s(registryId).asSAID(), finalRevBytes);
 
   return { rev };
 }
@@ -476,10 +477,10 @@ export async function revokeCredential(
  */
 export async function getByAlias(
   store: KerStore,
-  scope: string,
+  scope: 'kel' | 'tel' | 'schema' | 'acdc',
   alias: string
 ): Promise<string | null> {
-  return store.aliasToId(scope, alias);
+  return store.getAliasSaid(scope, alias);
 }
 
 /**
@@ -489,7 +490,7 @@ export async function listIdentityEvents(
   store: KerStore,
   aid: string
 ) {
-  return store.listKel(aid);
+  return store.listKel(s(aid).asAID());
 }
 
 /**
@@ -499,5 +500,5 @@ export async function listRegistryEvents(
   store: KerStore,
   registryId: string
 ) {
-  return store.listTel(registryId);
+  return store.listTel(s(registryId).asSAID());
 }

@@ -29,6 +29,20 @@ export type AID = string & { readonly __brand: 'AID' }
 export type ALIAS = string & { readonly __brand: 'ALIAS' }
 
 /**
+ * String operations helper for branded type conversions
+ * Provides a fluent API for converting strings to branded types
+ * 
+ * Usage: s('someId').asAID(), s('someHash').asSAID(), etc.
+ */
+export function s(str: string) {
+  return {
+    asAID: (): AID => str as AID,
+    asSAID: (): SAID => str as SAID,
+    asALIAS: (): ALIAS => str as ALIAS,
+  };
+}
+
+/**
  * KeyPair represents a public/private key pair
  *
  * Used for signing and verifying KERI events.

@@ -74,7 +74,7 @@ export function createSchemaDSL(schema: Schema, store: KerStore): SchemaDSL {
 
     async delete(): Promise<void> {
       // Delete the schema alias mapping
-      await store.delAlias('schema', schema.alias, true);
+      await store.delAlias('schema', schema.alias);
       // Note: The event itself remains in storage (immutable), but is no longer accessible by alias
     },
   };

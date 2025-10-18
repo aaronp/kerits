@@ -19,7 +19,6 @@ import type {
   SchemaExport,
   Contact,
   Mnemonic,
-  KelEvent,
   TelEvent,
   RegistryOptions,
   IssueParams,
@@ -27,7 +26,8 @@ import type {
   JSONSchema7,
   JSONSchema7Property,
 } from './common';
-import type { ExportDSL } from './sync';
+import type { KelEvent } from '../../../types/keri';
+import type { ExportDSL, ExportOptions, CESRBundle } from './sync';
 import type { ContactSyncDSL } from './contact-sync';
 import type { IndexedRegistry, IndexedACDC, SchemaUsage, CounterpartyInfo, TELEventSummary } from '../../indexer/types';
 
@@ -256,7 +256,7 @@ export interface ACDCDSL {
    * Get edge blocks from this credential
    * @returns Map of edge names to edge blocks
    */
-  getEdges(): Promise<Record<string, EdgeBlock>>;
+  getEdges(): Promise<Record<string, any>>;
 
   /**
    * Get credentials this ACDC links to via edges

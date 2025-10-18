@@ -4,6 +4,8 @@
  * Uses @noble/ed25519 for browser-compatible Ed25519 operations.
  */
 
+import * as ed from '@noble/ed25519';
+
 /**
  * CESR matter codes for Ed25519 keys
  */

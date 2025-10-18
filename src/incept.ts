@@ -182,7 +182,7 @@ export function incept(options: InceptOptions): InceptionEvent {
   serialized = JSON.stringify(ked);
 
   return {
-    ked,
+    ked: ked as KeriInceptionEvent,
     raw: serialized,
     pre: ked.i,
     said: ked.d,

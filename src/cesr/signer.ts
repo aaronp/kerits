@@ -11,7 +11,7 @@ import { sha512 } from '@noble/hashes/sha2.js';
 import { concatBytes } from '@noble/hashes/utils.js';
 
 // Configure noble/ed25519 for both v2.x and v3.x APIs
-ed.etc.sha512Sync = (...m) => sha512(ed.etc.concatBytes(...m));
+(ed as any).etc.sha512Sync = (...m: any[]) => sha512(concatBytes(...m));
 (ed as any).hashes.sha512 = (...m: Uint8Array[]) => sha512(concatBytes(...m));
 (ed as any).hashes.sha512Async = async (...m: Uint8Array[]) => sha512(concatBytes(...m));
 
@@ -162,6 +162,6 @@ export class Cigar extends Matter {
  * Create a new signer with random seed
  */
 export function newSigner(transferable: boolean = true): Signer {
-  const seed = ed.etc.randomPrivateKey();
+  const seed = (ed as any).etc.randomPrivateKey();
   return new Signer({ raw: seed, transferable });
 }

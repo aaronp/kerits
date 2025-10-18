@@ -8,6 +8,7 @@
 
 import type { KerStore } from '../../../storage/types';
 import type { ContactsDSL, Contact } from '../types';
+import { s } from '../../../types/keri';
 
 const REMOTES_PREFIX = 'remotes/';
 
@@ -119,7 +120,7 @@ export function createContactsDSL(store: KerStore): ContactsDSL {
       }
 
       // Get all KEL events for this AID
-      const kelEvents = await store.listKel(contact.aid);
+      const kelEvents = await store.listKel(s(contact.aid).asAID());
 
       if (kelEvents.length === 0) {
         throw new Error(`No KEL events found for contact: ${alias} (${contact.aid})`);

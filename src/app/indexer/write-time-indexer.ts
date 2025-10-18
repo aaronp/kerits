@@ -14,6 +14,7 @@ import type { KerStore } from '../../storage/types';
 import type { SAID, AID } from '../../storage/types';
 import { parseCesrStream, parseIndexedSignatures } from '../signing';
 import { verifyEvent } from '../verification';
+import { s } from '../../types/keri';
 import type {
   IndexerState,
   KELEntry,
@@ -26,7 +27,7 @@ import type {
 } from './types';
 
 export class WriteTimeIndexer {
-  constructor(private store: KerStore) {}
+  constructor(private store: KerStore) { }
 
   /**
    * Factory method to create indexer and ensure detailed error context
@@ -47,7 +48,7 @@ export class WriteTimeIndexer {
    *
    * @throws {Error} If event lacks required signature/publicKey (fail-fast)
    */
-  async addKelEvent(kelSaid: SAID, eventBytes: Uint8Array): Promise<void> {
+  async addKelEvent(kelAid: AID, eventBytes: Uint8Array): Promise<void> {
     try {
       // Parse event and extract metadata
       const parsed = parseCesrStream(eventBytes);
@@ -60,7 +61,7 @@ export class WriteTimeIndexer {
       const event = JSON.parse(eventText.substring(jsonStart));
 
       // Extract signatures and public keys
-      const signers = await this.extractSigners(parsed, event);
+      const signers = await this.extractSigners({ ...parsed, signatures: parsed.signatures || undefined }, event);
       if (signers.length === 0) {
         throw new Error(
           `INTEGRITY ERROR: KEL event ${event.d} has no signatures. ` +
@@ -88,10 +89,10 @@ export class WriteTimeIndexer {
       await this.verifyKelEntry(kelEntry, eventBytes);
 
       // Store in index
-      await this.appendKelEntry(kelSaid, kelEntry);
+      await this.appendKelEntry(kelAid, kelEntry);
     } catch (error) {
       throw new Error(
-        `Failed to update indexer for KEL ${kelSaid}: ${error}. ` +
+        `Failed to update indexer for KEL ${kelAid}: ${error}. ` +
         `KERI event was stored but index is now inconsistent.`
       );
     }
@@ -116,7 +117,7 @@ export class WriteTimeIndexer {
       const event = JSON.parse(eventText.substring(jsonStart));
 
       // Extract signatures and public keys
-      const signers = await this.extractSigners(parsed, event);
+      const signers = await this.extractSigners({ ...parsed, signatures: parsed.signatures || undefined }, event);
       if (signers.length === 0) {
         throw new Error(
           `INTEGRITY ERROR: TEL event ${event.d} has no signatures. ` +
@@ -196,8 +197,8 @@ export class WriteTimeIndexer {
   /**
    * Get all KEL events for an identifier
    */
-  async getKelEvents(kelSaid: SAID): Promise<KELEntry[]> {
-    const key = `xref:kel:${kelSaid}`;
+  async getKelEvents(kelAid: AID): Promise<KELEntry[]> {
+    const key = `xref:kel:${kelAid}`;
     const data = await this.store.kv.get(key);
 
     if (!data) return [];
@@ -227,7 +228,7 @@ export class WriteTimeIndexer {
     const telAliases = await this.getAliases('TELs');
 
     for (const telId of Object.keys(telAliases.byId)) {
-      const events = await this.getTelEvents(telId);
+      const events = await this.getTelEvents(s(telId).asSAID());
 
       // Find ISS event for this credential
       const issEvent = events.find(
@@ -238,8 +239,8 @@ export class WriteTimeIndexer {
         // Check if there's a subsequent REV event
         const revEvent = events.find(
           e => e.eventType === 'rev' &&
-               e.acdcSaid === credentialId &&
-               e.sequenceNumber > issEvent.sequenceNumber
+            e.acdcSaid === credentialId &&
+            e.sequenceNumber > issEvent.sequenceNumber
         );
 
         return revEvent ? 'revoked' : 'issued';
@@ -264,7 +265,7 @@ export class WriteTimeIndexer {
     const telAliases = await this.getAliases('TELs');
 
     for (const telId of Object.keys(telAliases.byId)) {
-      const events = await this.getTelEvents(telId);
+      const events = await this.getTelEvents(s(telId).asSAID());
 
       const issEvent = events.find(
         e => e.eventType === 'iss' && e.acdcSaid === credentialId
@@ -361,25 +362,25 @@ export class WriteTimeIndexer {
     // Export KELs
     const kelAliases = await this.getAliases('KELs');
     for (const kelId of Object.keys(kelAliases.byId)) {
-      state.kels[kelId] = await this.getKelEvents(kelId);
+      state.kels[kelId] = await this.getKelEvents(s(kelId).asAID());
     }
 
     // Export TELs
     const telAliases = await this.getAliases('TELs');
     for (const telId of Object.keys(telAliases.byId)) {
-      state.tels[telId] = await this.getTelEvents(telId);
+      state.tels[telId] = await this.getTelEvents(s(telId).asSAID());
     }
 
     // Export aliases
-    state.aliasById.schemas = (await this.getAliases('schemas')).byId;
-    state.aliasById.KELs = kelAliases.byId;
-    state.aliasById.TELs = telAliases.byId;
-    state.aliasById.ACDCs = (await this.getAliases('ACDCs')).byId;
+    state.aliasById.schemas = (await this.getAliases('schemas')).byId as { [SAID: string]: string };
+    state.aliasById.KELs = kelAliases.byId as { [SAID: string]: string };
+    state.aliasById.TELs = telAliases.byId as { [SAID: string]: string };
+    state.aliasById.ACDCs = (await this.getAliases('ACDCs')).byId as { [SAID: string]: string };
 
-    state.idsByAlias.schemas = (await this.getAliases('schemas')).byAlias;
-    state.idsByAlias.KELs = kelAliases.byAlias;
-    state.idsByAlias.TELs = telAliases.byAlias;
-    state.idsByAlias.ACDCs = (await this.getAliases('ACDCs')).byAlias;
+    state.idsByAlias.schemas = (await this.getAliases('schemas')).byAlias as { [alias: string]: SAID };
+    state.idsByAlias.KELs = kelAliases.byAlias as { [alias: string]: SAID };
+    state.idsByAlias.TELs = telAliases.byAlias as { [alias: string]: SAID };
+    state.idsByAlias.ACDCs = (await this.getAliases('ACDCs')).byAlias as { [alias: string]: SAID };
 
     return state;
   }
@@ -397,15 +398,15 @@ export class WriteTimeIndexer {
     const kelAliases = await this.getAliases('KELs');
     for (const [kelId, alias] of Object.entries(kelAliases.byId)) {
       try {
-        const indexedEvents = await this.getKelEvents(kelId);
-        const keriEvents = await this.store.listKel(kelId);
+        const indexedEvents = await this.getKelEvents(s(kelId).asAID());
+        const keriEvents = await this.store.listKel(s(kelId).asAID());
 
         totalKelEvents += keriEvents.length;
 
         if (indexedEvents.length !== keriEvents.length) {
           errors.push({
             type: 'event-mismatch',
-            kelOrTelId: kelId,
+            kelOrTelId: s(kelId).asSAID(),
             message: `KEL ${alias} has ${keriEvents.length} events in KERI but ${indexedEvents.length} in index`,
           });
         }
@@ -418,7 +419,7 @@ export class WriteTimeIndexer {
             errors.push({
               type: 'missing-event',
               eventId: indexedEvent.eventId,
-              kelOrTelId: kelId,
+              kelOrTelId: s(kelId).asSAID(),
               message: `Event ${indexedEvent.eventId} in index but not in KERI storage`,
             });
             continue;
@@ -430,7 +431,7 @@ export class WriteTimeIndexer {
       } catch (error) {
         errors.push({
           type: 'corrupted-data',
-          kelOrTelId: kelId,
+          kelOrTelId: s(kelId).asSAID(),
           message: `Failed to verify KEL ${alias}: ${error}`,
         });
       }
@@ -440,15 +441,15 @@ export class WriteTimeIndexer {
     const telAliases = await this.getAliases('TELs');
     for (const [telId, alias] of Object.entries(telAliases.byId)) {
       try {
-        const indexedEvents = await this.getTelEvents(telId);
-        const keriEvents = await this.store.listTel(telId);
+        const indexedEvents = await this.getTelEvents(s(telId).asSAID());
+        const keriEvents = await this.store.listTel(s(telId).asSAID());
 
         totalTelEvents += keriEvents.length;
 
         if (indexedEvents.length !== keriEvents.length) {
           errors.push({
             type: 'event-mismatch',
-            kelOrTelId: telId,
+            kelOrTelId: s(telId).asSAID(),
             message: `TEL ${alias} has ${keriEvents.length} events in KERI but ${indexedEvents.length} in index`,
           });
         }
@@ -461,7 +462,7 @@ export class WriteTimeIndexer {
             errors.push({
               type: 'missing-event',
               eventId: indexedEvent.eventId,
-              kelOrTelId: telId,
+              kelOrTelId: s(telId).asSAID(),
               message: `Event ${indexedEvent.eventId} in index but not in KERI storage`,
             });
             continue;
@@ -473,7 +474,7 @@ export class WriteTimeIndexer {
       } catch (error) {
         errors.push({
           type: 'corrupted-data',
-          kelOrTelId: telId,
+          kelOrTelId: s(telId).asSAID(),
           message: `Failed to verify TEL ${alias}: ${error}`,
         });
       }
@@ -657,7 +658,7 @@ export class WriteTimeIndexer {
         }
 
         // Now get the issuer's keys
-        const issuerKelEvents = await this.store.listKel(issuerAid);
+        const issuerKelEvents = await this.store.listKel(s(issuerAid).asAID());
         for (let i = issuerKelEvents.length - 1; i >= 0; i--) {
           const kelEvent = issuerKelEvents[i];
           const { event: eventBytes } = parseCesrStream(kelEvent.raw);
@@ -876,11 +877,11 @@ export class WriteTimeIndexer {
   /**
    * Append KEL entry to storage
    */
-  private async appendKelEntry(kelSaid: SAID, entry: KELEntry): Promise<void> {
-    const entries = await this.getKelEvents(kelSaid);
+  private async appendKelEntry(kelAid: AID, entry: KELEntry): Promise<void> {
+    const entries = await this.getKelEvents(kelAid);
     entries.push(entry);
 
-    const key = `xref:kel:${kelSaid}`;
+    const key = `xref:kel:${kelAid}`;
     const data = new TextEncoder().encode(JSON.stringify(entries, null, 2));
 
     await this.store.kv.put(key, data);
