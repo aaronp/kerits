@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Toast, useToast } from './ui/toast';
 import { useStore } from '../store/useStore';
 import { getDSL } from '../lib/dsl';
-import { Network, FileText, Moon, Sun, LogOut, UserCircle, User, Pencil, Users, Share2, ChevronRight, ChevronLeft, Home, MessageCircle, Bug } from 'lucide-react';
+import { Network, FileText, Moon, Sun, LogOut, UserCircle, User, Pencil, Users, Share2, ChevronRight, ChevronLeft, Home, MessageCircle } from 'lucide-react';
 import keritsLogo from '/kerits.jpg';
 import {
   DropdownMenu,
@@ -28,7 +28,6 @@ import { MyContact } from './MyContact';
 import { Messages } from './Messages';
 import { StatusFooter } from './StatusFooter';
 import { Explorer } from './explorer/Explorer';
-import { AuthDebugger } from './AuthDebugger';
 import { AuthLayout } from './auth/AuthLayout';
 import { useTheme } from '../lib/theme-provider';
 import { useUser } from '../lib/user-provider';
@@ -292,16 +291,6 @@ export function Dashboard() {
               {sidebarExpanded && <span>Messages</span>}
             </Button>
             <Button
-              variant={location.pathname.includes('/debug/auth') ? 'default' : 'ghost'}
-              size={sidebarExpanded ? 'default' : 'icon'}
-              className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${location.pathname.includes('/debug/auth') ? 'bg-orange-500 text-white' : 'text-orange-500'}`}
-              onClick={() => navigate(route('/debug/auth'))}
-              title="Auth Debugger"
-            >
-              <Bug className={`h-5 w-5 ${sidebarExpanded ? 'mr-2' : ''}`} />
-              {sidebarExpanded && <span>Auth Debug</span>}
-            </Button>
-            <Button
               variant={activeTab === 'contacts' ? 'default' : 'ghost'}
               size={sidebarExpanded ? 'default' : 'icon'}
               className={`${sidebarExpanded ? 'mx-2 justify-start' : 'mx-auto'} ${activeTab === 'contacts' ? 'bg-primary text-primary-foreground' : ''}`}
@@ -382,7 +371,6 @@ export function Dashboard() {
                   {/* More specific routes first - explorer with account alias */}
                   <Route path="/explorer/:accountAlias/*" element={<Explorer />} />
                   <Route path="/messages" element={<div className="container mx-auto px-4 py-6"><Messages /></div>} />
-                  <Route path="/debug/auth" element={<div className="container mx-auto px-4 py-6"><AuthDebugger /></div>} />
                   <Route path="/schemas" element={<div className="container mx-auto px-4 py-6"><Schemas /></div>} />
                   <Route path="/schemas/new" element={<div className="container mx-auto px-4 py-6"><SchemaCreator /></div>} />
                   <Route path="/credentials" element={<div className="container mx-auto px-4 py-6"><Credentials /></div>} />

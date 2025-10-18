@@ -308,25 +308,6 @@ export class ConvexMessageBus implements MessageBus {
     return await keritsSigner(payload, signerOrKey, keyIndex);
   }
 
-  private reconstructPKCS8(rawPrivateKey: Uint8Array): Uint8Array {
-    const pkcs8Header = new Uint8Array([
-      0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70,
-      0x04, 0x22, 0x04, 0x20,
-    ]);
-    const result = new Uint8Array(pkcs8Header.length + rawPrivateKey.length);
-    result.set(pkcs8Header, 0);
-    result.set(rawPrivateKey, pkcs8Header.length);
-    return result;
-  }
-
-  private uint8ArrayToBase64Url(bytes: Uint8Array): string {
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    const base64 = btoa(binary);
-    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-  }
 
   // ============================================================================
   // WebSocket Subscription (real-time push)
