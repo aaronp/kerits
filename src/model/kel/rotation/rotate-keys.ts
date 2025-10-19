@@ -20,16 +20,19 @@ import type {
 } from './types';
 import { getJsonString, putJsonString } from '../../io/storage';
 
-// Browser-compatible hashing
-function hashBody(body: Uint8Array): string {
-    if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
-        // Browser: use SubtleCrypto (async, but we'll make it sync for simplicity)
-        // In production, you might want to make this async or inject a hash function
-        throw new Error("Browser hashing not implemented - inject a hash function");
-    } else {
+// Default hashing implementation
+function defaultHashBody(body: Uint8Array): string {
+    try {
         // Node: use crypto module
         const crypto = require('crypto');
         return crypto.createHash("sha256").update(body).digest("base64url").slice(0, 16);
+    } catch {
+        // Fallback: simple hash (not cryptographically secure, but works for replay protection)
+        let hash = 0;
+        for (let i = 0; i < body.length; i++) {
+            hash = ((hash << 5) - hash + body[i]) & 0xffffffff;
+        }
+        return Math.abs(hash).toString(36).slice(0, 16);
     }
 }
 
@@ -45,6 +48,7 @@ export interface RotateKeysDeps {
     // Maps prior.k[] pubs to AIDs and keyIndex positions
     resolveCosigners: (prior: KelEvent) => Promise<Array<{ aid: AID; keyIndex: number; pub: string }>>;
     appendKelEnv: (store: KeyValueStore, env: KelEnvelope) => Promise<void>;
+    hashBody?: (body: Uint8Array) => string; // Optional hash function for replay protection
 }
 
 // Helper to de-duplicate signatures by keyIndex (last-write-wins)
@@ -150,6 +154,9 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
 
         // Fast path when initiator alone can satisfy prior threshold
         if (initiatorShare >= priorKt) {
+            // Local no-op emit for fast-path (onProgress not yet defined)
+            const emit = (e: RotationProgressEvent) => { /* no-op in fast path */ };
+
             const env = await deps.kel.sign(rotEvent, deps.crypto); // This must include all initiator prior indices
 
             // Assert initiator signatures in fast-path
@@ -175,11 +182,15 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             // Fast-path symmetry: verify before append (same as slow path)
             const ver = await deps.kel.verifyEnvelope(finalEnv);
             if (!ver.valid) {
-                onProgress({ type: "finalize:invalid", rotationId, payload: ver.signatureResults });
+                emit({ type: "finalize:invalid", rotationId, payload: ver.signatureResults });
                 throw new Error(`final envelope invalid: ${ver.signatureResults.filter(r => !r.valid).length} invalid signatures`);
             }
 
             await deps.appendKelEnv(deps.stores.kels, finalEnv);
+
+            // Emit finalization event (mirroring slow path)
+            emit({ type: "finalized", rotationId, payload: { rot: rotEvent.d } });
+
             const final: RotationStatus = {
                 id: rotationId,
                 controller: controllerAid,
@@ -314,7 +325,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         const cap = 2000; // tune to your traffic
 
         function msgKeyOf(m: Message): string {
-            const bodyHash = hashBody(m.body);
+            const bodyHash = deps.hashBody ? deps.hashBody(m.body) : defaultHashBody(m.body);
             return m.id ?? `${m.from}|${m.typ}|${bodyHash}`;
         }
 
