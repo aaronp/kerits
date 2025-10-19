@@ -25,6 +25,9 @@ export interface Crypto {
     /** Get current key threshold */
     threshold(): number;          // `kt`
 
+    /** Get prior public keys (for rotation signing) */
+    priorKeys?(): string[];       // prior `k` (optional, for initiator share calculation)
+
     /** Get next commitment details */
     nextCommit(): { n: SAID; nt: number; nextKeys: string[] }; // committed next set
 }

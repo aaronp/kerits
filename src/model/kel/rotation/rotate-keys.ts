@@ -41,6 +41,12 @@ function mergeSignatures(existing: { keyIndex: number; sig: string }[], add: { k
     return [...map.entries()].map(([keyIndex, sig]) => ({ keyIndex, sig }));
 }
 
+// Helper to count how many prior keys the initiator controls
+function countInitiatorPriorKeys(priorKeys: string[], initiatorPriorKeys: string[]): number {
+    const set = new Set(initiatorPriorKeys);
+    return priorKeys.reduce((acc, k) => acc + (set.has(k) ? 1 : 0), 0);
+}
+
 export function makeRotateKeys(deps: RotateKeysDeps) {
     return async function rotateKeys(
         controllerAid: AID,
@@ -100,6 +106,10 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         const priorKt = deps.kel.decodeThreshold(prior.kt!);
         const cosigners = await deps.resolveCosigners(prior);
 
+        // Calculate initiator's share of prior keys for threshold calculation
+        const initiatorPriorKeys = deps.crypto.priorKeys?.() ?? [];
+        const initiatorShare = countInitiatorPriorKeys(prior.k!, initiatorPriorKeys);
+
         // Fast path for 1-of-1 rotations
         if (priorKt === 1) {
             const env = await deps.kel.sign(rotEvent, deps.crypto);
@@ -114,12 +124,13 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 totalKeys: prior.k!.length,
                 collected: 1,
                 missing: 0,
+                // Mark any prior keys controlled by the initiator as 'signed'
                 signers: cosigners.map(c => ({
                     aid: c.aid,
                     keyIndex: c.keyIndex,
                     required: true,
-                    signed: true,
-                    signature: c.keyIndex === 0 ? "self-signed" : undefined
+                    signed: initiatorPriorKeys.includes(prior.k![c.keyIndex]),
+                    signature: undefined
                 })),
                 priorEvent: prior.d,
                 revealCommit: revealSaid,
@@ -154,6 +165,11 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         };
 
         const docKey = `rotation:${rotationId}`;
+
+        // Persist proposal for deterministic resend
+        await putJson(deps.stores.index, `${docKey}:proposal` as SAID, proposal);
+
+        const initialRequired = Math.max(0, priorKt - initiatorShare);
         const status0: RotationStatus = {
             id: rotationId,
             controller: controllerAid,
@@ -163,7 +179,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             required: priorKt,
             totalKeys: prior.k!.length,
             collected: 0,
-            missing: priorKt,
+            missing: initialRequired,
             signers: cosigners.map(c => ({
                 aid: c.aid,
                 keyIndex: c.keyIndex,
@@ -213,7 +229,10 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             }
 
             const signer = status.signers.find(s => s.keyIndex === msg.keyIndex);
-            if (!signer) return;
+            if (!signer) {
+                onProgress({ type: "error", rotationId, payload: "unknown signer for keyIndex" });
+                return;
+            }
 
             // Prevent duplicate signatures
             if (signer.signed) {
@@ -238,20 +257,15 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 return;
             }
 
-            // Verify signature over canonical rot bytes using PRIOR key with domain tagging for replay protection
+            // Verify signature over canonical rot bytes (matches what will be published)
             const canon = deps.kel.canonicalBytes(rotEvent);
-            const domain = enc.encode(`keri.rot.v1|${rotationId}|`);
-            const toVerify = new Uint8Array(domain.length + canon.length);
-            toVerify.set(domain);
-            toVerify.set(canon, domain.length);
-
             const pub = prior.k![msg.keyIndex];
             if (!msg.sig) {
                 onProgress({ type: "error", rotationId, payload: "missing signature" });
                 return;
             }
             const signature = msg.sig as string; // Type assertion for JSON parsing
-            const ok = await deps.crypto.verify(toVerify, signature, pub);
+            const ok = await deps.crypto.verify(canon, signature, pub);
             if (!ok) {
                 onProgress({ type: "error", rotationId, payload: "bad signature" });
                 return;
@@ -260,9 +274,12 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             signer.signed = true;
             signer.signature = msg.sig;
             signer.seenAt = deps.clock();
+
+            // Calculate threshold accounting for initiator's share
+            const required = Math.max(0, status.required - initiatorShare);
             status.collected = status.signers.filter(s => s.signed && s.required).length;
-            status.missing = Math.max(0, status.required - status.collected);
-            status.phase = status.collected >= status.required ? "finalizable" : "collecting";
+            status.missing = Math.max(0, required - status.collected);
+            status.phase = status.collected >= required ? "finalizable" : "collecting";
 
             // If we've reached the threshold, finalize immediately
             if (status.phase === "finalizable") {
@@ -328,6 +345,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             async awaitAll(opts) {
                 const timeoutMs = opts?.timeoutMs ?? 7 * 24 * 3600_000;
                 const start = Date.now();
+                let warnedDeadline = false;
                 while (Date.now() - start < timeoutMs) {
                     const s = await tryFinalize();
                     if (s.phase === "finalized" || s.phase === "aborted" || s.phase === "failed") {
@@ -340,8 +358,9 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                         if (final.phase === "finalized") return final;
                     }
 
-                    // Check for deadline warning (24 hours before deadline)
-                    if (s.deadline && Date.parse(s.deadline) - Date.now() < 86_400_000) {
+                    // Check for deadline warning (24 hours before deadline) - throttled to once
+                    if (!warnedDeadline && s.deadline && Date.parse(s.deadline) - Date.now() < 86_400_000) {
+                        warnedDeadline = true;
                         onProgress({ type: "deadline:near", rotationId });
                     }
 
@@ -396,7 +415,11 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
 
                 // Re-broadcast proposal to missing cosigners
                 const missingSigners = status.signers.filter(s => !s.signed && s.required);
-                const body = enc.encode(JSON.stringify(proposal));
+
+                // Use persisted proposal for deterministic resend
+                const savedProposal = await getJson<RotationProposal>(deps.stores.index, `${docKey}:proposal` as SAID);
+                const proposalToSend = savedProposal ?? proposal;
+                const body = enc.encode(JSON.stringify(proposalToSend));
                 for (const s of missingSigners) {
                     await deps.transport.send({
                         id: rotationId,
