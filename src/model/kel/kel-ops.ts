@@ -52,6 +52,7 @@ export interface InceptionParams {
  * Parameters for creating a rotation event
  */
 export interface RotationParams {
+    controller: AID;
     currentKeys: string[];
     nextKeys: string[];
     previousEvent: SAID;
@@ -259,9 +260,8 @@ export class KEL {
             throw new Error(`Invalid next threshold: ${nextThreshold}, must be 1-${nextKeys.length}`);
         }
 
-        // For rotation, the identifier comes from the previous event
-        // We'll need to extract it from the KEL chain context
-        const identifier = 'placeholder'; // This should be passed in or extracted
+        // For rotation, the identifier comes from the controller parameter
+        const identifier = params.controller;
 
         // Compute next key commitment
         const nextKeyCommitment = KEL.computeNextKeyCommitment(nextKeys, nextThreshold);
