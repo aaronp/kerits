@@ -124,12 +124,12 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 totalKeys: prior.k!.length,
                 collected: 1,
                 missing: 0,
-                // Mark any prior keys controlled by the initiator as 'signed'
+                // Mark initiator-controlled prior keys as not required; they're satisfied by self-signing at publish.
                 signers: cosigners.map(c => ({
                     aid: c.aid,
                     keyIndex: c.keyIndex,
-                    required: true,
-                    signed: initiatorPriorKeys.includes(prior.k![c.keyIndex]),
+                    required: !(c.aid === controllerAid || (prior.k?.[c.keyIndex] && initiatorPriorKeys.includes(prior.k[c.keyIndex]!))),
+                    signed: prior.k?.[c.keyIndex] ? initiatorPriorKeys.includes(prior.k[c.keyIndex]!) : false,
                     signature: undefined
                 })),
                 priorEvent: prior.d,
@@ -170,6 +170,17 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         await putJson(deps.stores.index, `${docKey}:proposal` as SAID, proposal);
 
         const initialRequired = Math.max(0, priorKt - initiatorShare);
+        // Build a set of initiator-controlled prior key indices. If resolveCosigners maps the
+        // initiator's prior keys to an AID equal to controllerAid, or if the prior pub appears
+        // in initiatorPriorKeys, we treat those as NOT required for collection (we'll add them
+        // at finalize via self signing).
+        const initiatorControlledIdx = new Set<number>();
+        for (const c of cosigners) {
+            const pubAtIndex = prior.k?.[c.keyIndex];
+            if (pubAtIndex && (c.aid === controllerAid || initiatorPriorKeys.includes(pubAtIndex))) {
+                initiatorControlledIdx.add(c.keyIndex);
+            }
+        }
         const status0: RotationStatus = {
             id: rotationId,
             controller: controllerAid,
@@ -183,7 +194,8 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             signers: cosigners.map(c => ({
                 aid: c.aid,
                 keyIndex: c.keyIndex,
-                required: true,
+                // Only non-initiator signers count toward collection threshold
+                required: !initiatorControlledIdx.has(c.keyIndex),
                 signed: false
             })),
             priorEvent: prior.d,
@@ -240,6 +252,16 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 return;
             }
 
+            // Ignore messages from non-required signers (initiator's own indices) to reduce log noise
+            if (!signer.required) {
+                // accept but don't count; optionally store signature if you want it pre-publish
+                signer.signed = true;
+                signer.signature = msg.sig;
+                signer.seenAt = deps.clock();
+                await putJson(deps.stores.index, docKey as SAID, status);
+                return;
+            }
+
             // Prevent duplicate signature values (replay protection)
             if (status.signers.some(s => s.signature === msg.sig)) {
                 onProgress({ type: "error", rotationId, payload: "duplicate signature" });
@@ -259,7 +281,11 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
 
             // Verify signature over canonical rot bytes (matches what will be published)
             const canon = deps.kel.canonicalBytes(rotEvent);
-            const pub = prior.k![msg.keyIndex];
+            const pub = prior.k?.[msg.keyIndex];
+            if (!pub) {
+                onProgress({ type: "error", rotationId, payload: "invalid keyIndex" });
+                return;
+            }
             if (!msg.sig) {
                 onProgress({ type: "error", rotationId, payload: "missing signature" });
                 return;
