@@ -6,7 +6,7 @@
  */
 
 import type { AID, SAID } from '../../io/types';
-import type { KelEvent } from '../../kel/types';
+import type { KelEvent, KelEnvelope } from '../../kel/types';
 
 export type RotationId = string;
 export type RotationPhase =

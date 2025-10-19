@@ -19,7 +19,19 @@ import type {
     RotationProgressEvent
 } from './types';
 import { getJsonString, putJsonString } from '../../io/storage';
-import { createHash } from 'crypto';
+
+// Browser-compatible hashing
+function hashBody(body: Uint8Array): string {
+    if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
+        // Browser: use SubtleCrypto (async, but we'll make it sync for simplicity)
+        // In production, you might want to make this async or inject a hash function
+        throw new Error("Browser hashing not implemented - inject a hash function");
+    } else {
+        // Node: use crypto module
+        const crypto = require('crypto');
+        return crypto.createHash("sha256").update(body).digest("base64url").slice(0, 16);
+    }
+}
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -148,10 +160,25 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 }
             }
 
+            // Extra sanity on self signature indices
+            for (const s of env.signatures) {
+                if (s.keyIndex < 0 || s.keyIndex >= prior.k!.length) {
+                    throw new Error(`self signature keyIndex OOB: ${s.keyIndex}`);
+                }
+            }
+
             const finalEnv: KelEnvelope = {
                 event: env.event,
                 signatures: env.signatures.sort((a, b) => a.keyIndex - b.keyIndex)
             };
+
+            // Fast-path symmetry: verify before append (same as slow path)
+            const ver = await deps.kel.verifyEnvelope(finalEnv);
+            if (!ver.valid) {
+                onProgress({ type: "finalize:invalid", rotationId, payload: ver.signatureResults });
+                throw new Error(`final envelope invalid: ${ver.signatureResults.filter(r => !r.valid).length} invalid signatures`);
+            }
+
             await deps.appendKelEnv(deps.stores.kels, finalEnv);
             const final: RotationStatus = {
                 id: rotationId,
@@ -287,7 +314,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         const cap = 2000; // tune to your traffic
 
         function msgKeyOf(m: Message): string {
-            const bodyHash = createHash("sha256").update(m.body).digest("base64url").slice(0, 16);
+            const bodyHash = hashBody(m.body);
             return m.id ?? `${m.from}|${m.typ}|${bodyHash}`;
         }
 
@@ -403,7 +430,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 signer.signature = msg.sig;
                 signer.seenAt = deps.clock();
                 await putJsonString(deps.stores.index, docKey, status);
-                onProgress({ type: "signature:stored_nonrequired", rotationId, payload: { keyIndex: msg.keyIndex } });
+                onProgress({ type: "signature:stored_nonrequired", rotationId, payload: { keyIndex: msg.keyIndex, signer: signer.aid } });
                 return;
             }
 
@@ -471,7 +498,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             }
 
             await putJsonString(deps.stores.index, docKey, status);
-            onProgress({ type: "signature:accepted", rotationId, payload: { keyIndex: msg.keyIndex } });
+            onProgress({ type: "signature:accepted", rotationId, payload: { keyIndex: msg.keyIndex, signer: signer.aid } });
         });
 
         async function tryFinalize(): Promise<RotationStatus> {
@@ -491,6 +518,13 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 .map(s => ({ keyIndex: s.keyIndex, sig: s.signature! }));
 
             const selfEnv = await deps.kel.sign(rotEvent, deps.crypto); // This must include all initiator prior indices
+
+            // Extra sanity on self signature indices
+            for (const s of selfEnv.signatures) {
+                if (s.keyIndex < 0 || s.keyIndex >= prior.k!.length) {
+                    throw new Error(`self signature keyIndex OOB: ${s.keyIndex}`);
+                }
+            }
 
             const env: KelEnvelope = {
                 event: selfEnv.event,
@@ -589,14 +623,18 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                     rotationId,
                     reason
                 };
-                await deps.transport.send({
-                    id: rotationId,
-                    from: controllerAid,
-                    to: controllerAid,
-                    typ: "keri.rot.abort.v1",
-                    body: enc.encode(JSON.stringify(abort)),
-                    dt: deps.clock()
-                });
+                try {
+                    await deps.transport.send({
+                        id: rotationId,
+                        from: controllerAid,
+                        to: controllerAid,
+                        typ: "keri.rot.abort.v1",
+                        body: enc.encode(JSON.stringify(abort)),
+                        dt: deps.clock()
+                    });
+                } catch (e) {
+                    onProgress({ type: "send:error", rotationId, payload: String(e) });
+                }
                 onProgress({ type: "aborted", rotationId, payload: { reason } });
                 unsub();
             },
