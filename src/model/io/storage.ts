@@ -94,6 +94,20 @@ export async function getJson<T>(store: KeyValueStore, id: SAID): Promise<T | nu
 }
 
 /**
+ * String-key JSON storage helpers (for non-SAID keys like rotation:${id})
+ */
+export async function putJsonString(store: KeyValueStore, key: string, obj: any): Promise<void> {
+    const data = new TextEncoder().encode(JSON.stringify(obj));
+    await store.put(key as SAID, data);
+}
+
+export async function getJsonString<T>(store: KeyValueStore, key: string): Promise<T | null> {
+    const b = await store.get(key as SAID);
+    if (!b) return null;
+    return JSON.parse(new TextDecoder().decode(b)) as T;
+}
+
+/**
  * OOBI resolver from store
  */
 export function oobiFromStore(store: KeyValueStore): import('./types').OOBIResolver {

@@ -18,7 +18,7 @@ import type {
     RotationAbort,
     RotationProgressEvent
 } from './types';
-import { getJson, putJson } from '../../io/storage';
+import { getJson, putJson, getJsonString, putJsonString } from '../../io/storage';
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -137,7 +137,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 nextThreshold: deps.kel.decodeThreshold(rotEvent.nt!)
             };
             const docKey = `rotation:${rotationId}`;
-            await putJson(deps.stores.index, docKey as SAID, final);
+            await putJsonString(deps.stores.index, docKey, final);
             return {
                 awaitAll: async () => final,
                 status: async () => final,
@@ -167,7 +167,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         const docKey = `rotation:${rotationId}`;
 
         // Persist proposal for deterministic resend
-        await putJson(deps.stores.index, `${docKey}:proposal` as SAID, proposal);
+        await putJsonString(deps.stores.index, `${docKey}:proposal`, proposal);
 
         const initialRequired = Math.max(0, priorKt - initiatorShare);
         // Build a set of initiator-controlled prior key indices. If resolveCosigners maps the
@@ -203,7 +203,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             nextThreshold: deps.kel.decodeThreshold(rotEvent.nt!)
         };
 
-        await putJson(deps.stores.index, docKey as SAID, status0);
+        await putJsonString(deps.stores.index, docKey, status0);
 
         // Progress events
         const listeners = new Set<(e: RotationProgressEvent) => void>();
@@ -231,7 +231,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             const msg = JSON.parse(dec.decode(m.body)) as RotationSign;
             if (msg.rotationId !== rotationId) return;
 
-            const status = await getJson<RotationStatus>(deps.stores.index, docKey as SAID);
+            const status = await getJsonString<RotationStatus>(deps.stores.index, docKey);
             if (!status || status.phase === "finalized" || status.phase === "aborted" || status.phase === "failed") return;
 
             // Bounds check on keyIndex
@@ -283,7 +283,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 signer.signed = true;
                 signer.signature = msg.sig;
                 signer.seenAt = deps.clock();
-                await putJson(deps.stores.index, docKey as SAID, status);
+                await putJsonString(deps.stores.index, docKey, status);
                 return;
             }
 
@@ -334,23 +334,23 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
 
             // If we've reached the threshold, finalize immediately
             if (status.phase === "finalizable") {
-                await putJson(deps.stores.index, docKey as SAID, status);
+                await putJsonString(deps.stores.index, docKey, status);
                 onProgress({ type: "status:phase", rotationId, payload: "finalizable" });
                 await tryFinalize(); // Kick off finalization immediately
                 return;
             }
 
-            await putJson(deps.stores.index, docKey as SAID, status);
+            await putJsonString(deps.stores.index, docKey, status);
             onProgress({ type: "signature:accepted", rotationId, payload: { keyIndex: msg.keyIndex } });
         });
 
         async function tryFinalize(): Promise<RotationStatus> {
-            const status = await getJson<RotationStatus>(deps.stores.index, docKey as SAID);
+            const status = await getJsonString<RotationStatus>(deps.stores.index, docKey);
             if (!status) throw new Error("rotation missing");
             if (status.phase !== "finalizable") return status;
 
             // Re-check status after potential race condition
-            const currentStatus = await getJson<RotationStatus>(deps.stores.index, docKey as SAID);
+            const currentStatus = await getJsonString<RotationStatus>(deps.stores.index, docKey);
             if (!currentStatus) throw new Error("rotation missing");
             if (currentStatus.phase === "finalized") return currentStatus;
             if (currentStatus.phase !== "finalizable") return currentStatus;
@@ -386,7 +386,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             });
 
             currentStatus.phase = "finalized";
-            await putJson(deps.stores.index, docKey as SAID, currentStatus);
+            await putJsonString(deps.stores.index, docKey, currentStatus);
             onProgress({ type: "finalized", rotationId, payload: { rot: rotEvent.d } });
             unsub();
             return currentStatus;
@@ -417,10 +417,10 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
 
                     await new Promise(r => setTimeout(r, 1200));
                 }
-                const cur = await getJson<RotationStatus>(deps.stores.index, docKey as SAID);
+                const cur = await getJsonString<RotationStatus>(deps.stores.index, docKey);
                 if (cur) {
                     cur.phase = "failed";
-                    await putJson(deps.stores.index, docKey as SAID, cur);
+                    await putJsonString(deps.stores.index, docKey, cur);
                     unsub(); // prevent leaks
                     if (opts?.throwOnFail) throw new Error("rotation timed out");
                     return cur;
@@ -428,15 +428,15 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 throw new Error("rotation missing");
             },
             async status() {
-                const s = await getJson<RotationStatus>(deps.stores.index, docKey as SAID);
+                const s = await getJsonString<RotationStatus>(deps.stores.index, docKey);
                 if (!s) throw new Error("rotation missing");
                 return s;
             },
             async abort(reason) {
-                const s = await getJson<RotationStatus>(deps.stores.index, docKey as SAID);
+                const s = await getJsonString<RotationStatus>(deps.stores.index, docKey);
                 if (!s) return;
                 s.phase = "aborted";
-                await putJson(deps.stores.index, docKey as SAID, s);
+                await putJsonString(deps.stores.index, docKey, s);
                 const abort: RotationAbort = {
                     typ: "keri.rot.abort.v1",
                     rotationId,
@@ -461,14 +461,14 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 return tryFinalize();
             },
             async resend() {
-                const status = await getJson<RotationStatus>(deps.stores.index, docKey as SAID);
+                const status = await getJsonString<RotationStatus>(deps.stores.index, docKey);
                 if (!status || status.phase === "finalized" || status.phase === "aborted" || status.phase === "failed") return;
 
                 // Re-broadcast proposal to missing cosigners
                 const missingSigners = status.signers.filter(s => !s.signed && s.required);
 
                 // Use persisted proposal for deterministic resend
-                const savedProposal = await getJson<RotationProposal>(deps.stores.index, `${docKey}:proposal` as SAID);
+                const savedProposal = await getJsonString<RotationProposal>(deps.stores.index, `${docKey}:proposal`);
                 const proposalToSend = savedProposal ?? proposal;
                 const body = enc.encode(JSON.stringify(proposalToSend));
                 for (const s of missingSigners) {
