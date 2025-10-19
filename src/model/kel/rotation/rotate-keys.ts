@@ -110,8 +110,8 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         const initiatorPriorKeys = deps.crypto.priorKeys?.() ?? [];
         const initiatorShare = countInitiatorPriorKeys(prior.k!, initiatorPriorKeys);
 
-        // Fast path for 1-of-1 rotations
-        if (priorKt === 1) {
+        // Fast path when initiator alone can satisfy prior threshold
+        if (initiatorShare >= priorKt) {
             const env = await deps.kel.sign(rotEvent, deps.crypto);
             await deps.appendKelEnv(deps.stores.kels, env);
             const final: RotationStatus = {
@@ -122,14 +122,14 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 deadline: opts?.deadlineMs ? new Date(Date.now() + opts.deadlineMs).toISOString() : undefined,
                 required: priorKt,
                 totalKeys: prior.k!.length,
-                collected: 1,
+                collected: initiatorShare,
                 missing: 0,
                 // Mark initiator-controlled prior keys as not required; they're satisfied by self-signing at publish.
                 signers: cosigners.map(c => ({
                     aid: c.aid,
                     keyIndex: c.keyIndex,
                     required: !(c.aid === controllerAid || (prior.k?.[c.keyIndex] && initiatorPriorKeys.includes(prior.k[c.keyIndex]!))),
-                    signed: prior.k?.[c.keyIndex] ? initiatorPriorKeys.includes(prior.k[c.keyIndex]!) : false,
+                    signed: !!(prior.k?.[c.keyIndex] && initiatorPriorKeys.includes(prior.k[c.keyIndex]!)),
                     signature: undefined
                 })),
                 priorEvent: prior.d,

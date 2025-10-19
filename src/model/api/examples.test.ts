@@ -52,6 +52,11 @@ class RealCrypto implements Crypto {
         const n = KEL.computeNextKeyCommitment(nextKeys, nt);
         return { n, nt, nextKeys };
     }
+
+    priorKeys(): string[] {
+        // Return the public keys that this crypto instance can sign for
+        return this.pubKeys();
+    }
 }
 
 // Real KEL service implementation
