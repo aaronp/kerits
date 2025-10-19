@@ -85,6 +85,13 @@ interface KelService {
     decodeThreshold(kt: string): number;
     saidOfKeyset(k: string[], kt: number): SAID;
     saidOf(ev: KelEvent): SAID;
+    thresholdsEqual(threshold1: string, threshold2: string): boolean;
+    verifyEnvelope(env: KelEnvelope): Promise<{
+        valid: boolean;
+        validSignatures: number;
+        requiredSignatures: number;
+        signatureResults: Array<{ signature: CesrSig; valid: boolean }>;
+    }>;
 }
 
 // Deterministic SAID + "signatures"
@@ -122,6 +129,20 @@ const fakeKelService = (): KelService => ({
     },
     saidOf(ev) {
         return saidOfBytes(new TextEncoder().encode(JSON.stringify(ev)));
+    },
+    thresholdsEqual(threshold1, threshold2) {
+        return threshold1 === threshold2;
+    },
+    async verifyEnvelope(env) {
+        // Simple fake verification - just check that signatures exist
+        const validSignatures = env.signatures.length;
+        const requiredSignatures = 1; // Simple threshold for tests
+        return {
+            valid: validSignatures >= requiredSignatures,
+            validSignatures,
+            requiredSignatures,
+            signatureResults: env.signatures.map(sig => ({ signature: sig, valid: true }))
+        };
     }
 });
 

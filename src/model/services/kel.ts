@@ -60,7 +60,12 @@ export interface KelService {
     /**
      * Verify signatures on a KEL envelope
      */
-    verifyEnvelope(env: KelEnvelope, readPrior: (said: SAID) => Promise<KelEvent | null>): Promise<{ ok: boolean; reason?: string }>;
+    verifyEnvelope(env: KelEnvelope, priorEvent?: KelEvent): Promise<{
+        valid: boolean;
+        validSignatures: number;
+        requiredSignatures: number;
+        signatureResults: Array<{ signature: CesrSig; valid: boolean }>;
+    }>;
 
     // Helper methods
     canonicalBytes(ev: KelEvent): Uint8Array;
@@ -68,4 +73,5 @@ export interface KelService {
     saidOfKeyset(k: string[], kt: number): SAID; // SAID({k, kt})
     decodeThreshold(kt: string): number;
     encodeThreshold(n: number): string;
+    thresholdsEqual(threshold1: string, threshold2: string): boolean;
 }

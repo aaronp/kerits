@@ -101,9 +101,8 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         if (revealSaid !== prior.n) throw new Error("Reveal does not match prior commitment");
 
         // Enforce revealKt === prior.nt (threshold equality)
-        const priorNt = deps.kel.decodeThreshold(prior.nt!);
-        if (revealKt !== priorNt) {
-            throw new Error(`Reveal threshold ${revealKt} must equal prior.nt ${priorNt}`);
+        if (!deps.kel.thresholdsEqual(rotEvent.kt!, prior.nt!)) {
+            throw new Error(`Reveal kt must equal prior nt`);
         }
 
         // Proposal id — SAID of canonical rot body (or SAID of a proposal doc)
@@ -126,21 +125,11 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
 
         // Fast path when initiator alone can satisfy prior threshold
         if (initiatorShare >= priorKt) {
-            const myPriorIdx = getInitiatorPriorIndices();
-            const env = await deps.kel.sign(rotEvent, deps.crypto);
-
-            // Ensure all initiator-controlled prior keys are signed
-            const initiatorSigs = myPriorIdx.map(idx => ({
-                keyIndex: idx,
-                sig: "initiator-signature" // This would be the actual signature from crypto
-            }));
-
+            const env = await deps.kel.sign(rotEvent, deps.crypto); // This must include all initiator prior indices
             const finalEnv: KelEnvelope = {
                 event: env.event,
-                signatures: [...env.signatures, ...initiatorSigs]
-                    .sort((a, b) => a.keyIndex - b.keyIndex)
+                signatures: env.signatures.sort((a, b) => a.keyIndex - b.keyIndex)
             };
-
             await deps.appendKelEnv(deps.stores.kels, finalEnv);
             const final: RotationStatus = {
                 id: rotationId,
@@ -436,20 +425,17 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 .filter(s => s.signed && s.signature)
                 .map(s => ({ keyIndex: s.keyIndex, sig: s.signature! }));
 
-            const myPriorIdx = getInitiatorPriorIndices();
-            const selfEnv = await deps.kel.sign(rotEvent, deps.crypto); // adds your own indexed sig
-
-            // Ensure all initiator-controlled prior keys are signed
-            const initiatorSigs = myPriorIdx.map(idx => ({
-                keyIndex: idx,
-                sig: "initiator-signature" // This would be the actual signature from crypto
-            }));
+            const selfEnv = await deps.kel.sign(rotEvent, deps.crypto); // This must include all initiator prior indices
 
             const env: KelEnvelope = {
                 event: selfEnv.event,
-                signatures: mergeSignatures(cosigs, [...selfEnv.signatures, ...initiatorSigs]) // de-dupe on keyIndex if needed
+                signatures: mergeSignatures(cosigs, selfEnv.signatures)
                     .sort((a, b) => a.keyIndex - b.keyIndex), // stable ordering by keyIndex
             };
+
+            // Optional: final verification before append
+            const ver = await deps.kel.verifyEnvelope(env);
+            if (!ver.valid) throw new Error(`final envelope invalid: ${ver.signatureResults.filter(r => !r.valid).length} invalid signatures`);
 
             // Publish rot to store with all signatures
             await deps.appendKelEnv(deps.stores.kels, env);
