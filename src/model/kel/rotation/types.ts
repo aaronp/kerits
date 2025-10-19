@@ -58,7 +58,8 @@ export interface RotationProgressEvent {
     | "aborted"
     | "error"
     | "resend:proposal"
-    | "send:error";
+    | "send:error"
+    | "send:ok";
     rotationId: RotationId;
     payload?: any;
 }

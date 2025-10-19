@@ -111,6 +111,10 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         const priorKt = deps.kel.decodeThreshold(prior.kt!);
         const cosigners = await deps.resolveCosigners(prior);
 
+        // Calculate initiator's prior keys once, up-front
+        const initiatorPriorKeys = deps.crypto.priorKeys?.() ?? [];
+        const isInitiatorIndex = (i: number) => initiatorPriorKeys.includes(prior.k![i]!);
+
         // Preflight cosigner mapping validation
         {
             const seen = new Set<number>();
@@ -120,19 +124,15 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 if (prior.k![c.keyIndex] !== c.pub) throw new Error("cosigner pub/keyIndex mismatch");
                 seen.add(c.keyIndex);
             }
-            if (seen.size !== prior.k!.length) {
-                // Ensure all *external* indices are mapped
-                for (let i = 0; i < prior.k!.length; i++) {
-                    const isInitiator = initiatorPriorKeys.includes(prior.k![i]!);
-                    if (!isInitiator && !seen.has(i)) {
-                        throw new Error("incomplete cosigner mapping: missing external index " + i);
-                    }
+            // Ensure all *external* indices are mapped
+            for (let i = 0; i < prior.k!.length; i++) {
+                if (!isInitiatorIndex(i) && !seen.has(i)) {
+                    throw new Error("incomplete cosigner mapping: missing external index " + i);
                 }
             }
         }
 
         // Calculate initiator's share of prior keys for threshold calculation
-        const initiatorPriorKeys = deps.crypto.priorKeys?.() ?? [];
         const initiatorShare = countInitiatorPriorKeys(prior.k!, initiatorPriorKeys);
 
         // Fast path when initiator alone can satisfy prior threshold
@@ -269,6 +269,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                     body,
                     dt: now
                 });
+                onProgress({ type: "send:ok", rotationId, payload: { signer: s.aid } });
             } catch (e) {
                 onProgress({ type: "send:error", rotationId, payload: String(e) });
             }
@@ -285,9 +286,10 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
 
         // Subscribe for signatures
         const unsub = deps.transport.channel(controllerAid).subscribe(async (m: Message) => {
-            // Reject exact message replays
-            if (seenMessageIds.has(m.id)) return;
-            seenMessageIds.add(m.id);
+            // Reject exact message replays (with fallback for missing IDs)
+            const msgKey = m.id ?? `${m.from}|${m.typ}|${dec.decode(m.body)}`;
+            if (seenMessageIds.has(msgKey)) return;
+            seenMessageIds.add(msgKey);
 
             if (m.typ !== "keri.rot.sign.v1") return;
             const msg = JSON.parse(dec.decode(m.body)) as RotationSign;
