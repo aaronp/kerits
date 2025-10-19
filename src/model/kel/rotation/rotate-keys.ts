@@ -21,13 +21,14 @@ import type {
 import { getJsonString, putJsonString } from '../../io/storage';
 
 // Default hashing implementation
+// Note: In strict ESM builds and browsers, provide deps.hashBody to avoid require() issues
 function defaultHashBody(body: Uint8Array): string {
     try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { createHash } = require("node:crypto");
         return createHash("sha256").update(body).digest("base64url").slice(0, 16);
     } catch {
-        throw new Error("hashBody not available: provide deps.hashBody in browser environments");
+        throw new Error("hashBody not available: provide deps.hashBody in browser/ESM environments");
     }
 }
 
@@ -334,9 +335,6 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
 
         // Emit status:phase event for collecting
         onProgress({ type: "status:phase", rotationId, payload: "collecting" });
-
-        // Helper to normalize AIDs for comparison (future-proofing)
-        const sameAid = (a: AID, b: AID) => a === b; // replace later if you add normalization
 
         // Message replay protection with capped and hashed set
         const seen = new Set<string>();
