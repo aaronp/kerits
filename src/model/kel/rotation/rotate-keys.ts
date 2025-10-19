@@ -5,7 +5,7 @@
  * as described in the thoughts document.
  */
 
-import type { KeyValueStore, SAID, Bytes, Transport, AID, Message } from '../../io/types';
+import type { KeyValueStore, SAID, Transport, AID, Message } from '../../io/types';
 import type { KelEvent, KelEnvelope, Crypto } from '../../services/types';
 import type { KelService } from '../../services/kel';
 import type {
@@ -210,6 +210,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             createdAt: now,
             deadline: proposal.deadline,
             required: priorKt,
+            requiredExternal: initialRequired,
             totalKeys: prior.k!.length,
             collected: 0,
             missing: initialRequired,
@@ -248,6 +249,9 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         // Emit status:phase event for collecting
         onProgress({ type: "status:phase", rotationId, payload: "collecting" });
 
+        // Helper to normalize AIDs for comparison (future-proofing)
+        const sameAid = (a: AID, b: AID) => a === b; // replace later if you add normalization
+
         // Message replay protection
         const seenMessageIds = new Set<string>();
 
@@ -274,8 +278,8 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             }
 
             // Get the proposal to validate canonical digest
-            const proposal = cachedProposal ?? await getJsonString<RotationProposal>(deps.stores.index, `${docKey}:proposal`);
-            if (!proposal) {
+            const liveProposal = cachedProposal ?? await getJsonString<RotationProposal>(deps.stores.index, `${docKey}:proposal`);
+            if (!liveProposal) {
                 onProgress({ type: "error", rotationId, payload: "proposal not found" });
                 return;
             }
@@ -296,7 +300,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             // then store but do not increment collected.
             if (!signer.required) {
                 // AID must match the mapped signer
-                if (m.from !== signer.aid) {
+                if (!sameAid(m.from, signer.aid)) {
                     onProgress({ type: "error", rotationId, payload: "signer AID mismatch" });
                     return;
                 }
@@ -339,6 +343,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 signer.signature = msg.sig;
                 signer.seenAt = deps.clock();
                 await putJsonString(deps.stores.index, docKey, status);
+                onProgress({ type: "signature:stored_nonrequired", rotationId, payload: { keyIndex: msg.keyIndex } });
                 return;
             }
 
@@ -349,7 +354,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             }
 
             // Authenticate who is signing - compare AID URIs, not object identity
-            if (m.from !== signer.aid) {
+            if (!sameAid(m.from, signer.aid)) {
                 onProgress({ type: "error", rotationId, payload: "signer AID mismatch" });
                 return;
             }
@@ -368,7 +373,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             }
 
             // Validate that cosigner is signing the correct canonical digest
-            if (msg.canonicalDigest && msg.canonicalDigest !== proposal.canonicalDigest) {
+            if (msg.canonicalDigest && msg.canonicalDigest !== liveProposal.canonicalDigest) {
                 onProgress({ type: "error", rotationId, payload: "canonical digest mismatch (stale/altered proposal)" });
                 return;
             }
@@ -456,6 +461,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             });
 
             currentStatus.phase = "finalized";
+            currentStatus.finalEnvelope = env;
             await putJsonString(deps.stores.index, docKey, currentStatus);
             onProgress({ type: "finalized", rotationId, payload: { rot: rotEvent.d } });
             unsub();
@@ -467,6 +473,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 const timeoutMs = opts?.timeoutMs ?? 7 * 24 * 3600_000;
                 const start = Date.now();
                 let warnedDeadline = false;
+                let delay = 800; // Start with shorter delay
                 while (Date.now() - start < timeoutMs) {
                     const s = await tryFinalize();
                     if (s.phase === "finalized" || s.phase === "aborted" || s.phase === "failed") {
@@ -485,7 +492,8 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                         onProgress({ type: "deadline:near", rotationId });
                     }
 
-                    await new Promise(r => setTimeout(r, 1200));
+                    await new Promise(r => setTimeout(r, delay));
+                    delay = Math.min(delay + 400, 5000); // Linear backoff, max 5s
                 }
                 const cur = await getJsonString<RotationStatus>(deps.stores.index, docKey);
                 if (cur) {

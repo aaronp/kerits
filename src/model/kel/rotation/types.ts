@@ -33,20 +33,23 @@ export interface RotationStatus {
     createdAt: string;
     deadline?: string;
     required: number;           // kt (decoded)
+    requiredExternal: number;   // required - initiatorShare (persisted for UI/logic)
     totalKeys: number;          // |k|
     collected: number;          // valid signatures collected
-    missing: number;            // required - collected (lower-bounded at 0)
+    missing: number;            // requiredExternal - collected (lower-bounded at 0)
     signers: SignerRequirement[];
     priorEvent: SAID;           // prior KEL d (p)
     revealCommit: SAID;         // SAID({k: newK, kt: newKt}) == prior.n
     nextThreshold: number;      // nt
     rotEvent: KelEvent;         // the rotation event being signed
+    finalEnvelope?: KelEnvelope; // the final published envelope (when finalized)
 }
 
 export interface RotationProgressEvent {
     type:
     | "signature:accepted"
     | "signature:rejected"
+    | "signature:stored_nonrequired"
     | "status:phase"
     | "deadline:near"
     | "finalized"
