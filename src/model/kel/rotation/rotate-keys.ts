@@ -121,8 +121,13 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 seen.add(c.keyIndex);
             }
             if (seen.size !== prior.k!.length) {
-                // Allow partial mapping for flexibility
-                // throw new Error("incomplete cosigner mapping");
+                // Ensure all *external* indices are mapped
+                for (let i = 0; i < prior.k!.length; i++) {
+                    const isInitiator = initiatorPriorKeys.includes(prior.k![i]!);
+                    if (!isInitiator && !seen.has(i)) {
+                        throw new Error("incomplete cosigner mapping: missing external index " + i);
+                    }
+                }
             }
         }
 
@@ -252,17 +257,21 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         const listeners = new Set<(e: RotationProgressEvent) => void>();
         const onProgress = (e: RotationProgressEvent) => listeners.forEach(fn => fn(e));
 
-        // Broadcast proposal
+        // Broadcast proposal only to required signers
         const body = enc.encode(JSON.stringify(proposal));
-        for (const s of status0.signers) {
-            await deps.transport.send({
-                id: rotationId,
-                from: controllerAid,
-                to: s.aid,
-                typ: "keri.rot.proposal.v1",
-                body,
-                dt: now
-            });
+        for (const s of status0.signers.filter(s => s.required)) {
+            try {
+                await deps.transport.send({
+                    id: rotationId,
+                    from: controllerAid,
+                    to: s.aid,
+                    typ: "keri.rot.proposal.v1",
+                    body,
+                    dt: now
+                });
+            } catch (e) {
+                onProgress({ type: "send:error", rotationId, payload: String(e) });
+            }
         }
 
         // Emit status:phase event for collecting
@@ -301,6 +310,10 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             if (!liveProposal) {
                 onProgress({ type: "error", rotationId, payload: "proposal not found" });
                 return;
+            }
+            // Keep cachedProposal truly live
+            if (liveProposal && liveProposal !== cachedProposal) {
+                cachedProposal = liveProposal;
             }
 
             const signer = status.signers.find(s => s.keyIndex === msg.keyIndex);
@@ -574,14 +587,18 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 const proposalToSend = savedProposal ?? proposal;
                 const body = enc.encode(JSON.stringify(proposalToSend));
                 for (const s of missingSigners) {
-                    await deps.transport.send({
-                        id: rotationId,
-                        from: controllerAid,
-                        to: s.aid,
-                        typ: "keri.rot.proposal.v1",
-                        body,
-                        dt: deps.clock()
-                    });
+                    try {
+                        await deps.transport.send({
+                            id: rotationId,
+                            from: controllerAid,
+                            to: s.aid,
+                            typ: "keri.rot.proposal.v1",
+                            body,
+                            dt: deps.clock()
+                        });
+                    } catch (e) {
+                        onProgress({ type: "send:error", rotationId, payload: String(e) });
+                    }
                 }
             }
         };
