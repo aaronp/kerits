@@ -33,7 +33,7 @@ export interface RotationStatus {
     createdAt: string;
     deadline?: string;
     required: number;           // kt (decoded)
-    requiredExternal: number;   // required - initiatorShare (persisted for UI/logic)
+    requiredExternal?: number; // required - initiatorShare (persisted for UI/logic)
     totalKeys: number;          // |k|
     collected: number;          // valid signatures collected
     missing: number;            // requiredExternal - collected (lower-bounded at 0)

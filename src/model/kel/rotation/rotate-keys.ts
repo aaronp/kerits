@@ -23,21 +23,20 @@ import { getJsonString, putJsonString } from '../../io/storage';
 // Default hashing implementation
 function defaultHashBody(body: Uint8Array): string {
     try {
-        // Node: use crypto module
-        const crypto = require('crypto');
-        return crypto.createHash("sha256").update(body).digest("base64url").slice(0, 16);
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { createHash } = require("node:crypto");
+        return createHash("sha256").update(body).digest("base64url").slice(0, 16);
     } catch {
-        // Fallback: simple hash (not cryptographically secure, but works for replay protection)
-        let hash = 0;
-        for (let i = 0; i < body.length; i++) {
-            hash = ((hash << 5) - hash + body[i]) & 0xffffffff;
-        }
-        return Math.abs(hash).toString(36).slice(0, 16);
+        throw new Error("hashBody not available: provide deps.hashBody in browser environments");
     }
 }
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
+
+// AID normalization helpers (future-proof for URI casefolding/normalization)
+const normAid = (a: AID) => a; // replace with real normalization later
+const sameAid = (a: AID, b: AID) => normAid(a) === normAid(b);
 
 export interface RotateKeysDeps {
     clock: () => string;
@@ -187,6 +186,25 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             }
 
             await deps.appendKelEnv(deps.stores.kels, finalEnv);
+
+            // Mirror slow-path finalize notify (best-effort)
+            const fin: RotationFinalize = {
+                typ: "keri.rot.finalize.v1",
+                rotationId,
+                rotEventSaid: rotEvent.d
+            };
+            try {
+                await deps.transport.send({
+                    id: rotationId,
+                    from: controllerAid,
+                    to: controllerAid,
+                    typ: fin.typ,
+                    body: enc.encode(JSON.stringify(fin)),
+                    dt: deps.clock()
+                });
+            } catch (e) {
+                // fast-path emit is no-op, so ignore; or log if you wire up a logger
+            }
 
             // Emit finalization event (mirroring slow path)
             emit({ type: "finalized", rotationId, payload: { rot: rotEvent.d } });
@@ -350,8 +368,16 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             remember(msgKey);
 
             if (m.typ !== "keri.rot.sign.v1") return;
-            const msg = JSON.parse(dec.decode(m.body)) as RotationSign;
-            if (msg.rotationId !== rotationId) return;
+
+            let msg: RotationSign;
+            try {
+                msg = JSON.parse(dec.decode(m.body)) as RotationSign;
+            } catch {
+                onProgress({ type: "error", rotationId, payload: "invalid JSON body" });
+                return;
+            }
+
+            if (!msg || msg.rotationId !== rotationId) return;
 
             const status = await getJsonString<RotationStatus>(deps.stores.index, docKey);
             if (!status || status.phase === "finalized" || status.phase === "aborted" || status.phase === "failed") return;
@@ -424,17 +450,17 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 const canon = deps.kel.canonicalBytes(rotEvent);
                 const pub = pubAtIndex;
                 if (!msg.sig) {
-                    onProgress({ type: "error", rotationId, payload: "missing signature" });
+                    onProgress({ type: "error", rotationId, payload: { error: "missing signature", signer: signer.aid } });
                     return;
                 }
                 const ok = await deps.crypto.verify(canon, msg.sig as string, pub);
                 if (!ok) {
-                    onProgress({ type: "error", rotationId, payload: "bad signature" });
+                    onProgress({ type: "error", rotationId, payload: { error: "bad signature", signer: signer.aid } });
                     return;
                 }
                 // Idempotency: avoid recording duplicate value
                 if (status.signers.some(s => s.signature === msg.sig)) {
-                    onProgress({ type: "error", rotationId, payload: "duplicate signature" });
+                    onProgress({ type: "error", rotationId, payload: { error: "duplicate signature", signer: signer.aid } });
                     return;
                 }
                 signer.signed = true;
@@ -447,7 +473,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
 
             // Prevent duplicate signature values (replay protection)
             if (status.signers.some(s => s.signature === msg.sig)) {
-                onProgress({ type: "error", rotationId, payload: "duplicate signature" });
+                onProgress({ type: "error", rotationId, payload: { error: "duplicate signature", signer: signer.aid } });
                 return;
             }
 
@@ -480,13 +506,12 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             const canon = deps.kel.canonicalBytes(rotEvent);
             const pub = pubAtIndex;
             if (!msg.sig) {
-                onProgress({ type: "error", rotationId, payload: "missing signature" });
+                onProgress({ type: "error", rotationId, payload: { error: "missing signature", signer: signer.aid } });
                 return;
             }
-            const signature = msg.sig as string; // Type assertion for JSON parsing
-            const ok = await deps.crypto.verify(canon, signature, pub);
+            const ok = await deps.crypto.verify(canon, msg.sig as string, pub);
             if (!ok) {
-                onProgress({ type: "error", rotationId, payload: "bad signature" });
+                onProgress({ type: "error", rotationId, payload: { error: "bad signature", signer: signer.aid } });
                 return;
             }
 
