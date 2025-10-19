@@ -5,7 +5,7 @@
  * as described in the thoughts document.
  */
 
-import type { KeyValueStore, SAID, Bytes, Transport, AID } from '../../io/types';
+import type { KeyValueStore, SAID, Bytes, Transport, AID, Message } from '../../io/types';
 import type { KelEvent, KelEnvelope, Crypto } from '../../services/types';
 import type { KelService } from '../../services/kel';
 import type {
@@ -80,29 +80,22 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         }
 
         // Build rot candidate (unsigned)
-        const rotEvent = deps.kel.rotate({
+        const rotEvent = await deps.kel.rotate({
             controller: controllerAid,
-            currentKeys: revealK,
-            nextKeys: next.nextKeys,
-            previousEvent: prior.d,
-            transferable: true,
-            keyThreshold: revealKt,
-            nextThreshold: next.nt,
+            prior: prior,
+            k: revealK,
+            kt: revealKt,
+            nextK: next.nextKeys,
+            nt: next.nt,
             dt: now,
         });
 
         // Enforce reveal == prior.n
         const revealSaid = deps.kel.saidOfKeyset(rotEvent.k!, deps.kel.decodeThreshold(rotEvent.kt!));
-        console.log("Debug rotation:", {
-            priorN: prior.n,
-            revealSaid,
-            rotEventK: rotEvent.k,
-            rotEventKt: rotEvent.kt
-        });
         if (revealSaid !== prior.n) throw new Error("Reveal does not match prior commitment");
 
         // Proposal id — SAID of canonical rot body (or SAID of a proposal doc)
-        const rotationId: RotationId = deps.kel.saidOf(rotEvent);
+        const rotationId: RotationId = rotEvent.d;
 
         const priorKt = deps.kel.decodeThreshold(prior.kt!);
         const cosigners = await deps.resolveCosigners(prior);
@@ -139,6 +132,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 status: async () => final,
                 abort: async () => { },
                 onProgress: () => () => { },
+                finalizeNow: async () => final,
                 resend: async () => { }
             };
         }
@@ -204,7 +198,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         onProgress({ type: "status:phase", rotationId, payload: "collecting" });
 
         // Subscribe for signatures
-        const unsub = deps.transport.channel(controllerAid).subscribe(async (m: import('../../io/types').Message) => {
+        const unsub = deps.transport.channel(controllerAid).subscribe(async (m: Message) => {
             if (m.typ !== "keri.rot.sign.v1") return;
             const msg = JSON.parse(dec.decode(m.body)) as RotationSign;
             if (msg.rotationId !== rotationId) return;
@@ -227,7 +221,13 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 return;
             }
 
-            // Authenticate who is signing
+            // Prevent duplicate signature values (replay protection)
+            if (status.signers.some(s => s.signature === msg.sig)) {
+                onProgress({ type: "error", rotationId, payload: "duplicate signature" });
+                return;
+            }
+
+            // Authenticate who is signing - compare AID URIs, not object identity
             if (m.from !== signer.aid) {
                 onProgress({ type: "error", rotationId, payload: "signer AID mismatch" });
                 return;
@@ -238,15 +238,20 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 return;
             }
 
-            // Verify signature over canonical rot bytes using PRIOR key
+            // Verify signature over canonical rot bytes using PRIOR key with domain tagging for replay protection
             const canon = deps.kel.canonicalBytes(rotEvent);
+            const domain = enc.encode(`keri.rot.v1|${rotationId}|`);
+            const toVerify = new Uint8Array(domain.length + canon.length);
+            toVerify.set(domain);
+            toVerify.set(canon, domain.length);
+
             const pub = prior.k![msg.keyIndex];
             if (!msg.sig) {
                 onProgress({ type: "error", rotationId, payload: "missing signature" });
                 return;
             }
             const signature = msg.sig as string; // Type assertion for JSON parsing
-            const ok = await deps.crypto.verify(canon, signature, pub);
+            const ok = await deps.crypto.verify(toVerify, signature, pub);
             if (!ok) {
                 onProgress({ type: "error", rotationId, payload: "bad signature" });
                 return;
@@ -258,9 +263,17 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             status.collected = status.signers.filter(s => s.signed && s.required).length;
             status.missing = Math.max(0, status.required - status.collected);
             status.phase = status.collected >= status.required ? "finalizable" : "collecting";
+
+            // If we've reached the threshold, finalize immediately
+            if (status.phase === "finalizable") {
+                await putJson(deps.stores.index, docKey as SAID, status);
+                onProgress({ type: "status:phase", rotationId, payload: "finalizable" });
+                await tryFinalize(); // Kick off finalization immediately
+                return;
+            }
+
             await putJson(deps.stores.index, docKey as SAID, status);
             onProgress({ type: "signature:accepted", rotationId, payload: { keyIndex: msg.keyIndex } });
-            if (status.phase === "finalizable") onProgress({ type: "status:phase", rotationId, payload: "finalizable" });
         });
 
         async function tryFinalize(): Promise<RotationStatus> {
@@ -268,15 +281,22 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             if (!status) throw new Error("rotation missing");
             if (status.phase !== "finalizable") return status;
 
+            // Re-check status after potential race condition
+            const currentStatus = await getJson<RotationStatus>(deps.stores.index, docKey as SAID);
+            if (!currentStatus) throw new Error("rotation missing");
+            if (currentStatus.phase === "finalized") return currentStatus;
+            if (currentStatus.phase !== "finalizable") return currentStatus;
+
             // Gather cosigner signatures (indexed) + add initiator's
-            const cosigs = status.signers
+            const cosigs = currentStatus.signers
                 .filter(s => s.signed && s.signature)
                 .map(s => ({ keyIndex: s.keyIndex, sig: s.signature! }));
 
             const selfEnv = await deps.kel.sign(rotEvent, deps.crypto); // adds your own indexed sig
             const env: KelEnvelope = {
                 event: selfEnv.event,
-                signatures: mergeSignatures(cosigs, selfEnv.signatures), // de-dupe on keyIndex if needed
+                signatures: mergeSignatures(cosigs, selfEnv.signatures) // de-dupe on keyIndex if needed
+                    .sort((a, b) => a.keyIndex - b.keyIndex), // stable ordering by keyIndex
             };
 
             // Publish rot to store with all signatures
@@ -297,11 +317,11 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 dt: deps.clock()
             });
 
-            status.phase = "finalized";
-            await putJson(deps.stores.index, docKey as SAID, status);
+            currentStatus.phase = "finalized";
+            await putJson(deps.stores.index, docKey as SAID, currentStatus);
             onProgress({ type: "finalized", rotationId, payload: { rot: rotEvent.d } });
             unsub();
-            return status;
+            return currentStatus;
         }
 
         const handle: RotationHandle = {
@@ -319,12 +339,19 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                         const final = await tryFinalize();
                         if (final.phase === "finalized") return final;
                     }
+
+                    // Check for deadline warning (24 hours before deadline)
+                    if (s.deadline && Date.parse(s.deadline) - Date.now() < 86_400_000) {
+                        onProgress({ type: "deadline:near", rotationId });
+                    }
+
                     await new Promise(r => setTimeout(r, 1200));
                 }
                 const cur = await getJson<RotationStatus>(deps.stores.index, docKey as SAID);
                 if (cur) {
                     cur.phase = "failed";
                     await putJson(deps.stores.index, docKey as SAID, cur);
+                    unsub(); // prevent leaks
                     if (opts?.throwOnFail) throw new Error("rotation timed out");
                     return cur;
                 }
@@ -359,6 +386,9 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             onProgress(handler) {
                 listeners.add(handler);
                 return () => listeners.delete(handler);
+            },
+            async finalizeNow() {
+                return tryFinalize();
             },
             async resend() {
                 const status = await getJson<RotationStatus>(deps.stores.index, docKey as SAID);

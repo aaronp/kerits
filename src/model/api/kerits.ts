@@ -128,11 +128,11 @@ export function kerits(
                 if (!prior) throw new Error("no prior KEL event to anchor from");
 
                 // Create interaction event
-                const ixn = deps.kel.interaction({
+                const ixn = KEL.interaction({
                     controller: aid,
-                    prior,
+                    previousEvent: prior.d,
                     anchors: saids,
-                    dt: deps.clock?.() ?? new Date().toISOString()
+                    currentTime: deps.clock?.() ?? new Date().toISOString()
                 });
 
                 // Sign and persist

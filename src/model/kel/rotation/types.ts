@@ -67,6 +67,9 @@ export interface RotationHandle {
     /** subscribe to progress events */
     onProgress(handler: (e: RotationProgressEvent) => void): () => void;
 
+    /** force an attempt to finalize (useful after manual cosigner import) */
+    finalizeNow(): Promise<RotationStatus>;
+
     /** re-broadcast proposal to missing cosigners */
     resend(): Promise<void>;
 }

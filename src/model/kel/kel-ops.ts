@@ -69,6 +69,7 @@ export interface RotationParams {
  * Parameters for creating an interaction event
  */
 export interface InteractionParams {
+    controller: AID;
     previousEvent: SAID;
     anchors: SAID[];
     currentTime?: string; // ISO 8601 timestamp for deterministic testing
@@ -306,13 +307,13 @@ export class KEL {
      * @returns InteractionEvent with computed SAID
      */
     static interaction(params: InteractionParams): InteractionEvent {
-        const { previousEvent, anchors, currentTime } = params;
+        const { controller, previousEvent, anchors, currentTime } = params;
 
         // Use provided currentTime or fall back to current timestamp
         const timestamp = currentTime || new Date().toISOString();
 
-        // For interaction, the identifier comes from the previous event
-        const identifier = 'placeholder'; // This should be passed in or extracted
+        // For interaction, the identifier comes from the controller parameter
+        const identifier = controller;
 
         // Build event without SAID (use placeholder)
         const event: any = {

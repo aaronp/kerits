@@ -85,9 +85,10 @@ class RealKelService {
         dt?: string;
     }): Promise<KelEvent> {
         return KEL.rotation({
+            controller: args.controller,
             currentKeys: args.k,
             nextKeys: args.nextK,
-            previousEvent: args.prior,
+            previousEvent: args.prior.d, // Pass SAID of prior event
             transferable: true,
             keyThreshold: args.kt,
             nextThreshold: args.nt,
@@ -98,14 +99,15 @@ class RealKelService {
 
     async interaction(args: {
         controller: AID;
-        prior: KelEvent;
+        previousEvent: SAID;
         anchors?: SAID[];
         dt?: string;
     }): Promise<KelEvent> {
         return KEL.interaction({
-            previousEvent: args.prior,
+            controller: args.controller,
+            previousEvent: args.previousEvent,
             anchors: args.anchors || [],
-            dt: args.dt
+            currentTime: args.dt
         });
     }
 
@@ -120,7 +122,7 @@ class RealKelService {
     }
 
     saidOf(ev: KelEvent): SAID {
-        return KEL.saidOf(ev);
+        return ev.d;
     }
 
     saidOfKeyset(k: string[], kt: number): SAID {
@@ -351,7 +353,18 @@ describe('KeritsAPI Examples', () => {
 
     it('should demonstrate progress event handling', async () => {
         const alice = await api.createAccount("alice");
-        const rotation = await alice.rotateKeys({ note: "Progress test" });
+
+        // Get the current keys from the account's KEL
+        const kel = await alice.kel();
+        const currentKeys = kel[0].k!; // Get keys from inception event
+
+        const rotation = await alice.rotateKeys({
+            note: "Progress test",
+            newKeys: currentKeys, // Use same keys (valid rotation)
+            newThreshold: 1,
+            nextKeys: currentKeys, // Use same keys for next commitment
+            nextThreshold: 1,
+        });
 
         const events: any[] = [];
         const unsub = rotation.onProgress((event) => {
