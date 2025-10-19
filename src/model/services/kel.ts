@@ -27,7 +27,7 @@ export interface KelService {
         witnesses?: string[];
         wt?: number;
         dt?: string;
-    }): KelEvent;
+    }): Promise<KelEvent>;
 
     /**
      * Create a rotation event
@@ -40,7 +40,7 @@ export interface KelService {
         nextK: string[];
         nt: number;
         dt?: string;
-    }): KelEvent;
+    }): Promise<KelEvent>;
 
     /**
      * Create an interaction event
@@ -50,7 +50,7 @@ export interface KelService {
         prior: KelEvent;
         anchors?: SAID[];
         dt?: string
-    }): KelEvent;
+    }): Promise<KelEvent>;
 
     /**
      * Sign a KEL event with the provided crypto

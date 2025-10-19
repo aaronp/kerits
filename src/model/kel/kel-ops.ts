@@ -8,6 +8,7 @@ import type { AID, SAID, Threshold } from '../types';
 import type { InceptionEvent, RotationEvent, InteractionEvent, KelEvent, KelEnvelope, CesrSig } from './types';
 import { CESR } from '../cesr/cesr';
 import { s } from '../string-ops';
+import type { Crypto } from '../services/types';
 
 /**
  * Controller state extracted from KEL events
@@ -347,6 +348,32 @@ export class KEL {
      * @returns KEL envelope with attached signatures
      */
     static createEnvelope(event: KelEvent, privateKeys: Uint8Array[]): KelEnvelope {
+        // For interaction events, use current controller keys (not embedded keys)
+        if (event.t === 'ixn') {
+            // Interaction events don't have embedded keys, use provided private keys
+            const signatures: CesrSig[] = [];
+            const canonical = canonicalize(event);
+            const canonicalBytes = new TextEncoder().encode(canonical);
+
+            for (let i = 0; i < privateKeys.length; i++) {
+                const privateKey = privateKeys[i];
+                if (!privateKey) {
+                    throw new Error(`Missing private key at index ${i}`);
+                }
+                const signature = CESR.sign(canonicalBytes, privateKey, true);
+                signatures.push({
+                    keyIndex: i,
+                    sig: signature
+                });
+            }
+
+            return {
+                event,
+                signatures
+            };
+        }
+
+        // For other events, require embedded keys
         if (!event.k || event.k.length === 0) {
             throw new Error('Event must have keys for signing');
         }
@@ -390,6 +417,43 @@ export class KEL {
     }> {
         const { event, signatures } = envelope;
 
+        // For interaction events, use current controller keys (not embedded keys)
+        if (event.t === 'ixn') {
+            // Interaction events don't have embedded keys, use current controller keys
+            // We need to get the current keys from the prior event
+            if (!priorEvent || !priorEvent.k || priorEvent.k.length === 0) {
+                throw new Error('Interaction events require prior event with keys for verification');
+            }
+
+            const canonical = canonicalize(event);
+            const canonicalBytes = new TextEncoder().encode(canonical);
+
+            const signatureResults: Array<{ signature: CesrSig; valid: boolean }> = [];
+            let validSignatures = 0;
+
+            for (const signature of signatures) {
+                const publicKey = priorEvent.k[signature.keyIndex];
+                if (!publicKey) {
+                    signatureResults.push({ signature, valid: false });
+                    continue;
+                }
+
+                const valid = await CESR.verify(signature.sig, canonicalBytes, publicKey);
+                signatureResults.push({ signature, valid });
+                if (valid) validSignatures++;
+            }
+
+            const requiredSignatures = parseInt(priorEvent.kt?.toString() || '1', 10);
+
+            return {
+                valid: validSignatures >= requiredSignatures,
+                validSignatures,
+                requiredSignatures,
+                signatureResults
+            };
+        }
+
+        // For other events, require embedded keys
         if (!event.k || event.k.length === 0) {
             throw new Error('Event must have keys for verification');
         }
@@ -398,9 +462,9 @@ export class KEL {
         // For other events, use the event's own threshold
         let requiredSignatures: number;
         if (event.t === 'rot' && priorEvent && priorEvent.kt) {
-            requiredSignatures = parseInt(priorEvent.kt, 10);
+            requiredSignatures = parseInt(priorEvent.kt.toString(), 10);
         } else {
-            requiredSignatures = parseInt(event.kt || '1', 10);
+            requiredSignatures = parseInt(event.kt?.toString() || '1', 10);
         }
 
         // Create canonical representation for verification
@@ -441,7 +505,7 @@ export class KEL {
 
         // For rotation events, verify that the revealed keys match the prior commitment
         if (event.t === 'rot' && priorEvent) {
-            const revealedCommitment = KEL.computeNextKeyCommitment(event.k, parseInt(event.kt || '1', 10));
+            const revealedCommitment = KEL.computeNextKeyCommitment(event.k, parseInt(event.kt?.toString() || '1', 10));
             if (revealedCommitment !== priorEvent.n) {
                 valid = false;
             }
@@ -460,5 +524,231 @@ export class KEL {
      */
     thresholdsEqual(threshold1: string, threshold2: string): boolean {
         return threshold1 === threshold2;
+    }
+}
+
+/**
+ * Real crypto implementation that derives state from KEL events
+ */
+export class RealCrypto implements Crypto {
+    constructor(
+        private keypairs: ReturnType<typeof CESR.keypairFromMnemonic>[],
+        private thresholdValue: number = 1
+    ) { }
+
+    async sign(data: Uint8Array, keyIndex: number): Promise<string> {
+        const keypair = this.keypairs[keyIndex];
+        if (!keypair) throw new Error(`No keypair at index ${keyIndex}`);
+
+        const canonical = canonicalize(JSON.parse(new TextDecoder().decode(data)));
+        return await CESR.sign(new TextEncoder().encode(canonical), keypair.privateKey);
+    }
+
+    async verify(data: Uint8Array, sig: string, pub: string): Promise<boolean> {
+        const canonical = canonicalize(JSON.parse(new TextDecoder().decode(data)));
+        return await CESR.verify(sig, new TextEncoder().encode(canonical), pub);
+    }
+
+    pubKeys(): string[] {
+        return this.keypairs.map(kp => CESR.getPublicKey(kp));
+    }
+
+    threshold(): number {
+        return this.thresholdValue;
+    }
+
+    nextCommit(): { n: SAID; nt: number; nextKeys: string[] } {
+        // For simplicity, use the same keys for next commitment
+        const nextKeys = this.pubKeys();
+        const nt = this.thresholdValue;
+        const n = KEL.computeNextKeyCommitment(nextKeys, nt);
+        return { n, nt, nextKeys };
+    }
+
+    priorKeys(): string[] {
+        // Return the public keys that this crypto instance can sign for
+        return this.pubKeys();
+    }
+
+    /**
+     * Create a RealCrypto instance from KEL events
+     * This reads the latest KEL state to determine the current keys and threshold
+     */
+    static fromKelEvents(kelEvents: KelEvent[], keypairs: ReturnType<typeof CESR.keypairFromMnemonic>[]): RealCrypto {
+        if (kelEvents.length === 0) {
+            throw new Error('Cannot create crypto from empty KEL');
+        }
+
+        // Get the latest event to determine current state
+        const latestEvent = kelEvents.reduce((latest, current) => {
+            const latestSeq = parseInt(latest.s || '0', 16);
+            const currentSeq = parseInt(current.s || '0', 16);
+            return currentSeq > latestSeq ? current : latest;
+        });
+
+        // Extract current keys and threshold from the latest event
+        const currentKeys = latestEvent.k || [];
+        const currentThreshold = parseInt(latestEvent.kt || '1', 10);
+
+        // Validate that we have keypairs for all current keys
+        const pubKeys = keypairs.map(kp => CESR.getPublicKey(kp));
+        const missingKeys = currentKeys.filter(key => !pubKeys.includes(key));
+        if (missingKeys.length > 0) {
+            throw new Error(`Missing keypairs for keys: ${missingKeys.join(', ')}`);
+        }
+
+        return new RealCrypto(keypairs, currentThreshold);
+    }
+
+    /**
+     * Create a RealCrypto instance for inception (before any KEL events exist)
+     */
+    static forInception(keypairs: ReturnType<typeof CESR.keypairFromMnemonic>[], threshold: number = 1): RealCrypto {
+        return new RealCrypto(keypairs, threshold);
+    }
+}
+
+/**
+ * Real KEL service implementation using the KEL operations
+ */
+export class RealKelService {
+    async incept(args: {
+        controller: AID;
+        k: string[];
+        kt: number;
+        nextK: string[];
+        nt: number;
+        dt?: string;
+    }): Promise<KelEvent> {
+        return KEL.inception({
+            currentKeys: args.k,
+            nextKeys: args.nextK,
+            transferable: true,
+            keyThreshold: args.kt,
+            nextThreshold: args.nt,
+            witnesses: [],
+            dt: args.dt
+        });
+    }
+
+    async rotate(args: {
+        controller: AID;
+        prior: KelEvent;
+        k: string[];
+        kt: number;
+        nextK: string[];
+        nt: number;
+        dt?: string;
+    }): Promise<KelEvent> {
+        return KEL.rotation({
+            controller: args.controller,
+            currentKeys: args.k,
+            nextKeys: args.nextK,
+            previousEvent: args.prior.d, // Pass SAID of prior event
+            transferable: true,
+            keyThreshold: args.kt,
+            nextThreshold: args.nt,
+            witnesses: [],
+            dt: args.dt
+        });
+    }
+
+    async interaction(args: {
+        controller: AID;
+        prior: KelEvent;
+        anchors?: SAID[];
+        dt?: string;
+    }): Promise<KelEvent> {
+        return KEL.interaction({
+            controller: args.controller,
+            previousEvent: args.prior.d,
+            anchors: args.anchors || [],
+            currentTime: args.dt
+        });
+    }
+
+    async sign(ev: KelEvent, crypto: Crypto): Promise<KelEnvelope> {
+        // Extract private keys from the crypto object
+        const privateKeys = (crypto as any).keypairs?.map((kp: any) => kp.privateKey) || [];
+
+        // For interaction events, use current controller keys (not embedded keys)
+        if (ev.t === "ixn") {
+            return KEL.createEnvelope(ev, privateKeys);
+        }
+
+        // For other events, use embedded keys if available
+        if (!ev.k || ev.k.length === 0) {
+            throw new Error('Event must have keys for signing');
+        }
+
+        // For rotation events, we need to sign with the prior keys that the initiator controls
+        if (ev.t === "rot") {
+            const initiatorPriorKeys = crypto.priorKeys?.() || [];
+            const signatures: CesrSig[] = [];
+
+            // Find which prior key indices the initiator controls
+            for (let i = 0; i < ev.k!.length; i++) {
+                const pubKey = ev.k![i];
+                if (pubKey && initiatorPriorKeys.includes(pubKey)) {
+                    // Find the corresponding private key
+                    const keypairIndex = (crypto as any).keypairs?.findIndex((kp: any) =>
+                        CESR.getPublicKey(kp) === pubKey
+                    );
+
+                    if (keypairIndex !== undefined && keypairIndex >= 0) {
+                        const privateKey = privateKeys[keypairIndex];
+                        const canonical = canonicalize(ev);
+                        const canonicalBytes = new TextEncoder().encode(canonical);
+                        const signature = CESR.sign(canonicalBytes, privateKey, true);
+
+                        signatures.push({
+                            keyIndex: i,
+                            sig: signature
+                        });
+                    }
+                }
+            }
+
+            return {
+                event: ev,
+                signatures
+            };
+        }
+
+        return KEL.createEnvelope(ev, privateKeys);
+    }
+
+    async verifyEnvelope(env: KelEnvelope, priorEvent?: KelEvent): Promise<{
+        valid: boolean;
+        validSignatures: number;
+        requiredSignatures: number;
+        signatureResults: Array<{ signature: CesrSig; valid: boolean }>;
+    }> {
+        return await KEL.verifyEnvelope(env, priorEvent);
+    }
+
+    canonicalBytes(ev: KelEvent): Uint8Array {
+        const canonical = canonicalize(ev);
+        return new TextEncoder().encode(canonical);
+    }
+
+    saidOf(ev: KelEvent): SAID {
+        return ev.d;
+    }
+
+    saidOfKeyset(k: string[], kt: number): SAID {
+        return KEL.computeNextKeyCommitment(k, kt);
+    }
+
+    thresholdsEqual(threshold1: string, threshold2: string): boolean {
+        return threshold1 === threshold2;
+    }
+
+    decodeThreshold(kt: string): number {
+        return parseInt(kt, 10);
+    }
+
+    encodeThreshold(n: number): string {
+        return n.toString();
     }
 }

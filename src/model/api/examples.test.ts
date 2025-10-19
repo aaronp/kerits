@@ -8,140 +8,14 @@
  */
 
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { memoryStore, namespace, memoryTransport, getJson, putJson } from '../io';
+import { memoryStore, namespace, memoryTransport, getJson, putJson, type Bytes } from '../io';
 import { kerits } from './kerits';
 import type { KeritsAPI, AccountAPI } from './types';
-import type { AID, SAID, Bytes } from '../types';
+import type { AID, SAID } from '../types';
 import type { KelEvent, KelEnvelope, Crypto } from '../services/types';
-import { KEL } from '../kel/kel-ops';
+import { KEL, RealCrypto, RealKelService } from '../kel/kel-ops';
 import { CESR } from '../cesr/cesr';
-import { canonicalize } from 'json-canonicalize';
-
-// Real crypto implementation using CESR
-class RealCrypto implements Crypto {
-    constructor(
-        private keypairs: ReturnType<typeof CESR.keypairFromMnemonic>[],
-        private threshold: number = 1
-    ) { }
-
-    async sign(data: Bytes, keyIndex: number): Promise<string> {
-        const keypair = this.keypairs[keyIndex];
-        if (!keypair) throw new Error(`No keypair at index ${keyIndex}`);
-
-        const canonical = canonicalize(JSON.parse(new TextDecoder().decode(data)));
-        return await CESR.sign(new TextEncoder().encode(canonical), keypair);
-    }
-
-    async verify(data: Bytes, sig: string, pub: string): Promise<boolean> {
-        const canonical = canonicalize(JSON.parse(new TextDecoder().decode(data)));
-        return await CESR.verify(new TextEncoder().encode(canonical), sig, pub);
-    }
-
-    pubKeys(): string[] {
-        return this.keypairs.map(kp => CESR.getPublicKey(kp));
-    }
-
-    threshold(): number {
-        return this.threshold;
-    }
-
-    nextCommit(): { n: SAID; nt: number; nextKeys: string[] } {
-        // For simplicity, use the same keys for next commitment
-        const nextKeys = this.pubKeys();
-        const nt = this.threshold;
-        const n = KEL.computeNextKeyCommitment(nextKeys, nt);
-        return { n, nt, nextKeys };
-    }
-
-    priorKeys(): string[] {
-        // Return the public keys that this crypto instance can sign for
-        return this.pubKeys();
-    }
-}
-
-// Real KEL service implementation
-class RealKelService {
-    async incept(args: {
-        controller: AID;
-        k: string[];
-        kt: number;
-        nextK: string[];
-        nt: number;
-        dt?: string;
-    }): Promise<KelEvent> {
-        return KEL.inception({
-            currentKeys: args.k,
-            nextKeys: args.nextK,
-            transferable: true,
-            keyThreshold: args.kt,
-            nextThreshold: args.nt,
-            witnesses: [],
-            dt: args.dt
-        });
-    }
-
-    async rotate(args: {
-        controller: AID;
-        prior: KelEvent;
-        k: string[];
-        kt: number;
-        nextK: string[];
-        nt: number;
-        dt?: string;
-    }): Promise<KelEvent> {
-        return KEL.rotation({
-            controller: args.controller,
-            currentKeys: args.k,
-            nextKeys: args.nextK,
-            previousEvent: args.prior.d, // Pass SAID of prior event
-            transferable: true,
-            keyThreshold: args.kt,
-            nextThreshold: args.nt,
-            witnesses: [],
-            dt: args.dt
-        });
-    }
-
-    async interaction(args: {
-        controller: AID;
-        previousEvent: SAID;
-        anchors?: SAID[];
-        dt?: string;
-    }): Promise<KelEvent> {
-        return KEL.interaction({
-            controller: args.controller,
-            previousEvent: args.previousEvent,
-            anchors: args.anchors || [],
-            currentTime: args.dt
-        });
-    }
-
-    async sign(ev: KelEvent, crypto: Crypto): Promise<KelEnvelope> {
-        // Extract private keys from the crypto object
-        const privateKeys = (crypto as any).keypairs?.map((kp: any) => kp.privateKey) || [];
-        return KEL.createEnvelope(ev, privateKeys);
-    }
-
-    canonicalBytes(ev: KelEvent): Uint8Array {
-        return KEL.canonicalBytes(ev);
-    }
-
-    saidOf(ev: KelEvent): SAID {
-        return ev.d;
-    }
-
-    saidOfKeyset(k: string[], kt: number): SAID {
-        return KEL.computeNextKeyCommitment(k, kt);
-    }
-
-    decodeThreshold(kt: string): number {
-        return parseInt(kt, 10);
-    }
-
-    encodeThreshold(n: number): string {
-        return KEL.encodeThreshold(n);
-    }
-}
+import { s } from '../string-ops';
 
 describe('KeritsAPI Examples', () => {
     let api: KeritsAPI;
@@ -154,15 +28,15 @@ describe('KeritsAPI Examples', () => {
 
         // Create real keypairs for testing
         const keypair1 = CESR.keypairFromMnemonic(
-            CESR.generateMnemonic(128), // 12 words
+            CESR.generateMnemonic(), // 12 words
             true // transferable
         );
         const keypair2 = CESR.keypairFromMnemonic(
-            CESR.generateMnemonic(128), // 12 words
+            CESR.generateMnemonic(), // 12 words
             true // transferable
         );
 
-        const crypto = new RealCrypto([keypair1, keypair2], 1);
+        const crypto = RealCrypto.forInception([keypair1, keypair2], 1);
         const kelService = new RealKelService();
 
         api = kerits(
@@ -222,9 +96,9 @@ describe('KeritsAPI Examples', () => {
         const root = memoryStore();
         const transport = memoryTransport();
 
-        const keypair1 = CESR.keypairFromMnemonic(CESR.generateMnemonic(128), true);
-        const keypair2 = CESR.keypairFromMnemonic(CESR.generateMnemonic(128), true);
-        const crypto = new RealCrypto([keypair1, keypair2], 1);
+        const keypair1 = CESR.keypairFromMnemonic(CESR.generateMnemonic(), true);
+        const keypair2 = CESR.keypairFromMnemonic(CESR.generateMnemonic(), true);
+        const crypto = RealCrypto.forInception([keypair1, keypair2], 1);
         const kelService = new RealKelService();
 
         const testApi = kerits(
@@ -275,7 +149,7 @@ describe('KeritsAPI Examples', () => {
 
     it('should create a KEL inception event', async () => {
         const kelService = new RealKelService();
-        const keypair = CESR.keypairFromMnemonic(CESR.generateMnemonic(128), true);
+        const keypair = CESR.keypairFromMnemonic(CESR.generateMnemonic(), true);
         const publicKey = CESR.getPublicKey(keypair);
 
         const inceptionEvent = await kelService.incept({
@@ -289,16 +163,16 @@ describe('KeritsAPI Examples', () => {
         expect(inceptionEvent.t).toBe("icp");
         expect(inceptionEvent.s).toBe("0");
         expect(inceptionEvent.k).toEqual([publicKey]);
-        expect(inceptionEvent.kt).toBe("1");
+        expect(inceptionEvent.kt).toBe(s("1").asThreshold());
         expect(inceptionEvent.n).toBeDefined();
-        expect(inceptionEvent.nt).toBe("1");
+        expect(inceptionEvent.nt).toBe(s("1").asThreshold());
     });
 
     it('should demonstrate KEL event creation', async () => {
         // This test demonstrates that KEL events can be created
         // The actual rotation/interaction functionality needs to be fixed in the KEL operations
         const kelService = new RealKelService();
-        const keypair = CESR.keypairFromMnemonic(CESR.generateMnemonic(128), true);
+        const keypair = CESR.keypairFromMnemonic(CESR.generateMnemonic(), true);
         const publicKey = CESR.getPublicKey(keypair);
 
         const inceptionEvent = await kelService.incept({
@@ -316,9 +190,9 @@ describe('KeritsAPI Examples', () => {
         expect(inceptionEvent.i).toMatch(/^D[A-Za-z0-9_-]{43}$/);
         expect(inceptionEvent.s).toBe("0");
         expect(inceptionEvent.k).toEqual([publicKey]);
-        expect(inceptionEvent.kt).toBe("1");
+        expect(inceptionEvent.kt).toBe(s("1").asThreshold());
         expect(inceptionEvent.n).toMatch(/^E[A-Za-z0-9_-]{43}$/);
-        expect(inceptionEvent.nt).toBe("1");
+        expect(inceptionEvent.nt).toBe(s("1").asThreshold());
         expect(inceptionEvent.dt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
     });
 
@@ -327,7 +201,7 @@ describe('KeritsAPI Examples', () => {
 
         // Get the current keys from the account's KEL
         const kel = await alice.kel();
-        const currentKeys = kel[0].k!; // Get keys from inception event
+        const currentKeys = kel[0]?.k || []; // Get keys from inception event
 
         const rotation = await alice.rotateKeys({
             note: "Quarterly key rotation",
@@ -361,7 +235,7 @@ describe('KeritsAPI Examples', () => {
 
         // Get the current keys from the account's KEL
         const kel = await alice.kel();
-        const currentKeys = kel[0].k!; // Get keys from inception event
+        const currentKeys = kel[0]?.k || []; // Get keys from inception event
 
         const rotation = await alice.rotateKeys({
             note: "Progress test",
@@ -392,10 +266,10 @@ describe('KeritsAPI Examples', () => {
 
         const interaction = await alice.anchor([telSaid1, telSaid2]);
 
-        expect(interaction.t).toBe("ixn");
-        expect(interaction.i).toBe(alice.aid());
-        expect(interaction.s).toBe("1");
-        expect(interaction.a).toEqual([telSaid1, telSaid2]);
+        expect(interaction.event.t).toBe("ixn");
+        expect(interaction.event.i).toBe(alice.aid());
+        expect(interaction.event.s).toBe("1");
+        expect(interaction.event.a).toEqual([telSaid1, telSaid2]);
     });
 
     it.skip('should demonstrate a complete account lifecycle', async () => {

@@ -6,7 +6,8 @@
  */
 
 import type { AID, SAID, KeyValueStore, Transport } from '../io/types';
-import type { KelEvent, KelEnvelope } from '../services/types';
+import type { KelEvent, KelEnvelope, Crypto } from '../services/types';
+import type { KelService } from '../services/kel';
 import type { RotationHandle } from '../kel/rotation/types';
 
 /**
@@ -53,7 +54,7 @@ export interface AccountAPI {
     }): Promise<RotationHandle>;
 
     /** Create an interaction event (anchor SAIDs) */
-    anchor(saids: SAID[]): Promise<KelEvent>;
+    anchor(saids: SAID[]): Promise<KelEnvelope>;
 
     /** List TELs for this account */
     listTels(): Promise<SAID[]>;
@@ -101,7 +102,7 @@ export interface KeritsDeps {
     hasher: { saidOf(data: Uint8Array): string };
 
     /** KEL service */
-    kel: any; // KelService
+    kel: KelService;
 
     /** TEL service */
     tel: any; // TelService

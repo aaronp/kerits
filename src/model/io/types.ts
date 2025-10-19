@@ -5,8 +5,6 @@
  * that enable pluggable backends for different environments.
  */
 
-import type { SAID, AID } from '../types';
-
 export type Bytes = Uint8Array;
 
 // Re-export core types for convenience

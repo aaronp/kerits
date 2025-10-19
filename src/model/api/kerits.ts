@@ -57,14 +57,20 @@ export function kerits(
         await putJson(kels, `kel:${aid}` as SAID, events);
     }
 
-    async function appendKelEnv(store: KeyValueStore, env: KelEnvelope) {
+    async function appendKelEnv(store: KeyValueStore, env: KelEnvelope, priorEvent?: KelEvent) {
+        // Verify the envelope before appending
+        const verification = await deps.kel.verifyEnvelope(env, priorEvent);
+        if (!verification.valid) {
+            throw new Error(`invalid KEL envelope: ${verification.signatureResults?.filter((r: { signature: CesrSig; valid: boolean }) => !r.valid).length ?? 0} invalid signatures`);
+        }
+
         const aid = env.event.i;
         const existing = await readKel(aid);
         await writeKel(aid, [...existing, env.event]);
-        // (Optionally persist signatures trail elsewhere)
+        // (optional: persist sigs trail under kel:${aid}:sigs:${event.d})
     }
 
-    const rotateKeysFactory = (aid: AID, prior: KelEvent) =>
+    const rotateKeysFactory = (aid: AID) =>
         makeRotateKeys({
             clock: deps.clock ?? (() => new Date().toISOString()),
             stores: { index, kels },
@@ -76,32 +82,31 @@ export function kerits(
         });
 
     async function createAccount(alias: string): Promise<AccountAPI> {
-        // Create crypto first to get the real AID from the public key
+        // Create crypto first to get the public keys
         const tempAid = ("E" + alias) as AID; // Temporary AID for crypto factory
         const crypto = deps.cryptoFactory?.(tempAid);
         if (!crypto) {
             throw new Error("cryptoFactory not provided");
         }
 
-        const publicKeys = crypto.pubKeys();
-        const aid = publicKeys[0] as AID; // Use the first public key as the AID
-        await saveAccount(alias, aid);
-
-        // Create an inception event for the account
-        const inception = await deps.kel.incept({
-            controller: aid,
-            k: publicKeys,
-            kt: crypto.threshold,
-            nextK: publicKeys, // Use the same keys for next commitment
-            nt: crypto.threshold,
+        // Create an inception event - let KelService derive the AID from the inception body
+        const nextCommit = crypto.nextCommit();
+        const icp = await deps.kel.incept({
+            controller: tempAid, // Temporary controller for inception
+            k: crypto.pubKeys(),
+            kt: crypto.threshold(), // Call the function
+            nextK: nextCommit.nextKeys, // Extract nextKeys from nextCommit
+            nt: nextCommit.nt, // Extract nt from nextCommit
             dt: deps.clock?.() ?? new Date().toISOString()
         });
 
+        // Get the authoritative AID from the inception event
+        const aid = icp.i as AID;
+        await saveAccount(alias, aid);
+
         // Sign and persist the inception
-        if (crypto) {
-            const env = await deps.kel.sign(inception, crypto);
-            await appendKelEnv(kels, env);
-        }
+        const env = await deps.kel.sign(icp, crypto);
+        await appendKelEnv(kels, env);
 
         return accountAPI(aid, alias);
     }
@@ -119,48 +124,28 @@ export function kerits(
                 const events = await readKel(aid);
                 const prior = events.at(-1);
                 if (!prior) throw new Error("no prior KEL event to rotate from");
-                return rotateKeysFactory(aid, prior)(aid, prior, opts);
+                return rotateKeysFactory(aid)(aid, prior, opts);
             },
 
-            async anchor(saids) {
+            async anchor(saids): Promise<KelEnvelope> {
                 const events = await readKel(aid);
                 const prior = events.at(-1);
                 if (!prior) throw new Error("no prior KEL event to anchor from");
 
                 // Create interaction event
-                const ixn = KEL.interaction({
+                const ixn = await deps.kel.interaction({
                     controller: aid,
-                    previousEvent: prior.d,
+                    prior: prior,
                     anchors: saids,
-                    currentTime: deps.clock?.() ?? new Date().toISOString()
+                    dt: deps.clock?.() ?? new Date().toISOString()
                 });
 
-                // Sign and persist
+                // Sign using KelService for proper canonical bytes and indexed signatures
                 const crypto = deps.cryptoFactory?.(aid) ?? (() => { throw new Error("cryptoFactory not provided"); })();
-                const privateKeys = (crypto as any).keypairs?.map((kp: any) => kp.privateKey) || [];
+                const env = await deps.kel.sign(ixn, crypto);
+                await appendKelEnv(kels, env, prior);
 
-                // For interaction events, we need to create a special envelope since they don't have embedded keys
-                // We'll use the current controller's keys for signing
-                const canonical = JSON.stringify(ixn);
-                const canonicalBytes = new TextEncoder().encode(canonical);
-
-                const signatures: CesrSig[] = [];
-                for (let i = 0; i < privateKeys.length; i++) {
-                    const signature = CESR.sign(canonicalBytes, privateKeys[i], true);
-                    signatures.push({
-                        keyIndex: i,
-                        sig: signature
-                    });
-                }
-
-                const env: KelEnvelope = {
-                    event: ixn,
-                    signatures
-                };
-
-                await appendKelEnv(kels, env);
-
-                return ixn;
+                return env; // Return envelope for richer inspection
             },
 
             async listTels() {
