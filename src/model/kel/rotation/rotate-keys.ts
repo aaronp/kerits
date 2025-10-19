@@ -264,9 +264,18 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                     onProgress({ type: "signature:rejected", rotationId, payload: msg });
                     return;
                 }
+
+                // Ensure keyIndex maps to the expected pub (belt-and-braces)
+                const expected = cosigners.find(c => c.keyIndex === msg.keyIndex);
+                const pubAtIndex = prior.k?.[msg.keyIndex];
+                if (!expected || !pubAtIndex || expected.pub !== pubAtIndex) {
+                    onProgress({ type: "error", rotationId, payload: "signer pub mismatch" });
+                    return;
+                }
+
                 const canon = deps.kel.canonicalBytes(rotEvent);
-                const pub = prior.k?.[msg.keyIndex];
-                if (!pub || !msg.sig) {
+                const pub = pubAtIndex;
+                if (!msg.sig) {
                     onProgress({ type: "error", rotationId, payload: "missing signature" });
                     return;
                 }
@@ -304,13 +313,17 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 return;
             }
 
-            // Verify signature over canonical rot bytes (matches what will be published)
-            const canon = deps.kel.canonicalBytes(rotEvent);
-            const pub = prior.k?.[msg.keyIndex];
-            if (!pub) {
-                onProgress({ type: "error", rotationId, payload: "invalid keyIndex" });
+            // Ensure keyIndex maps to the expected pub (belt-and-braces)
+            const expected = cosigners.find(c => c.keyIndex === msg.keyIndex);
+            const pubAtIndex = prior.k?.[msg.keyIndex];
+            if (!expected || !pubAtIndex || expected.pub !== pubAtIndex) {
+                onProgress({ type: "error", rotationId, payload: "signer pub mismatch" });
                 return;
             }
+
+            // Verify signature over canonical rot bytes (matches what will be published)
+            const canon = deps.kel.canonicalBytes(rotEvent);
+            const pub = pubAtIndex;
             if (!msg.sig) {
                 onProgress({ type: "error", rotationId, payload: "missing signature" });
                 return;
