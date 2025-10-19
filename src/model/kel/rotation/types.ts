@@ -43,6 +43,8 @@ export interface RotationStatus {
     nextThreshold: number;      // nt
     rotEvent: KelEvent;         // the rotation event being signed
     finalEnvelope?: KelEnvelope; // the final published envelope (when finalized)
+    finalEventSaid?: SAID;      // SAID of the final event (for UI)
+    sigCount?: number;          // number of signatures in final envelope (for UI)
 }
 
 export interface RotationProgressEvent {
@@ -54,7 +56,8 @@ export interface RotationProgressEvent {
     | "deadline:near"
     | "finalized"
     | "aborted"
-    | "error";
+    | "error"
+    | "resend:proposal";
     rotationId: RotationId;
     payload?: any;
 }

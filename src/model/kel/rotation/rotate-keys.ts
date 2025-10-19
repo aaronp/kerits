@@ -111,6 +111,21 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         const priorKt = deps.kel.decodeThreshold(prior.kt!);
         const cosigners = await deps.resolveCosigners(prior);
 
+        // Preflight cosigner mapping validation
+        {
+            const seen = new Set<number>();
+            for (const c of cosigners) {
+                if (c.keyIndex < 0 || c.keyIndex >= prior.k!.length) throw new Error("cosigner keyIndex OOB");
+                if (seen.has(c.keyIndex)) throw new Error("duplicate cosigner keyIndex");
+                if (prior.k![c.keyIndex] !== c.pub) throw new Error("cosigner pub/keyIndex mismatch");
+                seen.add(c.keyIndex);
+            }
+            if (seen.size !== prior.k!.length) {
+                // Allow partial mapping for flexibility
+                // throw new Error("incomplete cosigner mapping");
+            }
+        }
+
         // Calculate initiator's share of prior keys for threshold calculation
         const initiatorPriorKeys = deps.crypto.priorKeys?.() ?? [];
         const initiatorShare = countInitiatorPriorKeys(prior.k!, initiatorPriorKeys);
@@ -118,6 +133,15 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         // Fast path when initiator alone can satisfy prior threshold
         if (initiatorShare >= priorKt) {
             const env = await deps.kel.sign(rotEvent, deps.crypto); // This must include all initiator prior indices
+
+            // Assert initiator signatures in fast-path
+            const myIdx = prior.k!.map((k, i) => initiatorPriorKeys.includes(k) ? i : -1).filter(i => i >= 0);
+            for (const i of myIdx) {
+                if (!env.signatures.some(s => s.keyIndex === i)) {
+                    throw new Error("missing initiator signature at prior index " + i);
+                }
+            }
+
             const finalEnv: KelEnvelope = {
                 event: env.event,
                 signatures: env.signatures.sort((a, b) => a.keyIndex - b.keyIndex)
@@ -195,6 +219,9 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 initiatorControlledIdx.add(c.keyIndex);
             }
         }
+        // Sort signers for determinism
+        const signersSorted = [...cosigners].sort((a, b) => a.keyIndex - b.keyIndex);
+
         const status0: RotationStatus = {
             id: rotationId,
             controller: controllerAid,
@@ -206,7 +233,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             totalKeys: prior.k!.length,
             collected: 0,
             missing: initialRequired,
-            signers: cosigners.map(c => ({
+            signers: signersSorted.map(c => ({
                 aid: c.aid,
                 keyIndex: c.keyIndex,
                 // Only non-initiator signers count toward collection threshold
@@ -454,6 +481,8 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
 
             currentStatus.phase = "finalized";
             currentStatus.finalEnvelope = env;
+            currentStatus.finalEventSaid = env.event.d;
+            currentStatus.sigCount = env.signatures.length;
             await putJsonString(deps.stores.index, docKey, currentStatus);
             onProgress({ type: "finalized", rotationId, payload: { rot: rotEvent.d } });
             unsub();
@@ -533,6 +562,9 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             async resend() {
                 const status = await getJsonString<RotationStatus>(deps.stores.index, docKey);
                 if (!status || status.phase === "finalized" || status.phase === "aborted" || status.phase === "failed") return;
+
+                // Emit progress signal for resend activity
+                onProgress({ type: "resend:proposal", rotationId });
 
                 // Re-broadcast proposal to missing cosigners
                 const missingSigners = status.signers.filter(s => !s.signed && s.required);
