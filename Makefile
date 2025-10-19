@@ -1,4 +1,4 @@
-.PHONY: test verify unit ui-test test-auth test-kerits clean coverage check check-kerits typecheck typecheck-kerits help
+.PHONY: test verify unit ui-test test-auth test-kerits test-model clean coverage coverage-model check check-kerits typecheck typecheck-kerits help
 
 # ============================================================================
 # Help
@@ -10,6 +10,7 @@ help:
 	@echo "Test Targets:"
 	@echo "  make test            - Run all tests (kerits + UI + server)"
 	@echo "  make test-kerits     - Run only kerits core tests (./src)"
+	@echo "  make test-model      - Run model tests (./src/model)"
 	@echo "  make test-auth       - Run auth integration tests"
 	@echo "  make ui-test         - Run UI/MERITS tests only"
 	@echo "  make unit            - Run unit tests"
@@ -23,6 +24,7 @@ help:
 	@echo "  make check           - Full quality check (typecheck + coverage + verify)"
 	@echo "  make check-kerits    - Kerits-only check (typecheck-kerits + test-kerits)"
 	@echo "  make coverage        - Run tests with coverage"
+	@echo "  make coverage-model  - Run model tests with HTML coverage report"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make clean           - Remove build artifacts and node_modules"
@@ -65,6 +67,14 @@ test-kerits:
 	@echo "🧪 Running kerits core tests..."
 	@bun test $$(find src -name "*.test.ts" -not -path "*/app/*" -not -path "*/cesr/*")
 
+# Run model tests (./src/model)
+test-model: 
+	@echo "🏗️  Running model tests..."
+	@bun test $$(find src/model -name "*.test.ts")
+
+check-model: typecheck test-model
+	@echo "🏗️  Checking model..."
+
 # ============================================================================
 # Type Checking
 # ============================================================================
@@ -97,6 +107,22 @@ typecheck-kerits:
 coverage:
 	@bun test --coverage
 	@echo "✅ Coverage complete"
+
+# Run model tests with HTML coverage report
+coverage-model:
+	@echo "📊 Running model tests with HTML coverage report..."
+	@bun test --coverage --coverage-reporter=text --coverage-reporter=lcov $$(find src/model -name "*.test.ts")
+	@if command -v genhtml >/dev/null 2>&1; then \
+		echo "📊 Generating HTML coverage report..."; \
+		genhtml -o coverage/html coverage/lcov.info; \
+		echo "✅ HTML coverage report generated in coverage/html/index.html"; \
+	else \
+		echo "⚠️  genhtml not found. Install lcov package to generate HTML reports:"; \
+		echo "   brew install lcov  # macOS"; \
+		echo "   apt-get install lcov  # Ubuntu/Debian"; \
+		echo "   yum install lcov  # CentOS/RHEL"; \
+		echo "✅ Text coverage report generated in coverage/lcov.info"; \
+	fi
 
 # Clean build artifacts and node_modules
 clean:

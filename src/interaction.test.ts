@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'bun:test';
 import { interaction, type Seal } from './interaction';
-import { generateKeypairFromSeed } from './signer';
+import { CESR } from './model/cesr/cesr';
 import { diger } from './diger';
 
 /**
@@ -18,7 +18,7 @@ function testDigest(data: string): string {
 describe('interaction', () => {
   describe('basic interaction event creation', () => {
     test('creates valid interaction event with seal', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event-data');
       const registryAID = testDigest('registry-aid');
       const vcpSAID = testDigest('vcp-said');
@@ -40,7 +40,7 @@ describe('interaction', () => {
     });
 
     test('creates interaction with correct event type', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       const event = interaction({
@@ -53,7 +53,7 @@ describe('interaction', () => {
     });
 
     test('sets correct identifier', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       const event = interaction({
@@ -66,7 +66,7 @@ describe('interaction', () => {
     });
 
     test('sets correct sequence number in hex', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       const event = interaction({
@@ -79,7 +79,7 @@ describe('interaction', () => {
     });
 
     test('converts sequence number to hex', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       const event = interaction({
@@ -92,7 +92,7 @@ describe('interaction', () => {
     });
 
     test('sets prior event digest', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       const event = interaction({
@@ -107,7 +107,7 @@ describe('interaction', () => {
 
   describe('seals and anchored data', () => {
     test('includes seals in anchored data array', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
       const seal: Seal = {
         i: testDigest('registry-aid'),
@@ -128,7 +128,7 @@ describe('interaction', () => {
     });
 
     test('includes multiple seals', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
       const seals: Seal[] = [
         { i: testDigest('reg1'), d: testDigest('vcp1') },
@@ -148,7 +148,7 @@ describe('interaction', () => {
     });
 
     test('seal can include optional sequence number', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
       const seal: Seal = {
         i: testDigest('registry-aid'),
@@ -167,7 +167,7 @@ describe('interaction', () => {
     });
 
     test('supports additional data alongside seals', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
       const seal: Seal = {
         i: testDigest('reg1'),
@@ -189,7 +189,7 @@ describe('interaction', () => {
     });
 
     test('defaults to empty array when no seals or data provided', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       const event = interaction({
@@ -204,7 +204,7 @@ describe('interaction', () => {
 
   describe('SAID computation', () => {
     test('computes 44-character SAID', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       const event = interaction({
@@ -219,7 +219,7 @@ describe('interaction', () => {
     });
 
     test('SAID starts with derivation code', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       const event = interaction({
@@ -232,7 +232,7 @@ describe('interaction', () => {
     });
 
     test('different events produce different SAIDs', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       const event1 = interaction({
@@ -251,7 +251,7 @@ describe('interaction', () => {
     });
 
     test('identical inputs produce identical SAIDs', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
       const options = {
         pre: kp.verfer,
@@ -269,7 +269,7 @@ describe('interaction', () => {
 
   describe('version string', () => {
     test('includes KERI version', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       const event = interaction({
@@ -282,7 +282,7 @@ describe('interaction', () => {
     });
 
     test('version includes correct size', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       const event = interaction({
@@ -302,7 +302,7 @@ describe('interaction', () => {
 
   describe('serialization', () => {
     test('raw is valid JSON', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       const event = interaction({
@@ -315,7 +315,7 @@ describe('interaction', () => {
     });
 
     test('parsed raw matches ked', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       const event = interaction({
@@ -341,7 +341,7 @@ describe('interaction', () => {
     });
 
     test('throws error when sequence number is less than 1', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       expect(() => {
@@ -354,7 +354,7 @@ describe('interaction', () => {
     });
 
     test('throws error when prior digest is missing', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
 
       expect(() => {
         interaction({
@@ -366,7 +366,7 @@ describe('interaction', () => {
     });
 
     test('throws error when sequence number is undefined', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       expect(() => {
@@ -382,7 +382,7 @@ describe('interaction', () => {
   describe('TEL registry anchoring use case', () => {
     test('creates event to anchor TEL registry inception', async () => {
       // Generate deterministic keys for issuer
-      const issuerKp = await generateKeypairFromSeed(TEST_SEED_1);
+      const issuerKp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const registryAID = testDigest('registry-identifier');
       const vcpSAID = testDigest('vcp-inception-event');
       const priorDigest = testDigest('prior-event');
@@ -403,7 +403,7 @@ describe('interaction', () => {
     });
 
     test('supports multiple registry anchors in single event', async () => {
-      const issuerKp = await generateKeypairFromSeed(TEST_SEED_1);
+      const issuerKp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       const event = interaction({
@@ -423,7 +423,7 @@ describe('interaction', () => {
 
   describe('event structure compliance', () => {
     test('has all required KERI event fields', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       const event = interaction({
@@ -443,7 +443,7 @@ describe('interaction', () => {
     });
 
     test('does not have rotation-specific fields', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       const event = interaction({
@@ -462,7 +462,7 @@ describe('interaction', () => {
 
   describe('large sequence numbers', () => {
     test('handles sequence number 256', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       const event = interaction({
@@ -475,7 +475,7 @@ describe('interaction', () => {
     });
 
     test('handles sequence number 4095', async () => {
-      const kp = await generateKeypairFromSeed(TEST_SEED_1);
+      const kp = await CESR.generateKeypairFromSeed(TEST_SEED_1);
       const priorDigest = testDigest('prior-event');
 
       const event = interaction({

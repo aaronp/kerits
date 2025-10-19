@@ -4,7 +4,8 @@
  * Verify CESR indexed signatures on KERI events.
  */
 
-import { Verfer, Cigar } from '../cesr/signer';
+import { Verfer } from 'cesr-ts/src/verfer';
+import { Cigar } from 'cesr-ts/src/cigar';
 import { parseCesrStream, parseIndexedSignatures } from './signing';
 import type { KeyState } from './keystate';
 

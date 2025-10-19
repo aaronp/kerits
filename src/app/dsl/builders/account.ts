@@ -6,7 +6,7 @@ import type { KerStore } from '../../../storage/types';
 import type { AccountDSL, Account, Mnemonic, GraphOptions, RegistryOptions, ExportDSL, ContactsDSL } from '../types';
 import type { RegistryDSL } from '../types';
 import type { KeyManager } from '../../keymanager';
-import { generateKeypairFromSeed } from '../../../signer';
+import { CESR } from '../../../model/cesr/cesr';
 import { rotate } from '../../../rotate';
 import { diger } from '../../../diger';
 import { mnemonicToSeed } from '../utils';
@@ -39,7 +39,7 @@ export function createAccountDSL(account: Account, store: KerStore, keyManager?:
       const seed = mnemonicToSeed(newMnemonic);
 
       // Generate new keypair
-      const newKp = await generateKeypairFromSeed(seed);
+      const newKp = await CESR.generateKeypairFromSeed(seed);
 
       // Get current KEL
       const kelEvents = await store.listKel(s(account.aid).asAID());

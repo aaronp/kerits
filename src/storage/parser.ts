@@ -3,8 +3,8 @@
  */
 
 import type { Parser, Hasher, ParsedEvent, EventMeta, Attachment, AttachmentType, SAID } from './types';
-import { Diger } from '../cesr/diger.js';
-import { Matter } from '../cesr/matter.js';
+import { Diger } from 'cesr-ts/src/diger';
+import { Matter } from 'cesr-ts/src/matter';
 
 // Utility functions
 function utf8Decode(b: Uint8Array): string {
@@ -26,7 +26,7 @@ function slicePrefix(s: string, pref: string): string {
  * (prefixed with "-KERI...") and subsequent lines are CESR attachments
  */
 export class DefaultJsonCesrParser implements Parser {
-  constructor(private hasher: Hasher) {}
+  constructor(private hasher: Hasher) { }
 
   parse(raw: Uint8Array): ParsedEvent {
     const txt = utf8Decode(raw).trim();
@@ -56,9 +56,9 @@ export class DefaultJsonCesrParser implements Parser {
       const code = L.slice(1, 4).toUpperCase();
       const type: AttachmentType =
         code === "AAB" ? "AAB" :
-        code === "FAB" ? "FAB" :
-        code === "VRC" ? "VRC" :
-        code === "SAB" ? "SEAL" : "OTHER";
+          code === "FAB" ? "FAB" :
+            code === "VRC" ? "VRC" :
+              code === "SAB" ? "SEAL" : "OTHER";
 
       atts.push({
         eventSaid: sad.d,
@@ -110,7 +110,7 @@ export class DefaultJsonCesrParser implements Parser {
  */
 export class CesrHasher implements Hasher {
   computeSaid(sadBytes: Uint8Array): SAID {
-    const diger = new Diger({ ser: sadBytes });
+    const diger = new Diger({}, sadBytes);
     return diger.qb64 as SAID;
   }
 }

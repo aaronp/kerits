@@ -5,7 +5,7 @@
  * Keys are derived from mnemonics and cached in memory for performance.
  */
 
-import { Signer } from '../cesr/signer.js';
+import { Signer } from 'cesr-ts/src/signer';
 import type { Kv } from '../storage/types';
 import type { Mnemonic } from './dsl/types/common';
 import { mnemonicToSeed } from './dsl/utils/mnemonic';

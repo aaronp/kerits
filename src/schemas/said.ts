@@ -8,7 +8,7 @@
  */
 
 import { canonicalize } from 'json-canonicalize';
-import { Diger } from '../cesr/diger';
+import { Diger } from 'cesr-ts/src/diger';
 
 /**
  * Compute SAID for a schema document
@@ -29,7 +29,7 @@ export function deriveSchemaSaid(schema: any): string {
 
   // 3-4. Hash and encode using CESR Diger (Blake3-256 by default)
   const bytes = new TextEncoder().encode(canonical);
-  const diger = new Diger({ ser: bytes });
+  const diger = new Diger({}, bytes);
 
   // 5. Return the qb64 SAID
   return diger.qb64;

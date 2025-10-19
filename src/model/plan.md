@@ -1,37 +1,55 @@
-# Phase 1:
+# Phase 1: Core Data Models and Functional Operations
 
-Design, build and test the core data structures and functionality in [model](./model.md) as a foundation
+Design, build and test the core data structures and functional operations as described in [model](./model.md).
 
+## Phase 1A: Core Data Structures
+- **Data operations**: `Data.fromJson()`, `saidified()`, `schema()`
+- **SAID associations**: Multi-map for directional SAID relationships
+- **TEL event structures**: Standardized event format for groups and aliases
+- **Pure data models**: No IO, just transformations
 
-# Phase 2:
+## Phase 1B: "Pimped" KERI Operations
+Follow a similar approach to the 's' pimped operation in [keri.ts](../types/keri.ts) for working with strings such as 'asAID()' and do the same for controllers (i.e. Operations on key event logs, or 'KELs'), transaction event logs or 'TELs', and Authentic Chained Data Contains (ACDCs)).
 
-Design, build and test the solid KERI operations for operating on KELs, TELs, ACDCs and Schemas.
-
-I would like to follow a similar approach to the 's' pimped operation in [keri.ts](../types/keri.ts) for working with strings such as 'asAID()' and do the same for controllers (i.e. Operations on key event logs, or 'KELs'), transaction event logs or 'TELs', and Authentic Chained Data Contains (ACDCs)).
+### Enhanced KEL Operations
+The KEL operations must provide:
+- **Clear lineage of public keys**: Track complete key history throughout KEL lifecycle
+- **Event history verification**: Prove only key holders could append events
+- **High-level CESR conversion**: `toCESR()` and `fromCESR()` functions for KERI data
+- **Real cryptographic operations**: Use actual key generation and signing, not mocks
+- **Single-owner key rotation**: Convenience methods for threshold=1 KELs
+- **Data signing and verification**: Clean APIs for signing arbitrary data
 
 These functions will be pure data transformations written in a functional style, such as:
 
 ```ts
-// users may keep their private keys in any number of places. We provide convenience methods
-// for getting/saving them locally, however
-const identity =  ... // user's private KeyPair
+// Enhanced KEL operations with real cryptography and lineage tracking
+const identity = await Keys.createForInception(); // Real key generation
+const kelLog = kel(aid).inceptionWithGeneratedKeys(); // Real KERI inception
 
-// they can now rotate their logs. This is essentially the business-logic operations working on the data:
-// 
-// verifying the identity controls this kelLog, checking for required witnesses, etc.
-// it doesn't actually do any IO (read or write any data), but returns a referentially transparent 
-// result in a purely functional way to represent the outcome of rotating keys.
-//
-// in the event the KEL only required a single signer, the result may be an ammended KEL log we
-// could then write down (save to disk) and notify others about (i.e. publish to an OOBI service)
-//
-// in the event of it requiring other signers (witnesses) for a multi-sig account the result would 
-// be the messages needed to send to those other AIDs to sign.
-//
-// the 'RotateResult' would be a strongly typed result type - likely a union type, which could then
-// be actioned as per above.
-//
-const rotateResult = kel(kelLog).rotateKeys(identity)
+// Track complete key lineage throughout KEL history
+const lineage = kelLog.getKeyLineage();
+console.log(`Key history: ${lineage.length} events`);
+
+// Rotate keys for single-owner KELs (threshold = 1)
+const rotateResult = await kelLog.rotateKeysForSingleOwner();
+
+// Sign arbitrary data with current KEL keys
+const documentData = { title: "Contract", content: "..." };
+const signingKeys = await Keys.createMultiple(1);
+const signature = await kelLog.signData(documentData, signingKeys);
+
+// Verify signatures using KEL public keys
+const isValid = await kelLog.verifySignature(documentData, signature.data!);
+
+// Verify complete KEL event history (proves only key holders could append events)
+const verificationResult = await kelLog.verifyEventHistory([signingKeys]);
+
+// Convert KEL to CESR format for transmission/storage
+const cesrData = kelLog.toCESR();
+
+// Reconstruct KEL from CESR format
+const reconstructedKel = KEL.fromCESR(cesrData.data!, aid);
 
 
 
@@ -109,7 +127,13 @@ const saidifiedData = d8a.saidified() // returns the data with an "$d" id field 
 
 The point of this phase is to ensure we have a strong foundation of keri data representations (already started in [types.ts](../types/keri.ts)) which is well tested, with good test-case examples, and kept separate from any side-effecting IO operations (disk or network concerns).
 
-# Phase 3: Unify the IO interfaces
+## Phase 1C: Integration and Testing
+- Comprehensive test coverage for all operations
+- Example use cases demonstrating the patterns
+- Integration tests showing how components work together
+- Documentation with clear examples
+
+# Phase 2: IO Interfaces
 
 We have some existing 'KV' (key value) abstractions, a message bus, etc.
 

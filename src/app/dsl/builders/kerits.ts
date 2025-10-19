@@ -4,7 +4,7 @@
 
 import type { KerStore } from '../../../storage/types';
 import type { KeritsDSL, Account, Mnemonic, AccountDSL, SchemaDSL, ContactsDSL, ContactSyncDSL, AppDataDSL, SchemaExport } from '../types';
-import { generateKeypairFromSeed } from '../../../signer';
+import { CESR } from '../../../model/cesr/cesr';
 import { createIdentity, createSchema as createSchemaHelper } from '../../helpers';
 import { seedToMnemonic, mnemonicToSeed, serializeEvent } from '../utils';
 import { saidify } from '../../../saidify';
@@ -49,7 +49,7 @@ export function createKeritsDSL(store: KerStore): KeritsDSL {
       const seed = mnemonicToSeed(mnemonic);
 
       // Generate keypair from seed
-      const kp = await generateKeypairFromSeed(seed);
+      const kp = await CESR.generateKeypairFromSeed(seed);
 
       // Unlock account in KeyManager BEFORE creating identity
       // This ensures signing keys are available for inception event
