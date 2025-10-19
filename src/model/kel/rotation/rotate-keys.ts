@@ -97,7 +97,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         });
 
         // Enforce reveal == prior.n
-        const revealSaid = deps.kel.saidOfKeyset(rotEvent.k!, deps.kel.decodeThreshold(rotEvent.kt!));
+        const revealSaid = await deps.kel.saidOfKeyset(rotEvent.k!, deps.kel.decodeThreshold(rotEvent.kt!));
         if (revealSaid !== prior.n) throw new Error("Reveal does not match prior commitment");
 
         // Proposal id — SAID of canonical rot body (or SAID of a proposal doc)
@@ -160,6 +160,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 newThreshold: revealKt,
                 nextCommit: { n: rotEvent.n!, nt: deps.kel.decodeThreshold(rotEvent.nt!) },
             },
+            canonicalDigest: rotEvent.d,  // SAID of the rot event to be signed
             deadline: opts?.deadlineMs ? new Date(Date.now() + opts.deadlineMs).toISOString() : undefined,
             note: opts?.note,
         };
@@ -240,6 +241,13 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 return;
             }
 
+            // Get the proposal to validate canonical digest
+            const proposal = await getJsonString<RotationProposal>(deps.stores.index, `${docKey}:proposal`);
+            if (!proposal) {
+                onProgress({ type: "error", rotationId, payload: "proposal not found" });
+                return;
+            }
+
             const signer = status.signers.find(s => s.keyIndex === msg.keyIndex);
             if (!signer) {
                 onProgress({ type: "error", rotationId, payload: "unknown signer for keyIndex" });
@@ -270,6 +278,12 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 const pubAtIndex = prior.k?.[msg.keyIndex];
                 if (!expected || !pubAtIndex || expected.pub !== pubAtIndex) {
                     onProgress({ type: "error", rotationId, payload: "signer pub mismatch" });
+                    return;
+                }
+
+                // Validate that cosigner is signing the correct canonical digest
+                if (msg.canonicalDigest && msg.canonicalDigest !== proposal.canonicalDigest) {
+                    onProgress({ type: "error", rotationId, payload: "canonical digest mismatch" });
                     return;
                 }
 
@@ -318,6 +332,12 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             const pubAtIndex = prior.k?.[msg.keyIndex];
             if (!expected || !pubAtIndex || expected.pub !== pubAtIndex) {
                 onProgress({ type: "error", rotationId, payload: "signer pub mismatch" });
+                return;
+            }
+
+            // Validate that cosigner is signing the correct canonical digest
+            if (msg.canonicalDigest && msg.canonicalDigest !== proposal.canonicalDigest) {
+                onProgress({ type: "error", rotationId, payload: "canonical digest mismatch" });
                 return;
             }
 

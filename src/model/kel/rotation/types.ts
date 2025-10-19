@@ -89,6 +89,7 @@ export type RotationProposal = {
         newThreshold: number;           // kt'
         nextCommit: { n: SAID; nt: number }; // for *next* rotation
     };
+    canonicalDigest: SAID;            // SAID of the rot event to be signed
     // optional UX
     deadline?: string;
     note?: string;
@@ -101,6 +102,7 @@ export type RotationSign = {
     keyIndex: number;                 // index into prior k[]
     sig: string;                      // CESR signature over proposal hash or canonical rot-event body
     ok: boolean;                      // false to explicitly reject
+    canonicalDigest?: SAID;           // optional: SAID of the rot event being signed
     reason?: string;
 };
 
