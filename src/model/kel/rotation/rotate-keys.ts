@@ -252,9 +252,34 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 return;
             }
 
-            // Ignore messages from non-required signers (initiator's own indices) to reduce log noise
+            // Non-required signer (initiator's own prior key): still authenticate & verify,
+            // then store but do not increment collected.
             if (!signer.required) {
-                // accept but don't count; optionally store signature if you want it pre-publish
+                // AID must match the mapped signer
+                if (m.from !== signer.aid) {
+                    onProgress({ type: "error", rotationId, payload: "signer AID mismatch" });
+                    return;
+                }
+                if (!msg.ok) {
+                    onProgress({ type: "signature:rejected", rotationId, payload: msg });
+                    return;
+                }
+                const canon = deps.kel.canonicalBytes(rotEvent);
+                const pub = prior.k?.[msg.keyIndex];
+                if (!pub || !msg.sig) {
+                    onProgress({ type: "error", rotationId, payload: "missing signature" });
+                    return;
+                }
+                const ok = await deps.crypto.verify(canon, msg.sig as string, pub);
+                if (!ok) {
+                    onProgress({ type: "error", rotationId, payload: "bad signature" });
+                    return;
+                }
+                // Idempotency: avoid recording duplicate value
+                if (status.signers.some(s => s.signature === msg.sig)) {
+                    onProgress({ type: "error", rotationId, payload: "duplicate signature" });
+                    return;
+                }
                 signer.signed = true;
                 signer.signature = msg.sig;
                 signer.seenAt = deps.clock();
