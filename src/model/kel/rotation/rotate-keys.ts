@@ -5,7 +5,7 @@
  * as described in the thoughts document.
  */
 
-import type { KeyValueStore, SAID, Transport, AID, Message } from '../../io/types';
+import type { KeyValueStore, Transport, AID, Message } from '../../io/types';
 import type { KelEvent, KelEnvelope, Crypto } from '../../services/types';
 import type { KelService } from '../../services/kel';
 import type {
@@ -114,14 +114,6 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         // Calculate initiator's share of prior keys for threshold calculation
         const initiatorPriorKeys = deps.crypto.priorKeys?.() ?? [];
         const initiatorShare = countInitiatorPriorKeys(prior.k!, initiatorPriorKeys);
-
-        // Helper to get initiator's prior key indices
-        const getInitiatorPriorIndices = (): number[] => {
-            const initiatorPriorKeys = deps.crypto.priorKeys?.() ?? [];
-            return prior.k!
-                .map((pub, idx) => initiatorPriorKeys.includes(pub) ? idx : -1)
-                .filter(idx => idx >= 0);
-        };
 
         // Fast path when initiator alone can satisfy prior threshold
         if (initiatorShare >= priorKt) {
@@ -318,8 +310,8 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 }
 
                 // Validate that cosigner is signing the correct canonical digest
-                if (msg.canonicalDigest && msg.canonicalDigest !== proposal.canonicalDigest) {
-                    onProgress({ type: "error", rotationId, payload: "canonical digest mismatch (stale/altered proposal)" });
+                if (!msg.canonicalDigest || msg.canonicalDigest !== liveProposal.canonicalDigest) {
+                    onProgress({ type: "error", rotationId, payload: "missing/incorrect canonical digest" });
                     return;
                 }
 
@@ -373,8 +365,8 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             }
 
             // Validate that cosigner is signing the correct canonical digest
-            if (msg.canonicalDigest && msg.canonicalDigest !== liveProposal.canonicalDigest) {
-                onProgress({ type: "error", rotationId, payload: "canonical digest mismatch (stale/altered proposal)" });
+            if (!msg.canonicalDigest || msg.canonicalDigest !== liveProposal.canonicalDigest) {
+                onProgress({ type: "error", rotationId, payload: "missing/incorrect canonical digest" });
                 return;
             }
 
@@ -397,7 +389,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             signer.seenAt = deps.clock();
 
             // Calculate threshold accounting for initiator's share
-            const required = Math.max(0, status.required - initiatorShare);
+            const required = status.requiredExternal ?? Math.max(0, status.required - initiatorShare);
             status.collected = status.signers.filter(s => s.signed && s.required).length;
             status.missing = Math.max(0, required - status.collected);
             status.phase = status.collected >= required ? "finalizable" : "collecting";

@@ -241,13 +241,14 @@ describe("rotate-keys workflow (core invariants)", () => {
             k: ["pubA", "pubB"], kt: 2, nextK: ["nextA", "nextB"], nt: 2, dt: clock()
         });
         const canon = kel.canonicalBytes(rot);
+        const canonicalDigest = rot.d; // The SAID of the rot event
         const badSigner = A("E-Wrong");
         const goodSigner = A("E-A");
         await transport.send({
             id: "msg1", from: badSigner, to: controller, typ: "keri.rot.sign.v1",
             body: enc.encode(JSON.stringify({
                 rotationId, signer: badSigner, keyIndex: 0,
-                sig: `sig:pubA:${hex(canon)}`, ok: true
+                sig: `sig:pubA:${hex(canon)}`, canonicalDigest, ok: true
             })), dt: clock()
         });
 
@@ -260,7 +261,7 @@ describe("rotate-keys workflow (core invariants)", () => {
             id: "msg2", from: goodSigner, to: controller, typ: "keri.rot.sign.v1",
             body: enc.encode(JSON.stringify({
                 rotationId, signer: goodSigner, keyIndex: 0,
-                sig: `sig:pubA:${hex(canon)}`, ok: true
+                sig: `sig:pubA:${hex(canon)}`, canonicalDigest, ok: true
             })), dt: clock()
         });
         await new Promise(r => setTimeout(r, 10));
@@ -327,16 +328,17 @@ describe("rotate-keys workflow (core invariants)", () => {
         // Get the rotEvent from the status instead of creating our own
         const rotEvent = status.rotEvent;
         const canon = kel.canonicalBytes(rotEvent);
+        const canonicalDigest = rotEvent.d; // The SAID of the rot event
 
         // send signatures from both cosigners
         await transport.send({
             id: "s1", from: A("E-A"), to: controller, typ: "keri.rot.sign.v1",
-            body: enc.encode(JSON.stringify({ rotationId, signer: A("E-A"), keyIndex: 0, sig: `sig:pubA:${hex(canon)}`, ok: true })),
+            body: enc.encode(JSON.stringify({ rotationId, signer: A("E-A"), keyIndex: 0, sig: `sig:pubA:${hex(canon)}`, canonicalDigest, ok: true })),
             dt: clock()
         });
         await transport.send({
             id: "s2", from: A("E-B"), to: controller, typ: "keri.rot.sign.v1",
-            body: enc.encode(JSON.stringify({ rotationId, signer: A("E-B"), keyIndex: 1, sig: `sig:pubB:${hex(canon)}`, ok: true })),
+            body: enc.encode(JSON.stringify({ rotationId, signer: A("E-B"), keyIndex: 1, sig: `sig:pubB:${hex(canon)}`, canonicalDigest, ok: true })),
             dt: clock()
         });
 
@@ -381,6 +383,7 @@ describe("rotate-keys workflow (core invariants)", () => {
         // Get the rotEvent from the status instead of creating our own
         const rotEvent = status.rotEvent;
         const canon = deps.kel.canonicalBytes(rotEvent);
+        const canonicalDigest = rotEvent.d; // The SAID of the rot event
 
         // Send the same signature string twice (replay)
         const sig = `sig:pubA:${hex(canon)}`;
@@ -390,12 +393,12 @@ describe("rotate-keys workflow (core invariants)", () => {
 
         await transport.send({
             id: "s1", from: A("E-A"), to: controller, typ: "keri.rot.sign.v1",
-            body: enc.encode(JSON.stringify({ rotationId, signer: A("E-A"), keyIndex: 0, sig, ok: true })),
+            body: enc.encode(JSON.stringify({ rotationId, signer: A("E-A"), keyIndex: 0, sig, canonicalDigest, ok: true })),
             dt: clock()
         });
         await transport.send({
             id: "s2", from: A("E-B"), to: controller, typ: "keri.rot.sign.v1",
-            body: enc.encode(JSON.stringify({ rotationId, signer: A("E-B"), keyIndex: 1, sig, ok: true })),
+            body: enc.encode(JSON.stringify({ rotationId, signer: A("E-B"), keyIndex: 1, sig, canonicalDigest, ok: true })),
             dt: clock()
         });
 
@@ -432,6 +435,7 @@ describe("rotate-keys workflow (core invariants)", () => {
         // Get the rotEvent from the status instead of creating our own
         const rotEvent = status.rotEvent;
         const canon = deps.kel.canonicalBytes(rotEvent);
+        const canonicalDigest = rotEvent.d; // The SAID of the rot event
 
         const phases: string[] = [];
         handle.onProgress(e => { if (e.type === "status:phase") phases.push(String(e.payload)); });
@@ -439,12 +443,12 @@ describe("rotate-keys workflow (core invariants)", () => {
         // two signatures arrive back-to-back
         await transport.send({
             id: "s1", from: A("E-A"), to: controller, typ: "keri.rot.sign.v1",
-            body: enc.encode(JSON.stringify({ rotationId, signer: A("E-A"), keyIndex: 0, sig: `sig:pubA:${hex(canon)}`, ok: true })),
+            body: enc.encode(JSON.stringify({ rotationId, signer: A("E-A"), keyIndex: 0, sig: `sig:pubA:${hex(canon)}`, canonicalDigest, ok: true })),
             dt: clock()
         });
         await transport.send({
             id: "s2", from: A("E-B"), to: controller, typ: "keri.rot.sign.v1",
-            body: enc.encode(JSON.stringify({ rotationId, signer: A("E-B"), keyIndex: 1, sig: `sig:pubB:${hex(canon)}`, ok: true })),
+            body: enc.encode(JSON.stringify({ rotationId, signer: A("E-B"), keyIndex: 1, sig: `sig:pubB:${hex(canon)}`, canonicalDigest, ok: true })),
             dt: clock()
         });
 
