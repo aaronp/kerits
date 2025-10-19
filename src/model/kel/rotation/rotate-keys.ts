@@ -19,6 +19,7 @@ import type {
     RotationProgressEvent
 } from './types';
 import { getJsonString, putJsonString } from '../../io/storage';
+import { createHash } from 'crypto';
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -281,15 +282,34 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         // Helper to normalize AIDs for comparison (future-proofing)
         const sameAid = (a: AID, b: AID) => a === b; // replace later if you add normalization
 
-        // Message replay protection
-        const seenMessageIds = new Set<string>();
+        // Message replay protection with capped and hashed set
+        const seen = new Set<string>();
+        const cap = 2000; // tune to your traffic
+
+        function msgKeyOf(m: Message): string {
+            const bodyHash = createHash("sha256").update(m.body).digest("base64url").slice(0, 16);
+            return m.id ?? `${m.from}|${m.typ}|${bodyHash}`;
+        }
+
+        function remember(key: string): void {
+            seen.add(key);
+            if (seen.size > cap) {
+                // simple prune: delete first N (or keep a tiny FIFO queue)
+                const it = seen.values();
+                for (let i = 0; i < 200; i++) {
+                    const v = it.next();
+                    if (v.done) break;
+                    seen.delete(v.value);
+                }
+            }
+        }
 
         // Subscribe for signatures
         const unsub = deps.transport.channel(controllerAid).subscribe(async (m: Message) => {
             // Reject exact message replays (with fallback for missing IDs)
-            const msgKey = m.id ?? `${m.from}|${m.typ}|${dec.decode(m.body)}`;
-            if (seenMessageIds.has(msgKey)) return;
-            seenMessageIds.add(msgKey);
+            const msgKey = msgKeyOf(m);
+            if (seen.has(msgKey)) return;
+            remember(msgKey);
 
             if (m.typ !== "keri.rot.sign.v1") return;
             const msg = JSON.parse(dec.decode(m.body)) as RotationSign;
@@ -316,6 +336,12 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             // Keep cachedProposal truly live
             if (liveProposal && liveProposal !== cachedProposal) {
                 cachedProposal = liveProposal;
+            }
+
+            // Be strict that proposal SAID matches rot SAID
+            if (liveProposal.canonicalDigest !== rotEvent.d) {
+                onProgress({ type: "error", rotationId, payload: "proposal/event SAID mismatch" });
+                return;
             }
 
             const signer = status.signers.find(s => s.keyIndex === msg.keyIndex);
@@ -468,13 +494,16 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
 
             const env: KelEnvelope = {
                 event: selfEnv.event,
-                signatures: mergeSignatures(cosigs, selfEnv.signatures)
+                signatures: mergeSignatures(cosigs.sort((a, b) => a.keyIndex - b.keyIndex), selfEnv.signatures)
                     .sort((a, b) => a.keyIndex - b.keyIndex), // stable ordering by keyIndex
             };
 
             // Optional: final verification before append
             const ver = await deps.kel.verifyEnvelope(env);
-            if (!ver.valid) throw new Error(`final envelope invalid: ${ver.signatureResults.filter(r => !r.valid).length} invalid signatures`);
+            if (!ver.valid) {
+                onProgress({ type: "finalize:invalid", rotationId, payload: ver.signatureResults });
+                throw new Error(`final envelope invalid: ${ver.signatureResults.filter(r => !r.valid).length} invalid signatures`);
+            }
 
             // Publish rot to store with all signatures
             await deps.appendKelEnv(deps.stores.kels, env);
@@ -485,14 +514,18 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 rotationId,
                 rotEventSaid: rotEvent.d
             };
-            await deps.transport.send({
-                id: rotationId,
-                from: controllerAid,
-                to: controllerAid,
-                typ: "keri.rot.finalize.v1",
-                body: enc.encode(JSON.stringify(fin)),
-                dt: deps.clock()
-            });
+            try {
+                await deps.transport.send({
+                    id: rotationId,
+                    from: controllerAid,
+                    to: controllerAid,
+                    typ: "keri.rot.finalize.v1",
+                    body: enc.encode(JSON.stringify(fin)),
+                    dt: deps.clock()
+                });
+            } catch (e) {
+                onProgress({ type: "send:error", rotationId, payload: String(e) });
+            }
 
             currentStatus.phase = "finalized";
             currentStatus.finalEnvelope = env;
