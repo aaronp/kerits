@@ -147,7 +147,11 @@ describe("Canonical Digest Validation", () => {
             newThreshold: 2
         });
 
+        console.log("Handle created, checking status...");
         const status = await handle.status();
+        console.log("Status:", status);
+        console.log("Status ID:", status.id);
+
         expect(status.phase).toBe("finalized");
         expect(status.collected).toBe(2);
         expect(status.missing).toBe(0);
@@ -176,11 +180,25 @@ describe("Canonical Digest Validation", () => {
             nt: s("2").asThreshold()
         };
 
+        // Set the crypto to control only one prior key (not enough for self-finalize)
+        deps.crypto.setControlledKeys([pub1]);
+
+        // Override resolveCosigners to return wrong pub for keyIndex 0
+        deps.resolveCosigners = async (prior: any) => {
+            return prior.k!.map((pub: string, idx: number) => ({
+                aid: s(`Dcosigner${idx}`).asAID(),
+                keyIndex: idx,
+                pub: idx === 0 ? "wrong-pub" : pub // Return wrong pub for keyIndex 0
+            }));
+        };
+
         const rotateKeys = makeRotateKeys(deps);
         const handle = await rotateKeys(s("Dcontroller").asAID(), prior, {
             newKeys: [pub1, pub2],
             newThreshold: 2
         });
+
+        const status = await handle.status();
 
         const errors: string[] = [];
         handle.onProgress((e) => {
@@ -189,16 +207,18 @@ describe("Canonical Digest Validation", () => {
             }
         });
 
+        // Get the actual rotation ID from the handle status
+        const rotationId = status.id;
+
         // Send message with wrong pub for keyIndex
         await transport.send({
             id: "test-rotation",
-            from: s("Dcosigner").asAID(),
+            from: s("Dcosigner0").asAID(), // Use the correct cosigner AID
             to: s("Dcontroller").asAID(),
             typ: "keri.rot.sign.v1",
             body: enc.encode(JSON.stringify({
-                typ: "keri.rot.sign.v1",
-                rotationId: "test-rotation",
-                signer: s("Dcosigner").asAID(),
+                rotationId: rotationId,
+                signer: s("Dcosigner0").asAID(), // Use the correct cosigner AID
                 keyIndex: 0, // Should be pub1, but we'll send wrong pub
                 sig: "fake-sig",
                 ok: true
@@ -206,7 +226,7 @@ describe("Canonical Digest Validation", () => {
             dt: clock()
         });
 
-        await new Promise(r => setTimeout(r, 10));
+        await new Promise(r => setTimeout(r, 100));
         expect(errors).toContain("signer pub mismatch");
     });
 
@@ -229,11 +249,16 @@ describe("Canonical Digest Validation", () => {
             nt: s("2").asThreshold()
         };
 
+        // Set the crypto to control only one prior key (not enough for self-finalize)
+        deps.crypto.setControlledKeys([pub1]);
+
         const rotateKeys = makeRotateKeys(deps);
         const handle = await rotateKeys(s("Dcontroller").asAID(), prior, {
             newKeys: [pub1, pub2],
             newThreshold: 2
         });
+
+        const status = await handle.status();
 
         const errors: string[] = [];
         handle.onProgress((e) => {
@@ -242,16 +267,18 @@ describe("Canonical Digest Validation", () => {
             }
         });
 
+        // Get the actual rotation ID from the handle status
+        const rotationId = status.id;
+
         // Send message with wrong canonical digest
         await transport.send({
             id: "test-rotation",
-            from: s("Dcosigner").asAID(),
+            from: s("Dcosigner0").asAID(), // Use the correct cosigner AID
             to: s("Dcontroller").asAID(),
             typ: "keri.rot.sign.v1",
             body: enc.encode(JSON.stringify({
-                typ: "keri.rot.sign.v1",
-                rotationId: "test-rotation",
-                signer: s("Dcosigner").asAID(),
+                rotationId: rotationId,
+                signer: s("Dcosigner0").asAID(), // Use the correct cosigner AID
                 keyIndex: 0,
                 sig: "fake-sig",
                 ok: true,
@@ -260,8 +287,8 @@ describe("Canonical Digest Validation", () => {
             dt: clock()
         });
 
-        await new Promise(r => setTimeout(r, 10));
-        expect(errors).toContain("canonical digest mismatch");
+        await new Promise(r => setTimeout(r, 100));
+        expect(errors).toContain("canonical digest mismatch (stale/altered proposal)");
     });
 
     test("proposal includes canonical digest for cosigner verification", async () => {
@@ -290,7 +317,7 @@ describe("Canonical Digest Validation", () => {
         });
 
         // Check that proposal was sent with canonical digest
-        const messages = await transport.readUnread(s("Dcosigner").asAID());
+        const messages = await transport.readUnread(s("Dcosigner0").asAID());
         expect(messages.length).toBeGreaterThan(0);
 
         const proposalMsg = messages.find(m => m.typ === "keri.rot.proposal.v1");

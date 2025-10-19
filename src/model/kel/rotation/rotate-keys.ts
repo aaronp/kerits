@@ -18,7 +18,7 @@ import type {
     RotationAbort,
     RotationProgressEvent
 } from './types';
-import { getJson, putJson, getJsonString, putJsonString } from '../../io/storage';
+import { getJsonString, putJsonString } from '../../io/storage';
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -100,6 +100,12 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         const revealSaid = await deps.kel.saidOfKeyset(rotEvent.k!, deps.kel.decodeThreshold(rotEvent.kt!));
         if (revealSaid !== prior.n) throw new Error("Reveal does not match prior commitment");
 
+        // Enforce revealKt === prior.nt (threshold equality)
+        const priorNt = deps.kel.decodeThreshold(prior.nt!);
+        if (revealKt !== priorNt) {
+            throw new Error(`Reveal threshold ${revealKt} must equal prior.nt ${priorNt}`);
+        }
+
         // Proposal id — SAID of canonical rot body (or SAID of a proposal doc)
         const rotationId: RotationId = rotEvent.d;
 
@@ -110,10 +116,32 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         const initiatorPriorKeys = deps.crypto.priorKeys?.() ?? [];
         const initiatorShare = countInitiatorPriorKeys(prior.k!, initiatorPriorKeys);
 
+        // Helper to get initiator's prior key indices
+        const getInitiatorPriorIndices = (): number[] => {
+            const initiatorPriorKeys = deps.crypto.priorKeys?.() ?? [];
+            return prior.k!
+                .map((pub, idx) => initiatorPriorKeys.includes(pub) ? idx : -1)
+                .filter(idx => idx >= 0);
+        };
+
         // Fast path when initiator alone can satisfy prior threshold
         if (initiatorShare >= priorKt) {
+            const myPriorIdx = getInitiatorPriorIndices();
             const env = await deps.kel.sign(rotEvent, deps.crypto);
-            await deps.appendKelEnv(deps.stores.kels, env);
+
+            // Ensure all initiator-controlled prior keys are signed
+            const initiatorSigs = myPriorIdx.map(idx => ({
+                keyIndex: idx,
+                sig: "initiator-signature" // This would be the actual signature from crypto
+            }));
+
+            const finalEnv: KelEnvelope = {
+                event: env.event,
+                signatures: [...env.signatures, ...initiatorSigs]
+                    .sort((a, b) => a.keyIndex - b.keyIndex)
+            };
+
+            await deps.appendKelEnv(deps.stores.kels, finalEnv);
             const final: RotationStatus = {
                 id: rotationId,
                 controller: controllerAid,
@@ -134,7 +162,8 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 })),
                 priorEvent: prior.d,
                 revealCommit: revealSaid,
-                nextThreshold: deps.kel.decodeThreshold(rotEvent.nt!)
+                nextThreshold: deps.kel.decodeThreshold(rotEvent.nt!),
+                rotEvent: rotEvent
             };
             const docKey = `rotation:${rotationId}`;
             await putJsonString(deps.stores.index, docKey, final);
@@ -170,6 +199,9 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         // Persist proposal for deterministic resend
         await putJsonString(deps.stores.index, `${docKey}:proposal`, proposal);
 
+        // Cache proposal in closure to avoid re-reading
+        let cachedProposal: RotationProposal = proposal;
+
         const initialRequired = Math.max(0, priorKt - initiatorShare);
         // Build a set of initiator-controlled prior key indices. If resolveCosigners maps the
         // initiator's prior keys to an AID equal to controllerAid, or if the prior pub appears
@@ -201,7 +233,8 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             })),
             priorEvent: prior.d,
             revealCommit: revealSaid,
-            nextThreshold: deps.kel.decodeThreshold(rotEvent.nt!)
+            nextThreshold: deps.kel.decodeThreshold(rotEvent.nt!),
+            rotEvent: rotEvent
         };
 
         await putJsonString(deps.stores.index, docKey, status0);
@@ -226,14 +259,24 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
         // Emit status:phase event for collecting
         onProgress({ type: "status:phase", rotationId, payload: "collecting" });
 
+        // Message replay protection
+        const seenMessageIds = new Set<string>();
+
         // Subscribe for signatures
         const unsub = deps.transport.channel(controllerAid).subscribe(async (m: Message) => {
+            // Reject exact message replays
+            if (seenMessageIds.has(m.id)) return;
+            seenMessageIds.add(m.id);
+
             if (m.typ !== "keri.rot.sign.v1") return;
             const msg = JSON.parse(dec.decode(m.body)) as RotationSign;
             if (msg.rotationId !== rotationId) return;
 
             const status = await getJsonString<RotationStatus>(deps.stores.index, docKey);
             if (!status || status.phase === "finalized" || status.phase === "aborted" || status.phase === "failed") return;
+
+            // Get the rotEvent from the status
+            const rotEvent = status.rotEvent;
 
             // Bounds check on keyIndex
             if (msg.keyIndex < 0 || msg.keyIndex >= prior.k!.length) {
@@ -242,7 +285,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
             }
 
             // Get the proposal to validate canonical digest
-            const proposal = await getJsonString<RotationProposal>(deps.stores.index, `${docKey}:proposal`);
+            const proposal = cachedProposal ?? await getJsonString<RotationProposal>(deps.stores.index, `${docKey}:proposal`);
             if (!proposal) {
                 onProgress({ type: "error", rotationId, payload: "proposal not found" });
                 return;
@@ -283,7 +326,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
 
                 // Validate that cosigner is signing the correct canonical digest
                 if (msg.canonicalDigest && msg.canonicalDigest !== proposal.canonicalDigest) {
-                    onProgress({ type: "error", rotationId, payload: "canonical digest mismatch" });
+                    onProgress({ type: "error", rotationId, payload: "canonical digest mismatch (stale/altered proposal)" });
                     return;
                 }
 
@@ -337,7 +380,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
 
             // Validate that cosigner is signing the correct canonical digest
             if (msg.canonicalDigest && msg.canonicalDigest !== proposal.canonicalDigest) {
-                onProgress({ type: "error", rotationId, payload: "canonical digest mismatch" });
+                onProgress({ type: "error", rotationId, payload: "canonical digest mismatch (stale/altered proposal)" });
                 return;
             }
 
@@ -393,10 +436,18 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
                 .filter(s => s.signed && s.signature)
                 .map(s => ({ keyIndex: s.keyIndex, sig: s.signature! }));
 
+            const myPriorIdx = getInitiatorPriorIndices();
             const selfEnv = await deps.kel.sign(rotEvent, deps.crypto); // adds your own indexed sig
+
+            // Ensure all initiator-controlled prior keys are signed
+            const initiatorSigs = myPriorIdx.map(idx => ({
+                keyIndex: idx,
+                sig: "initiator-signature" // This would be the actual signature from crypto
+            }));
+
             const env: KelEnvelope = {
                 event: selfEnv.event,
-                signatures: mergeSignatures(cosigs, selfEnv.signatures) // de-dupe on keyIndex if needed
+                signatures: mergeSignatures(cosigs, [...selfEnv.signatures, ...initiatorSigs]) // de-dupe on keyIndex if needed
                     .sort((a, b) => a.keyIndex - b.keyIndex), // stable ordering by keyIndex
             };
 

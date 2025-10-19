@@ -6,6 +6,7 @@
  */
 
 import type { AID, SAID } from '../../io/types';
+import type { KelEvent } from '../../kel/types';
 
 export type RotationId = string;
 export type RotationPhase =
@@ -39,6 +40,7 @@ export interface RotationStatus {
     priorEvent: SAID;           // prior KEL d (p)
     revealCommit: SAID;         // SAID({k: newK, kt: newKt}) == prior.n
     nextThreshold: number;      // nt
+    rotEvent: KelEvent;         // the rotation event being signed
 }
 
 export interface RotationProgressEvent {

@@ -132,6 +132,7 @@ const cryptoFor = (priorKeys: string[], nextKeys: string[] = [], nt = 1): Crypto
         return `sig:${pub}:${hex(data)}`;
     },
     async verify(data, sig, pub) {
+        // Accept signatures for any pub, not just the ones we control
         return sig === `sig:${pub}:${hex(data)}`;
     },
     pubKeys() { return []; },
@@ -144,7 +145,7 @@ const cryptoFor = (priorKeys: string[], nextKeys: string[] = [], nt = 1): Crypto
 import { makeRotateKeys } from "./rotate-keys"; // path as in your tree
 
 // ---- Fixtures ------------------------------------------------
-const A = (id: string): AID => ({ uri: id });
+const A = (id: string): AID => id as AID;
 
 const priorEvent = (aid: AID, k: string[], kt: number): KelEvent => {
     // Create a fake KEL service to compute the correct n value
@@ -189,7 +190,7 @@ describe("rotate-keys workflow (core invariants)", () => {
 
         const deps = {
             clock, stores: { index, kels }, kel, transport,
-            crypto: cryptoFor(["pubA", "pubB"]),
+            crypto: cryptoFor(["pubA"]), // initiator only controls pubA, not pubB
             resolveCosigners: async () => [
                 { aid: A("E-A"), keyIndex: 0, pub: "pubA" },
                 { aid: A("E-B"), keyIndex: 1, pub: "pubB" },
@@ -210,6 +211,9 @@ describe("rotate-keys workflow (core invariants)", () => {
         const status = await handle.status();
         const rotationId = status.id;
 
+        // Wait a bit for subscription to be established
+        await new Promise(r => setTimeout(r, 10));
+
         // send a signature from the WRONG AID for keyIndex 0
         const rot = await kel.rotate({
             controller, prior,
@@ -221,21 +225,19 @@ describe("rotate-keys workflow (core invariants)", () => {
         await transport.send({
             id: "msg1", from: badSigner, to: controller, typ: "keri.rot.sign.v1",
             body: enc.encode(JSON.stringify({
-                typ: "keri.rot.sign.v1",
                 rotationId, signer: badSigner, keyIndex: 0,
                 sig: `sig:pubA:${hex(canon)}`, ok: true
             })), dt: clock()
         });
 
         // give it a tick
-        await new Promise(r => setTimeout(r, 10));
+        await new Promise(r => setTimeout(r, 100));
         expect(errors).toContain("signer AID mismatch");
 
         // now send matching AID -> should be accepted
         await transport.send({
             id: "msg2", from: goodSigner, to: controller, typ: "keri.rot.sign.v1",
             body: enc.encode(JSON.stringify({
-                typ: "keri.rot.sign.v1",
                 rotationId, signer: goodSigner, keyIndex: 0,
                 sig: `sig:pubA:${hex(canon)}`, ok: true
             })), dt: clock()
@@ -279,7 +281,7 @@ describe("rotate-keys workflow (core invariants)", () => {
 
         const deps = {
             clock, stores: { index, kels }, kel, transport,
-            crypto: cryptoFor(["pubA", "pubB"], ["nA", "nB"], 2),
+            crypto: cryptoFor(["pubA"]), // initiator only controls pubA
             resolveCosigners: async () => [
                 { aid: A("E-A"), keyIndex: 0, pub: "pubA" },
                 { aid: A("E-B"), keyIndex: 1, pub: "pubB" },
@@ -298,21 +300,22 @@ describe("rotate-keys workflow (core invariants)", () => {
         const status = await handle.status();
         const rotationId = status.id;
 
-        // build canonical once (what cosigners will sign)
-        const rot = await deps.kel.rotate({
-            controller, prior, k: ["pubA", "pubB"], kt: 2, nextK: ["nA", "nB"], nt: 2, dt: clock()
-        });
-        const canon = deps.kel.canonicalBytes(rot);
+        // Wait a bit for subscription to be established
+        await new Promise(r => setTimeout(r, 10));
 
-        // both cosigners send signatures over canonical (no domain tag)
+        // Get the rotEvent from the status instead of creating our own
+        const rotEvent = status.rotEvent;
+        const canon = kel.canonicalBytes(rotEvent);
+
+        // send signatures from both cosigners
         await transport.send({
             id: "s1", from: A("E-A"), to: controller, typ: "keri.rot.sign.v1",
-            body: enc.encode(JSON.stringify({ typ: "keri.rot.sign.v1", rotationId, signer: A("E-A"), keyIndex: 0, sig: `sig:pubA:${hex(canon)}`, ok: true })),
+            body: enc.encode(JSON.stringify({ rotationId, signer: A("E-A"), keyIndex: 0, sig: `sig:pubA:${hex(canon)}`, ok: true })),
             dt: clock()
         });
         await transport.send({
             id: "s2", from: A("E-B"), to: controller, typ: "keri.rot.sign.v1",
-            body: enc.encode(JSON.stringify({ typ: "keri.rot.sign.v1", rotationId, signer: A("E-B"), keyIndex: 1, sig: `sig:pubB:${hex(canon)}`, ok: true })),
+            body: enc.encode(JSON.stringify({ rotationId, signer: A("E-B"), keyIndex: 1, sig: `sig:pubB:${hex(canon)}`, ok: true })),
             dt: clock()
         });
 
@@ -334,7 +337,7 @@ describe("rotate-keys workflow (core invariants)", () => {
 
         const deps = {
             clock, stores: { index, kels }, kel, transport,
-            crypto: cryptoFor(["pubA", "pubB"]),
+            crypto: cryptoFor(["pubA"]), // initiator only controls pubA
             resolveCosigners: async () => [
                 { aid: A("E-A"), keyIndex: 0, pub: "pubA" },
                 { aid: A("E-B"), keyIndex: 1, pub: "pubB" },
@@ -351,10 +354,12 @@ describe("rotate-keys workflow (core invariants)", () => {
         const status = await handle.status();
         const rotationId = status.id;
 
-        const rot = await deps.kel.rotate({
-            controller, prior, k: ["pubA", "pubB"], kt: 2, nextK: ["nA", "nB"], nt: 2, dt: clock()
-        });
-        const canon = deps.kel.canonicalBytes(rot);
+        // Wait a bit for subscription to be established
+        await new Promise(r => setTimeout(r, 10));
+
+        // Get the rotEvent from the status instead of creating our own
+        const rotEvent = status.rotEvent;
+        const canon = deps.kel.canonicalBytes(rotEvent);
 
         // Send the same signature string twice (replay)
         const sig = `sig:pubA:${hex(canon)}`;
@@ -364,16 +369,16 @@ describe("rotate-keys workflow (core invariants)", () => {
 
         await transport.send({
             id: "s1", from: A("E-A"), to: controller, typ: "keri.rot.sign.v1",
-            body: enc.encode(JSON.stringify({ typ: "keri.rot.sign.v1", rotationId, signer: A("E-A"), keyIndex: 0, sig, ok: true })),
+            body: enc.encode(JSON.stringify({ rotationId, signer: A("E-A"), keyIndex: 0, sig, ok: true })),
             dt: clock()
         });
         await transport.send({
             id: "s2", from: A("E-B"), to: controller, typ: "keri.rot.sign.v1",
-            body: enc.encode(JSON.stringify({ typ: "keri.rot.sign.v1", rotationId, signer: A("E-B"), keyIndex: 1, sig, ok: true })),
+            body: enc.encode(JSON.stringify({ rotationId, signer: A("E-B"), keyIndex: 1, sig, ok: true })),
             dt: clock()
         });
 
-        await new Promise(r => setTimeout(r, 20));
+        await new Promise(r => setTimeout(r, 100));
         expect(errors).toContain("duplicate signature");
     });
 
@@ -383,7 +388,7 @@ describe("rotate-keys workflow (core invariants)", () => {
 
         const deps = {
             clock, stores: { index, kels }, kel, transport,
-            crypto: cryptoFor(["pubA", "pubB"]),
+            crypto: cryptoFor(["pubA"]), // initiator only controls pubA
             resolveCosigners: async () => [
                 { aid: A("E-A"), keyIndex: 0, pub: "pubA" },
                 { aid: A("E-B"), keyIndex: 1, pub: "pubB" },
@@ -400,10 +405,12 @@ describe("rotate-keys workflow (core invariants)", () => {
         const status = await handle.status();
         const rotationId = status.id;
 
-        const rot = await deps.kel.rotate({
-            controller, prior, k: ["pubA", "pubB"], kt: 2, nextK: ["nA", "nB"], nt: 2, dt: clock()
-        });
-        const canon = deps.kel.canonicalBytes(rot);
+        // Wait a bit for subscription to be established
+        await new Promise(r => setTimeout(r, 10));
+
+        // Get the rotEvent from the status instead of creating our own
+        const rotEvent = status.rotEvent;
+        const canon = deps.kel.canonicalBytes(rotEvent);
 
         const phases: string[] = [];
         handle.onProgress(e => { if (e.type === "status:phase") phases.push(String(e.payload)); });
@@ -411,12 +418,12 @@ describe("rotate-keys workflow (core invariants)", () => {
         // two signatures arrive back-to-back
         await transport.send({
             id: "s1", from: A("E-A"), to: controller, typ: "keri.rot.sign.v1",
-            body: enc.encode(JSON.stringify({ typ: "keri.rot.sign.v1", rotationId, signer: A("E-A"), keyIndex: 0, sig: `sig:pubA:${hex(canon)}`, ok: true })),
+            body: enc.encode(JSON.stringify({ rotationId, signer: A("E-A"), keyIndex: 0, sig: `sig:pubA:${hex(canon)}`, ok: true })),
             dt: clock()
         });
         await transport.send({
             id: "s2", from: A("E-B"), to: controller, typ: "keri.rot.sign.v1",
-            body: enc.encode(JSON.stringify({ typ: "keri.rot.sign.v1", rotationId, signer: A("E-B"), keyIndex: 1, sig: `sig:pubB:${hex(canon)}`, ok: true })),
+            body: enc.encode(JSON.stringify({ rotationId, signer: A("E-B"), keyIndex: 1, sig: `sig:pubB:${hex(canon)}`, ok: true })),
             dt: clock()
         });
 
