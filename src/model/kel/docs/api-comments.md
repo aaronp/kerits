@@ -114,7 +114,7 @@ async createAccount({ alias, currentKeySpec, nextKeySpec, timestamp }) {
 }
 ```
 
-
+git
 Base64url helpers replacement in vaultRepo (using the Buffer versions above).
 
 Sanity checklist (you’re already close)

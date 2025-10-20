@@ -205,14 +205,21 @@ export class KEL {
             return null;
         }
 
-        // Get the latest event (highest sequence number)
-        const latestEvent = kelEvents.reduce((latest, current) => {
+        // Find the most recent event that has controller state (has 'k' field)
+        // Interaction events don't change controller state (no 'k' field)
+        const stateEvents = kelEvents.filter(event => event.k && Array.isArray(event.k));
+        if (stateEvents.length === 0) {
+            return null;
+        }
+
+        // Get the latest state event (highest sequence number)
+        const latestStateEvent = stateEvents.reduce((latest, current) => {
             const latestSeq = parseInt(latest.s || '0', 16);
             const currentSeq = parseInt(current.s || '0', 16);
             return currentSeq > latestSeq ? current : latest;
         });
 
-        return KEL.extractControllerState(latestEvent);
+        return KEL.extractControllerState(latestStateEvent);
     }
 
     /**

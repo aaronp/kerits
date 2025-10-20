@@ -39,29 +39,16 @@ const err = {
 /**
  * Flexible key specification that allows multiple ways to provide keys
  */
-export type KeySpec =
-    | undefined                    // Generate random key
-    | number                       // Numeric seed for deterministic generation
-    | Mnemonic                     // Mnemonic phrase
-    | CESRKeypair;                // Pre-generated keypair
+export type KeySpec = undefined | number | string | CESRKeypair; // string = mnemonic
 
 /**
  * Convert a KeySpec to a CESRKeypair
  */
-function keySpecToKeypair(keySpec: KeySpec, transferable: boolean = true): CESRKeypair {
-    if (keySpec === undefined) {
-        // Generate random key
-        return CESR.keypairFromMnemonic(CESR.generateMnemonic(), transferable);
-    } else if (typeof keySpec === 'number') {
-        // Numeric seed for deterministic generation
-        return CESR.keypairFrom(keySpec, transferable);
-    } else if (typeof keySpec === 'string') {
-        // Mnemonic phrase
-        return CESR.keypairFromMnemonic(keySpec, transferable);
-    } else {
-        // Pre-generated keypair
-        return keySpec;
-    }
+function keySpecToKeypair(spec: KeySpec, transferable = true): CESRKeypair {
+    if (spec === undefined) return CESR.keypairFromMnemonic(CESR.generateMnemonic(), transferable);
+    if (typeof spec === 'number') return CESR.keypairFrom(spec, transferable);
+    if (typeof spec === 'string') return CESR.keypairFromMnemonic(spec, transferable);
+    return spec; // CESRKeypair
 }
 
 /**
@@ -117,9 +104,9 @@ export interface CreateAccountParams {
     /** Storage instances */
     stores: KelStores;
     /** Optional: Current key specification (undefined = generate random) */
-    currentKeySeed?: KeySpec;
+    currentKeySpec?: KeySpec;
     /** Optional: Next key specification (undefined = generate random) */
-    nextKeySeed?: KeySpec;
+    nextKeySpec?: KeySpec;
     /** Optional: Timestamp for deterministic testing */
     timestamp?: string;
 }
@@ -275,7 +262,7 @@ async function getAliasMapping(aliasStore: KeyValueStore): Promise<AliasMapping>
  */
 export type KelApi = {
     createAccount(args: Omit<CreateAccountParams, 'stores'>): Promise<Account>;
-    rotateKeys(args: { aid: AID; timestamp?: string; nextSeed?: KeySpec }): Promise<Account>;
+    rotateKeys(args: { aid: AID; timestamp?: string; nextKeySpec?: KeySpec }): Promise<Account>;
     getAccount(args: Omit<GetAccountParams, 'stores'>): Promise<Account | null>;
     getAidByAlias(alias: string): Promise<AID | null>;
     getKelChain(aid: AID): Promise<KelEvent[]>;
@@ -349,20 +336,16 @@ export namespace KelStores {
         };
     }
 
-    // Helper functions for base64url encoding/decoding
+    // Helper functions for base64url encoding/decoding using Buffer
     function toB64(u8: Uint8Array): string {
-        return btoa(String.fromCharCode(...u8))
-            .replace(/\+/g, '-')
-            .replace(/\//g, '_')
-            .replace(/=/g, '');
+        return Buffer.from(u8).toString('base64')
+            .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
 
     function fromB64(s: string): Uint8Array {
-        // Add padding if needed
-        const padded = s + '='.repeat((4 - s.length % 4) % 4);
-        const base64 = padded.replace(/-/g, '+').replace(/_/g, '/');
-        const binary = atob(base64);
-        return new Uint8Array(binary.split('').map(c => c.charCodeAt(0)));
+        const base64 = s.replace(/-/g, '+').replace(/_/g, '/');
+        const pad = base64.length % 4 ? '='.repeat(4 - (base64.length % 4)) : '';
+        return new Uint8Array(Buffer.from(base64 + pad, 'base64'));
     }
 
     export function vaultRepo(store: KeyValueStore): Vault {
@@ -437,12 +420,12 @@ export namespace KelStores {
         }
 
         return {
-            async createAccount({ alias, currentKeySeed, nextKeySeed, timestamp }) {
+            async createAccount({ alias, currentKeySpec, nextKeySpec, timestamp }) {
                 const existing = await aliases.get(alias);
                 if (existing) throw err.AliasExists(alias);
 
-                const currentKp = keySpecToKeypair(currentKeySeed, true);
-                const nextKp = keySpecToKeypair(nextKeySeed, true);
+                const currentKp = keySpecToKeypair(currentKeySpec, true);
+                const nextKp = keySpecToKeypair(nextKeySpec, true);
 
                 const inceptionEvent = KEL.inception({
                     currentKeys: [CESR.getPublicKey(currentKp)],
@@ -481,7 +464,7 @@ export namespace KelStores {
                 };
             },
 
-            async rotateKeys({ aid, timestamp, nextSeed }) {
+            async rotateKeys({ aid, timestamp, nextKeySpec }) {
                 return withAidLock(aid, async () => {
                     const meta = await kel.getChain(aid);
                     if (!meta) throw err.UnknownAID(aid);
@@ -490,7 +473,7 @@ export namespace KelStores {
                     if (!keyset) throw err.KeysetMissing(aid);
 
                     // Prepare brand-new "next" for the following rotation (commitment chaining)
-                    const nextNext = keySpecToKeypair(nextSeed, true);
+                    const nextNext = keySpecToKeypair(nextKeySpec, true);
 
                     // Build rotation: reveal previous next as current; commit fresh next
                     const nextSeq = meta.sequence + 1;

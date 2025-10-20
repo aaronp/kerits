@@ -22,8 +22,8 @@ describe('KEL Inception Flow', () => {
         const account = await api.createAccount({
             alias,
             // Optional: provide keys for deterministic testing
-            currentKeySeed: 1234,
-            nextKeySeed: 5678,
+            currentKeySpec: 1234,
+            nextKeySpec: 5678,
         });
 
         // Then: The account should have an AID
@@ -52,8 +52,8 @@ describe('KEL Inception Flow', () => {
         const api = KelStores.ops(stores);
         const account = await api.createAccount({
             alias: 'alice',
-            currentKeySeed: 1234,
-            nextKeySeed: 5678,
+            currentKeySpec: 1234,
+            nextKeySpec: 5678,
         });
 
         // When: Alice publishes her OOBI
@@ -84,8 +84,8 @@ describe('KEL Inception Flow', () => {
         const api = KelStores.ops(stores);
         const account = await api.createAccount({
             alias: 'alice',
-            currentKeySeed: 1234,
-            nextKeySeed: 5678,
+            currentKeySpec: 1234,
+            nextKeySpec: 5678,
         });
 
         // When: We retrieve the account by alias
@@ -102,8 +102,8 @@ describe('KEL Inception Flow', () => {
         const api = KelStores.ops(stores);
         const account = await api.createAccount({
             alias: 'alice',
-            currentKeySeed: 1234,
-            nextKeySeed: 5678,
+            currentKeySpec: 1234,
+            nextKeySpec: 5678,
         });
 
         // When: We get the latest sequence number
@@ -119,8 +119,8 @@ describe('KEL Inception Flow', () => {
         const api = KelStores.ops(stores);
         const account = await api.createAccount({
             alias: 'alice',
-            currentKeySeed: 1234,
-            nextKeySeed: 5678,
+            currentKeySpec: 1234,
+            nextKeySpec: 5678,
         });
 
         // Verify initial state
@@ -140,7 +140,7 @@ describe('KEL Inception Flow', () => {
         const rotatedAccount = await api.rotateKeys({
             aid: account.aid,
             timestamp: '2025-01-01T12:00:00Z',
-            nextSeed: 9999, // deterministic next key for testing
+            nextKeySpec: 9999, // deterministic next key for testing
         });
 
         // Then: The sequence should increment
@@ -178,7 +178,7 @@ describe('KEL Inception Flow', () => {
         // Current key should be the previous next key
         expect(rotatedKeys!.currentKeys[0]!.publicKey).toBe(initialNextKey);
 
-        // Next key should be new (generated from nextSeed: 9999)
+        // Next key should be new (generated from nextKeySpec: 9999)
         expect(rotatedKeys!.nextKeys[0]!.publicKey).not.toBe(initialNextKey);
         expect(rotatedKeys!.nextKeys[0]!.publicKey).not.toBe(initialCurrentKey);
 
@@ -213,8 +213,8 @@ describe('KEL Inception Flow', () => {
         const api1 = KelStores.ops(stores1);
         const account1 = await api1.createAccount({
             alias: 'alice-numeric',
-            currentKeySeed: 1234,
-            nextKeySeed: 5678,
+            currentKeySpec: 1234,
+            nextKeySpec: 5678,
         });
         expect(account1.aid).toMatch(/^D[A-Za-z0-9_-]{43}$/);
 
@@ -224,8 +224,8 @@ describe('KEL Inception Flow', () => {
         const mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
         const account2 = await api2.createAccount({
             alias: 'alice-mnemonic',
-            currentKeySeed: mnemonic,
-            nextKeySeed: mnemonic,
+            currentKeySpec: mnemonic,
+            nextKeySpec: mnemonic,
         });
         expect(account2.aid).toMatch(/^D[A-Za-z0-9_-]{43}$/);
 
@@ -235,8 +235,8 @@ describe('KEL Inception Flow', () => {
         const keypair = CESR.keypairFrom(9999, true);
         const account3 = await api3.createAccount({
             alias: 'alice-keypair',
-            currentKeySeed: keypair,
-            nextKeySeed: keypair,
+            currentKeySpec: keypair,
+            nextKeySpec: keypair,
         });
         expect(account3.aid).toMatch(/^D[A-Za-z0-9_-]{43}$/);
 
@@ -245,8 +245,8 @@ describe('KEL Inception Flow', () => {
         const api4 = KelStores.ops(stores4);
         const account4 = await api4.createAccount({
             alias: 'alice-mixed',
-            currentKeySeed: 1111,  // numeric
-            nextKeySeed: mnemonic, // mnemonic
+            currentKeySpec: 1111,  // numeric
+            nextKeySpec: mnemonic, // mnemonic
         });
         expect(account4.aid).toMatch(/^D[A-Za-z0-9_-]{43}$/);
 
@@ -255,7 +255,7 @@ describe('KEL Inception Flow', () => {
         const api5 = KelStores.ops(stores5);
         const account5 = await api5.createAccount({
             alias: 'alice-random',
-            // currentKeySeed and nextKeySeed are undefined, so random keys will be generated
+            // currentKeySpec and nextKeySpec are undefined, so random keys will be generated
         });
         expect(account5.aid).toMatch(/^D[A-Za-z0-9_-]{43}$/);
 
@@ -267,19 +267,19 @@ describe('KEL Inception Flow', () => {
         // Test rotation with different key specifications
         const rotatedAccount = await api1.rotateKeys({
             aid: account1.aid,
-            nextSeed: 9999, // numeric seed for rotation
+            nextKeySpec: 9999, // numeric seed for rotation
         });
         expect(rotatedAccount.sequence).toBe(1);
 
         const rotatedAccount2 = await api2.rotateKeys({
             aid: account2.aid,
-            nextSeed: mnemonic, // mnemonic for rotation
+            nextKeySpec: mnemonic, // mnemonic for rotation
         });
         expect(rotatedAccount2.sequence).toBe(1);
 
         const rotatedAccount3 = await api3.rotateKeys({
             aid: account3.aid,
-            nextSeed: keypair, // keypair for rotation
+            nextKeySpec: keypair, // keypair for rotation
         });
         expect(rotatedAccount3.sequence).toBe(1);
     });
