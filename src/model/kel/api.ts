@@ -13,8 +13,36 @@ import type { OOBIResolver } from '../io/oobi-resolver';
 import type { AID, SAID } from '../types';
 import type { KelEvent, KelEnvelope } from './types';
 import { KEL } from './kel-ops';
-import { CESR } from '../cesr/cesr';
+import { CESR, type CESRKeypair, type Mnemonic } from '../cesr/cesr';
 import { getJson, putJson, getJsonString, putJsonString, memoryStore, namespace } from '../io/storage';
+
+/**
+ * Flexible key specification that allows multiple ways to provide keys
+ */
+export type KeySpec =
+    | undefined                    // Generate random key
+    | number                       // Numeric seed for deterministic generation
+    | Mnemonic                     // Mnemonic phrase
+    | CESRKeypair;                // Pre-generated keypair
+
+/**
+ * Convert a KeySpec to a CESRKeypair
+ */
+function keySpecToKeypair(keySpec: KeySpec, transferable: boolean = true): CESRKeypair {
+    if (keySpec === undefined) {
+        // Generate random key
+        return CESR.keypairFromMnemonic(CESR.generateMnemonic(), transferable);
+    } else if (typeof keySpec === 'number') {
+        // Numeric seed for deterministic generation
+        return CESR.keypairFrom(keySpec, transferable);
+    } else if (typeof keySpec === 'string') {
+        // Mnemonic phrase
+        return CESR.keypairFromMnemonic(keySpec, transferable);
+    } else {
+        // Pre-generated keypair
+        return keySpec;
+    }
+}
 
 /**
  * Account represents a KERI identifier with its associated data
@@ -68,10 +96,10 @@ export interface CreateAccountParams {
     alias: string;
     /** Storage instances */
     stores: KelStores;
-    /** Optional: Current key seed for deterministic testing */
-    currentKeySeed?: number;
-    /** Optional: Next key seed for deterministic testing */
-    nextKeySeed?: number;
+    /** Optional: Current key specification (undefined = generate random) */
+    currentKeySeed?: KeySpec;
+    /** Optional: Next key specification (undefined = generate random) */
+    nextKeySeed?: KeySpec;
     /** Optional: Timestamp for deterministic testing */
     timestamp?: string;
 }
@@ -228,7 +256,7 @@ async function getAliasMapping(aliasStore: KeyValueStore): Promise<AliasMapping>
  */
 export type KelApi = {
     createAccount(args: Omit<CreateAccountParams, 'stores'>): Promise<Account>;
-    rotateKeys(args: { aid: AID; timestamp?: string; nextSeed?: number }): Promise<Account>;
+    rotateKeys(args: { aid: AID; timestamp?: string; nextSeed?: KeySpec }): Promise<Account>;
     getAccount(args: Omit<GetAccountParams, 'stores'>): Promise<Account | null>;
     getAidByAlias(alias: string): Promise<AID | null>;
     getKelChain(aid: AID): Promise<KelEvent[]>;
@@ -342,13 +370,8 @@ export namespace KelStores {
                 const existing = await aliases.get(alias);
                 if (existing) throw new Error(`AliasExists: '${alias}'`);
 
-                const currentKp = currentKeySeed !== undefined
-                    ? CESR.keypairFrom(currentKeySeed, true)
-                    : CESR.keypairFromMnemonic(CESR.generateMnemonic(), true);
-
-                const nextKp = nextKeySeed !== undefined
-                    ? CESR.keypairFrom(nextKeySeed, true)
-                    : CESR.keypairFromMnemonic(CESR.generateMnemonic(), true);
+                const currentKp = keySpecToKeypair(currentKeySeed, true);
+                const nextKp = keySpecToKeypair(nextKeySeed, true);
 
                 const inceptionEvent = KEL.inception({
                     currentKeys: [CESR.getPublicKey(currentKp)],
@@ -399,9 +422,7 @@ export namespace KelStores {
                 if (!keyset) throw new Error(`KeysetMissing: ${aid}`);
 
                 // Prepare brand-new "next" for the following rotation (commitment chaining)
-                const nextNext = nextSeed !== undefined
-                    ? CESR.keypairFrom(nextSeed, true)
-                    : CESR.keypairFromMnemonic(CESR.generateMnemonic(), true);
+                const nextNext = keySpecToKeypair(nextSeed, true);
 
                 // Build rotation: reveal previous next as current; commit fresh next
                 const rot = KEL.rotation({

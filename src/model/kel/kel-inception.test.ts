@@ -8,6 +8,7 @@
 
 import { describe, expect, test } from 'bun:test';
 import { KelStores } from './api';
+import { CESR } from '../cesr/cesr';
 
 describe('KEL Inception Flow', () => {
 
@@ -202,5 +203,84 @@ describe('KEL Inception Flow', () => {
 
         // Then: Verify the rotation event SAID matches stored data
         expect(rotatedAccount.latestEvent).toBe(rotationEvent.d);
+    });
+
+    test('should support flexible key specifications', async () => {
+        // Test different ways to specify keys
+
+        // 1. Numeric seed (existing functionality)
+        const stores1 = KelStores.inMemory();
+        const api1 = KelStores.ops(stores1);
+        const account1 = await api1.createAccount({
+            alias: 'alice-numeric',
+            currentKeySeed: 1234,
+            nextKeySeed: 5678,
+        });
+        expect(account1.aid).toMatch(/^D[A-Za-z0-9_-]{43}$/);
+
+        // 2. Mnemonic phrase
+        const stores2 = KelStores.inMemory();
+        const api2 = KelStores.ops(stores2);
+        const mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+        const account2 = await api2.createAccount({
+            alias: 'alice-mnemonic',
+            currentKeySeed: mnemonic,
+            nextKeySeed: mnemonic,
+        });
+        expect(account2.aid).toMatch(/^D[A-Za-z0-9_-]{43}$/);
+
+        // 3. Pre-generated keypair
+        const stores3 = KelStores.inMemory();
+        const api3 = KelStores.ops(stores3);
+        const keypair = CESR.keypairFrom(9999, true);
+        const account3 = await api3.createAccount({
+            alias: 'alice-keypair',
+            currentKeySeed: keypair,
+            nextKeySeed: keypair,
+        });
+        expect(account3.aid).toMatch(/^D[A-Za-z0-9_-]{43}$/);
+
+        // 4. Mixed specifications
+        const stores4 = KelStores.inMemory();
+        const api4 = KelStores.ops(stores4);
+        const account4 = await api4.createAccount({
+            alias: 'alice-mixed',
+            currentKeySeed: 1111,  // numeric
+            nextKeySeed: mnemonic, // mnemonic
+        });
+        expect(account4.aid).toMatch(/^D[A-Za-z0-9_-]{43}$/);
+
+        // 5. Undefined (random generation)
+        const stores5 = KelStores.inMemory();
+        const api5 = KelStores.ops(stores5);
+        const account5 = await api5.createAccount({
+            alias: 'alice-random',
+            // currentKeySeed and nextKeySeed are undefined, so random keys will be generated
+        });
+        expect(account5.aid).toMatch(/^D[A-Za-z0-9_-]{43}$/);
+
+        // All accounts should be different (different keys)
+        const aids = [account1.aid, account2.aid, account3.aid, account4.aid, account5.aid];
+        const uniqueAids = new Set(aids);
+        expect(uniqueAids.size).toBe(5); // All should be unique
+
+        // Test rotation with different key specifications
+        const rotatedAccount = await api1.rotateKeys({
+            aid: account1.aid,
+            nextSeed: 9999, // numeric seed for rotation
+        });
+        expect(rotatedAccount.sequence).toBe(1);
+
+        const rotatedAccount2 = await api2.rotateKeys({
+            aid: account2.aid,
+            nextSeed: mnemonic, // mnemonic for rotation
+        });
+        expect(rotatedAccount2.sequence).toBe(1);
+
+        const rotatedAccount3 = await api3.rotateKeys({
+            aid: account3.aid,
+            nextSeed: keypair, // keypair for rotation
+        });
+        expect(rotatedAccount3.sequence).toBe(1);
     });
 });
