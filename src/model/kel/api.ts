@@ -90,7 +90,7 @@ export interface GetAccountParams {
 /**
  * Chain metadata stored for each AID
  */
-interface ChainMetadata {
+export interface ChainMetadata {
     /** AID of the identifier */
     aid: AID;
     /** Ordered list of event SAIDs (for O(1) traversal) */
@@ -228,6 +228,7 @@ async function getAliasMapping(aliasStore: KeyValueStore): Promise<AliasMapping>
  */
 export type KelApi = {
     createAccount(args: Omit<CreateAccountParams, 'stores'>): Promise<Account>;
+    rotateKeys(args: { aid: AID; timestamp?: string; nextSeed?: number }): Promise<Account>;
     getAccount(args: Omit<GetAccountParams, 'stores'>): Promise<Account | null>;
     getAidByAlias(alias: string): Promise<AID | null>;
     getKelChain(aid: AID): Promise<KelEvent[]>;
@@ -236,13 +237,110 @@ export type KelApi = {
 };
 
 export namespace KelStores {
+    // Ports (IO abstractions) built on top of KeyValueStore
+    export interface AliasRepo {
+        get(alias: string): Promise<AID | null>;
+        set(alias: string, aid: AID): Promise<void>;
+        reverse(aid: AID): Promise<string | null>;
+    }
+
+    export interface KelRepo {
+        getEvent(said: SAID): Promise<KelEvent | null>;
+        putEvent(evt: KelEvent): Promise<void>;
+        getEnvelope(said: SAID): Promise<KelEnvelope | null>;
+        putEnvelope(env: KelEnvelope): Promise<void>;
+        getChain(aid: AID): Promise<ChainMetadata | null>;
+        putChain(meta: ChainMetadata): Promise<void>;
+    }
+
+    export interface Vault {
+        getKeyset(aid: AID): Promise<{
+            current: { publicKey: string; secretHandle: Uint8Array };
+            next: { publicKey: string; secretHandle: Uint8Array };
+        } | null>;
+        setKeyset(aid: AID, ks: {
+            current: { publicKey: string; secretHandle: Uint8Array };
+            next: { publicKey: string; secretHandle: Uint8Array };
+        }): Promise<void>;
+    }
+
+    // Thin adapters over KeyValueStore to realize the ports with current layout
+    export function aliasRepo(store: KeyValueStore): AliasRepo {
+        return {
+            async get(alias) {
+                const mapping = await getAliasMapping(store);
+                return mapping.aliasToAid[alias.toLowerCase()] ?? null;
+            },
+            async set(alias, aid) {
+                const mapping = await getAliasMapping(store);
+                const lower = alias.toLowerCase();
+                const next: AliasMapping = {
+                    aliasToAid: { ...mapping.aliasToAid, [lower]: aid },
+                    aidToAlias: { ...mapping.aidToAlias, [aid]: lower }
+                };
+                await putJsonString(store, 'mapping', next);
+            },
+            async reverse(aid) {
+                const mapping = await getAliasMapping(store);
+                return mapping.aidToAlias[aid] ?? null;
+            }
+        };
+    }
+
+    export function kelRepo(events: KeyValueStore, envs: KeyValueStore, meta: KeyValueStore): KelRepo {
+        return {
+            async getEvent(said) { return await getJson<KelEvent>(events, said); },
+            async putEvent(evt) {
+                const existing = await getJson<KelEvent>(events, evt.d);
+                if (existing) return; // idempotent
+                await putJson(events, evt.d, evt);
+            },
+            async getEnvelope(said) { return await getJson<KelEnvelope>(envs, said); },
+            async putEnvelope(env) { await putJson(envs, env.event.d, env); },
+            async getChain(aid) { return await getJsonString<ChainMetadata>(meta, `chain:${aid}`); },
+            async putChain(cm) { await putJsonString(meta, `chain:${cm.aid}`, cm); }
+        };
+    }
+
+    export function vaultRepo(store: KeyValueStore): Vault {
+        return {
+            async getKeyset(aid) {
+                const data = await store.get(`keys:${aid}` as any);
+                if (!data) return null;
+                const parsed = JSON.parse(new TextDecoder().decode(data));
+                // Convert secretHandle back to Uint8Array
+                if (parsed.current?.secretHandle) {
+                    parsed.current.secretHandle = new Uint8Array(Object.values(parsed.current.secretHandle));
+                }
+                if (parsed.next?.secretHandle) {
+                    parsed.next.secretHandle = new Uint8Array(Object.values(parsed.next.secretHandle));
+                }
+                return parsed;
+            },
+            async setKeyset(aid, ks) {
+                // Convert Uint8Array to array for JSON serialization
+                const serializable = {
+                    current: {
+                        publicKey: ks.current.publicKey,
+                        secretHandle: Array.from(ks.current.secretHandle)
+                    },
+                    next: {
+                        publicKey: ks.next.publicKey,
+                        secretHandle: Array.from(ks.next.secretHandle)
+                    }
+                };
+                await putJsonString(store, `keys:${aid}`, serializable);
+            }
+        };
+    }
     export const ops = (stores: KelStores): KelApi => {
         return {
             async createAccount({ alias, currentKeySeed, nextKeySeed, timestamp }) {
-                const existingMapping = await getAliasMapping(stores.aliases);
-                if (existingMapping.aliasToAid[alias]) {
-                    throw new Error(`Alias '${alias}' already exists`);
-                }
+                const aliases = aliasRepo(stores.aliases);
+                const kel = kelRepo(stores.kelEvents, stores.kelCesr, stores.kelMetadata);
+                const vault = vaultRepo(stores.vault);
+                const existing = await aliases.get(alias);
+                if (existing) throw new Error(`AliasExists: '${alias}'`);
 
                 const currentKp = currentKeySeed !== undefined
                     ? CESR.keypairFrom(currentKeySeed, true)
@@ -261,12 +359,10 @@ export namespace KelStores {
                     currentTime: timestamp,
                 });
 
-                const eventJson = JSON.stringify(inceptionEvent);
-                await stores.kelEvents.put(inceptionEvent.d, new TextEncoder().encode(eventJson));
+                await kel.putEvent(inceptionEvent);
 
                 const envelope = KEL.createEnvelope(inceptionEvent, [currentKp.privateKey]);
-                const envelopeJson = JSON.stringify(envelope);
-                await stores.kelCesr.put(inceptionEvent.d, new TextEncoder().encode(envelopeJson));
+                await kel.putEnvelope(envelope);
 
                 const metadata: ChainMetadata = {
                     aid: inceptionEvent.i,
@@ -274,26 +370,14 @@ export namespace KelStores {
                     sequence: 0,
                     latestEvent: inceptionEvent.d,
                 };
-                await putJsonString(stores.kelMetadata, `chain:${inceptionEvent.i}`, metadata);
+                await kel.putChain(metadata);
 
-                const vaultEntry: VaultEntry = {
-                    aid: inceptionEvent.i,
-                    currentKeys: [{
-                        publicKey: CESR.getPublicKey(currentKp),
-                        privateKeySeed: currentKp.privateKey,
-                    }],
-                    nextKeys: [{
-                        publicKey: CESR.getPublicKey(nextKp),
-                        privateKeySeed: nextKp.privateKey,
-                    }],
-                };
-                await putJsonString(stores.vault, `keys:${inceptionEvent.i}`, vaultEntry);
+                await vault.setKeyset(inceptionEvent.i, {
+                    current: { publicKey: CESR.getPublicKey(currentKp), secretHandle: currentKp.privateKey },
+                    next: { publicKey: CESR.getPublicKey(nextKp), secretHandle: nextKp.privateKey }
+                });
 
-                const newMapping: AliasMapping = {
-                    aliasToAid: { ...existingMapping.aliasToAid, [alias]: inceptionEvent.i },
-                    aidToAlias: { ...existingMapping.aidToAlias, [inceptionEvent.i]: alias },
-                };
-                await putJsonString(stores.aliases, 'mapping', newMapping);
+                await aliases.set(alias, inceptionEvent.i);
 
                 return {
                     aid: inceptionEvent.i,
@@ -303,10 +387,74 @@ export namespace KelStores {
                 };
             },
 
+            async rotateKeys({ aid, timestamp, nextSeed }) {
+                const aliases = aliasRepo(stores.aliases);
+                const kel = kelRepo(stores.kelEvents, stores.kelCesr, stores.kelMetadata);
+                const vault = vaultRepo(stores.vault);
+
+                const meta = await kel.getChain(aid);
+                if (!meta) throw new Error(`UnknownAID: ${aid}`);
+
+                const keyset = await vault.getKeyset(aid);
+                if (!keyset) throw new Error(`KeysetMissing: ${aid}`);
+
+                // Prepare brand-new "next" for the following rotation (commitment chaining)
+                const nextNext = nextSeed !== undefined
+                    ? CESR.keypairFrom(nextSeed, true)
+                    : CESR.keypairFromMnemonic(CESR.generateMnemonic(), true);
+
+                // Build rotation: reveal previous next as current; commit fresh next
+                const rot = KEL.rotation({
+                    controller: aid,
+                    previousEvent: meta.latestEvent,
+                    currentKeys: [keyset.next.publicKey],          // reveal
+                    nextKeys: [CESR.getPublicKey(nextNext)],       // commit
+                    transferable: true,
+                    keyThreshold: 1,
+                    nextThreshold: 1,
+                    dt: timestamp,
+                });
+
+                // Fix the sequence number (rotation method hardcodes it to '1')
+                rot.s = (meta.sequence + 1).toString();
+
+                // Sign with *previous current* keys
+                const env = KEL.createEnvelope(rot, [keyset.current.secretHandle]);
+
+                // Verify the envelope
+                const priorEvent = meta.latestEvent ? await kel.getEvent(meta.latestEvent) : undefined;
+                const verification = await KEL.verifyEnvelope(env, priorEvent || undefined);
+                if (!verification.valid) {
+                    throw new Error(`Invalid rotation signature: ${verification.validSignatures}/${verification.requiredSignatures} signatures valid`);
+                }
+
+                // Persist
+                await kel.putEvent(rot);
+                await kel.putEnvelope(env);
+                const updated: ChainMetadata = {
+                    aid: meta.aid,
+                    chain: [...meta.chain, rot.d],
+                    sequence: meta.sequence + 1,   // rot.s is string, but sequence is number
+                    latestEvent: rot.d,
+                };
+                await kel.putChain(updated);
+
+                // Advance vault keyset atomically
+                await vault.setKeyset(aid, {
+                    current: { publicKey: keyset.next.publicKey, secretHandle: keyset.next.secretHandle },
+                    next: { publicKey: CESR.getPublicKey(nextNext), secretHandle: nextNext.privateKey },
+                });
+
+                const alias = (await aliases.reverse(aid)) ?? aid;
+                return { aid: aid, alias, sequence: updated.sequence, latestEvent: updated.latestEvent };
+            },
+
             async getAccount({ alias, aid }) {
+                const aliases = aliasRepo(stores.aliases);
+                const kel = kelRepo(stores.kelEvents, stores.kelCesr, stores.kelMetadata);
                 let resolvedAid: AID | null = null;
                 if (alias) {
-                    resolvedAid = await getAidByAlias(stores.aliases, alias);
+                    resolvedAid = await aliases.get(alias);
                 } else if (aid) {
                     resolvedAid = aid;
                 } else {
@@ -315,11 +463,10 @@ export namespace KelStores {
 
                 if (!resolvedAid) return null;
 
-                const metadata = await getJsonString<ChainMetadata>(stores.kelMetadata, `chain:${resolvedAid}`);
+                const metadata = await kel.getChain(resolvedAid);
                 if (!metadata) return null;
 
-                const mapping = await getAliasMapping(stores.aliases);
-                const resolvedAlias = mapping.aidToAlias[resolvedAid] || resolvedAid;
+                const resolvedAlias = (await aliases.reverse(resolvedAid)) ?? resolvedAid;
 
                 return {
                     aid: resolvedAid,
@@ -330,19 +477,37 @@ export namespace KelStores {
             },
 
             async getAidByAlias(alias) {
-                return await getAidByAlias(stores.aliases, alias);
+                const aliases = aliasRepo(stores.aliases);
+                return await aliases.get(alias);
             },
 
             async getKelChain(aid) {
-                return await getKelChain(stores.kelMetadata, stores.kelEvents, aid);
+                const kel = kelRepo(stores.kelEvents, stores.kelCesr, stores.kelMetadata);
+                const meta = await kel.getChain(aid);
+                if (!meta) return [];
+                const evts: KelEvent[] = [];
+                for (const said of meta.chain) {
+                    const e = await kel.getEvent(said);
+                    if (e) evts.push(e);
+                }
+                return evts;
             },
 
             async getLatestSequence(aid) {
-                return await getLatestSequence(stores.kelMetadata, aid);
+                const kel = kelRepo(stores.kelEvents, stores.kelCesr, stores.kelMetadata);
+                const meta = await kel.getChain(aid);
+                return meta?.sequence ?? null;
             },
 
             async getKeys(aid) {
-                return await getKeys(stores.vault, aid);
+                const vault = vaultRepo(stores.vault);
+                const ks = await vault.getKeyset(aid);
+                if (!ks) return null;
+                return {
+                    aid,
+                    currentKeys: [{ publicKey: ks.current.publicKey, privateKeySeed: ks.current.secretHandle }],
+                    nextKeys: [{ publicKey: ks.next.publicKey, privateKeySeed: ks.next.secretHandle }]
+                } as unknown as VaultEntry;
             }
         };
     };
