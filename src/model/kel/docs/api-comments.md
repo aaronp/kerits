@@ -1,74 +1,54 @@
-This is really tight now. A few small refinements will make it rock-solid and iron out edge cases:
+Highest-impact tweaks
 
-Quick wins
-
-Don’t rely on btoa/atob (browser-only). Use Buffer (Node/Bun) or your CESR helpers.
+Don’t hash index keys. You still call s(...).asSAID() on non-event keys (chain:${aid}, keys:${aid}, mapping). That will write under a different key than you’ll read later. Use plain strings for all indexes.
 
 ```ts
-// Replace toB64/fromB64 with Buffer-based, URL-safe variants
-function toB64(u8: Uint8Array): string {
-  return Buffer.from(u8).toString('base64')
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/,'');
-}
-function fromB64(s: string): Uint8Array {
-  const base64 = s.replace(/-/g,'+').replace(/_/g,'/');
-  const pad = base64.length % 4 ? '='.repeat(4 - (base64.length % 4)) : '';
-  return new Uint8Array(Buffer.from(base64 + pad, 'base64'));
-}
-```
-
-KeySpec typing & check. You test typeof keySpec === 'string' but Mnemonic may not be string at type level. Make it explicit and rename params for clarity:
-
-```ts
-export type KeySpec = undefined | number | string | CESRKeypair; // string = mnemonic
-
-function keySpecToKeypair(spec: KeySpec, transferable = true): CESRKeypair {
-  if (spec === undefined) return CESR.keypairFromMnemonic(CESR.generateMnemonic(), transferable);
-  if (typeof spec === 'number') return CESR.keypairFrom(spec, transferable);
-  if (typeof spec === 'string') return CESR.keypairFromMnemonic(spec, transferable);
-  return spec; // CESRKeypair
-}
-
-// Also rename in CreateAccountParams
-currentKeySpec?: KeySpec;
-nextKeySpec?: KeySpec;
-```
-
-
-…and update usages (currentKeySeed → currentKeySpec, nextKeySeed → nextKeySpec).
-
-Never mutate event fields post-build (you already fixed rotation s, nice). Do the same on inception: ensure KEL.inception internally canonicalizes → SAID, then you sign.
-
-Verify rotation against prior state (reveal/commit). You verify signatures; also assert that currentKeys == prior next.publicKey:
-
-```ts
-if (rot.k?.[0] !== keyset.next.publicKey) { // or whatever field your builder uses for current keys
-  throw err.BadSignature(); // or new KelError('RevealMismatch', 'Revealed key != prior next key');
-}
-```
-
-
-(If KEL.verifyEnvelope doesn’t do this, add a KEL.verifyRotation that checks priorSaid, expectedSeq, revealedKeys, threshold, etc.)
-
-Public getAidByAlias should reuse the repo (and lowercase):
-
-```ts
-export async function getAidByAlias(aliasStore: KeyValueStore, alias: string): Promise<AID | null> {
-  return KelStores.aliasRepo(aliasStore).get(alias);
-}
-```
-
-Avoid asSAID() for non-SAID keys (like chain:${aid}, keys:${aid}). If s(...).asSAID() hashes/normalizes, you’ll never read back by the original string. Use plain strings for these index keys:
-
-```ts
+// replace everywhere
 await getJson<ChainMetadata>(metadataStore, `chain:${aid}`);
 await getJson<VaultEntry>(vaultStore, `keys:${aid}`);
 await getJson<AliasMapping>(aliasStore, 'mapping');
+await putJson(meta, `chain:${cm.aid}`, cm);
+await putJson(store, 'mapping', next);
 ```
 
-Consistent time fields. You use currentTime on inception and dt on rotation. Pick one field name across builders (or map consistently), so canonicalization stays stable.
 
-Return a safe vault view type. You already omit secrets in getKeys; reflect that in the type to prevent accidental exposure elsewhere:
+Make createAccount commit order match rotation (atomic-ish):
+Right now you write putChain before vault.setKeyset. Readers could see a chain with no keys yet.
+
+```ts
+// good order: event -> envelope -> vault -> chain
+await kel.putEvent(inceptionEvent);
+await kel.putEnvelope(envelope);
+await vault.setKeyset(inceptionEvent.i, { /* ... */ });
+await kel.putChain(metadata);
+await aliases.set(alias, inceptionEvent.i);
+
+```
+
+Add reveal/commit guard on rotation (assert revealed key equals prior next):
+
+```ts
+if (rot.currentKeys?.[0] !== keyset.next.publicKey) {
+  throw new KelError('RevealMismatch', 'Revealed key must equal prior next key');
+}
+
+```
+
+
+(Or call a KEL.verifyRotation that checks priorSaid, expectedSeq, reveal==prior.next, thresholds, and signature set.)
+
+Use the repo in exported getAidByAlias and lowercase input:
+
+```ts
+export async function getAidByAlias(aliasStore: KeyValueStore, alias: string) {
+  return KelStores.aliasRepo(aliasStore).get(alias);
+}
+
+```
+
+Unify time field names. You use currentTime (icp) and dt (rot). Pick one (e.g., dt) and have both builders accept it. Canonicalization will then be stable across event types.
+
+Public vault view type. You’re returning a VaultEntry but you strip secrets. Make the return type reflect that so you don’t accidentally expose secret handles later.
 
 ```ts
 export interface SafeVaultView {
@@ -77,56 +57,75 @@ export interface SafeVaultView {
   nextKeys: { publicKey: string }[];
 }
 // getKeys(): Promise<SafeVaultView | null>
+
 ```
 
-Standardize storage keys (just naming):
-kel:event:${said}, kel:env:${said}, kel:chain:${aid}, kel:alias:mapping, kel:vault:${aid}—your adapters already follow the spirit; keeping a single convention avoids future drift.
+Buffer dependency. Your base64url helpers use Buffer (great for Node/Bun). If you’ll ever run this in the browser, gate them or use a small env shim. Otherwise you’re good in Bun/Node.
 
-Keep repos singletons per ops ✅ you already did this—great.
+Parameter names are aligned now (👍) — currentKeySpec / nextKeySpec. Also remove the unused Mnemonic import if you don’t reference the type.
 
-Micro-patches (drop in)
-
-Rotation “reveal/commit” assert + verify wrapper:
+Micro-diffs to drop in
+A) Index keys (no asSAID() on indexes)
 
 ```ts
-// After building `rot` and before commit:
+// aliasRepo.set
+await putJson(store, 'mapping', next);
+
+// kelRepo.getChain / putChain
+async getChain(aid) { return await getJson<ChainMetadata>(meta, `chain:${aid}`); }
+async putChain(cm)  { await putJson(meta, `chain:${cm.aid}`, cm); }
+
+// vaultRepo
+const key = `keys:${aid}`;
+const raw  = await getJson<any>(store, key);
+await putJson(store, key, { /* encoded */ });
+
+// top-level helpers
+await getJson<ChainMetadata>(metadataStore, `chain:${aid}`);
+await getJson<VaultEntry>(vaultStore, `keys:${aid}`);
+const mapping = await getJson<AliasMapping>(aliasStore, 'mapping');
+```
+
+B) createAccount commit order
+
+```ts
+await kel.putEvent(inceptionEvent);
+await kel.putEnvelope(envelope);
+await vault.setKeyset(inceptionEvent.i, { /* ... */ });
+await kel.putChain(metadata);
+await aliases.set(alias, inceptionEvent.i);
+```
+
+C) Rotation guard + verify (before commit)
+
+```ts
+// Guard reveal==prior.next
 if (rot.currentKeys?.[0] !== keyset.next.publicKey) {
-  throw new KelError('RevealMismatch', 'Revealed current key must equal prior next key');
+  throw new KelError('RevealMismatch', 'Revealed key must equal prior next key');
 }
 
+// Stronger verify (if available)
 KEL.verifyRotation(rot, {
   priorSaid: meta.latestEvent,
   expectedSeq: nextSeq,
   revealedKeys: [keyset.next.publicKey],
   priorKeyThreshold: 1,
-  // optionally pass signer set if your verifier checks it:
   priorSignerKeys: [keyset.current.publicKey],
 });
+
 ```
 
-Rename CreateAccount params & calls:
+D) getAidByAlias (exported helper)
 
 ```ts
-async createAccount({ alias, currentKeySpec, nextKeySpec, timestamp }) {
-  const currentKp = keySpecToKeypair(currentKeySpec, true);
-  const nextKp    = keySpecToKeypair(nextKeySpec, true);
-  // ...
+export async function getAidByAlias(aliasStore: KeyValueStore, alias: string) {
+  return KelStores.aliasRepo(aliasStore).get(alias);
 }
 ```
+E) getKeys return type
 
-git
-Base64url helpers replacement in vaultRepo (using the Buffer versions above).
 
-Sanity checklist (you’re already close)
+```ts
+export async function getKeys(vaultStore: KeyValueStore, aid: AID): Promise<SafeVaultView | null> { /* ... */ }
 
-Same seeds ⇒ same SAIDs (icp/rot) in tests.
-
-Rotation fails if revealed != prior.next.
-
-Atomic write order respected: event → envelope → vault → chain.
-
-No secrets leak across public APIs.
-
-Aliases case-folded for lookup, but display preserved.
-
-No post-build mutation of event fields.
+```

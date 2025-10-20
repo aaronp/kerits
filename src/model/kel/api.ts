@@ -137,6 +137,18 @@ export interface ChainMetadata {
 }
 
 /**
+ * Safe vault view that doesn't expose secret handles
+ */
+export interface SafeVaultView {
+    /** AID this key belongs to */
+    aid: AID;
+    /** Current public keys (secrets stripped) */
+    currentKeys: { publicKey: string }[];
+    /** Next public keys (secrets stripped) */
+    nextKeys: { publicKey: string }[];
+}
+
+/**
  * Vault entry for storing keys
  */
 export interface VaultEntry {
@@ -193,8 +205,7 @@ export async function getAccount(params: GetAccountParams): Promise<Account | nu
  * @returns The AID, or null if not found
  */
 export async function getAidByAlias(aliasStore: KeyValueStore, alias: string): Promise<AID | null> {
-    const mapping = await getAliasMapping(aliasStore);
-    return mapping.aliasToAid[alias] || null;
+    return KelStores.aliasRepo(aliasStore).get(alias);
 }
 
 /**
@@ -210,7 +221,7 @@ export async function getKelChain(
     eventStore: KeyValueStore,
     aid: AID
 ): Promise<KelEvent[]> {
-    const metadata = await getJson<ChainMetadata>(metadataStore, s(`chain:${aid}`).asSAID());
+    const metadata = await getJson<ChainMetadata>(metadataStore, `chain:${aid}` as SAID);
     if (!metadata) {
         return [];
     }
@@ -234,7 +245,7 @@ export async function getKelChain(
  * @returns The latest sequence number, or null if not found
  */
 export async function getLatestSequence(metadataStore: KeyValueStore, aid: AID): Promise<number | null> {
-    const metadata = await getJson<ChainMetadata>(metadataStore, s(`chain:${aid}`).asSAID());
+    const metadata = await getJson<ChainMetadata>(metadataStore, `chain:${aid}` as SAID);
     return metadata?.sequence ?? null;
 }
 
@@ -246,14 +257,14 @@ export async function getLatestSequence(metadataStore: KeyValueStore, aid: AID):
  * @returns The vault entry with current and next keys
  */
 export async function getKeys(vaultStore: KeyValueStore, aid: AID): Promise<VaultEntry | null> {
-    return await getJson<VaultEntry>(vaultStore, s(`keys:${aid}`).asSAID());
+    return await getJson<VaultEntry>(vaultStore, `keys:${aid}` as SAID);
 }
 
 /**
  * Get or initialize alias mapping
  */
 async function getAliasMapping(aliasStore: KeyValueStore): Promise<AliasMapping> {
-    const mapping = await getJson<AliasMapping>(aliasStore, s('mapping').asSAID());
+    const mapping = await getJson<AliasMapping>(aliasStore, 'mapping' as SAID);
     return mapping || { aliasToAid: {}, aidToAlias: {} };
 }
 
@@ -267,7 +278,7 @@ export type KelApi = {
     getAidByAlias(alias: string): Promise<AID | null>;
     getKelChain(aid: AID): Promise<KelEvent[]>;
     getLatestSequence(aid: AID): Promise<number | null>;
-    getKeys(aid: AID): Promise<VaultEntry | null>;
+    getKeys(aid: AID): Promise<SafeVaultView | null>;
 };
 
 export namespace KelStores {
@@ -312,7 +323,7 @@ export namespace KelStores {
                     aliasToAid: { ...mapping.aliasToAid, [lower]: aid },
                     aidToAlias: { ...mapping.aidToAlias, [aid]: { key: lower, display: alias } }
                 };
-                await putJson(store, s('mapping').asSAID(), next);
+                await putJson(store, 'mapping' as SAID, next);
             },
             async reverse(aid) {
                 const mapping = await getAliasMapping(store);
@@ -331,8 +342,8 @@ export namespace KelStores {
             },
             async getEnvelope(said) { return await getJson<KelEnvelope>(envs, said); },
             async putEnvelope(env) { await putJson(envs, env.event.d, env); },
-            async getChain(aid) { return await getJson<ChainMetadata>(meta, s(`chain:${aid}`).asSAID()); },
-            async putChain(cm) { await putJson(meta, s(`chain:${cm.aid}`).asSAID(), cm); }
+            async getChain(aid) { return await getJson<ChainMetadata>(meta, `chain:${aid}` as SAID); },
+            async putChain(cm) { await putJson(meta, `chain:${cm.aid}` as SAID, cm); }
         };
     }
 
@@ -351,7 +362,7 @@ export namespace KelStores {
     export function vaultRepo(store: KeyValueStore): Vault {
         return {
             async getKeyset(aid) {
-                const raw = await getJson<any>(store, s(`keys:${aid}`).asSAID());
+                const raw = await getJson<any>(store, `keys:${aid}` as SAID);
                 if (!raw) return null;
                 return {
                     current: {
@@ -365,7 +376,7 @@ export namespace KelStores {
                 };
             },
             async setKeyset(aid, ks) {
-                await putJson(store, s(`keys:${aid}`).asSAID(), {
+                await putJson(store, `keys:${aid}` as SAID, {
                     current: {
                         publicKey: ks.current.publicKey,
                         secretHandle: toB64(ks.current.secretHandle)
@@ -433,13 +444,18 @@ export namespace KelStores {
                     transferable: true,
                     keyThreshold: 1,
                     nextThreshold: 1,
-                    currentTime: timestamp,
+                    dt: timestamp,
                 });
 
                 await kel.putEvent(inceptionEvent);
 
                 const envelope = KEL.createEnvelope(inceptionEvent, [currentKp.privateKey]);
                 await kel.putEnvelope(envelope);
+
+                await vault.setKeyset(inceptionEvent.i, {
+                    current: { publicKey: CESR.getPublicKey(currentKp), secretHandle: currentKp.privateKey },
+                    next: { publicKey: CESR.getPublicKey(nextKp), secretHandle: nextKp.privateKey }
+                });
 
                 const metadata: ChainMetadata = {
                     aid: inceptionEvent.i,
@@ -448,11 +464,6 @@ export namespace KelStores {
                     latestEvent: inceptionEvent.d,
                 };
                 await kel.putChain(metadata);
-
-                await vault.setKeyset(inceptionEvent.i, {
-                    current: { publicKey: CESR.getPublicKey(currentKp), secretHandle: currentKp.privateKey },
-                    next: { publicKey: CESR.getPublicKey(nextKp), secretHandle: nextKp.privateKey }
-                });
 
                 await aliases.set(alias, inceptionEvent.i);
 
@@ -488,6 +499,11 @@ export namespace KelStores {
                         nextThreshold: 1,
                         dt: timestamp,
                     });
+
+                    // Guard: verify revealed key equals prior next key
+                    if (rot.k?.[0] !== keyset.next.publicKey) {
+                        throw new KelError('RevealMismatch', 'Revealed key must equal prior next key');
+                    }
 
                     // Sign with *previous current* keys
                     const env = KEL.createEnvelope(rot, [keyset.current.secretHandle]);
@@ -574,7 +590,7 @@ export namespace KelStores {
                     aid,
                     currentKeys: [{ publicKey: ks.current.publicKey }], // Don't expose secrets
                     nextKeys: [{ publicKey: ks.next.publicKey }]       // Don't expose secrets
-                } as unknown as VaultEntry;
+                };
             }
         };
     };
