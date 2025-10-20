@@ -414,7 +414,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
 
             // Prevent duplicate signatures
             if (signer.signed) {
-                onProgress({ type: "error", rotationId, payload: "duplicate keyIndex" });
+                onProgress({ type: "error", rotationId, payload: "duplicate signature" });
                 return;
             }
 
@@ -441,7 +441,7 @@ export function makeRotateKeys(deps: RotateKeysDeps) {
 
                 // Validate that cosigner is signing the correct canonical digest
                 if (!msg.canonicalDigest || msg.canonicalDigest !== liveProposal.canonicalDigest) {
-                    onProgress({ type: "error", rotationId, payload: "missing/incorrect canonical digest" });
+                    onProgress({ type: "error", rotationId, payload: "canonical digest mismatch (stale/altered proposal)" });
                     return;
                 }
 
