@@ -11,7 +11,7 @@
 import type { KeyValueStore } from '../io/key-value-store';
 import type { OOBIResolver } from '../io/oobi-resolver';
 import type { AID, SAID } from '../types';
-import type { KelEvent, KelEnvelope } from './types';
+import type { KelEvent, KelEnvelope, EventProof } from './types';
 import { KEL } from './kel-ops';
 import { CESR, type CESRKeypair, type Mnemonic } from '../cesr/cesr';
 import { getJson, putJson, getJsonString, putJsonString, memoryStore, namespace } from '../io/storage';
@@ -279,6 +279,7 @@ export type KelApi = {
     getKelChain(aid: AID): Promise<KelEvent[]>;
     getLatestSequence(aid: AID): Promise<number | null>;
     getKeys(aid: AID): Promise<SafeVaultView | null>;
+    getEventProof(said: SAID): Promise<EventProof | null>;
 };
 
 export namespace KelStores {
@@ -591,6 +592,23 @@ export namespace KelStores {
                     currentKeys: [{ publicKey: ks.current.publicKey }], // Don't expose secrets
                     nextKeys: [{ publicKey: ks.next.publicKey }]       // Don't expose secrets
                 };
+            },
+
+            async getEventProof(said: SAID) {
+                // Get the event envelope from storage
+                const envelope = await kel.getEnvelope(said);
+                if (!envelope) return null;
+
+                const event = envelope.event;
+
+                // Get prior event if needed (for rotation/interaction)
+                let priorEvent: KelEvent | undefined;
+                if (event.p) {
+                    priorEvent = await kel.getEvent(event.p) || undefined;
+                }
+
+                // Generate the proof using KEL.getEventProof
+                return KEL.getEventProof(envelope, priorEvent);
             }
         };
     };
