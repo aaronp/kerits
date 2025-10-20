@@ -57,6 +57,7 @@ export interface RotationParams {
     currentKeys: string[];
     nextKeys: string[];
     previousEvent: SAID;
+    sequence: number; // Required: sequence number for this rotation
     transferable: boolean;
     keyThreshold?: number;
     nextThreshold?: number;
@@ -72,6 +73,7 @@ export interface RotationParams {
 export interface InteractionParams {
     controller: AID;
     previousEvent: SAID;
+    sequence: number; // Required: sequence number for this interaction
     anchors: SAID[];
     currentTime?: string; // ISO 8601 timestamp for deterministic testing
 }
@@ -242,6 +244,7 @@ export class KEL {
             currentKeys,
             nextKeys,
             previousEvent,
+            sequence,
             transferable,
             keyThreshold = currentKeys.length,
             nextThreshold = nextKeys.length,
@@ -274,7 +277,7 @@ export class KEL {
             t: 'rot',
             d: s('#'.repeat(44)).asSAID(), // Placeholder for SAID
             i: s(identifier).asAID(),
-            s: '1', // This should be computed from previous event
+            s: sequence.toString(), // Use provided sequence number
             p: previousEvent,
             k: currentKeys,
             kt: s(keyThreshold.toString()).asThreshold(),
@@ -308,7 +311,7 @@ export class KEL {
      * @returns InteractionEvent with computed SAID
      */
     static interaction(params: InteractionParams): InteractionEvent {
-        const { controller, previousEvent, anchors, currentTime } = params;
+        const { controller, previousEvent, sequence, anchors, currentTime } = params;
 
         // Use provided currentTime or fall back to current timestamp
         const timestamp = currentTime || new Date().toISOString();
@@ -322,7 +325,7 @@ export class KEL {
             t: 'ixn',
             d: s('#'.repeat(44)).asSAID(), // Placeholder for SAID
             i: s(identifier).asAID(),
-            s: '1', // This should be computed from previous event
+            s: sequence.toString(), // Use provided sequence number
             p: previousEvent,
             a: anchors,
             dt: timestamp,
@@ -640,11 +643,15 @@ export class RealKelService {
         nt: number;
         dt?: string;
     }): Promise<KelEvent> {
+        // Compute next sequence from prior event
+        const nextSequence = parseInt(args.prior.s.toString(), 10) + 1;
+
         return KEL.rotation({
             controller: args.controller,
             currentKeys: args.k,
             nextKeys: args.nextK,
             previousEvent: args.prior.d, // Pass SAID of prior event
+            sequence: nextSequence,     // Add required sequence parameter
             transferable: true,
             keyThreshold: args.kt,
             nextThreshold: args.nt,
@@ -659,9 +666,13 @@ export class RealKelService {
         anchors?: SAID[];
         dt?: string;
     }): Promise<KelEvent> {
+        // Compute next sequence from prior event
+        const nextSequence = parseInt(args.prior.s.toString(), 10) + 1;
+
         return KEL.interaction({
             controller: args.controller,
             previousEvent: args.prior.d,
+            sequence: nextSequence,     // Add required sequence parameter
             anchors: args.anchors || [],
             currentTime: args.dt
         });

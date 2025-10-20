@@ -68,9 +68,11 @@ describe('KEL Multi-Signature Operations', () => {
 
             // Create rotation revealing the next keys
             const rotation = KEL.rotation({
+                controller: inception.i,
                 currentKeys: [CESR.getPublicKey(keypair2)],
                 nextKeys: [CESR.getPublicKey(keypair3)],
                 previousEvent: inception.d,
+                sequence: 1, // Add required sequence parameter
                 transferable: true,
                 keyThreshold: 1,
                 nextThreshold: 1
@@ -127,9 +129,11 @@ describe('KEL Multi-Signature Operations', () => {
 
             // Create rotation revealing the next keys
             const rotation = KEL.rotation({
+                controller: inception.i,
                 currentKeys: [CESR.getPublicKey(keypair3), CESR.getPublicKey(keypair4)],
                 nextKeys: [CESR.getPublicKey(keypair1), CESR.getPublicKey(keypair2)],
                 previousEvent: inception.d,
+                sequence: 1, // Add required sequence parameter
                 transferable: true,
                 keyThreshold: 2,
                 nextThreshold: 2
@@ -278,9 +282,11 @@ describe('KEL Multi-Signature Operations', () => {
             });
 
             const rotation = KEL.rotation({
+                controller: inception.i,
                 currentKeys: [CESR.getPublicKey(keypair3), CESR.getPublicKey(keypair4)],
                 nextKeys: [CESR.getPublicKey(keypair1), CESR.getPublicKey(keypair2)],
                 previousEvent: inception.d,
+                sequence: 1, // Add required sequence parameter
                 transferable: true,
                 keyThreshold: 2,
                 nextThreshold: 2
@@ -303,9 +309,11 @@ describe('KEL Multi-Signature Operations', () => {
 
             // Create rotation with wrong revealed keys (not matching prior commitment)
             const wrongRotation = KEL.rotation({
+                controller: inception.i,
                 currentKeys: [CESR.getPublicKey(keypair1), CESR.getPublicKey(keypair2)], // Wrong keys
                 nextKeys: [CESR.getPublicKey(keypair3), CESR.getPublicKey(keypair4)],
                 previousEvent: inception.d,
+                sequence: 1, // Add required sequence parameter
                 transferable: true,
                 keyThreshold: 2,
                 nextThreshold: 2
@@ -413,9 +421,11 @@ describe('KEL Multi-Signature Operations', () => {
             });
 
             const rotation = KEL.rotation({
+                controller: inception.i,
                 currentKeys: [CESR.getPublicKey(keypair2)],
                 nextKeys: [CESR.getPublicKey(keypair3)],
                 previousEvent: inception.d,
+                sequence: 1, // Add required sequence parameter
                 transferable: true,
                 keyThreshold: 1,
                 nextThreshold: 1
@@ -477,9 +487,11 @@ describe('KEL Multi-Signature Operations', () => {
 
             // 2. Create rotation revealing next keys
             const rotation = KEL.rotation({
+                controller: inception.i,
                 currentKeys: [CESR.getPublicKey(keypair4), CESR.getPublicKey(keypair1), CESR.getPublicKey(keypair2)],
                 nextKeys: [CESR.getPublicKey(keypair3), CESR.getPublicKey(keypair4), CESR.getPublicKey(keypair1)],
                 previousEvent: inception.d,
+                sequence: 1, // Add required sequence parameter
                 transferable: true,
                 keyThreshold: 2,
                 nextThreshold: 2
@@ -491,7 +503,9 @@ describe('KEL Multi-Signature Operations', () => {
 
             // 3. Create interaction event
             const interaction = KEL.interaction({
+                controller: inception.i,
                 previousEvent: rotation.d,
+                sequence: 2, // Add required sequence parameter
                 anchors: [s('E' + 'a'.repeat(43)).asSAID(), s('E' + 'b'.repeat(43)).asSAID()]
             });
 
