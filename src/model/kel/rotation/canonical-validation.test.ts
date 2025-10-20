@@ -239,12 +239,10 @@ describe("Canonical Digest Validation", () => {
         const rotateKeys = makeRotateKeys(deps);
 
         // This should throw an error during setup due to pub/keyIndex mismatch
-        await expect(async () => {
-            await rotateKeys(s("Dcontroller").asAID(), prior, {
-                newKeys: [pub1, pub2],
-                newThreshold: 2
-            });
-        }).rejects.toThrow("cosigner pub/keyIndex mismatch");
+        await expect(rotateKeys(s("Dcontroller").asAID(), prior, {
+            newKeys: [pub1, pub2],
+            newThreshold: 2
+        })).rejects.toThrow("cosigner pub/keyIndex mismatch");
     });
 
     test("proposal canonical digest: cosigner signs different rot body → reject", async () => {
