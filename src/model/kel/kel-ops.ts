@@ -522,7 +522,7 @@ export class KEL {
     /**
      * Compare two threshold values canonically (encoded form)
      */
-    thresholdsEqual(threshold1: string, threshold2: string): boolean {
+    static thresholdsEqual(threshold1: string, threshold2: string): boolean {
         return threshold1 === threshold2;
     }
 }
