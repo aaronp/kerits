@@ -535,6 +535,36 @@ export class KEL {
     static thresholdsEqual(threshold1: string, threshold2: string): boolean {
         return threshold1 === threshold2;
     }
+
+    /**
+     * Serialize a KEL event to canonical CESR format
+     *
+     * @param event - KEL event to serialize
+     * @returns Object with raw bytes and qb64 encoding
+     */
+    static serialize(event: KelEvent): { raw: Uint8Array; qb64: string } {
+        const canonical = canonicalize(event);
+        const raw = new TextEncoder().encode(canonical);
+
+        // Convert to base64url (qb64)
+        const base64 = btoa(String.fromCharCode(...raw));
+        const qb64 = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
+        return { raw, qb64 };
+    }
+
+    /**
+     * Compute SAID from canonical bytes
+     *
+     * @param raw - Canonical bytes
+     * @returns SAID (CESR-encoded digest)
+     */
+    static computeSAID(raw: Uint8Array): SAID {
+        const hash = blake3(raw, { dkLen: 32 });
+        const b64 = btoa(String.fromCharCode(...hash));
+        const qb64 = 'E' + b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        return s(qb64).asSAID();
+    }
 }
 
 /**

@@ -232,7 +232,7 @@ export class CESR {
     }
 
     /**
-     * Decode a CESR-encoded public key to raw bytes (fallback method)
+     * Decode a CESR-encoded public key to raw bytes
      *
      * @param qb64 - CESR-encoded public key
      * @returns Raw public key bytes
@@ -243,21 +243,28 @@ export class CESR {
             throw new Error('Invalid CESR public key format');
         }
 
-        // Remove the code prefix
-        const base64url = qb64.slice(1);
+        try {
+            // Try using cesr-ts first for correct CESR decoding
+            const verfer = new CesrVerfer({ qb64 });
+            return verfer.raw;
+        } catch (error) {
+            // Fallback to manual decoding (less reliable for CESR format)
+            // Remove the code prefix
+            const base64url = qb64.slice(1);
 
-        // Convert from base64url to base64
-        const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
-        const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+            // Convert from base64url to base64
+            const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+            const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
 
-        // Convert from base64 to bytes
-        const binaryString = atob(padded);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
+            // Convert from base64 to bytes
+            const binaryString = atob(padded);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+
+            return bytes;
         }
-
-        return bytes;
     }
 
     /**
@@ -526,5 +533,41 @@ export class CESR {
      */
     static async generateKeypairFromSeed(seed: Uint8Array, transferable: boolean = true): Promise<CESRKeypair> {
         return CESR.keypairFromSeed(seed, transferable);
+    }
+
+    // ============================================================================
+    // QBase64 (qb64) Conversion Helpers
+    // ============================================================================
+
+    /**
+     * Convert base64url (qb64) string to raw bytes
+     *
+     * @param qb64 - Base64url encoded string
+     * @returns Raw bytes
+     */
+    static fromQB64(qb64: string): Uint8Array {
+        // Convert from base64url to base64
+        const base64 = qb64.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+
+        // Convert from base64 to bytes
+        const binaryString = atob(padded);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        return bytes;
+    }
+
+    /**
+     * Convert raw bytes to base64url (qb64) string
+     *
+     * @param bytes - Raw bytes
+     * @returns Base64url encoded string
+     */
+    static toQB64(bytes: Uint8Array): string {
+        const base64 = btoa(String.fromCharCode(...bytes));
+        return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
     }
 }

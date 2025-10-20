@@ -145,13 +145,23 @@ export type DelegatedRotationEvent = RotationEvent & {
 };
 
 /**
- * CESR signature trailer
+ * Reference to which signer set a signature indexes into
+ */
+export type SignerSetRef =
+    | { kind: 'prior'; sn: number }      // indexes refer to prior establishment key set (typical for rot/ixn)
+    | { kind: 'current'; sn: number }    // indexes refer to this event's `k`
+    | { kind: 'witness'; aid: AID };     // witness receipts (index into witness list)
+
+/**
+ * CESR signature with signer set reference
  */
 export interface CesrSig {
-    /** Index into the event's current `k` array */
+    /** Index into the referenced signer set */
     keyIndex: number;
-    /** CESR-encoded signature */
+    /** CESR-encoded signature (qb64) */
     sig: string;
+    /** Which set the index refers to (disambiguates "index into what?") - optional for backward compatibility */
+    signerSet?: SignerSetRef;
 }
 
 /**
@@ -159,10 +169,58 @@ export interface CesrSig {
  * This is the physical representation for transmission/storage
  */
 export interface KelEnvelope {
-    /** The canonical KEL event */
+    /** The canonical KEL event (JSON) - convenient for app logic */
     event: KelEvent;
-    /** Controller signatures */
+    /** CESR-serialized canonical bytes (qb64) - source of truth */
+    eventCesr?: string;
+    /** Controller signatures on the event SAID */
     signatures: CesrSig[];
     /** Witness receipts (optional) */
     receipts?: CesrSig[];
+}
+
+/**
+ * Proof of a single signer's participation in an event
+ */
+export interface SignerProof {
+    /** Index into the signer set */
+    keyIndex: number;
+    /** Which signer set this indexes into */
+    signerSet: SignerSetRef;
+    /** CESR-encoded signature (qb64) */
+    signature: string;
+    /** Resolved public key (qb64) */
+    publicKey: string;
+    /** Signer AID (controller or witness) */
+    signerAid?: AID;
+}
+
+/**
+ * Complete proof bundle for an event
+ */
+export interface EventProof {
+    /** Event SAID */
+    said: SAID;
+    /** CESR-serialized event bytes (qb64) */
+    eventCesr: string;
+    /** Event JSON (for debugging/human readability) */
+    event: KelEvent;
+    /** Array of signer proofs */
+    signers: SignerProof[];
+}
+
+/**
+ * Result of verifying an event proof
+ */
+export interface VerificationResult {
+    /** Whether the SAID matches the recomputed hash */
+    saidMatches: boolean;
+    /** Whether enough valid signatures were found */
+    signaturesValid: boolean;
+    /** Number of valid signatures */
+    validCount: number;
+    /** Number of required signatures (from threshold) */
+    requiredCount: number;
+    /** List of validation failures (if any) */
+    failures?: string[];
 }
