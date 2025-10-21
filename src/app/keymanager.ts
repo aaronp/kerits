@@ -5,7 +5,7 @@
  * Keys are derived from mnemonics and cached in memory for performance.
  */
 
-import { Signer } from 'cesr-ts/src/signer';
+import { Signer } from '../model/cesr/cesr';
 import type { Kv } from '../storage/types';
 import type { Mnemonic } from './dsl/types/common';
 import { mnemonicToSeed } from './dsl/utils/mnemonic';
@@ -71,7 +71,7 @@ export class KeyManager {
 
     if (this.debug) {
       console.log(`[KeyManager] Unlocked account: ${aid}`);
-      console.log(`[KeyManager] Verfer: ${signer.verfer.qb64}`);
+      console.log(`[KeyManager] Verfer: ${signer.verfer}`);
     }
   }
 

@@ -17,8 +17,10 @@ help:
 	@echo "  make verify          - Run testgen verification"
 	@echo ""
 	@echo "Type Checking:"
-	@echo "  make typecheck       - Type check everything"
-	@echo "  make typecheck-kerits - Type check kerits core only"
+	@echo "  make typecheck       - Type check everything (core + UI)"
+	@echo "  make typecheck-core  - Type check kerits core only"
+	@echo "  make typecheck-ui    - Type check UI project only"
+	@echo "  make typecheck-kerits - Type check kerits core library only"
 	@echo ""
 	@echo "Quality Checks:"
 	@echo "  make check           - Full quality check (typecheck + coverage + verify)"
@@ -79,14 +81,29 @@ check-model: typecheck test-model
 # Type Checking
 # ============================================================================
 
-typecheck:
+typecheck: typecheck-core typecheck-ui
+	@echo "✅ All type checks passed"
+
+# Type check core kerits library
+typecheck-core:
 	@echo "🔍 Type checking core (src only, excluding ui/cli/mcp)..."
 	@tsc --project tsconfig.check.json 2>&1 | grep -v "node_modules/" || true
 	@if tsc --project tsconfig.check.json 2>&1 | grep -v "node_modules/" | grep "error TS" > /dev/null; then \
 		echo "❌ Type errors found in source code"; \
 		exit 1; \
 	else \
-		echo "✅ Type check passed"; \
+		echo "✅ Core type check passed"; \
+	fi
+
+# Type check UI project
+typecheck-ui:
+	@echo "🔍 Type checking UI project..."
+	@cd ui && bun run build:check 2>&1 | grep -v "node_modules/" || true
+	@if cd ui && bun run build:check 2>&1 | grep -v "node_modules/" | grep "error TS" > /dev/null; then \
+		echo "❌ Type errors found in UI project"; \
+		exit 1; \
+	else \
+		echo "✅ UI type check passed"; \
 	fi
 
 # Type check kerits core library (./src, excluding app/cesr/indexeddb)

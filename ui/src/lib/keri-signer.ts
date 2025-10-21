@@ -5,7 +5,7 @@
  * using browser-compatible @noble/ed25519 signing infrastructure.
  */
 
-import { Signer } from '../../../src/cesr/signer.js';
+import { Signer } from '../../../src/model/cesr/cesr';
 
 /**
  * Sign a payload using KERITS Signer or raw private key

@@ -1,5 +1,5 @@
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
-import { incept, rotate, schema, credential, diger, generateKeypairFromSeed, registryIncept, issue } from '../lib/keri';
+import { incept, rotate, schema, credential, diger, CESR, registryIncept, issue } from '../lib/keri';
 import type { StoredIdentity, StoredSchema, StoredCredential, SchemaField } from '../lib/storage';
 
 /**
@@ -14,8 +14,8 @@ export async function createIdentity(alias: string): Promise<StoredIdentity> {
   const currentSeed = seed.subarray(0, 32);
   const nextSeed = seed.subarray(32, 64);
 
-  const currentKeypair = await generateKeypairFromSeed(currentSeed);
-  const nextKeypair = await generateKeypairFromSeed(nextSeed);
+  const currentKeypair = await CESR.generateKeypairFromSeed(currentSeed);
+  const nextKeypair = await CESR.generateKeypairFromSeed(nextSeed);
   const nextKeyDigest = diger(nextKeypair.publicKey);
 
   // Create inception event

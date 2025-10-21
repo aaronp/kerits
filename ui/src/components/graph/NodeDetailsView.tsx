@@ -137,7 +137,7 @@ export default function NodeDetailsView({ node, allData, isPinned = false }: Nod
         // If using edited data, verify manually with Verfer and Cigar
         if (editedEventJson || editedPublicKeys || editedSignatures) {
           // Import verification classes
-          const { Verfer, Cigar } = await import('@/../../src/cesr/signer');
+          const { Verfer, Cigar } = await import('@/../../src/model/cesr/cesr');
 
           // Extract event bytes (without signatures) from the raw CESR
           const eventText = node.raw || '';

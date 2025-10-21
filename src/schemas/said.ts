@@ -8,7 +8,7 @@
  */
 
 import { canonicalize } from 'json-canonicalize';
-import { Diger } from 'cesr-ts/src/diger';
+import { Diger } from '../model/cesr/cesr';
 
 /**
  * Compute SAID for a schema document

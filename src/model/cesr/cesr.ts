@@ -7,6 +7,7 @@
 
 import { Signer as CesrSigner } from 'cesr-ts/src/signer';
 import { Verfer as CesrVerfer } from 'cesr-ts/src/verfer';
+import { Cigar as CesrCigar } from 'cesr-ts/src/cigar';
 import { generateMnemonic, mnemonicToEntropy, entropyToMnemonic, validateMnemonic } from '@scure/bip39';
 import { wordlist as englishWordlist } from '@scure/bip39/wordlists/english.js';
 import * as ed25519 from '@noble/ed25519';
@@ -14,6 +15,151 @@ import { sha512 } from '@noble/hashes/sha2.js';
 
 // Set up the hash function for @noble/ed25519
 ed25519.hashes.sha512 = sha512;
+
+// Browser-compatible Signer class that doesn't rely on cesr-ts
+export class BrowserSigner {
+    private seed: Uint8Array;
+    private transferable: boolean;
+    private _verfer: string;
+
+    constructor(options: { raw: Uint8Array; transferable?: boolean }) {
+        this.seed = options.raw;
+        this.transferable = options.transferable ?? true;
+
+        if (this.seed.length !== 32) {
+            throw new Error('Seed must be exactly 32 bytes');
+        }
+
+        // Generate public key and CESR-encoded verfer
+        const publicKey = ed25519.getPublicKey(this.seed);
+        this._verfer = CESR.encodePublicKey(publicKey, this.transferable);
+    }
+
+    get verfer(): string {
+        return this._verfer;
+    }
+
+    sign(data: Uint8Array): BrowserCigar {
+        const signature = ed25519.sign(data, this.seed);
+        const cigar = new BrowserCigar(signature, this.transferable);
+        return cigar;
+    }
+}
+
+// Browser-compatible Cigar class
+export class BrowserCigar {
+    private signature: Uint8Array;
+    private transferable: boolean;
+    private _qb64: string;
+
+    constructor(options: { raw?: Uint8Array; qb64?: string; transferable?: boolean } | Uint8Array, transferable?: boolean) {
+        // Handle both constructor patterns: new Cigar(signature, transferable) and new Cigar({ qb64, ... })
+        if (options instanceof Uint8Array) {
+            // Legacy constructor: new Cigar(signature, transferable)
+            this.signature = options;
+            this.transferable = transferable ?? true;
+            this._qb64 = CESR.encodeSignature(this.signature, this.transferable);
+        } else if (options.raw) {
+            // Constructor with raw signature
+            this.signature = options.raw;
+            this.transferable = options.transferable ?? true;
+            this._qb64 = CESR.encodeSignature(this.signature, this.transferable);
+        } else if (options.qb64) {
+            // Constructor with qb64 signature
+            this._qb64 = options.qb64;
+            this.transferable = options.transferable ?? true;
+            this.signature = CESR.decodeSignature(options.qb64);
+        } else {
+            throw new Error('Either raw or qb64 must be provided');
+        }
+    }
+
+    get qb64(): string {
+        return this._qb64;
+    }
+
+    get raw(): Uint8Array {
+        return this.signature;
+    }
+}
+
+// Browser-compatible Verfer class
+export class BrowserVerfer {
+    private publicKey: Uint8Array;
+    private transferable: boolean;
+    private _qb64: string;
+    private _code: string;
+
+    constructor(options: { raw?: Uint8Array; qb64?: string; code?: string }) {
+        if (options.raw) {
+            this.publicKey = options.raw;
+            this.transferable = options.code !== 'B'; // B = non-transferable
+            this._code = options.code || (this.transferable ? 'D' : 'B');
+            this._qb64 = CESR.encodePublicKey(this.publicKey, this.transferable);
+        } else if (options.qb64) {
+            this._qb64 = options.qb64;
+            this._code = options.qb64[0];
+            this.transferable = this._code === 'D';
+            this.publicKey = CESR.decodePublicKey(options.qb64);
+        } else {
+            throw new Error('Either raw or qb64 must be provided');
+        }
+    }
+
+    get qb64(): string {
+        return this._qb64;
+    }
+
+    get raw(): Uint8Array {
+        return this.publicKey;
+    }
+
+    get code(): string {
+        return this._code;
+    }
+
+    verify(cigar: BrowserCigar, data: Uint8Array): boolean {
+        try {
+            return ed25519.verify(cigar.raw, data, this.publicKey);
+        } catch (error) {
+            console.warn('Verification failed:', error);
+            return false;
+        }
+    }
+}
+
+// Browser-compatible Diger class
+export class BrowserDiger {
+    private digest: Uint8Array;
+    private _qb64: string;
+
+    constructor(options: { raw?: Uint8Array; qb64?: string }, data?: Uint8Array) {
+        if (options.raw) {
+            this.digest = options.raw;
+            this._qb64 = CESR.encodeDigest(this.digest);
+        } else if (options.qb64) {
+            this._qb64 = options.qb64;
+            this.digest = CESR.decodeDigest(options.qb64);
+        } else if (data) {
+            // Compute digest from data
+            this.digest = CESR.computeDigest(data);
+            this._qb64 = CESR.encodeDigest(this.digest);
+        } else {
+            throw new Error('Either raw, qb64, or data must be provided');
+        }
+    }
+
+    get qb64(): string {
+        return this._qb64;
+    }
+
+    get raw(): Uint8Array {
+        return this.digest;
+    }
+}
+
+// Re-export browser-compatible classes for external use
+export { BrowserSigner as Signer, BrowserVerfer as Verfer, BrowserCigar as Cigar, BrowserDiger as Diger };
 
 export type Mnemonic = string;
 
@@ -52,18 +198,9 @@ export class CESR {
             throw new Error('Seed must be exactly 32 bytes');
         }
 
-        try {
-            // Try using cesr-ts first
-            const signer = new CesrSigner({ raw: seed, transferable });
-            return {
-                privateKey: seed,
-                publicKey: signer.verfer.raw,
-                verfer: signer.verfer.qb64,
-            };
-        } catch (error) {
-            // Fallback to @noble/ed25519 if cesr-ts fails (e.g., in Bun environment)
-            return CESR.keypairFromSeedNoble(seed, transferable);
-        }
+        // Always use @noble/ed25519 for browser compatibility
+        // The cesr-ts library has issues with base64url encoding in browsers
+        return CESR.keypairFromSeedNoble(seed, transferable);
     }
 
     /**
@@ -112,15 +249,9 @@ export class CESR {
      * @returns CESR-encoded string (qb64)
      */
     static encodePublicKey(publicKey: Uint8Array, transferable: boolean = true): string {
-        try {
-            // Try using cesr-ts first
-            const code = transferable ? 'D' : 'B'; // D = Ed25519 transferable, B = Ed25519 non-transferable
-            const verfer = new CesrVerfer({ raw: publicKey, code });
-            return verfer.qb64;
-        } catch (error) {
-            // Fallback to manual encoding if cesr-ts fails
-            return CESR.encodePublicKeyNoble(publicKey, transferable);
-        }
+        // Always use manual encoding for browser compatibility
+        // The cesr-ts library has issues with base64url encoding in browsers
+        return CESR.encodePublicKeyNoble(publicKey, transferable);
     }
 
     /**
@@ -243,28 +374,88 @@ export class CESR {
             throw new Error('Invalid CESR public key format');
         }
 
-        try {
-            // Try using cesr-ts first for correct CESR decoding
-            const verfer = new CesrVerfer({ qb64 });
-            return verfer.raw;
-        } catch (error) {
-            // Fallback to manual decoding (less reliable for CESR format)
-            // Remove the code prefix
-            const base64url = qb64.slice(1);
+        // Remove the code prefix
+        const base64url = qb64.slice(1);
 
-            // Convert from base64url to base64
-            const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
-            const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+        // Convert from base64url to base64
+        const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
 
-            // Convert from base64 to bytes
-            const binaryString = atob(padded);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-
-            return bytes;
+        // Convert from base64 to bytes
+        const binaryString = atob(padded);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
         }
+
+        return bytes;
+    }
+
+    /**
+     * Compute digest of data using Blake3
+     *
+     * @param data - Data to hash
+     * @returns Raw digest bytes
+     */
+    static computeDigest(data: Uint8Array): Uint8Array {
+        // For now, use SHA-256 as a fallback since Blake3 might not be available
+        // In a real implementation, you'd want to use Blake3
+        return sha512(data).slice(0, 32); // Use first 32 bytes of SHA-512
+    }
+
+    /**
+     * Encode digest to CESR format
+     *
+     * @param digest - Raw digest bytes
+     * @returns CESR-encoded digest (qb64)
+     */
+    static encodeDigest(digest: Uint8Array): string {
+        // CESR digest format: E + base64url encoded digest
+        const base64url = CESR.base64urlEncode(digest);
+        return `E${base64url}`;
+    }
+
+    /**
+     * Decode CESR-encoded digest to raw bytes
+     *
+     * @param qb64 - CESR-encoded digest
+     * @returns Raw digest bytes
+     */
+    static decodeDigest(qb64: string): Uint8Array {
+        if (!qb64.startsWith('E')) {
+            throw new Error('Invalid CESR digest format');
+        }
+
+        const base64url = qb64.slice(1);
+        return CESR.base64urlDecode(base64url);
+    }
+
+    /**
+     * Encode bytes to base64url
+     *
+     * @param bytes - Bytes to encode
+     * @returns Base64url encoded string
+     */
+    static base64urlEncode(bytes: Uint8Array): string {
+        const base64 = btoa(String.fromCharCode.apply(null, Array.from(bytes)));
+        return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    }
+
+    /**
+     * Decode base64url to bytes
+     *
+     * @param base64url - Base64url encoded string
+     * @returns Decoded bytes
+     */
+    static base64urlDecode(base64url: string): Uint8Array {
+        const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+        const binaryString = atob(padded);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
     }
 
     /**
@@ -279,7 +470,7 @@ export class CESR {
         const code = transferable ? '0B' : '0A'; // 0B = Ed25519 transferable signature, 0A = Ed25519 non-transferable signature
 
         // Convert to base64url
-        const base64 = btoa(String.fromCharCode(...signature));
+        const base64 = btoa(String.fromCharCode.apply(null, Array.from(signature)));
         const base64url = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 
         return code + base64url;

@@ -82,7 +82,7 @@ export function Signature({
 
     try {
       // Import verification classes
-      const { Verfer, Cigar } = await import('@/../../src/cesr/signer');
+      const { Verfer, Cigar } = await import('@/../../src/model/cesr/cesr');
 
       // Create verfer from public key
       const verfer = new Verfer({ qb64: publicKey });

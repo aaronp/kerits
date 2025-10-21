@@ -3,7 +3,7 @@
  */
 
 import type { Parser, Hasher, ParsedEvent, EventMeta, Attachment, AttachmentType, SAID } from './types';
-import { Diger } from 'cesr-ts/src/diger';
+import { Diger } from '../model/cesr/cesr';
 import { Matter } from 'cesr-ts/src/matter';
 
 // Utility functions

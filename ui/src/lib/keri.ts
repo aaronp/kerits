@@ -32,7 +32,7 @@ export { verifyCredential } from '../../../src/verify';
 export type { VerificationResult } from '../../../src/verify';
 
 export { saidify } from '../../../src/saidify';
-export { generateKeypair, generateKeypairFromSeed } from '../../../src/signer';
-export type { Keypair } from '../../../src/signer';
+export { CESR } from '../../../src/model/cesr/cesr';
+export type { CESRKeypair } from '../../../src/model/cesr/cesr';
 
 export { diger } from '../../../src/diger';
