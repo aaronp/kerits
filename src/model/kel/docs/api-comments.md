@@ -1,528 +1,504 @@
-I'd like to be sure I'm storing the CESR-encoded values for each KelEvent correctly, so that other peers are able to follow the KERI spec and verify data integrity:
- (1) what signatures attested an event 
- (2) what public keys those signatures were 
- (3) the data matches the SAID
+# Proposition:
+My KERITS system is growing in capability and complexity. I need strong confidence against regression tests, and to be able to quickly/easily visually see what it's doing. 
 
-Considering the CesrSig and KelEnvelope types, 
+To that end, I'd like to be able to ask the API to 'dump' it's state -- provide a single, readable (e.g. json) value of its view of the world: 
+ * The aliases
+ * the kelevents
+ * the cesr values
+ * ...
+ 
+ Given the system is referentially transparent, I should also be able to write clearer tests: 
+  * do a thing (i.e. incept an account, rotate a key)
+  * dump the state / inspect -- if visually ok, then save that output as a regression file 
+  * serialisation. Prove we can also read back the dumped state, and do deep object equality to prove the read and write works
+  * the test is now just a diff against actual vs previous, with clear/transparent inputs and outputs
+  
+  
+# Following Conversation:
+Yes! Snapshots + golden files are perfect for a system like this. 
+Here’s a tight plan and drop-in API so you can:
 
-The API appears to be putting the json representation of KeyEnvelope values.
+* dump the whole world (deterministically),
+* diff it in tests (golden/regression),
+* reload it to prove read↔write correctness,
+* and inspect signatures/SAIDs easily.
 
-Also, I can see that there is a 'keyIndex' on the CesrSig, so that looks like it should line up with the KSN (or latest Kel representation)
+I’ll keep secrets redacted by default, with a toggle for local-only tests.
 
-It would be nice if the API could expose that "proof" information more readily and make it easier for clients to verify -- that the data matches the SAID, the public keys match the signatures for the SAID, and we've looked up the AID for the public keys so we can answer "who signed this event"
 
-To make envelopes maximally portable/verifiable by any KERI peer, I’d tighten three things:
+# **Design goals**
 
- * Store the canonical CESR bytes alongside the JSON.
- * Make each signature self-describing (which key-set it indexes into).
- * Expose a one-shot getEventProof(...) that returns exactly what a client needs to verify SAID → keys → signatures → “who signed”.
+* **Deterministic**: same inputs ⇒ byte-identical dump.
 
-Below is a minimal, drop-in shape.
+  * Sort keys, sort arrays, avoid nondeterministic fields.
 
-# 1) Envelope shape: include canonical CESR and signer-set info
+* **Complete** (enough to replay): aliases, chains, events, envelopes (CESR), receipts (when you add them), and a **public vault view** (pubkeys only).
 
-```ts
-export type SignerSetRef =
-  | { kind: 'prior'; sn: number }      // indexes refer to prior establishment key set (typical for `rot`)
-  | { kind: 'current'; sn: number }    // indexes refer to this event's `k`
-  | { kind: 'witness'; aid: AID };     // witness receipts (index into witness list if you carry it)
+* **Portable**: rich enough for another peer to verify SAIDs and sigs.
 
-export interface CesrSig {
-  /** Index into the referenced signer set (see `signerSet`) */
-  keyIndex: number;
-  /** CESR-encoded signature (qb64) */
-  sig: string;
-  /** Which set the index refers to (disambiguates “index into what?”) */
-  signerSet: SignerSetRef;
-}
+* **Safe by default**: **no secret material** in dumps unless explicitly requested.
 
-export interface KelEnvelope {
-  /** Canonical event (JSON) — convenient for app logic */
-  event: KelEvent;
+---
 
-  /** CESR-serialized canonical bytes (qb64 of `Serder.raw`) — source of truth */
-  eventCesr: string;
-
-  /** Controller signatures on the event SAID (indices explained by `signerSet`) */
-  signatures: CesrSig[];
-
-  /** Optional witness receipts (same structure, typically `signerSet.kind = 'witness'`) */
-  receipts?: CesrSig[];
-}
-```
-
-Why:
-
-Other peers don’t need to trust your JSON rendering; they can re-hash eventCesr to get the SAID and verify signatures directly.
-
-signerSet removes ambiguity: a keyIndex is meaningless unless you say which key array it indexes into (current k, prior k, or a witness list). In KERI, rotations are signed by prior keys, so this matters.
-
-When you create an envelope:
-```ts
-const ser = KEL.serialize(event);               // returns { raw: Uint8Array, qb64: string }
-const env: KelEnvelope = {
-  event,
-  eventCesr: ser.qb64,
-  signatures: controllerSigs.map((sig, idx) => ({
-    keyIndex: idx,
-    sig,                                        // qb64 signature
-    signerSet: isRotation ? { kind:'prior', sn: prevSeq } 
-                          : { kind:'current', sn: eventSequence }
-  })),
-  receipts: witnessReceipts // optional, same idea
-};
-```
-
-# 2) Persist both JSON and CESR
-
-Keep what you have, but ensure the CESR string (eventCesr) is stored too. Your kelRepo.putEnvelope(env) already writes JSON; just make sure the JSON includes eventCesr.
-
-# 3) Add a proof API that answers “who signed what”
-
-Expose a single call that gives clients a ready-to-check bundle.
+# **Snapshot shape (single JSON)**
 
 ```ts
-export interface SignerProof {
-  keyIndex: number;
-  signerSet: SignerSetRef;
-  signature: string;            // qb64
-  publicKey: string;            // resolved key from the signer set
-  signerAid?: AID;              // if you can resolve it (controller AID or witness AID)
-}
-
-export interface EventProof {
-  said: SAID;
-  eventCesr: string;            // qb64
-  event: KelEvent;              // for human/debug
-  signers: SignerProof[];       // who signed & with which keys
-}
-
-export interface VerificationResult {
-  saidMatches: boolean;
-  signaturesValid: boolean;
-  validCount: number;
-  requiredCount: number;
-  failures?: string[];
-}
-```
-
-Implementation sketch:
-
-```ts
-async function getEventProof(aid: AID, said: SAID): Promise<EventProof | null> {
-  const env = await kel.getEnvelope(said);
-  if (!env) return null;
-
-  // 1) Recompute SAID from CESR bytes
-  const raw = CESR.fromQB64(env.eventCesr);
-  const recomputedSaid = KEL.computeSAID(raw); // same canonicalizer as builder
-  const saidFromEvent = env.event.d;
-  if (recomputedSaid !== saidFromEvent) {
-    // still return the bundle; verifier can mark saidMatches=false
-  }
-
-  // 2) Resolve signer sets
-  // prior/current sets come from your local KSN/state for `aid`
-  const stateFor = async (sn: number) => KEL.loadKeyStateAtSeq(aid, sn); // returns { k: string[], ... }
-  const signers: SignerProof[] = [];
-  for (const s of env.signatures) {
-    let pk = '';
-    let signerAid: AID | undefined = aid;
-    if (s.signerSet.kind === 'current') {
-      const st = await stateFor(s.signerSet.sn);
-      pk = st.k[s.keyIndex];
-    } else if (s.signerSet.kind === 'prior') {
-      const st = await stateFor(s.signerSet.sn);
-      pk = st.k[s.keyIndex];
-    } else { // witness
-      // If you carry witness list in state, index into it, or fetch by AID
-      pk = await KEL.lookupWitnessKey(s.signerSet.aid, s.keyIndex);
-      signerAid = s.signerSet.aid;
-    }
-    signers.push({
-      keyIndex: s.keyIndex,
-      signerSet: s.signerSet,
-      signature: s.sig,
-      publicKey: pk,
-      signerAid
-    });
-  }
-
-  return {
-    said: saidFromEvent,
-    eventCesr: env.eventCesr,
-    event: env.event,
-    signers
-  };
-}
-
-async function verifyEventProof(proof: EventProof): Promise<VerificationResult> {
-  const raw = CESR.fromQB64(proof.eventCesr);
-
-  // 1) SAID check
-  const saidMatches = (KEL.computeSAID(raw) === proof.said);
-
-  // 2) Signature checks
-  let validCount = 0;
-  const failures: string[] = [];
-  for (const s of proof.signers) {
-    const ok = CESR.verifySignatureQb64({
-      sigQb64: s.signature,
-      publicKeyQb64: s.publicKey,
-      messageRaw: raw
-    });
-    if (ok) validCount++; else failures.push(`idx ${s.keyIndex} (${s.signerAid ?? 'controller'})`);
-  }
-
-  // 3) Threshold check (derive from KSN; omitted here)
-  const requiredCount = 1; // pull from prior/current state threshold for this event type
-
-  return {
-    saidMatches,
-    signaturesValid: validCount >= requiredCount,
-    validCount,
-    requiredCount,
-    failures: failures.length ? failures : undefined
-  };
-}
-```
-
-## Notes
-
- * Where do keys come from?
-```
-current signer set ⇒ keys are the event’s k (or the KSN at this event’s sn).
-
-prior signer set ⇒ keys are the previous establishment state’s k.
-
-witnesses ⇒ resolve from witness AID(s) (your local OOBI/registry), or from the event’s witness list if you carry it.
-```
-
- * Thresholds: for rotations, validate against the prior state’s threshold; for inception, against the event’s kt.
-
-# 4) Writer: make sure you populate signerSet correctly
-
-Inception (icp): signatures reference { kind: 'current', sn: 0 } (indexes into this event’s k).
-
-Rotation (rot): signatures reference { kind: 'prior', sn: previousSeq } (indexes into prior k).
-
-Interaction (ixn): same as rotation: signed by current signing keys at that time (i.e., prior establishment state).
-
-# 5) Storage compatibility
-
-You can keep your existing kel:env:${said} value as JSON, but include:
-
-eventCesr (qb64 of the canonical bytes)
-
-signatures[].signerSet (as above)
-
-Peers that don’t read your JSON can still import eventCesr + arrays of signature qb64 and verify everything.
-
-# 6) Tiny safety checks to add to your rotation flow
-
-Right after building rot and before commit:
-```ts
-// Guard: revealed equals prior next
-if (rot.currentKeys?.[0] !== keyset.next.publicKey) {
-  throw new KelError('RevealMismatch', 'Revealed key must equal prior next key');
-}
-
-// Build signatures with explicit signerSet ref
-const env: KelEnvelope = {
-  event: rot,
-  eventCesr: KEL.serialize(rot).qb64,
-  signatures: collectedSigs.map((sig, i) => ({
-    keyIndex: i,
-    sig,
-    signerSet: { kind: 'prior', sn: meta.sequence } // prior state
-  }))
-};
-```
-
-With these minimal additions you get:
-
-Cross-peer verifiability (no JSON ambiguities).
-
-Clear “index into what?” semantics.
-
-A dead-simple getEventProof → verifyEventProof path that answers:
-(1) does data match the SAID, (2) do signatures match those bytes, (3) which public keys (and AIDs) signed, and (4) were thresholds met.
-
-# == Implementation ==
-
-1) Types to add (next to your other interfaces)
-
-```ts
-export type SignerSetRef =
-  | { kind: 'prior'; sn: number }         // signer indices refer to *prior* establishment keys (common for rot/ixn)
-  | { kind: 'current'; sn: number }       // indices refer to this event's `k`
-  | { kind: 'witness'; aid: AID };        // witness signatures (optional)
-
-export interface CesrSig {
-  keyIndex: number;      // index into the signer set
-  sig: string;           // qb64 signature over canonical bytes
-  signerSet: SignerSetRef;
-}
-
-/** Keep your existing KelEnvelope but add eventCesr and signerSet on signatures */
-export interface KelEnvelope {
-  event: KelEvent;
-  eventCesr: string;     // qb64 of canonical bytes ("Serder.raw" in KERI terms)
-  signatures: CesrSig[];
-  receipts?: CesrSig[];
-}
-
-export interface SignerProof {
-  keyIndex: number;
-  signerSet: SignerSetRef;
-  signature: string;      // qb64
-  publicKey: string;      // resolved signer public key (qb64)
-  signerAid?: AID;        // controller AID or witness AID
-}
-
-export interface EventProof {
-  said: SAID;
-  eventCesr: string;      // qb64
-  event: KelEvent;
-  signers: SignerProof[];
-}
-
-export interface VerificationResult {
-  saidMatches: boolean;
-  signaturesValid: boolean;
-  validCount: number;
-  requiredCount: number;
-  failures?: string[];
-}
-```
-
-If you already declared CesrSig/KelEnvelope, extend them (don’t duplicate). The key addition is eventCesr and signerSet on each signature.
-
-2) Extend KelApi
-
-Add these to the KelApi type:
-```ts
-getEventProof(aid: AID, said: SAID): Promise<EventProof | null>;
-verifyEventProof(proof: EventProof): Promise<VerificationResult>;
-```
-
-3) Implement in KelStores.ops(...)
-
-Drop these helpers and methods inside your existing ops factory (they only use your repos + CESR/KEL utils):
-
-```ts
-export namespace KelStores {
-  export const ops = (stores: KelStores): KelApi => {
-    const aliases = aliasRepo(stores.aliases);
-    const kel     = kelRepo(stores.kelEvents, stores.kelCesr, stores.kelMetadata);
-    const vault   = vaultRepo(stores.vault);
-
-    // ---- Helpers ----------------------------------------------------------
-
-    // Load the event by sequence number (via chain metadata), then walk back to
-    // the nearest *establishment* event (icp or rot) to obtain the signer key set `k`.
-    async function getEstablishmentAtOrBefore(aid: AID, seq: number): Promise<KelEvent | null> {
-      const meta = await kel.getChain(aid);
-      if (!meta) return null;
-      const chain = meta.chain;
-      // clamp
-      const idx = Math.min(Math.max(seq, 0), chain.length - 1);
-      for (let i = idx; i >= 0; i--) {
-        const e = await kel.getEvent(chain[i]);
-        if (!e) continue;
-        if (e.t === 'icp' || e.t === 'rot') return e;   // adjust to your event-type discriminator
-      }
-      return null;
-    }
-
-    // Resolve a public key for a signer reference
-    async function resolveSignerPublicKey(aid: AID, ref: SignerSetRef, keyIndex: number, eventForCurrent?: KelEvent): Promise<{ pk: string; signerAid?: AID } | null> {
-      if (ref.kind === 'current') {
-        const e = eventForCurrent ?? await getEstablishmentAtOrBefore(aid, ref.sn);
-        const keys = e?.k ?? [];
-        return keys[keyIndex] ? { pk: keys[keyIndex], signerAid: aid } : null;
-      }
-      if (ref.kind === 'prior') {
-        const prior = await getEstablishmentAtOrBefore(aid, ref.sn);
-        const keys = prior?.k ?? [];
-        return keys[keyIndex] ? { pk: keys[keyIndex], signerAid: aid } : null;
-      }
-      if (ref.kind === 'witness') {
-        // Optional: if you maintain witness keys per AID, resolve here.
-        // For now we just signal "unknown" unless you have a registry.
-        return { pk: '', signerAid: ref.aid }; // fill from your witness registry if available
-      }
-      return null;
-    }
-
-    // ---- New API: getEventProof -------------------------------------------
-
-    async function getEventProof(aid: AID, said: SAID): Promise<EventProof | null> {
-      const env = await kel.getEnvelope(said);
-      if (!env) return null;
-
-      const raw = CESR.fromQB64(env.eventCesr);            // canonical bytes
-      const recomputedSaid = KEL.computeSAID(raw);         // same canonicalizer as your builders
-      const eventSaid = env.event.d;
-
-      // Build signer proofs
-      const signers: SignerProof[] = [];
-      for (const s of (env.signatures ?? [])) {
-        const resolved = await resolveSignerPublicKey(aid, s.signerSet, s.keyIndex, env.event);
-        signers.push({
-          keyIndex: s.keyIndex,
-          signerSet: s.signerSet,
-          signature: s.sig,
-          publicKey: resolved?.pk ?? '',
-          signerAid: resolved?.signerAid,
-        });
-      }
-
-      return {
-        said: eventSaid,
-        eventCesr: env.eventCesr,
-        event: env.event,
-        signers,
-      };
-    }
-
-    // ---- New API: verifyEventProof ----------------------------------------
-
-    async function verifyEventProof(proof: EventProof): Promise<VerificationResult> {
-      const raw = CESR.fromQB64(proof.eventCesr);
-
-      // 1) SAID matches
-      const saidMatches = (KEL.computeSAID(raw) === proof.said);
-
-      // 2) Verify signatures (basic validity)
-      let validCount = 0;
-      const failures: string[] = [];
-      for (const s of proof.signers) {
-        if (!s.publicKey || !s.signature) { failures.push(`missing pk/sig @${s.keyIndex}`); continue; }
-        const ok = CESR.verifySignatureQb64({
-          sigQb64: s.signature,
-          publicKeyQb64: s.publicKey,
-          messageRaw: raw
-        });
-        if (ok) validCount++; else failures.push(`bad sig @${s.keyIndex} (${s.signerAid ?? 'controller'})`);
-      }
-
-      // 3) Threshold — derive from KSN: for inception, from this event; for rotation, from prior state.
-      // Minimal rule here: require >=1 valid signature. Replace with your real threshold resolution.
-      let requiredCount = 1;
-      if (proof.event.t === 'icp') {
-        requiredCount = KEL.thresholdFromEvent(proof.event) ?? 1;
-      } else {
-        const priorSeq = Number(proof.event.s) - 1;
-        const priorEst = await getEstablishmentAtOrBefore(proof.event.i, priorSeq);
-        requiredCount = KEL.thresholdFromEvent(priorEst) ?? 1;
-      }
-
-      return {
-        saidMatches,
-        signaturesValid: validCount >= requiredCount,
-        validCount,
-        requiredCount,
-        failures: failures.length ? failures : undefined,
-      };
-    }
-
-    // ---- (existing methods …) ---------------------------------------------
-
-    return {
-      // … keep your existing methods
-      createAccount: async (args) => { /* unchanged except: see patch below to enrich env */ },
-      rotateKeys:    async (args) => { /* unchanged except: see patch below to enrich env */ },
-      getAccount:    async (args) => { /* … */ },
-      getAidByAlias: async (alias) => aliases.get(alias),
-      getKelChain:   async (aid) => { /* … */ },
-      getLatestSequence: async (aid) => { /* … */ },
-      getKeys:       async (aid) => { /* … */ },
-
-      // NEW:
-      getEventProof,
-      verifyEventProof,
+export interface KelSnapshot {
+  version: 1;
+  createdAt: string;          // ISO, informational; not used in equality
+  digest: string;             // sha256 of canon(snapshot.withoutDigest)
+  aliases: Array<{ alias: string; aid: AID }>;
+  aids: Array<{
+    aid: AID;
+    alias?: string;
+    chain: Array<{
+      said: SAID;
+      type: string;           // 'icp' | 'rot' | 'ixn' | 'dip' | 'drt' ...
+      sn: number;             // event sequence as number
+      event: KelEvent;        // canonical event JSON
+      eventCesr: string;      // qb64 canonical bytes (source of truth)
+      signatures: CesrSig[];  // with signerSet refs
+      receipts?: CesrSig[];
+      eventHash: string;      // sha256 of canonical bytes (duplicate of SAID check, helpful in diffs)
+    }>;
+    meta: ChainMetadata;
+    vault: {
+      current: string[];      // public keys
+      next: string[];         // public keys
+      // secrets?: string[]    // optional (only if includeSecrets: true)
     };
+  }>;
+}
+```
+
+* **Why include `event` and `eventCesr`?**
+
+  * CESR is the source of truth for verifying SAID & signatures.
+
+  * JSON is convenient for eyeballing.
+
+* **`eventHash`** is redundant with SAID in KERI, but nice for quick diffs.
+
+---
+
+# **New API surface**
+
+Add to `KelApi`:
+
+```ts
+dumpState(args?: { includeSecrets?: boolean }): Promise<KelSnapshot>;
+loadState(snapshot: KelSnapshot, opts?: { allowSecrets?: boolean, truncateExisting?: boolean }): Promise<void>;
+```
+
+* `includeSecrets` defaults to `false`. If `true`, we include base64url-encoded secret handles (only for local/dev).
+
+* `truncateExisting`: if true, clears stores first (for deterministic load tests).
+
+---
+
+# **Determinism rules**
+
+(See my comment about leveraging our [Data](../../data/data.ts) capability for a cononical representation and SAIDIFY the data below)
+
+* Sort everything:
+
+  * `aliases` by lowercase alias;
+  * `aids` by AID;
+  * `chain` by sequence;
+  * `signatures` and `receipts` by `signerSet.kind`, then `sn`, then `keyIndex`.
+
+* Canonical JSON for the final file: use a stable stringifier (sorted keys). You already have canonicalization for events via CESR; for **dump file** determinism, implement a small `canonicalStringify`.
+
+---
+
+# **Implementation (drop-in)**
+
+## **1) Helpers**
+
+```ts
+function stableCompare<T>(a: T, b: T): number { return a < b ? -1 : a > b ? 1 : 0; }
+
+function sortSignatures(xs: CesrSig[]): CesrSig[] {
+  return [...xs].sort((a,b) => {
+    const ak = a.signerSet.kind, bk = b.signerSet.kind;
+    if (ak !== bk) return stableCompare(ak, bk);
+    const asn = (a.signerSet as any).sn ?? -1;
+    const bsn = (b.signerSet as any).sn ?? -1;
+    if (asn !== bsn) return asn - bsn;
+    return a.keyIndex - b.keyIndex;
+  });
+}
+
+function canonicalStringify(obj: any): string {
+  // Simple deterministic JSON stringify: sorts object keys recursively.
+  const seen = new WeakSet();
+  const normalize = (val: any): any => {
+    if (val && typeof val === 'object') {
+      if (seen.has(val)) return null;
+      seen.add(val);
+      if (Array.isArray(val)) return val.map(normalize);
+      const out: any = {};
+      for (const k of Object.keys(val).sort()) out[k] = normalize(val[k]);
+      return out;
+    }
+    return val;
   };
+  return JSON.stringify(normalize(obj));
+}
+
+function sha256Hex(u8: Uint8Array): string {
+  // For Bun/Node use crypto.subtle if you want async; here a sync Buffer hash:
+  const crypto = require('crypto');
+  return crypto.createHash('sha256').update(u8).digest('hex');
 }
 ```
 
-4) Patch your writers to include eventCesr + signerSet
-
-Right now you call KEL.createEnvelope(...). If that already returns eventCesr and filled signerSet, you’re done. If not, enrich it locally like this:
-
-In createAccount(...)
-```ts
-const inceptionEvent = KEL.inception({ /* ... */ });
-
-// canonical CESR for the event (source of truth)
-const ser = KEL.serialize(inceptionEvent); // -> { raw: Uint8Array, qb64: string }
-
-const baseEnv = KEL.createEnvelope(inceptionEvent, [currentKp.privateKey]);
-
-// Ensure envelope carries eventCesr and explicit signerSet (current@sn=0 for icp)
-const envelope: KelEnvelope = {
-  ...baseEnv,
-  eventCesr: ser.qb64,
-  signatures: (baseEnv.signatures ?? []).map((sig, idx) => ({
-    keyIndex: idx,
-    sig: sig.sig ?? sig, // depending on your createEnvelope shape
-    signerSet: { kind: 'current', sn: 0 },
-  })),
-};
-
-await kel.putEvent(inceptionEvent);
-await kel.putEnvelope(envelope);
-// vault -> chain (atomic order as we discussed)
-```
-
-In rotateKeys(...)
+## **2) `dumpState`**
 
 ```ts
-const nextSeq = meta.sequence + 1;
-const rot = KEL.rotation({ /* sequence: nextSeq, prior, reveal/commit */ });
+async function loadState(snapshot: KelSnapshot, opts?: { allowSecrets?: boolean, truncateExisting?: boolean }): Promise<void> {
+  // Optional: wipe stores
+  if (opts?.truncateExisting) {
+    // if your KeyValueStore has no clear(), re-create inMemory stores or provide a truncate API
+    // For now we assume caller provided fresh inMemory stores for tests.
+  }
 
-const ser = KEL.serialize(rot);
+  // Verify digest first
+  const { digest, ...withoutDigest } = snapshot as any;
+  const canon = canonicalStringify(withoutDigest);
+  const recomputed = sha256Hex(Buffer.from(canon));
+  if (recomputed !== snapshot.digest) throw new Error(`Snapshot digest mismatch`);
 
-const baseEnv = KEL.createEnvelope(rot, [keyset.current.secretHandle]);
+  // Write aliases
+  const aliasMap = { aliasToAid: {} as Record<string,AID>, aidToAlias: {} as any };
+  for (const { alias, aid } of snapshot.aliases) {
+    const lower = alias.toLowerCase();
+    aliasMap.aliasToAid[lower] = aid;
+    aliasMap.aidToAlias[aid] = { key: lower, display: alias };
+  }
+  await putJson(stores.aliases, 'mapping', aliasMap);
 
-// For rotations, signatures index into *prior* establishment keys (sn = meta.sequence)
-const envelope: KelEnvelope = {
-  ...baseEnv,
-  eventCesr: ser.qb64,
-  signatures: (baseEnv.signatures ?? []).map((sig, idx) => ({
-    keyIndex: idx,
-    sig: sig.sig ?? sig,
-    signerSet: { kind: 'prior', sn: meta.sequence },
-  })),
-};
+  // For each aid, write events/envelopes/vault/chain in safe order
+  for (const a of snapshot.aids) {
+    // events & envelopes
+    for (const e of a.chain) {
+      await kel.putEvent(e.event);
+      // envelope: ensure we have eventCesr and signatures
+      const env: KelEnvelope = {
+        event: e.event,
+        eventCesr: e.eventCesr,
+        signatures: e.signatures ?? [],
+        receipts: e.receipts ?? []
+      };
+      await kel.putEnvelope(env);
+    }
 
-await kel.putEvent(rot);
-await kel.putEnvelope(envelope);
-// vault -> chain (atomic order)
-```
+    // vault (public only). If you allow secrets in tests, setKeyset with decoded values.
+    if (opts?.allowSecrets) {
+      // Implement only if you stored secrets in snapshot.
+    } else {
+      // synthesize a vault view from public keys by setting dummies (or skip setting vault entirely).
+      // Better: leave vault empty; tests that rely on signing should generate fresh keys.
+    }
 
-If your createEnvelope already returns exactly that shape (with eventCesr and signerSet), just keep it and skip the wrapping.
-
-5) What clients do now
-```ts
-const proof = await api.getEventProof(aid, said);
-if (!proof) throw new Error('Missing event');
-
-const verify = await api.verifyEventProof(proof);
-if (!verify.saidMatches) console.error('Event bytes ↔ SAID mismatch');
-if (!verify.signaturesValid) console.error(`Only ${verify.validCount}/${verify.requiredCount} valid sigs`, verify.failures);
-
-// Show who signed:
-for (const s of proof.signers) {
-  console.log(`idx=${s.keyIndex} aid=${s.signerAid ?? aid} pk=${s.publicKey} set=${s.signerSet.kind}@${'sn' in s.signerSet ? s.signerSet.sn : '-'}`);
+    // chain meta last (atomic read consistency)
+    await kel.putChain(a.meta);
+  }
 }
 ```
 
-This gives you an end-to-end, KERI-faithful verification path:
+## **3) `loadState`**
 
- * SAID ⇄ canonical bytes,
- * signatures over those bytes,
- * which keys signed (and from which signer set),
- * threshold satisfied,
- * and a clean “who signed” answer via signerAid + public key.
+```ts
+async function loadState(snapshot: KelSnapshot, opts?: { allowSecrets?: boolean, truncateExisting?: boolean }): Promise<void> {
+  // Optional: wipe stores
+  if (opts?.truncateExisting) {
+    // if your KeyValueStore has no clear(), re-create inMemory stores or provide a truncate API
+    // For now we assume caller provided fresh inMemory stores for tests.
+  }
+
+  // Verify digest first
+  const { digest, ...withoutDigest } = snapshot as any;
+  const canon = canonicalStringify(withoutDigest);
+  const recomputed = sha256Hex(Buffer.from(canon));
+  if (recomputed !== snapshot.digest) throw new Error(`Snapshot digest mismatch`);
+
+  // Write aliases
+  const aliasMap = { aliasToAid: {} as Record<string,AID>, aidToAlias: {} as any };
+  for (const { alias, aid } of snapshot.aliases) {
+    const lower = alias.toLowerCase();
+    aliasMap.aliasToAid[lower] = aid;
+    aliasMap.aidToAlias[aid] = { key: lower, display: alias };
+  }
+  await putJson(stores.aliases, 'mapping', aliasMap);
+
+  // For each aid, write events/envelopes/vault/chain in safe order
+  for (const a of snapshot.aids) {
+    // events & envelopes
+    for (const e of a.chain) {
+      await kel.putEvent(e.event);
+      // envelope: ensure we have eventCesr and signatures
+      const env: KelEnvelope = {
+        event: e.event,
+        eventCesr: e.eventCesr,
+        signatures: e.signatures ?? [],
+        receipts: e.receipts ?? []
+      };
+      await kel.putEnvelope(env);
+    }
+
+    // vault (public only). If you allow secrets in tests, setKeyset with decoded values.
+    if (opts?.allowSecrets) {
+      // Implement only if you stored secrets in snapshot.
+    } else {
+      // synthesize a vault view from public keys by setting dummies (or skip setting vault entirely).
+      // Better: leave vault empty; tests that rely on signing should generate fresh keys.
+    }
+
+    // chain meta last (atomic read consistency)
+    await kel.putChain(a.meta);
+  }
+}
+```
+
+## **4) Wire into your `ops` return**
+
+Add in `KelStores.ops`:
+
+```ts
+return {
+  // existing methods...
+  createAccount, rotateKeys, getAccount, getAidByAlias, getKelChain, getLatestSequence, getKeys,
+  getEventProof, verifyEventProof,
+  // NEW:
+  dumpState,
+  loadState,
+};
+
+```
+
+---
+
+# **Test pattern (Bun/Jest)**
+
+```ts
+test('golden snapshot', async () => {
+  const stores = KelStores.inMemory();
+  const api = KelStores.ops(stores);
+
+  // 1) do a thing
+  const acc = await api.createAccount({ alias: 'alice' });
+
+  // 2) dump snapshot
+  const snap = await api.dumpState();
+
+  // 3) compare to golden
+  const fs = await import('node:fs/promises');
+  const path = 'testdata/golden/kel-01.json';
+  const want = await fs.readFile(path, 'utf8');
+  const got  = canonicalStringify(snap);
+
+  if (process.env.UPDATE_GOLDEN) {
+    await fs.writeFile(path, got); // accept new
+  } else {
+    expect(got).toBe(want);
+  }
+
+  // 4) reload and deep-equal
+  const stores2 = KelStores.inMemory();
+  const api2 = KelStores.ops(stores2);
+  await api2.loadState(JSON.parse(got)); // no secrets
+
+  const got2 = canonicalStringify(await api2.dumpState());
+  expect(got2).toBe(got); // read <-> write stable
+});
+
+```
+
+---
+
+# **Visual inspection (optional but easy)**
+
+* Add a tiny helper that **pretty-prints** a single AID: `api.dumpAid(aid)` returning `{ chain:[{sn, type, said, keySummary}], receiptsCoverage, thresholds }`.
+
+* Or generate a **Mermaid sequence** or a compact **HTML** debug view from the snapshot (later).
+
+---
+
+# **A few gotchas & tips**
+
+* **Timestamps:** they’ll vary. They’re part of canonical event bytes; for regression tests keep fixed times via your existing `timestamp` parameters.
+
+* **Secrets:** keep out of snapshots by default. If you add them for a local test, store them base64url-encoded and gate load with `allowSecrets`.
+
+* **Unknown events:** snapshots should tolerate future event types—store `event.t` as string and keep the raw `eventCesr`.
+
+* **Receipts/witnesses:** as you add these, extend snapshot with `receipts` per event. Your `getEventProof` can then merge controller signatures \+ receipts.
+
+---
+
+## Notes:
+
+Let's be sure to leverage our existing [Data](../../data/data.ts) ability, e.g. using 'saidify' already knows how to create a cononical json representation with sorted keys.
+
+
+The trick is to sort/normalize any *semantic* lists (aliases, chain order, sig arrays) first.
+
+Then **hand the final object** to `saidify` to get deterministic bytes/strings for digests, golden files, and read↔write checks.
+
+Below is a drop-in way to wire it in, replacing the ad-hoc `canonicalStringify`.
+
+---
+
+## **1) A tiny, centralized canonicalizer wrapper**
+
+Make one helper and use it everywhere (snapshot digests, test equality):
+
+// canon.ts
+```ts
+// canon.ts
+// Wrap your existing Data.saidify (name/args may differ in your codebase)
+import { Data } from '../data'; // where saidify lives
+
+type SaidifyOpts = {
+  // If your saidify injects SAIDs (.d) into objects, keep it OFF for snapshots
+  // unless you explicitly want SAIDs added to the dump structure.
+  injectSaids?: boolean; // default false
+};
+
+export function canonBytes(obj: unknown, opts?: SaidifyOpts): Uint8Array {
+  // Pseudocode — adapt to your saidify’s actual API:
+  // Expect something like: Data.saidify(object, { sortKeys: true, injectSaids: false }) -> { raw: Uint8Array, text?: string }
+  const { raw } = Data.saidify(obj, { sortKeys: true, injectSaids: !!opts?.injectSaids });
+  return raw;
+}
+
+export function canonString(obj: unknown, opts?: SaidifyOpts): string {
+  const raw = canonBytes(obj, opts);
+  // Safe UTF-8 decode for your snapshots
+  return new TextDecoder().decode(raw);
+}
+
+```
+
+**Why:**
+
+* You get **one** canonical path.
+
+* If `saidify` evolves, you update here, not everywhere.
+
+If your `saidify` always injects `.d`, pass an option to disable it for snapshots. If that doesn’t exist, deep-clone → delete `.d` before calling it.
+
+---
+
+## **2) Sort lists before you ‘saidify’**
+
+`saidify` sorts **object keys**, not semantic arrays (and it shouldn’t). Keep your deterministic sorting just before canonicalization:
+
+* aliases → sort by lowercase alias
+
+* aids → sort by AID
+
+* chain → sort by `sn`
+
+* signatures/receipts → sort by `(kind, sn, keyIndex)`
+
+(You already have a `sortSignatures` in the earlier plan—keep it.)
+
+---
+
+## **3) Use `saidify` for snapshot digests and golden files**
+
+Replace the previous digest/stringify with your wrapper:
+
+```ts
+import { canonBytes, canonString } from './canon';
+import { createHash } from 'node:crypto';
+
+function sha256Hex(u8: Uint8Array): string {
+  return createHash('sha256').update(u8).digest('hex');
+}
+
+// When building the snapshot:
+const skeleton = { version: 1, createdAt, aliases, aids };
+// Important: do NOT include `digest` inside the bytes you hash
+const bytes = canonBytes(skeleton, { injectSaids: false });
+const digest = sha256Hex(bytes);
+const snapshot = { ...skeleton, digest };
+
+// For golden tests and read↔write equality:
+const golden = canonString(snapshot, { injectSaids: false });
+
+```
+
+Keep `createdAt` out of equality if you want strict byte-identical diffs. Easiest is to **omit** it from the skeleton you hash/stringify, or set it deterministically in tests.
+
+---
+
+## **4) Still use CESR for events (source of truth)**
+
+For each `KelEvent` you already have **CESR canonical bytes** (what peers verify). Keep that as the event truth:
+
+* `eventCesr` (qb64) stays the thing you use for SAID/signature checks.
+
+* `saidify` is for **snapshot determinism** (a separate concern from KERI wire format).
+
+This gives you two layers:
+
+* **Wire/cross-peer**: CESR (`eventCesr`, signatures).
+
+* **Dev/test snapshot**: `saidify` to canonicalize the **snapshot JSON**.
+
+---
+
+## **5) Minimal patches in your snapshot code**
+
+Replace the earlier custom canonicalization with `saidify`:
+
+```ts
+// build `skeleton` as before (after sorting arrays)
+const bytes  = canonBytes(skeleton, { injectSaids: false });
+const digest = sha256Hex(bytes);
+return { ...skeleton, digest };
+```
+
+…and for loading/validating:
+
+```ts
+const { digest, ...withoutDigest } = snapshot;
+const bytes = canonBytes(withoutDigest, { injectSaids: false });
+if (sha256Hex(bytes) !== digest) throw new Error('Snapshot digest mismatch');
+```
+
+---
+
+## **6) Bonus: unify event serialization too (optional)**
+
+If your `KEL.serialize(evt)` already calls `saidify` internally, you’re done. If not, implement it on top:
+
+```ts
+// KEL.serialize
+export function serialize(evt: KelEvent): { raw: Uint8Array; qb64: string } {
+  const raw = canonBytes(evt, { injectSaids: true }); // for events you *do* want .d injected prior to hashing
+  const qb64 = CESR.bytesToQb64(raw);                 // your CESR helper
+  return { raw, qb64 };
+}
+
+```
+
+For events you’ll sign/verify, you typically **inject** SAID (`.d`) in canonical order so everyone hashes & signs the same bytes. Keep that behaviour in your event path; snapshots can use `injectSaids:false`.
+
+---
+
+## **7) What this buys you**
+
+* **One canonical engine** (saidify) drives:
+
+  * event bytes (via `KEL.serialize`)
+
+  * snapshot bytes / golden files (via `canonBytes/String`)
+
+* **Deterministic diffs**: your dump files are stable even across machines.
+
+* **Clean separation** of concerns: CESR for KERI wire-truth, saidify for JSON snapshot determinism.
+
