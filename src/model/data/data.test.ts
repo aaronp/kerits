@@ -376,4 +376,88 @@ describe('Data Operations', () => {
             expect(errors).toEqual([]);
         });
     });
+
+    describe('Data.canonicalize', () => {
+        it('should produce deterministic canonical form', () => {
+            const obj = { name: 'Alice', age: 30 };
+            const data = Data.fromJson(obj);
+
+            const result = data.canonicalize();
+
+            expect(result.raw).toBeInstanceOf(Uint8Array);
+            expect(result.text).toBe('{"age":30,"name":"Alice"}'); // Keys sorted
+        });
+
+        it('should produce same output for same input (deterministic)', () => {
+            const obj = { b: 2, a: 1 };
+
+            const result1 = Data.fromJson(obj).canonicalize();
+            const result2 = Data.fromJson(obj).canonicalize();
+
+            expect(result1.text).toBe(result2.text);
+            expect(result1.raw).toEqual(result2.raw);
+        });
+
+        it('should sort nested object keys', () => {
+            const obj = {
+                z: { y: 1, x: 2 },
+                a: { c: 3, b: 4 }
+            };
+            const data = Data.fromJson(obj);
+
+            const result = data.canonicalize();
+
+            expect(result.text).toBe('{"a":{"b":4,"c":3},"z":{"x":2,"y":1}}');
+        });
+    });
+
+    describe('Data.digest', () => {
+        it('should compute Blake3 digest of bytes', () => {
+            const obj = { name: 'Bob' };
+            const { raw } = Data.fromJson(obj).canonicalize();
+
+            const digest = Data.digest(raw);
+
+            expect(digest).toMatch(/^E[A-Za-z0-9_-]{43}$/); // CESR Blake3-256 format
+        });
+
+        it('should produce same digest for same bytes', () => {
+            const obj = { value: 42 };
+            const { raw } = Data.fromJson(obj).canonicalize();
+
+            const digest1 = Data.digest(raw);
+            const digest2 = Data.digest(raw);
+
+            expect(digest1).toBe(digest2);
+        });
+
+        it('should produce different digests for different data', () => {
+            const obj1 = { value: 1 };
+            const obj2 = { value: 2 };
+
+            const digest1 = Data.digest(Data.fromJson(obj1).canonicalize().raw);
+            const digest2 = Data.digest(Data.fromJson(obj2).canonicalize().raw);
+
+            expect(digest1).not.toBe(digest2);
+        });
+    });
+
+    describe('Data byte encoding helpers', () => {
+        it('should encode and decode Uint8Array as base64url', () => {
+            const original = new Uint8Array([1, 2, 3, 4, 5, 255]);
+
+            const encoded = Data.encodeBytes(original);
+            const decoded = Data.decodeBytes(encoded);
+
+            expect(decoded).toEqual(original);
+        });
+
+        it('should produce URL-safe base64', () => {
+            const bytes = new Uint8Array(32).fill(255);
+            const encoded = Data.encodeBytes(bytes);
+
+            // Should not contain +, /, or =
+            expect(encoded).not.toMatch(/[+/=]/);
+        });
+    });
 });

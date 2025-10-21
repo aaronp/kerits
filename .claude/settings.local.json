@@ -39,7 +39,9 @@
       "Bash(mkdir:*)",
       "Bash(git mv:*)",
       "Bash(git rm:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(UPDATE_GOLDEN=1 bun test src/model/kel/kel-golden.test.ts)",
+      "Bash(git -C /Users/aaron/dev/sandbox/keripy/kerits status test/golden/)"
     ],
     "deny": [],
     "ask": []

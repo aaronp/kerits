@@ -97,6 +97,53 @@ export class Data {
     }
 
     /**
+     * Canonicalize data to deterministic bytes and text representation
+     *
+     * Unlike saidify(), this does NOT inject a SAID field - it's for snapshots and testing
+     *
+     * @returns Object with canonical bytes and text representation
+     */
+    canonicalize(): { raw: Uint8Array; text: string } {
+        const canonical = canonicalize(this.data);
+        const raw = new TextEncoder().encode(canonical);
+        return { raw, text: canonical };
+    }
+
+    /**
+     * Compute Blake3 digest of canonical bytes
+     *
+     * @param raw - Canonical bytes to hash
+     * @returns CESR-encoded digest (Blake3-256 with 'E' prefix)
+     */
+    static digest(raw: Uint8Array): string {
+        const hash = blake3(raw, { dkLen: 32 });
+        return encodeCESRDigest(hash, 'E');
+    }
+
+    /**
+     * Helper to encode Uint8Array as base64url (for storage/serialization)
+     *
+     * @param bytes - Bytes to encode
+     * @returns Base64url string without padding
+     */
+    static encodeBytes(bytes: Uint8Array): string {
+        return encodeBase64Url(bytes);
+    }
+
+    /**
+     * Helper to decode base64url back to Uint8Array
+     *
+     * @param encoded - Base64url string
+     * @returns Decoded bytes
+     */
+    static decodeBytes(encoded: string): Uint8Array {
+        const base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
+        const pad = base64.length % 4 ? '='.repeat(4 - (base64.length % 4)) : '';
+        const decoded = atob(base64 + pad);
+        return new Uint8Array(decoded.split('').map(c => c.charCodeAt(0)));
+    }
+
+    /**
      * Validate this data against a JSON Schema (instance method)
      *
      * @param schema - JSON Schema to validate against

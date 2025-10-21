@@ -16,6 +16,9 @@ import { KEL } from './kel-ops';
 import { CESR, type CESRKeypair, type Mnemonic } from '../cesr/cesr';
 import { getJson, putJson, getJsonString, putJsonString, memoryStore, namespace } from '../io/storage';
 import { s } from '../string-ops';
+import { Data } from '../data/data';
+import type { KelSnapshot, DumpStateOptions, LoadStateOptions, VaultSnapshot } from './snapshot';
+import { sortSignatures, sortObject } from './snapshot';
 
 /**
  * KEL-specific error types for actionable failures
@@ -280,6 +283,8 @@ export type KelApi = {
     getLatestSequence(aid: AID): Promise<number | null>;
     getKeys(aid: AID): Promise<SafeVaultView | null>;
     getEventProof(said: SAID): Promise<EventProof | null>;
+    dumpState(opts?: import('./snapshot').DumpStateOptions): Promise<import('./snapshot').KelSnapshot>;
+    loadState(snapshot: import('./snapshot').KelSnapshot, opts?: import('./snapshot').LoadStateOptions): Promise<void>;
 };
 
 export namespace KelStores {
@@ -609,6 +614,152 @@ export namespace KelStores {
 
                 // Generate the proof using KEL.getEventProof
                 return KEL.getEventProof(envelope, priorEvent);
+            },
+
+            async dumpState(opts?: DumpStateOptions): Promise<KelSnapshot> {
+                const includeSecrets = opts?.includeSecrets ?? false;
+                const createdAt = opts?.timestamp ?? new Date().toISOString();
+
+                // Read all aliases
+                const aliasMapping = await getAliasMapping(stores.aliases);
+
+                // Read all KEL events
+                const eventKeys = await stores.kelEvents.listKeys?.('') ?? [];
+                const allEventsRaw: Record<SAID, KelEvent> = {};
+                for (const key of eventKeys) {
+                    const event = await getJson<KelEvent>(stores.kelEvents, key);
+                    if (event) allEventsRaw[key] = event;
+                }
+
+                // Read all KEL envelopes
+                const envKeys = await stores.kelCesr.listKeys?.('') ?? [];
+                const allEnvelopesRaw: Record<SAID, KelEnvelope> = {};
+                for (const key of envKeys) {
+                    const env = await getJson<KelEnvelope>(stores.kelCesr, key);
+                    if (env) allEnvelopesRaw[key] = env;
+                }
+
+                // Read all chain metadata
+                const metaKeys = await stores.kelMetadata.listKeys?.('') ?? [];
+                const allMetadataRaw: Record<string, ChainMetadata> = {};
+                for (const key of metaKeys) {
+                    const meta = await getJson<ChainMetadata>(stores.kelMetadata, key as SAID);
+                    if (meta) allMetadataRaw[key] = meta;
+                }
+
+                // Read all vault entries
+                const vaultKeys = await stores.vault.listKeys?.('') ?? [];
+                const allVaultRaw: Record<string, any> = {};
+                for (const key of vaultKeys) {
+                    const vaultEntry = await getJson<any>(stores.vault, key as SAID);
+                    if (vaultEntry) allVaultRaw[key] = vaultEntry;
+                }
+
+                // Build vault snapshots (strip secrets unless requested)
+                const vaultSnapshots: Record<string, VaultSnapshot> = {};
+                for (const [key, raw] of Object.entries(allVaultRaw)) {
+                    if (!raw.current || !raw.next) continue;
+
+                    vaultSnapshots[key] = {
+                        current: {
+                            publicKey: raw.current.publicKey,
+                            ...(includeSecrets && raw.current.secretHandle
+                                ? { privateKeySeed: Data.encodeBytes(fromB64(raw.current.secretHandle)) }
+                                : {})
+                        },
+                        next: {
+                            publicKey: raw.next.publicKey,
+                            ...(includeSecrets && raw.next.secretHandle
+                                ? { privateKeySeed: Data.encodeBytes(fromB64(raw.next.secretHandle)) }
+                                : {})
+                        }
+                    };
+                }
+
+                // Sort envelopes' signatures for determinism
+                const sortedEnvelopes: Record<SAID, KelEnvelope> = {};
+                for (const [said, env] of Object.entries(allEnvelopesRaw)) {
+                    sortedEnvelopes[said] = {
+                        ...env,
+                        signatures: sortSignatures(env.signatures),
+                        ...(env.receipts ? { receipts: sortSignatures(env.receipts) } : {})
+                    };
+                }
+
+                // Build snapshot skeleton (without digest)
+                const skeleton = {
+                    version: 1 as const,
+                    createdAt,
+                    stores: {
+                        aliases: sortObject(aliasMapping),
+                        kelEvents: sortObject(allEventsRaw),
+                        kelCesr: sortObject(sortedEnvelopes),
+                        kelMetadata: sortObject(allMetadataRaw),
+                        vault: sortObject(vaultSnapshots)
+                    }
+                };
+
+                // Compute digest using Data.canonicalize
+                const { raw } = Data.fromJson(skeleton).canonicalize();
+                const digest = Data.digest(raw);
+
+                return {
+                    ...skeleton,
+                    digest
+                };
+            },
+
+            async loadState(snapshot: KelSnapshot, opts?: LoadStateOptions): Promise<void> {
+                // Verify digest first
+                const { digest: expectedDigest, ...withoutDigest } = snapshot;
+                const { raw } = Data.fromJson(withoutDigest).canonicalize();
+                const actualDigest = Data.digest(raw);
+
+                if (actualDigest !== expectedDigest) {
+                    throw new Error(`Snapshot digest mismatch: expected ${expectedDigest}, got ${actualDigest}`);
+                }
+
+                // Note: truncateExisting not implemented - requires fresh inMemory() stores
+                if (opts?.truncateExisting) {
+                    throw new Error('truncateExisting not implemented - use fresh KelStores.inMemory() instead');
+                }
+
+                // Write aliases
+                await putJson(stores.aliases, 'mapping' as SAID, snapshot.stores.aliases);
+
+                // Write KEL events
+                for (const [said, event] of Object.entries(snapshot.stores.kelEvents)) {
+                    await putJson(stores.kelEvents, said as SAID, event);
+                }
+
+                // Write KEL envelopes
+                for (const [said, envelope] of Object.entries(snapshot.stores.kelCesr)) {
+                    await putJson(stores.kelCesr, said as SAID, envelope);
+                }
+
+                // Write chain metadata
+                for (const [key, metadata] of Object.entries(snapshot.stores.kelMetadata)) {
+                    await putJson(stores.kelMetadata, key as SAID, metadata);
+                }
+
+                // Write vault (convert back to internal format)
+                for (const [key, vaultSnap] of Object.entries(snapshot.stores.vault)) {
+                    const vaultEntry: any = {
+                        current: {
+                            publicKey: vaultSnap.current.publicKey,
+                            secretHandle: vaultSnap.current.privateKeySeed
+                                ? toB64(Data.decodeBytes(vaultSnap.current.privateKeySeed))
+                                : toB64(new Uint8Array(32)) // dummy if no secret
+                        },
+                        next: {
+                            publicKey: vaultSnap.next.publicKey,
+                            secretHandle: vaultSnap.next.privateKeySeed
+                                ? toB64(Data.decodeBytes(vaultSnap.next.privateKeySeed))
+                                : toB64(new Uint8Array(32)) // dummy if no secret
+                        }
+                    };
+                    await putJson(stores.vault, key as SAID, vaultEntry);
+                }
             }
         };
     };

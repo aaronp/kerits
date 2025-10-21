@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "stores": {
+    "aliases": {
+      "aidToAlias": {
+        "DBkgsB40TlPNh5F0yMPgkMGYcfXRE0ZLUto3ChgV_r4p": {
+          "key": "alice",
+          "display": "alice"
+        }
+      },
+      "aliasToAid": {
+        "alice": "DBkgsB40TlPNh5F0yMPgkMGYcfXRE0ZLUto3ChgV_r4p"
+      }
+    },
+    "kelEvents": {
+      "EqqN4dyykNQniWfpiUt87la1XOvQzXwI3IEX4ArjHULA": {
+        "v": "KERI10JSON0001aa_",
+        "t": "icp",
+        "d": "EqqN4dyykNQniWfpiUt87la1XOvQzXwI3IEX4ArjHULA",
+        "i": "DBkgsB40TlPNh5F0yMPgkMGYcfXRE0ZLUto3ChgV_r4p",
+        "s": "0",
+        "k": [
+          "DBkgsB40TlPNh5F0yMPgkMGYcfXRE0ZLUto3ChgV_r4p"
+        ],
+        "kt": "1",
+        "n": "EMgh2iav0vr-4_FnGYq5lVKxJlXmwvBGYVERfh4VllM0",
+        "nt": "1",
+        "dt": "2024-01-01T00:00:00.000Z"
+      }
+    },
+    "kelCesr": {
+      "EqqN4dyykNQniWfpiUt87la1XOvQzXwI3IEX4ArjHULA": {
+        "event": {
+          "v": "KERI10JSON0001aa_",
+          "t": "icp",
+          "d": "EqqN4dyykNQniWfpiUt87la1XOvQzXwI3IEX4ArjHULA",
+          "i": "DBkgsB40TlPNh5F0yMPgkMGYcfXRE0ZLUto3ChgV_r4p",
+          "s": "0",
+          "k": [
+            "DBkgsB40TlPNh5F0yMPgkMGYcfXRE0ZLUto3ChgV_r4p"
+          ],
+          "kt": "1",
+          "n": "EMgh2iav0vr-4_FnGYq5lVKxJlXmwvBGYVERfh4VllM0",
+          "nt": "1",
+          "dt": "2024-01-01T00:00:00.000Z"
+        },
+        "eventCesr": "eyJkIjoiRXFxTjRkeXlrTlFuaVdmcGlVdDg3bGExWE92UXpYd0kzSUVYNEFyakhVTEEiLCJkdCI6IjIwMjQtMDEtMDFUMDA6MDA6MDAuMDAwWiIsImkiOiJEQmtnc0I0MFRsUE5oNUYweU1QZ2tNR1ljZlhSRTBaTFV0bzNDaGdWX3I0cCIsImsiOlsiREJrZ3NCNDBUbFBOaDVGMHlNUGdrTUdZY2ZYUkUwWkxVdG8zQ2hnVl9yNHAiXSwia3QiOiIxIiwibiI6IkVNZ2gyaWF2MHZyLTRfRm5HWXE1bFZLeEpsWG13dkJHWVZFUmZoNFZsbE0wIiwibnQiOiIxIiwicyI6IjAiLCJ0IjoiaWNwIiwidiI6IktFUkkxMEpTT04wMDAxYWFfIn0",
+        "signatures": [
+          {
+            "keyIndex": 0,
+            "sig": "0B56LYLlAM_EaAJ23rUJT37EWNtRC3RrKlymNfeHb6NWpN1n13ybFep3jHh0EjlRmtDMu08l8xa3rovE_R9B5hBg"
+          }
+        ]
+      }
+    },
+    "kelMetadata": {
+      "chain:DBkgsB40TlPNh5F0yMPgkMGYcfXRE0ZLUto3ChgV_r4p": {
+        "aid": "DBkgsB40TlPNh5F0yMPgkMGYcfXRE0ZLUto3ChgV_r4p",
+        "chain": [
+          "EqqN4dyykNQniWfpiUt87la1XOvQzXwI3IEX4ArjHULA"
+        ],
+        "sequence": 0,
+        "latestEvent": "EqqN4dyykNQniWfpiUt87la1XOvQzXwI3IEX4ArjHULA"
+      }
+    },
+    "vault": {
+      "keys:DBkgsB40TlPNh5F0yMPgkMGYcfXRE0ZLUto3ChgV_r4p": {
+        "current": {
+          "publicKey": "DBkgsB40TlPNh5F0yMPgkMGYcfXRE0ZLUto3ChgV_r4p"
+        },
+        "next": {
+          "publicKey": "DCOnqJTeJj23rVdlKNHu8FE7x855R9UZbudPl4XfkjZT"
+        }
+      }
+    }
+  },
+  "digest": "ErDZMdUe5OOHc3-EqhP7Mfo2XiGb7fEDbIUysEu0oe9k"
+}

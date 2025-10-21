@@ -1,0 +1,119 @@
+{
+  "version": 1,
+  "createdAt": "2024-01-03T00:00:00.000Z",
+  "stores": {
+    "aliases": {
+      "aidToAlias": {
+        "DO_yHj_IAJw3FZeti1_9rap1qY6TAJ56RDJMJLKsq7Fw": {
+          "key": "bob",
+          "display": "bob"
+        }
+      },
+      "aliasToAid": {
+        "bob": "DO_yHj_IAJw3FZeti1_9rap1qY6TAJ56RDJMJLKsq7Fw"
+      }
+    },
+    "kelEvents": {
+      "EELrzYp5WB78Vh9J8qauZxEBlEIWc3aJYFLViK0uV1y0": {
+        "v": "KERI10JSON0001aa_",
+        "t": "rot",
+        "d": "EELrzYp5WB78Vh9J8qauZxEBlEIWc3aJYFLViK0uV1y0",
+        "i": "DO_yHj_IAJw3FZeti1_9rap1qY6TAJ56RDJMJLKsq7Fw",
+        "s": "1",
+        "p": "EtMKdvdB8DEcFj5O_qBUVEm6qSm8XXYYlrQ7cXq2FOD8",
+        "k": [
+          "DKoXmRLc2FCVKOTKcTI0mHckJsohf4OUt0Itf2LQ2z7G"
+        ],
+        "kt": "1",
+        "n": "ESGU1EEBTdi5N6_BSVvrnPMBHd_iLeDIvXFXXMOerBl8",
+        "nt": "1",
+        "dt": "2024-01-02T00:00:00.000Z"
+      },
+      "EtMKdvdB8DEcFj5O_qBUVEm6qSm8XXYYlrQ7cXq2FOD8": {
+        "v": "KERI10JSON0001aa_",
+        "t": "icp",
+        "d": "EtMKdvdB8DEcFj5O_qBUVEm6qSm8XXYYlrQ7cXq2FOD8",
+        "i": "DO_yHj_IAJw3FZeti1_9rap1qY6TAJ56RDJMJLKsq7Fw",
+        "s": "0",
+        "k": [
+          "DO_yHj_IAJw3FZeti1_9rap1qY6TAJ56RDJMJLKsq7Fw"
+        ],
+        "kt": "1",
+        "n": "EkgOu7uaWg5TW7h01a_9cH0Z6R6mYkpyVoKuYeZnH5zg",
+        "nt": "1",
+        "dt": "2024-01-01T00:00:00.000Z"
+      }
+    },
+    "kelCesr": {
+      "EELrzYp5WB78Vh9J8qauZxEBlEIWc3aJYFLViK0uV1y0": {
+        "event": {
+          "v": "KERI10JSON0001aa_",
+          "t": "rot",
+          "d": "EELrzYp5WB78Vh9J8qauZxEBlEIWc3aJYFLViK0uV1y0",
+          "i": "DO_yHj_IAJw3FZeti1_9rap1qY6TAJ56RDJMJLKsq7Fw",
+          "s": "1",
+          "p": "EtMKdvdB8DEcFj5O_qBUVEm6qSm8XXYYlrQ7cXq2FOD8",
+          "k": [
+            "DKoXmRLc2FCVKOTKcTI0mHckJsohf4OUt0Itf2LQ2z7G"
+          ],
+          "kt": "1",
+          "n": "ESGU1EEBTdi5N6_BSVvrnPMBHd_iLeDIvXFXXMOerBl8",
+          "nt": "1",
+          "dt": "2024-01-02T00:00:00.000Z"
+        },
+        "eventCesr": "eyJkIjoiRUVMcnpZcDVXQjc4Vmg5SjhxYXVaeEVCbEVJV2MzYUpZRkxWaUswdVYxeTAiLCJkdCI6IjIwMjQtMDEtMDJUMDA6MDA6MDAuMDAwWiIsImkiOiJET195SGpfSUFKdzNGWmV0aTFfOXJhcDFxWTZUQUo1NlJESk1KTEtzcTdGdyIsImsiOlsiREtvWG1STGMyRkNWS09US2NUSTBtSGNrSnNvaGY0T1V0MEl0ZjJMUTJ6N0ciXSwia3QiOiIxIiwibiI6IkVTR1UxRUVCVGRpNU42X0JTVnZyblBNQkhkX2lMZURJdlhGWFhNT2VyQmw4IiwibnQiOiIxIiwicCI6IkV0TUtkdmRCOERFY0ZqNU9fcUJVVkVtNnFTbThYWFlZbHJRN2NYcTJGT0Q4IiwicyI6IjEiLCJ0Ijoicm90IiwidiI6IktFUkkxMEpTT04wMDAxYWFfIn0",
+        "signatures": [
+          {
+            "keyIndex": 0,
+            "sig": "0Bg64wVCBhj-PfSVZ9QfmSrpt64w0ZI9hDfl9Ov0NsYLN_AiTslImksUunNII6z_36uaVtwR4pko-TkqAnZGwiBQ"
+          }
+        ]
+      },
+      "EtMKdvdB8DEcFj5O_qBUVEm6qSm8XXYYlrQ7cXq2FOD8": {
+        "event": {
+          "v": "KERI10JSON0001aa_",
+          "t": "icp",
+          "d": "EtMKdvdB8DEcFj5O_qBUVEm6qSm8XXYYlrQ7cXq2FOD8",
+          "i": "DO_yHj_IAJw3FZeti1_9rap1qY6TAJ56RDJMJLKsq7Fw",
+          "s": "0",
+          "k": [
+            "DO_yHj_IAJw3FZeti1_9rap1qY6TAJ56RDJMJLKsq7Fw"
+          ],
+          "kt": "1",
+          "n": "EkgOu7uaWg5TW7h01a_9cH0Z6R6mYkpyVoKuYeZnH5zg",
+          "nt": "1",
+          "dt": "2024-01-01T00:00:00.000Z"
+        },
+        "eventCesr": "eyJkIjoiRXRNS2R2ZEI4REVjRmo1T19xQlVWRW02cVNtOFhYWVlsclE3Y1hxMkZPRDgiLCJkdCI6IjIwMjQtMDEtMDFUMDA6MDA6MDAuMDAwWiIsImkiOiJET195SGpfSUFKdzNGWmV0aTFfOXJhcDFxWTZUQUo1NlJESk1KTEtzcTdGdyIsImsiOlsiRE9feUhqX0lBSnczRlpldGkxXzlyYXAxcVk2VEFKNTZSREpNSkxLc3E3RnciXSwia3QiOiIxIiwibiI6IkVrZ091N3VhV2c1VFc3aDAxYV85Y0gwWjZSNm1Za3B5Vm9LdVllWm5INXpnIiwibnQiOiIxIiwicyI6IjAiLCJ0IjoiaWNwIiwidiI6IktFUkkxMEpTT04wMDAxYWFfIn0",
+        "signatures": [
+          {
+            "keyIndex": 0,
+            "sig": "0BRCxYwThZWmGDiy4xjUNJ-AaUmmthDBVdDCXdzPNf9ILj1XFJhxAUjiH59d9YwIWtKBCfisptJZJTZImzxGwyCQ"
+          }
+        ]
+      }
+    },
+    "kelMetadata": {
+      "chain:DO_yHj_IAJw3FZeti1_9rap1qY6TAJ56RDJMJLKsq7Fw": {
+        "aid": "DO_yHj_IAJw3FZeti1_9rap1qY6TAJ56RDJMJLKsq7Fw",
+        "chain": [
+          "EtMKdvdB8DEcFj5O_qBUVEm6qSm8XXYYlrQ7cXq2FOD8",
+          "EELrzYp5WB78Vh9J8qauZxEBlEIWc3aJYFLViK0uV1y0"
+        ],
+        "sequence": 1,
+        "latestEvent": "EELrzYp5WB78Vh9J8qauZxEBlEIWc3aJYFLViK0uV1y0"
+      }
+    },
+    "vault": {
+      "keys:DO_yHj_IAJw3FZeti1_9rap1qY6TAJ56RDJMJLKsq7Fw": {
+        "current": {
+          "publicKey": "DKoXmRLc2FCVKOTKcTI0mHckJsohf4OUt0Itf2LQ2z7G"
+        },
+        "next": {
+          "publicKey": "DP2L9tc2tFtEBZFBNYdfaoVaLJAmZ_iodYh8jK4k1U7Q"
+        }
+      }
+    }
+  },
+  "digest": "EX2twGyyTlOLwDpdUctwGzJt2J1douoJ-PHNZuFcckTM"
+}

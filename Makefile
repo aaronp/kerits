@@ -23,8 +23,12 @@ help:
 	@echo "Quality Checks:"
 	@echo "  make check           - Full quality check (typecheck + coverage + verify)"
 	@echo "  make check-kerits    - Kerits-only check (typecheck-kerits + test-kerits)"
+	@echo "  make check-model     - Model check (typecheck + test-model)"
 	@echo "  make coverage        - Run tests with coverage"
 	@echo "  make coverage-model  - Run model tests with HTML coverage report"
+	@echo ""
+	@echo "Golden Files:"
+	@echo "  make snapshot-model  - Update golden file snapshots (regression tests)"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make clean           - Remove build artifacts and node_modules"
@@ -68,12 +72,18 @@ test-kerits:
 	@bun test $$(find src -name "*.test.ts" -not -path "*/app/*" -not -path "*/cesr/*")
 
 # Run model tests (./src/model)
-test-model: 
+test-model:
 	@echo "🏗️  Running model tests..."
 	@bun test $$(find src/model -name "*.test.ts")
 
+# Update golden file snapshots for model tests
+snapshot-model:
+	@echo "📸 Updating golden file snapshots..."
+	@UPDATE_GOLDEN=1 bun test src/model/kel/kel-golden.test.ts
+	@echo "✅ Golden files updated in src/model/kel/testdata/golden/"
+
 check-model: typecheck test-model
-	@echo "🏗️  Checking model..."
+	@echo "✅ Model check complete"
 
 # ============================================================================
 # Type Checking
