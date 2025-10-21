@@ -9,4 +9,5 @@ These docs contain:
    * [kel-operations](./kel-operations.md) - a summary of things a KEL does (the top responsibilities)
  * Planning
    * [kel-updates](./kel-updates.md) - the next steps for our KEL functionality
-   * [kel-]
+   * [kel-delegation-plan](./kel-delegation-plan.md) - plan for implementing child accounts
+   * [kel-roadmap.md](./kel-roadmap.md) - the remaining work for KEL functionality
