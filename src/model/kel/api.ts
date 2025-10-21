@@ -687,7 +687,7 @@ export namespace KelStores {
                 // Sort envelopes' signatures for determinism
                 const sortedEnvelopes: Record<SAID, KelEnvelope> = {};
                 for (const [said, env] of Object.entries(allEnvelopesRaw)) {
-                    sortedEnvelopes[said] = {
+                    sortedEnvelopes[said as SAID] = {
                         ...env,
                         signatures: sortSignatures(env.signatures),
                         ...(env.receipts ? { receipts: sortSignatures(env.receipts) } : {})
