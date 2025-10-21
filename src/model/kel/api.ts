@@ -283,6 +283,14 @@ export type KelApi = {
     getLatestSequence(aid: AID): Promise<number | null>;
     getKeys(aid: AID): Promise<SafeVaultView | null>;
     getEventProof(said: SAID): Promise<EventProof | null>;
+};
+
+/**
+ * Snapshot operations for testing and debugging
+ *
+ * Separate from KelApi to keep core operations focused
+ */
+export type SnapshotOps = {
     dumpState(opts?: import('./snapshot').DumpStateOptions): Promise<import('./snapshot').KelSnapshot>;
     loadState(snapshot: import('./snapshot').KelSnapshot, opts?: import('./snapshot').LoadStateOptions): Promise<void>;
 };
@@ -395,7 +403,7 @@ export namespace KelStores {
             }
         };
     }
-    export const ops = (stores: KelStores): KelApi => {
+    export const ops = (stores: KelStores): KelApi & SnapshotOps => {
         // Build repos once to avoid skew between calls and keep ops pure
         const aliases = aliasRepo(stores.aliases);
         const kel = kelRepo(stores.kelEvents, stores.kelCesr, stores.kelMetadata);

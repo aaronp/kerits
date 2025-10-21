@@ -54,34 +54,37 @@ interface KelSnapshot {
 
 **Note**: `snapshot.ts` is production code (used by `dumpState`/`loadState`). Test-only utilities are in `test-helpers/`.
 
-### 3. KelApi Extensions ([api.ts](../api.ts))
+### 3. SnapshotOps ([api.ts](../api.ts))
+
+Snapshot operations are separate from core `KelApi` to keep concerns focused:
 
 ```typescript
-// Dump complete state to snapshot
+// KelApi: Core KEL operations (createAccount, rotateKeys, etc.)
+// SnapshotOps: Testing/debugging utilities
+
+export const ops = (stores: KelStores): KelApi & SnapshotOps
+
+// SnapshotOps methods:
 dumpState(opts?: {
   includeSecrets?: boolean;  // default: false
   timestamp?: string;        // for deterministic tests
 }) -> Promise<KelSnapshot>
 
-// Load snapshot into stores (verifies digest)
 loadState(snapshot: KelSnapshot, opts?: {
   allowSecrets?: boolean;   // default: false
   truncateExisting?: boolean;  // NOT IMPLEMENTED - use fresh stores
 }) -> Promise<void>
 ```
 
-### 4. Golden File Helpers ([golden.ts](../golden.ts))
+### 4. Golden File Helpers ([test-helpers/golden.ts](../test-helpers/golden.ts))
 
 ```typescript
-// Derive golden file path from test location
-goldenFilePath(testFilePath: string, testName: string) -> string
-
 // Save/load golden files
 saveGolden(filePath: string, snapshot: KelSnapshot) -> Promise<void>
 loadGolden(filePath: string) -> Promise<KelSnapshot | null>
 
 // Assert snapshot matches golden file (with UPDATE_GOLDEN support)
-assertMatchesGolden(testFilePath, testName, snapshot) -> Promise<void>
+assertMatchesGolden(filePath: string, snapshot: KelSnapshot) -> Promise<void>
 
 // Verify round-trip stability
 assertRoundTrip(snapshot1, snapshot2) -> void
