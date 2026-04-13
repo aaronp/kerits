@@ -1,0 +1,172 @@
+---
+title: Validate a KEL
+description: Verify SAID integrity, structural fields, key-chain continuity, and full chain validity.
+---
+
+KERI's security model is built on the assumption that verifiers independently validate every event in a KEL before trusting any key state derived from it. Unlike PKI, there is no trusted third party: validity is a property of the event log itself, derivable from cryptographic rules alone.
+
+`@kerits/core` exposes granular validation helpers so you can apply exactly the checks you need, plus a high-level `validateKelChain` function that runs all checks in sequence and returns structured, per-event results.
+
+## Check SAID integrity
+
+`validateEventSaid` recomputes an event's SAID from its body and compares it to the `d` field. A mismatch means the event was tampered with or malformed.
+
+```ts title="validate-said.ts"
+import { validateEventSaid } from '@kerits/core';
+import type { KELEvent } from '@kerits/core';
+
+const event: KELEvent = {
+  v: 'KERI10JSON000156_',
+  t: 'icp',
+  d: 'Eabc...',   // the SAID stored in the event
+  i: 'Eabc...',
+  s: '0',
+  kt: '1',
+  k: ['Dkey...'],
+  nt: '1',
+  n: ['Edigest...'],
+  bt: '0',
+  b: [],
+  c: [],
+  a: [],
+};
+
+const result = validateEventSaid(event);
+// { valid: boolean, expected: string, actual: string }
+
+if (!result.valid) {
+  console.error('SAID mismatch', { expected: result.expected, actual: result.actual });
+}
+```
+
+## Check required fields
+
+`validateRequiredFields` verifies that every field mandated by the event type (`icp`, `rot`, `ixn`, `dip`, `drt`) is present. This catches truncated or incorrectly constructed events before you attempt signature verification.
+
+```ts title="validate-fields.ts"
+import { validateRequiredFields, isValidKeriEvent } from '@kerits/core';
+
+// First confirm the t field is a known KERI event type
+if (!isValidKeriEvent(rawData)) {
+  throw new Error('Not a valid KERI event');
+}
+
+const result = validateRequiredFields(rawData);
+// { valid: boolean, missing: string[] }
+
+if (!result.valid) {
+  console.error('Missing fields:', result.missing);
+}
+```
+
+Required fields by event type:
+
+| Event | Required fields |
+|-------|----------------|
+| `icp` | `v t d i s kt k nt n bt b c a` |
+| `rot` | `v t d i s p kt k nt n bt br ba c a` |
+| `ixn` | `v t d i s p a` |
+| `dip` | `v t d i s kt k nt n bt b c a di` |
+| `drt` | `v t d i s p kt k nt n bt br ba c a` |
+
+## Validate key-chain continuity
+
+`validateKeyChain` checks that a rotation event's current keys (`k`) satisfy the previous establishment event's next-key commitments (`n`). Each key must hash (via BLAKE3-256) to one of the digests listed in `n`, and enough of those digests must be revealed to satisfy the `nt` threshold.
+
+```ts title="validate-key-chain.ts"
+import { validateKeyChain } from '@kerits/core';
+import type { IcpEvent, KELEvent } from '@kerits/core';
+
+// previousEstablishment is the icp (or prior rot/dip/drt) event
+const result = validateKeyChain(rotEvent, previousEstablishment);
+// { valid: boolean, expectedDigests: string[], actualDigests: string[] }
+
+if (!result.valid) {
+  console.error('Key chain broken', {
+    expected: result.expectedDigests,
+    actual: result.actualDigests,
+  });
+}
+```
+
+## Full chain validation
+
+`validateKelChain` runs all checks — SAID integrity, required fields, prior-event linkage (`p` field), signature verification, threshold satisfaction, key-chain continuity, and delegation approval — for every event in the array. It returns a `RichValidationResult` with per-event details.
+
+```ts title="validate-chain.ts"
+import { validateKelChain } from '@kerits/core';
+import type { CESREvent } from '@kerits/core';
+
+const events: CESREvent[] = [
+  { event: icpEvent, attachments: [{ kind: 'sig', form: 'indexed', keyIndex: 0, sig: 'AAsig...' }], enc: 'JSON' },
+  { event: rotEvent, attachments: [{ kind: 'sig', form: 'indexed', keyIndex: 0, sig: 'ABsig...' }], enc: 'JSON' },
+];
+
+const result = await validateKelChain(events);
+// {
+//   valid: boolean,
+//   eventDetails: EventValidationDetail[],
+//   firstError?: ValidationError,
+// }
+
+if (!result.valid) {
+  const err = result.firstError;
+  console.error(`Validation failed at event ${err?.eventIndex}: [${err?.code}] ${err?.message}`);
+}
+```
+
+### Failure case example
+
+```ts title="validate-fail.ts"
+import { validateKelChain } from '@kerits/core';
+
+// Tamper with the prior-event reference
+const tamperedRot = { ...rotEvent, p: 'Ewrongpriorsaid...' };
+
+const result = await validateKelChain([
+  { event: icpEvent, attachments: [], enc: 'JSON' },
+  { event: tamperedRot, attachments: [], enc: 'JSON' },
+]);
+
+// result.valid === false
+// result.firstError:
+// {
+//   code: 'PREVIOUS_EVENT_MISMATCH',
+//   message: 'Previous event link invalid in event 1',
+//   eventIndex: 1,
+// }
+```
+
+### Incremental validation
+
+For long KELs you can start validation from a specific index using `options.startIndex`:
+
+```ts title="incremental.ts"
+import { validateKelChain } from '@kerits/core';
+
+// Only re-validate the last 3 events of an already-verified chain
+const result = await validateKelChain(events, { startIndex: events.length - 3 });
+```
+
+### Delegated KELs
+
+For delegated identifiers (`dip`/`drt` events), provide the parent KEL so that validator-receipt (VRC) attachments can be checked:
+
+```ts title="delegated.ts"
+import { validateKelChain } from '@kerits/core';
+
+const result = await validateKelChain(delegatedEvents, { parentKel: parentEvents });
+```
+
+## Validation error codes
+
+| Code | Meaning |
+|------|---------|
+| `SAID_MISMATCH` | `d` field does not match recomputed SAID |
+| `MISSING_REQUIRED_FIELD` | A mandatory field is absent |
+| `PREVIOUS_EVENT_MISMATCH` | `p` does not equal the prior event's `d` |
+| `NEXT_KEY_MISMATCH` | Rotation keys do not satisfy prior `n` commitments |
+| `SIGNATURE_INVALID` | A signature attachment failed verification |
+| `THRESHOLD_NOT_MET` | Valid signatures do not meet the signing threshold |
+| `MISSING_PARENT_KEL` | Delegated event but no parent KEL was supplied |
+| `PARENT_SIGNATURE_INVALID` | VRC from parent failed verification |

@@ -1,11 +1,15 @@
-/**
- * CESR - Composable Event Streaming Representation
- *
- * TypeScript implementation of CESR encoding/decoding
- */
+import * as digest from './digest.js';
+import * as keys from './keys.js';
+import * as prefix from './prefix.js';
+import * as sigs from './sigs.js';
+import * as types from './types.js';
 
-export * from './utils.js';
-export * from './codex.js';
-export * from './matter.js';
-export * from './diger.js';
-export * from './signer.js';
+export const Cesr = {
+  ...types,
+  ...keys,
+  ...prefix,
+  ...sigs,
+  ...digest,
+} as const;
+
+export type * from './types.js';

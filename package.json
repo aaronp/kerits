@@ -1,26 +1,38 @@
 {
-  "name": "kerits",
-  "version": "0.1.0",
-  "module": "src/index.ts",
+  "name": "@kerits/core",
+  "version": "0.2.40",
   "type": "module",
-  "private": true,
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "worker": "./dist/worker.js",
+      "browser": "./dist/browser.js",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "sideEffects": false,
   "scripts": {
-    "test": "bun run src/test-runner.ts",
-    "verify": "bun run src/verify.ts",
-    "typecheck": "tsc --noEmit"
-  },
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
+    "postinstall": "SUMO=node_modules/libsodium-sumo/dist/modules-sumo-esm/libsodium-sumo.mjs; DEST=node_modules/libsodium-wrappers-sumo/dist/modules-sumo-esm; [ -f \"$SUMO\" ] && [ -d \"$DEST\" ] && [ ! -f \"$DEST/libsodium-sumo.mjs\" ] && cp \"$SUMO\" \"$DEST/\" || true",
+    "build": "bun build src/index.ts --outdir dist --target node && bun build src/index.ts --outfile dist/browser.js --target browser --format esm && cp dist/index.js dist/worker.js && grep -v createRequire dist/worker.js > dist/worker.tmp && mv dist/worker.tmp dist/worker.js",
+    "test": "bun test",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "lint": "biome check src",
+    "lint:fix": "biome check --write src",
+    "format": "biome format --write src"
   },
   "dependencies": {
-    "@noble/curves": "^1.2.0",
-    "@noble/ed25519": "^3.0.0",
+    "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1",
-    "@scure/bip39": "^2.0.1",
-    "cesr-ts": "github:weboftrust/cesr-ts",
-    "libsodium-wrappers-sumo": "^0.7.13"
+    "@sinclair/typebox": "^0.34.41",
+    "cesr-ts": "github:WebOfTrust/cesr-ts",
+    "json-canonicalize": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org"
   }
 }

@@ -1,0 +1,127 @@
+---
+title: CESR Encoding and Decoding
+description: Encode and decode keys, signatures, and digests using the Composable Event Streaming Representation.
+---
+
+**CESR** (Composable Event Streaming Representation) is the binary/text encoding format used throughout KERI to represent cryptographic primitives — public keys, signatures, digests, and identifiers. Every value in a KEL event that carries cryptographic material is a CESR **qb64** string: a self-framing, base-64-URL-safe encoding that embeds its own algorithm code in the first one to four characters.
+
+The code prefix tells any reader exactly what the value is and how long it is, without needing a schema or length field. For example, Ed25519 public keys start with `D` (transferable) or `B` (non-transferable), BLAKE3-256 digests start with `E`, and Ed25519 signatures start with `0B`.
+
+## Encode and decode public keys
+
+`encodeKey` wraps raw Ed25519 key bytes in the correct CESR code. Pass `transferable: false` for non-transferable (witness) keys.
+
+```ts title="keys.ts"
+import { generateKeyPair, encodeKey, decodeKey } from '@kerits/core';
+
+const { publicKey } = generateKeyPair();
+
+// Encode: raw bytes → qb64
+const encoded = encodeKey(publicKey);
+// encoded.qb64: 'D...' (44 chars, transferable Ed25519)
+// encoded.algo: 'ed25519'
+// encoded.raw:  Uint8Array (32 bytes)
+
+// Non-transferable (witness) key uses 'B' prefix
+const nonTransferable = encodeKey(publicKey, false);
+// nonTransferable.qb64: 'B...'
+
+// Decode: qb64 → raw bytes + algo
+const decoded = decodeKey(encoded.qb64);
+// decoded.raw:  Uint8Array (32 bytes)
+// decoded.algo: 'ed25519'
+// decoded.qb64: 'D...'
+```
+
+`decodeKey` throws if the code is not a recognized key type.
+
+## Encode and decode signatures
+
+`encodeSignature` (exported as `encodeSig` internally) wraps a 64-byte Ed25519 signature in CESR qb64 form.
+
+```ts title="sigs.ts"
+import { sign, encodeSignature, decodeSignature, generateKeyPair, canonicalizeToBytes } from '@kerits/core';
+
+const { publicKey, privateKey } = generateKeyPair();
+const bytes = canonicalizeToBytes({ hello: 'keri' });
+const rawSig = sign(bytes, privateKey);
+
+// Encode
+const encoded = encodeSignature(rawSig);
+// encoded.qb64: '0B...' (88 chars, transferable Ed25519 sig)
+// encoded.algo: 'ed25519'
+// encoded.raw:  Uint8Array (64 bytes)
+
+// Decode
+const decoded = decodeSignature(encoded.qb64);
+// decoded.raw:  Uint8Array (64 bytes)
+```
+
+## Encode and decode digests
+
+`encodeDigest` and `decodeDigest` operate on raw digest bytes. They are used, for example, when you compute a hash outside of KERI and need to represent it as a CESR value.
+
+```ts title="digest.ts"
+import { encodeDigest, decodeDigest, encode, decode } from '@kerits/core';
+
+// encodeDigest uses Blake3-256 ('E' prefix) by default
+const digestBytes = new Uint8Array(32).fill(0xab); // placeholder
+const qb64 = encodeDigest(digestBytes);
+// qb64: 'E...' (44 chars)
+
+// decodeDigest validates the code is a known digest type
+const decoded = decodeDigest(qb64);
+// decoded.code: 'E'
+// decoded.raw:  Uint8Array (32 bytes)
+// decoded.meta: CESRCodeMeta
+
+// Generic encode/decode for any CESR Matter primitive
+import { MtrDex } from 'cesr-ts/src/matter'; // if needed for other codes
+const generic = encode(digestBytes, 'E');   // BLAKE3-256 code
+const back = decode(generic);
+```
+
+## Inspect a CESR value
+
+`inspect` classifies any qb64 string without fully decoding it. Use this when you receive an unknown CESR value and need to determine what kind of primitive it contains before routing it to the correct handler.
+
+```ts title="inspect.ts"
+import { inspect } from '@kerits/core';
+import type { PrefixInfo } from '@kerits/core';
+
+const keyInfo: PrefixInfo = inspect('Dabc...');
+// { code: 'D', length: 44, kind: 'key' }
+
+const sigInfo: PrefixInfo = inspect('0Bsig...');
+// { code: '0B', length: 88, kind: 'sig' }
+
+const digestInfo: PrefixInfo = inspect('Edigest...');
+// { code: 'E', length: 44, kind: 'digest' }
+```
+
+`kind` is one of `'key' | 'sig' | 'digest' | 'other'`. If the input is not a valid CESR primitive, `inspect` returns `kind: 'other'` rather than throwing.
+
+## Using the Cesr namespace
+
+All CESR functions are also available as a single `Cesr` namespace object:
+
+```ts title="cesr-namespace.ts"
+import { Cesr } from '@kerits/core';
+
+const encoded = Cesr.encodeKey(publicKeyBytes);
+const sig = Cesr.encodeSig(sigBytes);
+const info = Cesr.inspect(encoded.qb64);
+const meta = Cesr.getCodeMeta('E');
+// meta: { code: 'E', family: 'matter', algorithm: 'Blake3_256', rawSize: 32, codeLen: 1 }
+```
+
+## CESR code reference
+
+| Code | Kind | Algorithm | Raw size |
+|------|------|-----------|----------|
+| `D` | key | Ed25519 (transferable) | 32 bytes |
+| `B` | key | Ed25519 (non-transferable) | 32 bytes |
+| `E` | digest | BLAKE3-256 | 32 bytes |
+| `H` | digest | SHA3-256 | 32 bytes |
+| `I` | digest | SHA2-256 | 32 bytes |
+| `0B` | sig | Ed25519 | 64 bytes |

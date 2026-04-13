@@ -1,46 +1,41 @@
-# kerits
+# @kerits/core
 
-![Kerits](./ui/public/kerits.jpg) Kerits is "KERI+TS" - a purely functional implementation of KERI in typescript.
+[![npm version](https://img.shields.io/npm/v/@kerits/core.svg)](https://www.npmjs.com/package/@kerits/core)
 
-> **⚠️ Proof of Concept**: This is an experimental implementation for educational and research purposes. Not intended for production use.
+Core cryptographic primitives and data structures for KERI (Key Event Receipt Infrastructure) in TypeScript.
 
+> **This repository is a read-only mirror.** It is automatically synced from a private monorepo. Do not submit pull requests here.
 
-You can run this code [here](https://aaronp.github.io/kerits/) to:
+## Documentation
 
-1. create entities (users)
-2. define schemas
-3. and issue, accept and verify credentials for those data schemas.
+Full documentation is available at [kerits.dev](https://kerits.dev).
 
+## Installation
 
-All the identities are stored locally in your browser, but you perfrom interoperability with basic 'copy/paste' functionality,
-leaving you to build upon this implementation with whatever workflows, messaging, etc you'd like.
-
-## Testing
-
-Run the complete test suite (75 compatibility tests + 132 unit tests):
 ```bash
-make test
+bun add @kerits/core
+# or
+npm install @kerits/core
 ```
 
-All test cases are self-contained in `./test-cases` and verified against the Python keripy implementation.
+## Usage
 
-## Building
+```typescript
+import { Signature, Said, encodeSAID, Kel } from '@kerits/core';
 
-Running the UI locally:
-```bash
-cd ui && bun run dev
+// Sign and verify data
+const signer = Signature.ed25519(secretKey);
+const sig = signer.sign(data);
+
+// Compute a self-addressing identifier
+const said = encodeSAID(payload);
+
+// Validate a Key Event Log chain
+const result = Kel.validateKelChain(events);
 ```
 
-Building for production:
-```bash
-bash build-for-pages.sh
-```
-
-Running the CLI locally:
-```bash
-cd cli && bun run dev
-```
+See the [guides](https://kerits.dev/docs/guides) for detailed usage examples.
 
 ## License
 
-Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
+MIT

@@ -1,0 +1,147 @@
+---
+title: Sign and Verify
+description: Generate key pairs, sign event bytes, verify signatures, and CESR-encode the results.
+---
+
+KERI events are signed over their canonical (RFC 8785) JSON representation. Signatures are not embedded inside the event body — they travel as CESR attachments alongside the event. This keeps events self-describing and verifiable without modifying the signed content.
+
+`@kerits/core` exposes Ed25519 primitives directly (`generateKeyPair`, `sign`, `verify`) and re-exports them through the `Signature` namespace object for a more discoverable API surface.
+
+## Generate a key pair
+
+```ts title="keygen.ts"
+import { generateKeyPair } from '@kerits/core';
+
+const { publicKey, privateKey } = generateKeyPair();
+// publicKey:  Uint8Array (32 bytes, Ed25519)
+// privateKey: Uint8Array (32 bytes, Ed25519 secret seed)
+```
+
+`generateKeyPair` uses the Web Crypto API (`crypto.getRandomValues`) and works in browser, Node.js, Bun, and Cloudflare Workers without a polyfill.
+
+## Sign data
+
+`sign` takes a `Uint8Array` payload and the secret seed, and returns a 64-byte Ed25519 signature.
+
+```ts title="sign.ts"
+import { generateKeyPair, sign, canonicalizeToBytes } from '@kerits/core';
+
+const { publicKey, privateKey } = generateKeyPair();
+
+// KERI signatures are over the RFC-8785 canonical JSON of the event
+const eventBytes = canonicalizeToBytes(icpEvent);
+const sigBytes = sign(eventBytes, privateKey);
+// sigBytes: Uint8Array (64 bytes)
+```
+
+The `canonicalizeToBytes` helper serializes any JSON-compatible value using RFC 8785 deterministic JSON, which is what KERI validators expect.
+
+## Verify a signature
+
+`verify` checks a signature against the original data and public key. The argument order is `(signature, data, publicKey)`.
+
+```ts title="verify.ts"
+import { verify, canonicalizeToBytes } from '@kerits/core';
+
+const eventBytes = canonicalizeToBytes(icpEvent);
+const isValid = verify(sigBytes, eventBytes, publicKey);
+// isValid: boolean
+```
+
+## Using the Signature namespace
+
+The `Signature` namespace bundles all primitives and the `verify` helper into a single import:
+
+```ts title="signature-namespace.ts"
+import { Signature } from '@kerits/core';
+
+const { publicKey, privateKey } = Signature.generateKeyPair();
+
+const data = new TextEncoder().encode('hello keri');
+const sig = Signature.sign(data, privateKey);
+
+const ok = Signature.verify(sig, data, publicKey);
+console.log(ok); // true
+```
+
+`Signature` also includes hashing utilities:
+
+```ts title="hashing.ts"
+import { Signature } from '@kerits/core';
+
+const data = new TextEncoder().encode('payload');
+const hashBytes = Signature.sha256(data);    // Uint8Array
+const hashHex   = Signature.sha256Hex(data); // string
+```
+
+## CESR-encode a signature
+
+Raw signature bytes are not directly usable in KERI events. They must be CESR-encoded into the qb64 format that KERI networks and validators expect:
+
+```ts title="encode-sig.ts"
+import { generateKeyPair, sign, canonicalizeToBytes, encodeSignature } from '@kerits/core';
+
+const { publicKey, privateKey } = generateKeyPair();
+const eventBytes = canonicalizeToBytes(icpEvent);
+
+// Sign and encode
+const rawSig = sign(eventBytes, privateKey);
+const encoded = encodeSignature(rawSig);
+// encoded.qb64:  'AA...' or '0B...' — 88-char CESR qb64 string
+// encoded.algo:  'ed25519'
+// encoded.raw:   Uint8Array (the original 64 bytes)
+```
+
+Transferable signatures (the default) use code `0B` in CESR. You can also produce a non-transferable encoding by passing `false` as the second argument:
+
+```ts title="encode-sig-non-transferable.ts"
+import { sign, encodeSignature, canonicalizeToBytes } from '@kerits/core';
+
+const rawSig = sign(eventBytes, privateKey);
+const encoded = encodeSignature(rawSig, false); // non-transferable: code '0A'
+```
+
+## Decode a CESR signature
+
+`decodeSignature` reverses the encoding, returning the raw bytes and algorithm:
+
+```ts title="decode-sig.ts"
+import { decodeSignature } from '@kerits/core';
+
+const decoded = decodeSignature('0Bsig...');
+// decoded.qb64: '0Bsig...'
+// decoded.algo: 'ed25519'
+// decoded.raw:  Uint8Array (64 bytes)
+```
+
+## Attaching a signature to a KERI event
+
+In a CESR event envelope, signatures are delivered as structured attachments rather than embedded in the event body:
+
+```ts title="attach-sig.ts"
+import {
+  generateKeyPair,
+  sign,
+  encodeSignature,
+  canonicalizeToBytes,
+} from '@kerits/core';
+import type { CESREvent } from '@kerits/core';
+
+const { publicKey, privateKey } = generateKeyPair();
+const eventBytes = canonicalizeToBytes(icpEvent);
+const rawSig = sign(eventBytes, privateKey);
+const sigQb64 = encodeSignature(rawSig).qb64;
+
+const envelope: CESREvent = {
+  event: icpEvent,
+  enc: 'JSON',
+  attachments: [
+    {
+      kind: 'sig',
+      form: 'indexed',
+      keyIndex: 0,    // index into the event's k[] array
+      sig: sigQb64,
+    },
+  ],
+};
+```

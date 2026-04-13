@@ -1,0 +1,104 @@
+---
+title: Getting Started
+description: Install and use @kerits/core for KERI primitives
+---
+
+## What is @kerits/core?
+
+`@kerits/core` provides pure KERI primitives: types, cryptographic operations, CESR encoding, KEL validation, SAID computation, and data canonicalization. It has no I/O, no storage, and no side effects. Every function is deterministic and safe to use in any runtime (browser, Node.js, Bun, Cloudflare Workers).
+
+## Installation
+
+```package-install
+@kerits/core
+```
+
+## Namespace Objects
+
+`@kerits/core` organizes its API into five namespace objects for discoverability:
+
+| Namespace   | Responsibility                                             |
+| ----------- | ---------------------------------------------------------- |
+| `KELEvents` | Factory functions for building and finalizing KEL events   |
+| `Kel`       | KEL event predicates, threshold checks, validation         |
+| `Said`      | SAID computation and verification                          |
+| `Cesr`      | CESR encoding/decoding for keys, signatures, and digests   |
+| `Signature` | Ed25519 signing namespace (see also flat `sign`/`verify`)  |
+
+All functions are also available as flat re-exports for convenience:
+
+```ts
+// Namespace style
+import { Kel, Said, Cesr } from '@kerits/core';
+const said = Said.encodeSAID(event);
+const encoded = Cesr.encodeKey(rawPublicKey);
+
+// Flat style
+import { encodeSAID, encodeKey } from '@kerits/core';
+```
+
+## Branded Types
+
+`@kerits/core` uses branded types to prevent mixing incompatible string values at compile time.
+
+```ts
+import type { AID, SAID } from '@kerits/core';
+
+// AID and SAID are string aliases with compile-time brands.
+// This prevents accidentally passing a raw string where an AID is expected.
+type AID  = string & { __brand: 'AID' };
+type SAID = string & { __brand: 'SAID' };
+```
+
+Use the provided parser functions to create branded values from raw strings:
+
+```ts
+import { parseAidQb64, parseSaidQb64 } from '@kerits/core';
+
+const aid  = parseAidQb64('DExample...');
+const said = parseSaidQb64('EExample...');
+```
+
+## Quick Workflow Example
+
+The following example shows a typical KERI workflow: generate key pairs, CESR-encode the public keys, build an inception event using the `KELEvents` factory, and compute its SAID.
+
+```ts
+import {
+  KELEvents,
+  generateKeyPair,
+  encodeKey,
+  nextKeyDigestQb64FromPublicKeyQb64,
+} from '@kerits/core';
+
+// 1. Generate current and next Ed25519 key pairs
+const current = generateKeyPair();
+const next = generateKeyPair();
+
+// 2. Encode public keys to CESR qb64
+const currentKeyQb64 = encodeKey(current.publicKey).qb64;
+const nextKeyQb64 = encodeKey(next.publicKey).qb64;
+
+// 3. Compute the next-key digest commitment
+const nextKeyDigest = nextKeyDigestQb64FromPublicKeyQb64(nextKeyQb64);
+
+// 4. Build and finalize an inception event
+const { unsignedEvent } = KELEvents.buildIcp({
+  keys: [currentKeyQb64],
+  nextKeyDigests: [nextKeyDigest],
+});
+const { event, said } = KELEvents.computeSaid(unsignedEvent, true);
+
+console.log('AID (SAID):', said);
+console.log('Inception event:', event);
+```
+
+## Next Steps
+
+Explore the guide pages for deeper coverage of each area:
+
+- [Create a KEL](/docs/guides/create-kel) — Build and extend a Key Event Log
+- [Validate a KEL](/docs/guides/validate-kel) — Chain and signature validation
+- [Sign and Verify](/docs/guides/sign-verify) — Ed25519 signing with CESR encoding
+- [Work with CESR](/docs/guides/cesr) — Encode and decode CESR primitives
+- [Compute SAIDs](/docs/guides/saids) — Self-addressing identifier computation

@@ -1,0 +1,97 @@
+---
+title: Create a KEL
+description: Build inception, rotation, and interaction events to establish and manage a KERI identifier.
+---
+
+A **Key Event Log (KEL)** is the tamper-evident, append-only record that defines a KERI identifier. Every autonomous identifier (AID) in KERI is established and evolved through its KEL — there is no out-of-band registry. Verifiers who want to authenticate a controller's current keys must replay that controller's KEL from the inception event forward.
+
+Each event in a KEL is a **Self-Addressing Data (SAD)** structure whose `d` field contains the SAID (self-addressing identifier) computed from the event body itself. Events chain together through the `p` field, which records the SAID of the immediately preceding event. This structure makes any tampering detectable: changing any field invalidates the SAID, and changing any SAID breaks the `p`-chain.
+
+## Inception event
+
+The inception event (`icp`) establishes the AID. For a basic (non-delegated) identifier, the AID equals the inception event's SAID — `i === d`.
+
+```ts title="create-kel.ts"
+import { KELEvents, encodeKey, nextKeyDigestQb64FromPublicKeyQb64, generateKeyPair } from '@kerits/core';
+
+// Generate current and next keypairs
+const current = generateKeyPair();
+const next = generateKeyPair();
+
+// CESR-encode the public keys
+const currentKeyQb64 = encodeKey(current.publicKey).qb64;
+const nextKeyQb64 = encodeKey(next.publicKey).qb64;
+
+// Compute the next-key commitment
+const nextKeyDigest = nextKeyDigestQb64FromPublicKeyQb64(nextKeyQb64);
+
+// Build the unsigned inception event
+const { unsignedEvent } = KELEvents.buildIcp({
+  keys: [currentKeyQb64],
+  nextKeyDigests: [nextKeyDigest],
+});
+
+// Compute the SAID and finalize (sets d, i, and v fields)
+const { event: icpEvent, said } = KELEvents.computeSaid(unsignedEvent, true);
+```
+
+The `kt` (key threshold) and `k` (current keys) fields define who can sign on behalf of this identifier. The `nt` and `n` fields commit to the next set of keys via digest — revealing those keys requires a rotation event.
+
+## Rotation event
+
+A rotation event (`rot`) replaces the current signing keys with the keys that were committed to in the previous establishment event's `n` field. The `p` field records the SAID of the preceding event.
+
+```ts title="rotate.ts"
+import { KELEvents, encodeKey, nextKeyDigestQb64FromPublicKeyQb64, generateKeyPair } from '@kerits/core';
+
+const rotationCurrent = generateKeyPair();
+const rotationNext = generateKeyPair();
+
+const rotCurrentQb64 = encodeKey(rotationCurrent.publicKey).qb64;
+const rotNextQb64 = encodeKey(rotationNext.publicKey).qb64;
+const rotNextDigest = nextKeyDigestQb64FromPublicKeyQb64(rotNextQb64);
+
+// icpEvent.d is the prior event's SAID, icpEvent.i is the AID
+const { unsignedEvent } = KELEvents.buildRot({
+  aid: icpEvent.i,
+  sequence: '1',
+  priorEventSaid: icpEvent.d,
+  keys: [rotCurrentQb64],
+  nextKeyDigests: [rotNextDigest],
+  signingThreshold: '1',
+  nextThreshold: '1',
+});
+
+const { event: rotEvent } = KELEvents.computeSaid(unsignedEvent, false);
+```
+
+The verifier confirms the rotation is valid by checking that each key in `k` hashes to one of the digests in the previous event's `n` field.
+
+## Interaction event
+
+An interaction event (`ixn`) anchors external data (ACDC credential seals, TEL events, etc.) to the KEL without changing keys. It carries the prior SAID in `p` and the data anchors in `a`.
+
+```ts title="interact.ts"
+import { KELEvents } from '@kerits/core';
+
+const { unsignedEvent } = KELEvents.buildIxn({
+  aid: rotEvent.i,
+  sequence: '2',
+  priorEventSaid: rotEvent.d,
+  anchors: [],
+});
+
+const { event: ixnEvent } = KELEvents.computeSaid(unsignedEvent, false);
+```
+
+## How events chain
+
+The KEL grows by appending events. Each event (except inception) references the SAID of the event immediately before it via its `p` field:
+
+```
+icp (s=0, d=EicpSaid, p=—)
+ └─ rot (s=1, d=ErotSaid, p=EicpSaid)
+     └─ ixn (s=2, d=EixnSaid, p=ErotSaid)
+```
+
+A verifier replays this chain from the inception event, checking that each `p` equals the previous event's `d`, and that rotation events reveal keys that satisfy the previous establishment event's `n` commitments.

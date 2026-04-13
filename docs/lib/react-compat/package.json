@@ -1,0 +1,16 @@
+{
+  "name": "react-compat",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./jsx-runtime": "./jsx-runtime.js",
+    "./jsx-dev-runtime": "./jsx-dev-runtime.js",
+    "./react-server": "./react-server.js",
+    "./jsx-runtime.react-server": "./jsx-runtime.js",
+    "./jsx-dev-runtime.react-server": "./jsx-dev-runtime.js",
+    "./compiler-runtime": "./compiler-runtime.js",
+    "./package.json": "./package.json"
+  }
+}

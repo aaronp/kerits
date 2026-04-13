@@ -1,0 +1,122 @@
+---
+title: SAIDs
+description: Compute, embed, and verify Self-Addressing Identifiers, and create pre-rotation key commitments.
+---
+
+A **SAID** (Self-Addressing Identifier) is a cryptographic digest that is embedded in the very data structure it identifies. This circular binding is achieved by first replacing the target field with an empty string, hashing the result, and then storing that hash back into the field. Any reader can independently verify a SAID by performing the same substitution and recomputing the digest — no external registry or certificate authority is required.
+
+In KERI, SAIDs appear as the `d` field of every KEL event. For inception events (`icp`, `dip`) the `i` field (the AID itself) is also set to the inception SAID, making the identifier self-certifying from the moment it is created.
+
+## Compute a SAID
+
+`encodeSAID` canonicalizes the object (RFC 8785), replaces the target label with an empty string, hashes with BLAKE3-256, and returns the CESR qb64 result (44-character string beginning with `E`).
+
+```ts title="encode-said.ts"
+import { encodeSAID } from '@kerits/core';
+
+// The object must have a 'd' field (or the label you specify)
+const obj = {
+  v: 'KERI10JSON000000_',
+  t: 'ixn',
+  d: '',          // placeholder — encodeSAID replaces this
+  i: 'Eaid...',
+  s: '1',
+  p: 'Eprior...',
+  a: [],
+};
+
+const said = encodeSAID(obj);
+// said: 'E...' — 44-char CESR Blake3-256 digest
+
+// Produce the final object by merging the computed SAID back in
+const finalObj = { ...obj, d: said };
+```
+
+`encodeSAID` accepts optional `algo` and `label` parameters if you need a different hash algorithm or a non-standard field name:
+
+```ts title="encode-said-options.ts"
+import { encodeSAID } from '@kerits/core';
+
+// Compute SAID over the 'id' field using blake3-256 (the only supported algo)
+const said = encodeSAID(myObj, 'blake3-256', 'id');
+```
+
+## Verify a SAID
+
+`validateSAID` confirms that a given qb64 SAID string correctly identifies the provided object. It recomputes the SAID internally and returns `true` if they match.
+
+```ts title="validate-said.ts"
+import { validateSAID } from '@kerits/core';
+
+const isValid = validateSAID(finalObj.d, finalObj);
+// true if finalObj.d was correctly computed from finalObj
+
+// A tampered object returns false
+const tampered = { ...finalObj, s: '99' };
+const stillValid = validateSAID(finalObj.d, tampered);
+// false — SAID no longer matches the mutated content
+```
+
+`validateSAID` returns `false` (rather than throwing) for any input that cannot be verified, including malformed qb64 strings.
+
+## SAIDs in KEL events
+
+Inception events are special: both `d` (the event SAID) and `i` (the AID) must be set to the same value because the identifier *is* the inception event's digest. The placeholder for both fields must be `''` before computing the SAID.
+
+```ts title="icp-said.ts"
+import { KELEvents, generateKeyPair, encodeKey, nextKeyDigestQb64FromPublicKeyQb64 } from '@kerits/core';
+
+const current = generateKeyPair();
+const next = generateKeyPair();
+
+const currentQb64 = encodeKey(current.publicKey).qb64;
+const nextQb64 = encodeKey(next.publicKey).qb64;
+const nextDigest = nextKeyDigestQb64FromPublicKeyQb64(nextQb64);
+
+// KELEvents.buildIcp sets d='' and i='' automatically
+const { unsignedEvent } = KELEvents.buildIcp({
+  keys: [currentQb64],
+  nextKeyDigests: [nextDigest],
+});
+
+// computeSaid with isInception=true sets both d and i to the computed SAID
+const { event: icpEvent, said } = KELEvents.computeSaid(unsignedEvent, true);
+// icpEvent.d === icpEvent.i === said
+```
+
+For rotation and interaction events only `d` is cleared — `i` retains the original AID throughout the controller's lifetime.
+
+## Pre-rotation key commitments
+
+Before publishing an inception or rotation event you must commit to the *next* set of keys without revealing the private keys. `nextKeyDigestQb64FromPublicKeyQb64` computes the BLAKE3-256 digest of a CESR-encoded public key, producing the value that goes into the `n[]` field.
+
+```ts title="next-key-digest.ts"
+import { generateKeyPair, encodeKey, nextKeyDigestQb64FromPublicKeyQb64 } from '@kerits/core';
+
+// Generate the keypair you plan to use in the *next* rotation
+const nextKeyPair = generateKeyPair();
+const nextKeyQb64 = encodeKey(nextKeyPair.publicKey).qb64;
+
+// Compute the commitment to put in the current event's n[] field
+const commitment = nextKeyDigestQb64FromPublicKeyQb64(nextKeyQb64);
+// commitment: 'E...' (44-char CESR Blake3-256 digest)
+
+// Use it in n[]
+const event = {
+  ...restOfEvent,
+  n: [commitment],
+};
+```
+
+At rotation time, the private key for `nextKeyPair` is revealed by including `nextKeyQb64` in the rotation event's `k[]`. Validators confirm the pre-rotation commitment holds by hashing the revealed key and matching it against the digest stored in the previous event's `n[]`.
+
+## The Said namespace
+
+`Said` bundles `encodeSAID` and `validateSAID` under a single namespace object:
+
+```ts title="said-namespace.ts"
+import { Said } from '@kerits/core';
+
+const said = Said.encodeSAID(obj);
+const ok = Said.validateSAID(said, obj);
+```
