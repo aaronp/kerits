@@ -46,7 +46,7 @@ try {
 
 // ---- Implemented families ----
 
-const IMPLEMENTED_FAMILIES: ReadonlySet<string> = new Set(['controllerIndexedSigs']);
+const IMPLEMENTED_FAMILIES: ReadonlySet<string> = new Set(['controllerIndexedSigs', 'witnessIndexedSigs', 'nonTransReceiptCouples', 'transReceiptQuadruples']);
 
 // ---- Family mapper: converts neutral fixture items to CesrAttachment[] ----
 
@@ -65,10 +65,48 @@ function mapControllerIndexedSigs(
   });
 }
 
+function mapNonTransReceiptCouples(
+  items: Array<{ prefixQb64: string; sigAlg: string; sigRaw: string }>,
+): CesrAttachment[] {
+  return items.map((item) => {
+    const raw = hexToBytes(item.sigRaw);
+    const matter = new Matter({ raw, code: MtrDex.Ed25519_Sig });
+    return {
+      kind: 'rct' as const,
+      by: item.prefixQb64,
+      sig: matter.qb64,
+    };
+  });
+}
+
+function mapTransReceiptQuadruples(
+  items: Array<{ prefixQb64: string; sn: number; digestQb64: string; sigAlg: string; sigRaw: string }>,
+): CesrAttachment[] {
+  return items.map((item) => {
+    const raw = hexToBytes(item.sigRaw);
+    const matter = new Matter({ raw, code: MtrDex.Ed25519_Sig });
+    return {
+      kind: 'vrc' as const,
+      seal: {
+        i: item.prefixQb64,
+        s: String(item.sn),
+        d: item.digestQb64,
+      },
+      sig: matter.qb64,
+      keyIndex: 0, // -D quadruples use index 0 by convention
+    };
+  });
+}
+
 function mapFixtureToAttachments(fixture: Fixture): CesrAttachment[] {
   switch (fixture.family) {
     case 'controllerIndexedSigs':
+    case 'witnessIndexedSigs':
       return mapControllerIndexedSigs(fixture.items as Array<{ sigAlg: string; keyIndex: number; sigRaw: string }>);
+    case 'nonTransReceiptCouples':
+      return mapNonTransReceiptCouples(fixture.items as Array<{ prefixQb64: string; sigAlg: string; sigRaw: string }>);
+    case 'transReceiptQuadruples':
+      return mapTransReceiptQuadruples(fixture.items as Array<{ prefixQb64: string; sn: number; digestQb64: string; sigAlg: string; sigRaw: string }>);
     default:
       throw new Error(`No mapper for family: ${fixture.family}`);
   }
@@ -155,23 +193,40 @@ describe('CESR cross-validation against keripy', () => {
       test(`per-item encoding: ${fixture.id}`, () => {
         if (!exp || 'error' in exp) return;
 
-        const items = fixture.items as Array<{ sigAlg: string; keyIndex: number; sigRaw: string }>;
-        expect(exp.count).toBe(items.length);
+        expect(exp.count).toBe(fixture.items.length);
 
-        for (let i = 0; i < items.length; i++) {
-          const item = items[i];
+        for (let i = 0; i < fixture.items.length; i++) {
+          const item = fixture.items[i] as Record<string, unknown>;
           const expectedItem = exp.items[i];
 
-          // Siger qb64 (indexed wire encoding) matches keripy
+          // Indexed sig families (-A, -B): compare Siger and Matter qb64
           if ('sigerQb64' in expectedItem) {
-            const sigerQb64 = encodeIndexedSigToSigerQb64(item.sigRaw, item.keyIndex);
+            const sigerQb64 = encodeIndexedSigToSigerQb64(item.sigRaw as string, item.keyIndex as number);
             expect(sigerQb64).toBe(expectedItem.sigerQb64);
           }
-
-          // Matter qb64 (non-indexed, what kerits stores in att.sig) matches keripy
           if ('sigMatterQb64' in expectedItem) {
-            const matterQb64 = encodeToMatterQb64(item.sigRaw);
+            const matterQb64 = encodeToMatterQb64(item.sigRaw as string);
             expect(matterQb64).toBe(expectedItem.sigMatterQb64);
+          }
+
+          // Receipt couple families (-C): compare prefix and sig Matter qb64
+          if ('prefixQb64' in expectedItem && !('sn' in expectedItem)) {
+            expect(item.prefixQb64).toBe(expectedItem.prefixQb64);
+            if ('sigQb64' in expectedItem) {
+              const sigQb64 = encodeToMatterQb64(item.sigRaw as string);
+              expect(sigQb64).toBe(expectedItem.sigQb64);
+            }
+          }
+
+          // Transferable receipt quadruples (-D): compare prefix, digest, and sig Siger qb64
+          if ('sn' in expectedItem) {
+            expect(item.prefixQb64).toBe(expectedItem.prefixQb64);
+            expect(item.digestQb64).toBe(expectedItem.digestQb64);
+            if ('sigQb64' in expectedItem) {
+              // -D sigQb64 is a Siger qb64 (indexed), index=0 by convention
+              const sigerQb64 = encodeIndexedSigToSigerQb64(item.sigRaw as string, 0);
+              expect(sigerQb64).toBe(expectedItem.sigQb64);
+            }
           }
         }
       });
@@ -194,22 +249,29 @@ describe('CESR cross-validation against keripy', () => {
         expect(decoded.length).toBe(fixture.items.length);
 
         // Per-item semantic assertions
-        const items = fixture.items as Array<{ keyIndex: number; sigRaw: string }>;
         for (let i = 0; i < decoded.length; i++) {
           const att = decoded[i];
-          const fixtureItem = items[i];
+          const fixtureItem = fixture.items[i] as Record<string, unknown>;
+          const expItem = exp && !('error' in exp) ? exp.items[i] : undefined;
 
-          expect(att.kind).toBe('sig');
-          if (att.kind === 'sig') {
-            expect(att.form).toBe('indexed');
-            if (att.form === 'indexed') {
-              expect(att.keyIndex).toBe(fixtureItem.keyIndex);
-            }
-
-            // Decoded sig (Matter qb64) matches keripy expected
-            const expItem = exp && !('error' in exp) ? exp.items[i] : undefined;
+          if (att.kind === 'sig' && att.form === 'indexed') {
+            expect(att.keyIndex).toBe(fixtureItem.keyIndex);
             if (expItem && 'sigMatterQb64' in expItem) {
               expect(att.sig).toBe(expItem.sigMatterQb64);
+            }
+          } else if (att.kind === 'rct') {
+            expect(att.by).toBe(fixtureItem.prefixQb64);
+            if (expItem && 'sigQb64' in expItem) {
+              expect(att.sig).toBe(expItem.sigQb64);
+            }
+          } else if (att.kind === 'vrc') {
+            expect(att.seal.i).toBe(fixtureItem.prefixQb64);
+            expect(att.seal.s).toBe(String(fixtureItem.sn));
+            expect(att.seal.d).toBe(fixtureItem.digestQb64);
+            if (expItem && 'sigQb64' in expItem) {
+              // -D uses indexed Siger on wire; we store the Matter qb64 in att.sig
+              const expectedSigMatter = encodeToMatterQb64(fixtureItem.sigRaw as string);
+              expect(att.sig).toBe(expectedSigMatter);
             }
           }
         }

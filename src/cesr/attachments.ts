@@ -15,11 +15,18 @@ const textEncoder = new TextEncoder();
 export function encodeAttachmentGroups(attachments: readonly CesrAttachment[]): Uint8Array {
   if (attachments.length === 0) return new Uint8Array(0);
 
+  // Group attachments by kind for counter-based encoding
   const indexedSigs: Array<Extract<CesrAttachment, { kind: 'sig'; form: 'indexed' }>> = [];
+  const receiptCouples: Array<Extract<CesrAttachment, { kind: 'rct' }>> = [];
+  const transReceiptQuads: Array<Extract<CesrAttachment, { kind: 'vrc' }>> = [];
 
   for (const att of attachments) {
     if (att.kind === 'sig' && att.form === 'indexed') {
       indexedSigs.push(att as Extract<CesrAttachment, { kind: 'sig'; form: 'indexed' }>);
+    } else if (att.kind === 'rct') {
+      receiptCouples.push(att as Extract<CesrAttachment, { kind: 'rct' }>);
+    } else if (att.kind === 'vrc') {
+      transReceiptQuads.push(att as Extract<CesrAttachment, { kind: 'vrc' }>);
     } else {
       throw new Error(
         `Unsupported attachment type for encoding: kind=${att.kind}${'form' in att ? `, form=${att.form}` : ''}`,
@@ -37,6 +44,28 @@ export function encodeAttachmentGroups(attachments: readonly CesrAttachment[]): 
     result += counter.qb64;
     for (const att of indexedSigs) {
       result += encodeIndexedSig(att);
+    }
+  }
+
+  if (receiptCouples.length > 0) {
+    const counter = new Counter({
+      code: CtrDex.NonTransReceiptCouples,
+      count: receiptCouples.length,
+    });
+    result += counter.qb64;
+    for (const att of receiptCouples) {
+      result += encodeReceiptCouple(att);
+    }
+  }
+
+  if (transReceiptQuads.length > 0) {
+    const counter = new Counter({
+      code: CtrDex.TransReceiptQuadruples,
+      count: transReceiptQuads.length,
+    });
+    result += counter.qb64;
+    for (const att of transReceiptQuads) {
+      result += encodeTransReceiptQuadruple(att);
     }
   }
 
@@ -84,12 +113,30 @@ export function decodeAttachmentGroupsFromStream(data: Uint8Array): {
     const counterSize = getCounterSize(counter.code);
     pos += counterSize;
 
-    if (counter.code === CtrDex.ControllerIdxSigs) {
+    if (counter.code === CtrDex.ControllerIdxSigs || counter.code === CtrDex.WitnessIdxSigs) {
       for (let i = 0; i < counter.count; i++) {
         if (pos >= text.length) {
           throw new Error(`Truncated: expected ${counter.count} indexed sigs, got ${i}`);
         }
         const { attachment, consumed } = decodeIndexedSig(text, pos);
+        attachments.push(attachment);
+        pos += consumed;
+      }
+    } else if (counter.code === CtrDex.NonTransReceiptCouples) {
+      for (let i = 0; i < counter.count; i++) {
+        if (pos >= text.length) {
+          throw new Error(`Truncated: expected ${counter.count} receipt couples, got ${i}`);
+        }
+        const { attachment, consumed } = decodeReceiptCouple(text, pos);
+        attachments.push(attachment);
+        pos += consumed;
+      }
+    } else if (counter.code === CtrDex.TransReceiptQuadruples) {
+      for (let i = 0; i < counter.count; i++) {
+        if (pos >= text.length) {
+          throw new Error(`Truncated: expected ${counter.count} receipt quadruples, got ${i}`);
+        }
+        const { attachment, consumed } = decodeTransReceiptQuadruple(text, pos);
         attachments.push(attachment);
         pos += consumed;
       }
@@ -187,4 +234,116 @@ function encodeIndexedSig(att: Extract<CesrAttachment, { kind: 'sig'; form: 'ind
     ondex: keyIndex,
   });
   return siger.qb64;
+}
+
+function encodeReceiptCouple(att: Extract<CesrAttachment, { kind: 'rct' }>): string {
+  // -C couple: prefix (Verfer qb64) + signature (Cigar qb64, which is Matter-based)
+  return att.by + att.sig;
+}
+
+function encodeTransReceiptQuadruple(att: Extract<CesrAttachment, { kind: 'vrc' }>): string {
+  const { seal, sig, keyIndex } = att;
+
+  // Prefix (Verfer qb64)
+  const prefixQb64 = seal.i;
+
+  // Seqner: encode sequence number as code '0A' (Salt_128, 16 bytes)
+  const snNum = parseInt(seal.s, 10);
+  const raw = new Uint8Array(16);
+  const view = new DataView(raw.buffer);
+  view.setUint32(12, snNum, false); // big-endian in last 4 bytes
+  const seqnerQb64 = new Matter({ raw, code: '0A' }).qb64;
+
+  // Digest (Diger qb64)
+  const digestQb64 = seal.d;
+
+  // Signature as indexed Siger
+  const sigMatter = new Matter({ qb64: sig });
+  if (sigMatter.code !== MtrDex.Ed25519_Sig) {
+    throw new Error(`Only Ed25519 signatures are supported for -D quadruples, got: ${sigMatter.code}`);
+  }
+  const idx = keyIndex ?? 0;
+  const indexerCode = idx < 64 ? IdrDex.Ed25519_Sig : IdrDex.Ed25519_Big_Sig;
+  const siger = new Siger({ raw: sigMatter.raw, code: indexerCode, index: idx, ondex: idx });
+
+  return prefixQb64 + seqnerQb64 + digestQb64 + siger.qb64;
+}
+
+function decodeTransReceiptQuadruple(text: string, pos: number): { attachment: CesrAttachment; consumed: number } {
+  let totalConsumed = 0;
+
+  // 1. Prefix (Verfer — Matter subclass)
+  const prefix = parseMatter(text, pos, 'receipt quadruple prefix');
+  totalConsumed += prefix.consumed;
+
+  // 2. Seqner (Matter with code '0A')
+  const seqner = parseMatter(text, pos + totalConsumed, 'receipt quadruple seqner');
+  totalConsumed += seqner.consumed;
+  // Extract sequence number from Seqner raw bytes (big-endian)
+  const seqnerRaw = seqner.matter.raw;
+  let sn = 0;
+  for (let b = 0; b < seqnerRaw.byteLength; b++) {
+    sn = sn * 256 + (seqnerRaw[b] ?? 0);
+  }
+
+  // 3. Digest (Diger — Matter subclass)
+  const digest = parseMatter(text, pos + totalConsumed, 'receipt quadruple digest');
+  totalConsumed += digest.consumed;
+
+  // 4. Indexed signature (Siger)
+  const sigerSlice = text.slice(pos + totalConsumed);
+  const siger = new Siger({ qb64: sigerSlice });
+  const sigerSizage = Siger.Sizes.get(siger.code);
+  if (!sigerSizage || sigerSizage.fs === undefined) {
+    throw new Error(`Cannot determine size for siger code: ${siger.code}`);
+  }
+  totalConsumed += sigerSizage.fs;
+
+  const sigMatter = new Matter({ raw: siger.raw, code: MtrDex.Ed25519_Sig });
+
+  return {
+    attachment: {
+      kind: 'vrc',
+      seal: {
+        i: prefix.matter.qb64,
+        s: String(sn),
+        d: digest.matter.qb64,
+      },
+      sig: sigMatter.qb64,
+      keyIndex: siger.index,
+    },
+    consumed: totalConsumed,
+  };
+}
+
+function parseMatter(
+  text: string,
+  pos: number,
+  label: string,
+): { matter: InstanceType<typeof Matter>; consumed: number } {
+  let matter: InstanceType<typeof Matter>;
+  try {
+    matter = new Matter({ qb64: text.slice(pos) });
+  } catch (e) {
+    throw new Error(`Failed to parse ${label} at position ${pos}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  const sizage = Matter.Sizes.get(matter.code);
+  if (!sizage || sizage.fs === undefined) {
+    throw new Error(`Cannot determine size for ${label} code: ${matter.code}`);
+  }
+  return { matter, consumed: sizage.fs };
+}
+
+function decodeReceiptCouple(text: string, pos: number): { attachment: CesrAttachment; consumed: number } {
+  const prefix = parseMatter(text, pos, 'receipt couple prefix');
+  const sig = parseMatter(text, pos + prefix.consumed, 'receipt couple signature');
+
+  return {
+    attachment: {
+      kind: 'rct',
+      by: prefix.matter.qb64,
+      sig: sig.matter.qb64,
+    },
+    consumed: prefix.consumed + sig.consumed,
+  };
 }

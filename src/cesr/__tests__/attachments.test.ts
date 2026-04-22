@@ -50,9 +50,11 @@ describe('encodeAttachmentGroups', () => {
     expect(() => encodeAttachmentGroups([att])).toThrow();
   });
 
-  it('throws for receipt attachment (unsupported group family)', () => {
-    const att = { kind: 'rct', by: 'BtestAidXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX', sig: validSigQb64 } as CesrAttachment;
-    expect(() => encodeAttachmentGroups([att])).toThrow();
+  it('encodes a receipt attachment (-C couple)', () => {
+    const att = { kind: 'rct', by: 'BDg3H7Sr-eES0XWXiO8nvMxW6mD_1LIlbWMFYHBw3HQM', sig: validSigQb64 } as CesrAttachment;
+    const result = encodeAttachmentGroups([att]);
+    const text = new TextDecoder().decode(result);
+    expect(text.startsWith('-C')).toBe(true);
   });
 
   it('throws for undefined keyIndex on indexed sig', () => {
@@ -108,9 +110,13 @@ describe('decodeAttachmentGroups', () => {
     expect(result[0].sig).toBe(validSigQb64);
   });
 
-  it('unsupported counter code (-B) throws', () => {
+  it('valid -B group with one witness sig returns correct CesrAttachment shape', () => {
     const wire = makeWireBytes(CtrDex.WitnessIdxSigs, 1, [makeSigerQb64(0)]);
-    expect(() => decodeAttachmentGroups(wire)).toThrow(/[Uu]nsupported counter code/);
+    const result = decodeAttachmentGroups(wire);
+    expect(result).toHaveLength(1);
+    expect(result[0].kind).toBe('sig');
+    expect(result[0].form).toBe('indexed');
+    expect((result[0] as Extract<CesrAttachment, { form: 'indexed' }>).keyIndex).toBe(0);
   });
 
   it('truncated counter (only 2 bytes of 4) throws', () => {
@@ -236,6 +242,80 @@ describe('decodeAttachmentGroupsFromStream', () => {
     const result = decodeAttachmentGroupsFromStream(data);
     expect(result.attachments).toEqual([]);
     expect(result.bytesConsumed).toBe(0);
+  });
+});
+
+describe('non-transferable receipt couples (-C)', () => {
+  const prefixQb64 = 'BDg3H7Sr-eES0XWXiO8nvMxW6mD_1LIlbWMFYHBw3HQM';
+
+  it('decodes a single -C receipt couple', () => {
+    // Build wire: counter + prefix + sig (Cigar is a Matter with Ed25519_Sig code)
+    const sigMatter = new Matter({ raw: new Uint8Array(64), code: MtrDex.Ed25519_Sig });
+    const counter = new Counter({ code: CtrDex.NonTransReceiptCouples, count: 1 });
+    const wire = new TextEncoder().encode(counter.qb64 + prefixQb64 + sigMatter.qb64);
+    const result = decodeAttachmentGroups(wire);
+    expect(result).toHaveLength(1);
+    expect(result[0].kind).toBe('rct');
+    if (result[0].kind === 'rct') {
+      expect(result[0].by).toBe(prefixQb64);
+      expect(result[0].sig).toBe(sigMatter.qb64);
+    }
+  });
+
+  it('round-trips a -C receipt couple', () => {
+    const sigMatter = new Matter({ raw: new Uint8Array(64), code: MtrDex.Ed25519_Sig });
+    const att: CesrAttachment = { kind: 'rct', by: prefixQb64, sig: sigMatter.qb64 };
+    const wire = encodeAttachmentGroups([att]);
+    const decoded = decodeAttachmentGroups(wire);
+    expect(decoded).toHaveLength(1);
+    expect(decoded[0]).toEqual(att);
+  });
+});
+
+describe('transferable receipt quadruples (-D)', () => {
+  const prefixQb64 = 'BDg3H7Sr-eES0XWXiO8nvMxW6mD_1LIlbWMFYHBw3HQM';
+  const digestQb64 = 'ELC5L3iBVD77d_MYbYGGCUQhqM2J7HOkDGhk3rFiSCY0';
+
+  function makeSeqnerQb64(sn: number): string {
+    // Seqner uses code '0A' (Salt_128), 16 bytes raw, big-endian sn
+    const raw = new Uint8Array(16);
+    const view = new DataView(raw.buffer);
+    // Store sn in the last 4 bytes (big-endian) to match keripy
+    view.setUint32(12, sn, false);
+    return new Matter({ raw, code: '0A' }).qb64;
+  }
+
+  it('decodes a single -D transferable receipt quadruple', () => {
+    const sigRaw = new Uint8Array(64);
+    const siger = new Siger({ raw: sigRaw, code: IdrDex.Ed25519_Sig, index: 0, ondex: 0 });
+    const seqnerQb64 = makeSeqnerQb64(0);
+    const counter = new Counter({ code: CtrDex.TransReceiptQuadruples, count: 1 });
+    const wire = new TextEncoder().encode(
+      counter.qb64 + prefixQb64 + seqnerQb64 + digestQb64 + siger.qb64,
+    );
+    const result = decodeAttachmentGroups(wire);
+    expect(result).toHaveLength(1);
+    expect(result[0].kind).toBe('vrc');
+    if (result[0].kind === 'vrc') {
+      expect(result[0].seal.i).toBe(prefixQb64);
+      expect(result[0].seal.s).toBe('0');
+      expect(result[0].seal.d).toBe(digestQb64);
+      expect(result[0].keyIndex).toBe(0);
+    }
+  });
+
+  it('round-trips a -D transferable receipt quadruple', () => {
+    const sigMatter = new Matter({ raw: new Uint8Array(64), code: MtrDex.Ed25519_Sig });
+    const att: CesrAttachment = {
+      kind: 'vrc',
+      seal: { i: prefixQb64, s: '0', d: digestQb64 },
+      sig: sigMatter.qb64,
+      keyIndex: 0,
+    };
+    const wire = encodeAttachmentGroups([att]);
+    const decoded = decodeAttachmentGroups(wire);
+    expect(decoded).toHaveLength(1);
+    expect(decoded[0]).toEqual(att);
   });
 });
 

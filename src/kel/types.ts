@@ -615,7 +615,7 @@ export type AnySeal = Static<typeof AnySealSchema>;
 export const CesrAttachment_ValidatorReceipt = Type.Object(
   {
     kind: Type.Literal('vrc'),
-    cid: CesrDigestSchema, // Child event SAID being endorsed (what was signed)
+    cid: Type.Optional(CesrDigestSchema), // Child event SAID being endorsed (not on -D wire, populated from context)
     seal: CesrSealSchema, // Seal-source pointing to validator's endorsing event
     sig: CesrSignatureSchema, // Validator signature over child SAID
     keyIndex: Type.Optional(
