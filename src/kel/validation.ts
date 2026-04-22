@@ -15,12 +15,13 @@
 import { digestVerfer } from '../cesr/digest.js';
 import { Data } from '../common/data.js';
 import type { PublicKey, Signature, Threshold } from '../common/types.js';
-import { verify } from '../signature/verify.js';
+import { verifyEventSignature } from './event-crypto.js';
 import { type DerivedState, reduceKelState } from './kel-state.js';
 import { matchKeyRevelation } from './rotation.js';
 import { checkThreshold, type ThresholdSpec } from './threshold.js';
 import { checkNormalizedThreshold } from './threshold-normalize.js';
 import type { AID, CESREvent, CesrAttachment, DipEvent, DrtEvent, IcpEvent, KELEvent, RotEvent } from './types.js';
+import { verifyVrcAgainstThreshold, verifyWitnessReceipt } from './validation-predicates.js';
 
 /**
  * Error codes for KEL validation failures
@@ -46,7 +47,9 @@ export type ValidationErrorCode =
   | 'WITNESS_RECEIPT_THRESHOLD_NOT_MET'
   | 'DUPLICATE_KEYS'
   | 'DUPLICATE_NEXT_DIGESTS'
-  | 'INCEPTION_INVALID';
+  | 'WITNESS_RECEIPT_SIGNATURE_INVALID'
+  | 'PARENT_THRESHOLD_NOT_MET'
+  | 'VRC_KEY_INDEX_INVALID';
 
 /**
  * Validation error with details
@@ -438,7 +441,7 @@ function validateKeyChainWithDetails(
 function validateDelegationWithDetails(
   cesrEvent: CESREvent,
   parentKel?: CESREvent[],
-): CheckResult & { parentAid?: string; missingParentKel?: boolean } {
+): CheckResult & { parentAid?: string; missingParentKel?: boolean; vrcFailureReason?: string } {
   const event = cesrEvent.event;
 
   if (!isDelegatedEvent(event)) {
@@ -469,9 +472,18 @@ function validateDelegationWithDetails(
     };
   }
 
-  // Find the last establishment event in parent KEL to get signing keys
+  // Resolve the parent establishment event at the seal-referenced sequence number.
+  // The VRC seal's `s` field identifies the parent event sequence at which the delegator
+  // endorsed this event. We need the most recent establishment event at or before that
+  // sequence to get the correct signing keys (the delegator's key state at endorsement time).
+  const sealSeq = vrcAttachments[0]?.seal?.s;
+  const sealSeqNum = sealSeq != null ? parseInt(sealSeq as string, 10) : undefined;
+
   let parentEstablishment: (IcpEvent | RotEvent | DipEvent | DrtEvent) | undefined;
   for (const pEvent of parentKel) {
+    const pSeqNum = parseInt(pEvent.event.s as string, 10);
+    // Stop walking once we've passed the seal-referenced sequence
+    if (sealSeqNum != null && pSeqNum > sealSeqNum) break;
     if (isEstablishmentEvent(pEvent.event)) {
       parentEstablishment = pEvent.event;
     }
@@ -480,50 +492,37 @@ function validateDelegationWithDetails(
   if (!parentEstablishment) {
     return {
       passed: false,
-      error: 'No establishment event found in parent KEL',
+      error: 'No establishment event found in parent KEL at or before seal sequence',
       parentAid,
     };
   }
 
-  // Validate each VRC signature
-  for (const vrc of vrcAttachments) {
-    // VRC must sign over the child event SAID
-    if (vrc.cid !== event.d) {
-      return {
-        passed: false,
-        error: `VRC child SAID mismatch: expected ${event.d}, got ${vrc.cid}`,
-        parentAid,
-      };
-    }
+  // Use aggregate VRC verifier with full threshold support
+  const vrcResult = verifyVrcAgainstThreshold(
+    vrcAttachments.map((v) => ({
+      cid: v.cid as string,
+      seal: { s: v.seal.s as string, d: v.seal.d as string },
+      sig: v.sig as Signature,
+      keyIndex: v.keyIndex as number | undefined,
+    })),
+    event as KELEvent,
+    { k: parentEstablishment.k as PublicKey[], kt: parentEstablishment.kt as Threshold },
+  );
 
-    // Find the parent key for verification
-    let parentKey: PublicKey | undefined;
-
-    // Find the event at seal sequence to get the signing key
-    for (const pEvent of parentKel) {
-      if (pEvent.event.s === vrc.seal.s && pEvent.event.d === vrc.seal.d) {
-        if (isEstablishmentEvent(pEvent.event)) {
-          parentKey = pEvent.event.k[0] as PublicKey;
-        }
-        break;
-      }
-    }
-
-    if (!parentKey) {
-      // Fallback to latest establishment keys
-      parentKey = parentEstablishment.k[0] as PublicKey;
-    }
-
-    // Verify parent signature over child event's canonical serialized bytes
-    const isValid = verifyEventSignature(event as KELEvent, parentKey, vrc.sig);
-
-    if (!isValid) {
-      return {
-        passed: false,
-        error: 'Parent signature invalid for delegated event',
-        parentAid,
-      };
-    }
+  if (!vrcResult.passed) {
+    // Map VRC failure reason to a typed field for the caller — no string matching
+    const VRC_REASON_TO_ERROR_MESSAGE: Record<string, string> = {
+      'threshold-not-met': `Delegator threshold not met: ${vrcResult.validKeyIndices.length} valid signatures`,
+      'key-index-out-of-range': 'VRC key index out of range for parent key list',
+      'cid-mismatch': `VRC child SAID mismatch: expected ${event.d}`,
+      'signature-invalid': 'Parent signature invalid for delegated event',
+    };
+    return {
+      passed: false,
+      error: VRC_REASON_TO_ERROR_MESSAGE[vrcResult.reason] ?? 'Delegation validation failed',
+      parentAid,
+      vrcFailureReason: vrcResult.reason, // typed field for error code mapping
+    };
   }
 
   return { passed: true, parentAid };
@@ -562,20 +561,10 @@ function getVrcAttachments(cesrEvent: CESREvent): Array<CesrAttachment & { kind:
 }
 
 /**
- * Verify a signature against an event
- *
- * Signatures are created over the canonical (RFC8785) JSON representation of the event.
- * This matches how signatures are created during event signing (see kel-incept.ts).
- *
- * @param event - The KEL event
- * @param publicKey - Public key to verify with
- * @param signature - Signature to verify
- * @returns true if signature is valid
+ * Get witness receipt (rct) attachments from a CESREvent
  */
-function verifyEventSignature(event: KELEvent, publicKey: PublicKey, signature: Signature): boolean {
-  // KERI signatures are over the canonical JSON bytes of the event
-  const { raw: canonicalBytes } = Data.fromJson(event).canonicalize();
-  return verify(publicKey, signature, canonicalBytes);
+function getRctAttachments(cesrEvent: CESREvent): Array<CesrAttachment & { kind: 'rct' }> {
+  return cesrEvent.attachments.filter((a): a is CesrAttachment & { kind: 'rct' } => a.kind === 'rct');
 }
 
 // --------------------------------------------------------------------------------------
@@ -773,6 +762,20 @@ export function validateKel(
       overallValid = false;
     }
 
+    // 2b. AID derivation check for inception events (only if SAID is valid)
+    if (saidMatches && (event.t === 'icp' || event.t === 'dip') && event.i !== event.d) {
+      if (!firstError) {
+        firstError = {
+          code: 'AID_DERIVATION_INVALID',
+          scope: 'event',
+          severity: 'error',
+          message: `AID derivation invalid at event ${i}: i=${event.i} but d=${event.d} (must be equal for inception events)`,
+          eventIndex: i,
+        };
+      }
+      overallValid = false;
+    }
+
     // 3. Required fields validation
     const requiredResult = checkRequiredFields(event);
     checks.requiredFieldsPresent = {
@@ -899,7 +902,20 @@ export function validateKel(
       checks.delegationValid = delegationResult;
 
       if (!delegationResult.passed && !firstError) {
-        const errorCode = delegationResult.missingParentKel ? 'MISSING_PARENT_KEL' : 'PARENT_SIGNATURE_INVALID';
+        let errorCode: ValidationErrorCode;
+        if (delegationResult.missingParentKel) {
+          errorCode = 'MISSING_PARENT_KEL';
+        } else {
+          // Use typed vrcFailureReason field — no fragile string matching
+          const VRC_REASON_TO_CODE: Record<string, ValidationErrorCode> = {
+            'threshold-not-met': 'PARENT_THRESHOLD_NOT_MET',
+            'key-index-out-of-range': 'VRC_KEY_INDEX_INVALID',
+            'cid-mismatch': 'PARENT_SIGNATURE_INVALID',
+            'signature-invalid': 'PARENT_SIGNATURE_INVALID',
+          };
+          const reason = delegationResult.vrcFailureReason;
+          errorCode = (reason && VRC_REASON_TO_CODE[reason]) || 'PARENT_SIGNATURE_INVALID';
+        }
         firstError = {
           code: errorCode,
           scope: 'attachment',
@@ -1065,20 +1081,38 @@ export function validateKel(
       }
     }
 
-    // 15c. Witness receipt threshold (fully-witnessed mode only)
+    // 15c. Witness receipt threshold + signature verification (fully-witnessed mode only)
     if (state && options?.mode === 'fully-witnessed' && isEstablishmentEvent(event)) {
       const bt = typeof state.witnessThreshold === 'string' ? parseInt(state.witnessThreshold, 10) || 0 : 0;
       if (bt > 0) {
-        const rctAttachments = cesrEvent.attachments.filter((a) => a.kind === 'rct');
-        // Count receipts from witnesses in the current witness set
-        const validReceipts = rctAttachments.filter((a) => state.witnesses.has((a as any).by as string));
-        if (validReceipts.length < bt) {
+        const rctAttachments = getRctAttachments(cesrEvent);
+        // Filter to receipts from known witnesses, then verify signatures
+        let receiptSigInvalid = false;
+        const verifiedReceipts = rctAttachments.filter((rct) => {
+          if (!state.witnesses.has(rct.by as string)) return false;
+          const sigValid = verifyWitnessReceipt({ by: rct.by as AID, sig: rct.sig as Signature }, event);
+          if (!sigValid) receiptSigInvalid = true;
+          return sigValid;
+        });
+
+        if (receiptSigInvalid && !firstError) {
+          firstError = {
+            code: 'WITNESS_RECEIPT_SIGNATURE_INVALID',
+            scope: 'attachment',
+            severity: 'error',
+            message: `Witness receipt signature verification failed at event ${i}`,
+            eventIndex: i,
+          };
+          overallValid = false;
+        }
+
+        if (verifiedReceipts.length < bt) {
           if (!firstError) {
             firstError = {
               code: 'WITNESS_RECEIPT_THRESHOLD_NOT_MET',
               scope: 'attachment',
               severity: 'error',
-              message: `Witness receipt threshold not met at event ${i}: ${validReceipts.length} receipts, need ${bt}`,
+              message: `Witness receipt threshold not met at event ${i}: ${verifiedReceipts.length} verified receipts, need ${bt}`,
               eventIndex: i,
             };
           }

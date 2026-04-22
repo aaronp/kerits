@@ -4,9 +4,11 @@ import * as predicates from './predicates.js';
 import * as rotation from './rotation.js';
 import * as threshold from './threshold.js';
 import * as validation from './validation.js';
+import * as validationPredicates from './validation-predicates.js';
 
 export const Kel = {
   ...predicates,
+  ...validationPredicates,
   ...threshold,
   ...rotation,
   ...validation,
@@ -31,4 +33,11 @@ export type {
   ValidateControllerSignatureResult,
 } from './ops-types.js';
 export * from './types.js';
+export {
+  eventContainsAnchorForSaid,
+  isDelegationAnchor,
+  type VrcVerificationResult,
+  verifyVrcAgainstThreshold,
+  verifyWitnessReceipt,
+} from './validation-predicates.js';
 export type { CreatedKey, KeyCreateOptions, Vault, VaultPurpose } from './vault-interface.js';

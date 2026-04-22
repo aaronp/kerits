@@ -1,0 +1,133 @@
+---
+title: KEL Event Types
+description: Reference for the five KEL event types — what each does, when to use it, and how to build it.
+---
+
+Every KEL is built from five event types. Three are **non-delegated** (the controller acts autonomously) and two are **delegated** (a parent identifier must approve).
+
+| Type | Name | Purpose |
+|------|------|---------|
+| [`icp`](#icp--inception) | Inception | Establish a new AID with initial keys and witnesses |
+| [`rot`](#rot--rotation) | Rotation | Rotate to pre-committed next keys, update witnesses |
+| [`ixn`](#ixn--interaction) | Interaction | Anchor data seals without changing keys |
+| [`dip`](#dip--delegated-inception) | Delegated Inception | Establish a child AID under a parent's authority |
+| [`drt`](#drt--delegated-rotation) | Delegated Rotation | Rotate a delegated identifier's keys |
+
+All events share common fields: `v` (version string), `t` (type), `d` (SAID), `i` (AID), and `s` (sequence number). Non-inception events also carry `p` (prior event SAID) to form the hash chain.
+
+The build pattern is always: **build** → **computeSaid** → **sign**.
+
+---
+
+## `icp` — Inception
+
+Creates the identifier. The AID equals the inception event's SAID (`i === d`). Sets the initial signing keys (`k`), next-key commitments (`n`), witness list (`b`), and thresholds.
+
+This is always sequence `0` and has no `p` field — it's the root of the chain.
+
+```ts
+import { KELEvents, encodeKey, nextKeyDigestQb64FromPublicKeyQb64, generateKeyPair } from '@kerits/core';
+
+const current = generateKeyPair();
+const next = generateKeyPair();
+
+const currentKeyQb64 = encodeKey(current.publicKey).qb64;
+const nextKeyDigest = nextKeyDigestQb64FromPublicKeyQb64(
+  encodeKey(next.publicKey).qb64,
+);
+
+const { unsignedEvent } = KELEvents.buildIcp({
+  keys: [currentKeyQb64],
+  nextKeyDigests: [nextKeyDigest],
+});
+
+// isInception = true → sets i = d
+const { event, said } = KELEvents.computeSaid(unsignedEvent, true);
+```
+
+---
+
+## `rot` — Rotation
+
+Replaces the current signing keys with keys that were pre-committed in the previous establishment event's `n` field. Also supports witness changes via `ba` (added) and `br` (removed) delta fields.
+
+A verifier confirms the rotation by checking that each new key in `k` hashes to one of the prior event's `n` digests.
+
+```ts
+import { KELEvents } from '@kerits/core';
+
+const { unsignedEvent } = KELEvents.buildRot({
+  aid: icpEvent.i,
+  sequence: KELEvents.nextSequence(icpEvent.s),
+  priorEventSaid: icpEvent.d,
+  keys: [newCurrentKeyQb64],
+  nextKeyDigests: [newNextKeyDigest],
+  signingThreshold: '1',
+  nextThreshold: '1',
+});
+
+const { event } = KELEvents.computeSaid(unsignedEvent, false);
+```
+
+---
+
+## `ixn` — Interaction
+
+Anchors external data (ACDC credential seals, TEL events, delegation approvals) to the KEL without changing keys. Carries anchors in the `a` field. Has no key-related fields — the current signing keys from the last establishment event remain active.
+
+```ts
+import { KELEvents } from '@kerits/core';
+
+const { unsignedEvent } = KELEvents.buildIxn({
+  aid: priorEvent.i,
+  sequence: KELEvents.nextSequence(priorEvent.s),
+  priorEventSaid: priorEvent.d,
+  anchors: [{ i: credentialSaid, s: '0', d: credentialSaid }],
+});
+
+const { event } = KELEvents.computeSaid(unsignedEvent, false);
+```
+
+---
+
+## `dip` — Delegated Inception
+
+Mirrors `icp` but establishes the AID under a parent identifier's authority. The `di` field records the parent's AID. The parent must approve this event by anchoring its SAID in an `ixn` on the parent's KEL.
+
+```ts
+import { KELEvents } from '@kerits/core';
+
+const { unsignedEvent } = KELEvents.buildDip({
+  keys: [childCurrentKeyQb64],
+  nextKeyDigests: [childNextKeyDigest],
+  parentAid: parentEvent.i,
+});
+
+// isInception = true → sets i = d
+const { event, said } = KELEvents.computeSaid(unsignedEvent, true);
+
+// Parent must then anchor this in an ixn:
+// KELEvents.buildIxn({ ..., anchors: [{ i: event.i, s: '0', d: said }] })
+```
+
+---
+
+## `drt` — Delegated Rotation
+
+Mirrors `rot` for a delegated identifier. Same key rotation mechanics — the parent's approval is external evidence (an anchoring `ixn` on the parent's KEL), not a field on this event.
+
+```ts
+import { KELEvents } from '@kerits/core';
+
+const { unsignedEvent } = KELEvents.buildDrt({
+  aid: dipEvent.i,
+  sequence: KELEvents.nextSequence(dipEvent.s),
+  priorEventSaid: dipEvent.d,
+  keys: [rotatedKeyQb64],
+  nextKeyDigests: [rotatedNextKeyDigest],
+  signingThreshold: '1',
+  nextThreshold: '1',
+});
+
+const { event } = KELEvents.computeSaid(unsignedEvent, false);
+```

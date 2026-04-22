@@ -433,6 +433,46 @@ describe('validate-aid-rules', () => {
       expect(result.valid).toBe(false);
     },
   );
+
+  scenario(
+    {
+      id: 'valid-icp-aid-equals-d',
+      functionality: validateAidRules,
+      description: 'Valid icp has i === d (AID derivation sanity check)',
+      covers: ['aid-derivation'],
+    },
+    () => {
+      const { event, cesrEvent } = buildSignedIcp();
+      // Structural invariant: inception AID equals its SAID
+      expect(event.i).toBe(event.d);
+      const result = KELOps.validateKelChain([cesrEvent]);
+      expect(result.valid).toBe(true);
+      // No AID_DERIVATION_INVALID error
+      expect(result.firstError?.code).toBeUndefined();
+    },
+  );
+
+  scenario(
+    {
+      id: 'tampered-icp-aid-derivation-invalid',
+      functionality: validateAidRules,
+      description: 'Tampered icp with i !== d reports AID_DERIVATION_INVALID (SAID still valid because i is zeroed in preimage)',
+      covers: ['aid-derivation'],
+    },
+    () => {
+      const { cesrEvent, event } = buildSignedIcp();
+      const tampered = cloneEvent(event);
+      // Set i to something different from d — for inception events, computeEventSaid
+      // resets both i and d to '' in the preimage, so the SAID itself remains valid.
+      // The AID derivation check (gated on saidMatches) catches i !== d directly.
+      (tampered as any).i = 'EBogusAID_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+      const bad = rewrapCesr(cesrEvent, tampered);
+      const result = KELOps.validateKelChain([bad]);
+      expect(result.valid).toBe(false);
+      // SAID is still valid (i is zeroed in preimage), so AID derivation check fires
+      expect(result.firstError?.code).toBe('AID_DERIVATION_INVALID');
+    },
+  );
 });
 
 // ===========================================================================
@@ -1247,10 +1287,8 @@ describe('validate-delegation', () => {
 // ---------------------------------------------------------------------------
 
 function buildWitnessReceipt(event: KELEvent, witnessKeypair: KeriKeyPair): CesrAttachment {
-  const saidBytes = new TextEncoder().encode(event.d);
-  const privBytes = decodeKey(witnessKeypair.privateKey).raw;
-  const sigBytes = sign(saidBytes, privBytes);
-  const sig = encodeSig(sigBytes, false).qb64;
+  // Witness receipts sign the canonical (RFC8785) event bytes, matching verifyWitnessReceipt
+  const sig = signEvent(event, witnessKeypair);
   return {
     kind: 'rct' as const,
     by: witnessKeypair.publicKey as AID,
@@ -1826,6 +1864,116 @@ describe('validate-chain', () => {
       expect(result.eventDetails).toHaveLength(1);
       expect(result.eventDetails[0]!.eventIndex).toBe(2);
       expect(result.eventDetails[0]!.eventType).toBe('rot');
+    },
+  );
+});
+
+// ---------------------------------------------------------------------------
+// validate-witness-receipt-signatures scenarios
+// ---------------------------------------------------------------------------
+
+describe('validate-witness-receipt-signatures', () => {
+  scenario(
+    {
+      id: 'witness-receipt-sig-verified-fully-witnessed',
+      functionality: validateWitnesses,
+      description: 'Valid witness receipts with correct signatures pass in fully-witnessed mode',
+      covers: ['witness-receipt-signature'],
+    },
+    () => {
+      const { cesrEvent, event } = buildSignedIcp([KEY1], [KEY2], {
+        witnesses: [WIT1.publicKey, WIT2.publicKey],
+        witnessThreshold: '2',
+      });
+      // Add valid witness receipts
+      const rct1: CesrAttachment = { kind: 'rct', by: WIT1.publicKey, sig: signEvent(event, WIT1) } as any;
+      const rct2: CesrAttachment = { kind: 'rct', by: WIT2.publicKey, sig: signEvent(event, WIT2) } as any;
+      const withReceipts = { ...cesrEvent, attachments: [...cesrEvent.attachments, rct1, rct2] };
+      const result = KELOps.validateKelChain([withReceipts], { mode: 'fully-witnessed' });
+      expect(result.valid).toBe(true);
+    },
+  );
+
+  scenario(
+    {
+      id: 'witness-receipt-bad-sig-fully-witnessed',
+      functionality: validateWitnesses,
+      description: 'Witness receipt with invalid signature fails in fully-witnessed mode',
+      covers: ['witness-receipt-signature'],
+    },
+    () => {
+      const { cesrEvent, event } = buildSignedIcp([KEY1], [KEY2], {
+        witnesses: [WIT1.publicKey, WIT2.publicKey],
+        witnessThreshold: '2',
+      });
+      // One valid, one with wrong signature (signed by WIT1 but claiming to be from WIT2)
+      const rct1: CesrAttachment = { kind: 'rct', by: WIT1.publicKey, sig: signEvent(event, WIT1) } as any;
+      const rct2Bad: CesrAttachment = { kind: 'rct', by: WIT2.publicKey, sig: signEvent(event, WIT1) } as any; // wrong key
+      const withReceipts = { ...cesrEvent, attachments: [...cesrEvent.attachments, rct1, rct2Bad] };
+      const result = KELOps.validateKelChain([withReceipts], { mode: 'fully-witnessed' });
+      expect(result.valid).toBe(false);
+      expect(result.firstError?.code).toBe('WITNESS_RECEIPT_SIGNATURE_INVALID');
+    },
+  );
+});
+
+// ===========================================================================
+// validate-delegation-vrc-threshold scenarios
+// ===========================================================================
+
+describe('validate-delegation-vrc-threshold', () => {
+  scenario(
+    {
+      id: 'vrc-key-index-out-of-range-maps-correctly',
+      functionality: validateDelegation,
+      description: 'VRC with out-of-range keyIndex produces VRC_KEY_INDEX_INVALID, not PARENT_SIGNATURE_INVALID',
+      covers: ['delegation-multi-sig'],
+    },
+    () => {
+      const parentIcp = buildSignedIcp([PARENT1], [PARENT2]);
+      const { cesrEvent, event } = buildSignedDip([KEY1], [KEY2], PARENT1.publicKey as AID);
+
+      // Build VRC with out-of-range keyIndex (index 5, parent only has 1 key)
+      const vrc: CesrAttachment = {
+        kind: 'vrc',
+        cid: event.d,
+        seal: { i: PARENT1.publicKey, s: '0', d: parentIcp.said },
+        sig: signEvent(event, PARENT1),
+        keyIndex: 5,
+      } as any;
+      const withVrc = { ...cesrEvent, attachments: [...cesrEvent.attachments, vrc] };
+
+      const result = KELOps.validateKelChain([withVrc], { parentKel: [parentIcp.cesrEvent] });
+      expect(result.valid).toBe(false);
+      expect(result.firstError?.code).toBe('VRC_KEY_INDEX_INVALID');
+    },
+  );
+
+  scenario(
+    {
+      id: 'delegator-threshold-not-met-maps-correctly',
+      functionality: validateDelegation,
+      description: 'Valid VRC signatures that do not meet delegator kt produce PARENT_THRESHOLD_NOT_MET',
+      covers: ['delegation-multi-sig'],
+    },
+    () => {
+      // Multi-sig parent with kt=2
+      const parentIcp = buildSignedIcp([PARENT1, PARENT2], [EXTRA1, EXTRA2]);
+      const { cesrEvent, event } = buildSignedDip([KEY1], [KEY2], PARENT1.publicKey as AID);
+
+      // Only one VRC (need 2)
+      const vrc: CesrAttachment = {
+        kind: 'vrc',
+        cid: event.d,
+        seal: { i: PARENT1.publicKey, s: '0', d: parentIcp.said },
+        sig: signEvent(event, PARENT1),
+        keyIndex: 0,
+      } as any;
+      const withVrc = { ...cesrEvent, attachments: [...cesrEvent.attachments, vrc] };
+
+      const result = KELOps.validateKelChain([withVrc], { parentKel: [parentIcp.cesrEvent] });
+      expect(result.valid).toBe(false);
+      expect(result.firstError?.code).toBe('PARENT_THRESHOLD_NOT_MET');
     },
   );
 });

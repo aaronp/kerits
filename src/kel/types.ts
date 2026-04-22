@@ -618,6 +618,13 @@ export const CesrAttachment_ValidatorReceipt = Type.Object(
     cid: CesrDigestSchema, // Child event SAID being endorsed (what was signed)
     seal: CesrSealSchema, // Seal-source pointing to validator's endorsing event
     sig: CesrSignatureSchema, // Validator signature over child SAID
+    keyIndex: Type.Optional(
+      Type.Number({
+        title: 'Key Index',
+        description:
+          'Index into the parent establishment event key list. Defaults to 0 for backward compatibility with single-sig delegators.',
+      }),
+    ),
   },
   {
     additionalProperties: false,

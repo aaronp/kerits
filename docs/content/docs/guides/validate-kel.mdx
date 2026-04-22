@@ -1,39 +1,62 @@
 ---
 title: Validate a KEL
-description: Verify SAID integrity, structural fields, key-chain continuity, and full chain validity.
+description: Verify SAID integrity, structural fields, key-chain continuity, delegation approval, and full chain validity.
 ---
 
-KERI's security model is built on the assumption that verifiers independently validate every event in a KEL before trusting any key state derived from it. Unlike PKI, there is no trusted third party: validity is a property of the event log itself, derivable from cryptographic rules alone.
+KERI's security model requires verifiers to independently validate every event in a KEL before trusting any key state derived from it. There is no trusted third party: validity is a property of the event log itself, derivable from cryptographic rules alone.
 
-`@kerits/core` exposes granular validation helpers so you can apply exactly the checks you need, plus a high-level `validateKelChain` function that runs all checks in sequence and returns structured, per-event results.
+`@kerits/core` exposes granular validation helpers, pure predicates for attachment verification, and a high-level `validateKelChain` function that runs all checks in sequence.
+
+## Validation model assumptions
+
+Witness receipt signature verification assumes the **non-transferable basic identifier model**: the witness identifier prefix directly encodes the current verification key. This is the KERI default for witnesses.
+
+If transferable witnesses or non-basic identifier types are used, receipt verification must be replaced with witness key state resolution. This assumption applies to both the `verifyWitnessReceipt` predicate and the `fully-witnessed` validation mode.
+
+## Validation modes
+
+`validateKelChain` supports two active validation modes via the `options.mode` parameter:
+
+| Mode | Default | Description |
+|------|---------|-------------|
+| `structural` | Yes | SAID integrity, required fields, prior-event linkage, controller signatures, signing threshold, key-chain continuity, delegation VRC verification, AID derivation |
+| `fully-witnessed` | No | Everything in `structural` plus witness receipt threshold and witness receipt signature verification |
+
+A `strict` mode is reserved in the type system for future use but is not currently implemented.
+
+## What `validateKelChain` checks
+
+In `structural` mode (default):
+
+1. **SAID integrity** — recomputes each event's SAID and compares to `d` field
+2. **AID derivation** — for `icp`/`dip` events, verifies `i === d` (only after SAID passes)
+3. **Required fields** — all mandatory fields present for the event type
+4. **Prior-event linkage** — `p` field matches previous event's `d`
+5. **Controller signature verification** — Ed25519 signatures over canonical event bytes
+6. **Signing threshold** — valid signatures satisfy `kt` (simple numeric or weighted multi-clause)
+7. **Key-chain continuity** — rotation keys hash to previous establishment event's `n` commitments
+8. **Delegation VRC verification** — parent signatures verified against parent's `kt` threshold (supports multi-sig delegators)
+
+In `fully-witnessed` mode, additionally:
+
+9. **Witness receipt signature verification** — each receipt's Ed25519 signature verified using the witness AID prefix as verification key (non-transferable basic model)
+10. **Witness receipt threshold** — verified receipt count satisfies `bt`
+
+## What `validateKelChain` does NOT check
+
+**Delegation anchoring** — `validateKelChain` verifies VRC signatures from the delegator, but does NOT verify that the delegator's KEL contains an event with a seal anchoring the delegated event's SAID. This requires traversing the parent KEL, which is an SDK-level orchestration concern.
+
+Use the exported predicates `eventContainsAnchorForSaid` and `isDelegationAnchor` as building blocks for SDK-level anchor verification. See the [Predicates reference](#predicates-reference) below.
 
 ## Check SAID integrity
 
-`validateEventSaid` recomputes an event's SAID from its body and compares it to the `d` field. A mismatch means the event was tampered with or malformed.
+`validateEventSaid` recomputes an event's SAID from its body and compares it to the `d` field.
 
 ```ts title="validate-said.ts"
 import { validateEventSaid } from '@kerits/core';
 import type { KELEvent } from '@kerits/core';
 
-const event: KELEvent = {
-  v: 'KERI10JSON000156_',
-  t: 'icp',
-  d: 'Eabc...',   // the SAID stored in the event
-  i: 'Eabc...',
-  s: '0',
-  kt: '1',
-  k: ['Dkey...'],
-  nt: '1',
-  n: ['Edigest...'],
-  bt: '0',
-  b: [],
-  c: [],
-  a: [],
-};
-
 const result = validateEventSaid(event);
-// { valid: boolean, expected: string, actual: string }
-
 if (!result.valid) {
   console.error('SAID mismatch', { expected: result.expected, actual: result.actual });
 }
@@ -41,19 +64,16 @@ if (!result.valid) {
 
 ## Check required fields
 
-`validateRequiredFields` verifies that every field mandated by the event type (`icp`, `rot`, `ixn`, `dip`, `drt`) is present. This catches truncated or incorrectly constructed events before you attempt signature verification.
+`validateRequiredFields` verifies that every field mandated by the event type is present.
 
 ```ts title="validate-fields.ts"
 import { validateRequiredFields, isValidKeriEvent } from '@kerits/core';
 
-// First confirm the t field is a known KERI event type
 if (!isValidKeriEvent(rawData)) {
   throw new Error('Not a valid KERI event');
 }
 
 const result = validateRequiredFields(rawData);
-// { valid: boolean, missing: string[] }
-
 if (!result.valid) {
   console.error('Missing fields:', result.missing);
 }
@@ -71,16 +91,12 @@ Required fields by event type:
 
 ## Validate key-chain continuity
 
-`validateKeyChain` checks that a rotation event's current keys (`k`) satisfy the previous establishment event's next-key commitments (`n`). Each key must hash (via BLAKE3-256) to one of the digests listed in `n`, and enough of those digests must be revealed to satisfy the `nt` threshold.
+`validateKeyChain` checks that a rotation event's current keys satisfy the previous establishment event's next-key commitments.
 
 ```ts title="validate-key-chain.ts"
 import { validateKeyChain } from '@kerits/core';
-import type { IcpEvent, KELEvent } from '@kerits/core';
 
-// previousEstablishment is the icp (or prior rot/dip/drt) event
 const result = validateKeyChain(rotEvent, previousEstablishment);
-// { valid: boolean, expectedDigests: string[], actualDigests: string[] }
-
 if (!result.valid) {
   console.error('Key chain broken', {
     expected: result.expectedDigests,
@@ -90,8 +106,6 @@ if (!result.valid) {
 ```
 
 ## Full chain validation
-
-`validateKelChain` runs all checks — SAID integrity, required fields, prior-event linkage (`p` field), signature verification, threshold satisfaction, key-chain continuity, and delegation approval — for every event in the array. It returns a `RichValidationResult` with per-event details.
 
 ```ts title="validate-chain.ts"
 import { validateKelChain } from '@kerits/core';
@@ -103,70 +117,115 @@ const events: CESREvent[] = [
 ];
 
 const result = validateKelChain(events);
-// {
-//   valid: boolean,
-//   eventDetails: EventValidationDetail[],
-//   firstError?: ValidationError,
-// }
-
 if (!result.valid) {
   const err = result.firstError;
   console.error(`Validation failed at event ${err?.eventIndex}: [${err?.code}] ${err?.message}`);
 }
 ```
 
-### Failure case example
+### Fully-witnessed mode
 
-```ts title="validate-fail.ts"
-import { validateKelChain } from '@kerits/core';
-
-// Tamper with the prior-event reference
-const tamperedRot = { ...rotEvent, p: 'Ewrongpriorsaid...' };
-
-const result = validateKelChain([
-  { event: icpEvent, attachments: [], enc: 'JSON' },
-  { event: tamperedRot, attachments: [], enc: 'JSON' },
-]);
-
-// result.valid === false
-// result.firstError:
-// {
-//   code: 'PREVIOUS_EVENT_MISMATCH',
-//   message: 'Previous event link invalid in event 1',
-//   eventIndex: 1,
-// }
-```
-
-### Incremental validation
-
-For long KELs you can start validation from a specific index using `options.startIndex`:
-
-```ts title="incremental.ts"
-import { validateKelChain } from '@kerits/core';
-
-// Only re-validate the last 3 events of an already-verified chain
-const result = validateKelChain(events, { startIndex: events.length - 3 });
+```ts title="fully-witnessed.ts"
+const result = validateKelChain(events, { mode: 'fully-witnessed' });
 ```
 
 ### Delegated KELs
 
-For delegated identifiers (`dip`/`drt` events), provide the parent KEL so that validator-receipt (VRC) attachments can be checked:
-
 ```ts title="delegated.ts"
-import { validateKelChain } from '@kerits/core';
-
 const result = validateKelChain(delegatedEvents, { parentKel: parentEvents });
+```
+
+### Incremental validation
+
+```ts title="incremental.ts"
+const result = validateKelChain(events, { startIndex: events.length - 3 });
+```
+
+## Predicates reference
+
+Pure predicates for attachment and anchor verification. These are independently importable from `@kerits/core`.
+
+### `verifyWitnessReceipt`
+
+Verify a witness receipt signature against an event's canonical bytes. Assumes the non-transferable basic witness model.
+
+```ts title="verify-receipt.ts"
+import { verifyWitnessReceipt } from '@kerits/core';
+
+const valid = verifyWitnessReceipt(
+  { by: witnessAid, sig: receiptSignature },
+  event,
+);
+```
+
+### `verifyVrcAgainstThreshold`
+
+Aggregate VRC verifier: validates attachment structure, verifies each signature, and evaluates the delegator's signing threshold. Returns a discriminated union with typed failure reasons.
+
+```ts title="verify-vrc.ts"
+import { verifyVrcAgainstThreshold } from '@kerits/core';
+import type { VrcVerificationResult } from '@kerits/core';
+
+const result: VrcVerificationResult = verifyVrcAgainstThreshold(
+  vrcAttachments,
+  childEvent,
+  { k: parentKeys, kt: parentThreshold },
+);
+
+if (!result.passed) {
+  // result.reason: 'cid-mismatch' | 'signature-invalid' | 'key-index-out-of-range' | 'threshold-not-met'
+  console.error(result.reason, result.validKeyIndices);
+}
+```
+
+### `eventContainsAnchorForSaid`
+
+SAID-only convenience check: does any entry in the event's `a[]` array have a `d` field matching the given SAID? Not a full seal matcher — matches SAID only.
+
+```ts title="anchor-check.ts"
+import { eventContainsAnchorForSaid } from '@kerits/core';
+
+const hasAnchor = eventContainsAnchorForSaid(parentIxnEvent, delegatedEventSaid);
+```
+
+### `isDelegationAnchor`
+
+Checks that a parent event can carry delegation seals (`ixn`, `rot`, `drt`) and contains a matching SAID anchor. This is a convenience pre-check — complete delegation anchor verification also requires finding the sealing event in the parent KEL and verifying it in its own KEL context.
+
+```ts title="delegation-anchor.ts"
+import { isDelegationAnchor } from '@kerits/core';
+
+for (const parentEvent of parentKel) {
+  if (isDelegationAnchor(parentEvent.event, delegatedEventSaid)) {
+    console.log('Found delegation anchor at', parentEvent.event.s);
+  }
+}
 ```
 
 ## Validation error codes
 
-| Code | Meaning |
-|------|---------|
-| `SAID_MISMATCH` | `d` field does not match recomputed SAID |
-| `MISSING_REQUIRED_FIELD` | A mandatory field is absent |
-| `PREVIOUS_EVENT_MISMATCH` | `p` does not equal the prior event's `d` |
-| `NEXT_KEY_MISMATCH` | Rotation keys do not satisfy prior `n` commitments |
-| `SIGNATURE_INVALID` | A signature attachment failed verification |
-| `THRESHOLD_NOT_MET` | Valid signatures do not meet the signing threshold |
-| `MISSING_PARENT_KEL` | Delegated event but no parent KEL was supplied |
-| `PARENT_SIGNATURE_INVALID` | VRC from parent failed verification |
+| Code | Mode | Meaning |
+|------|------|---------|
+| `SAID_MISMATCH` | all | `d` field does not match recomputed SAID |
+| `AID_DERIVATION_INVALID` | all | `icp`/`dip` event has `i !== d` |
+| `MISSING_REQUIRED_FIELD` | all | A mandatory field is absent |
+| `PREVIOUS_EVENT_MISMATCH` | all | `p` does not equal the prior event's `d` |
+| `NEXT_KEY_MISMATCH` | all | Rotation keys do not satisfy prior `n` commitments |
+| `SIGNATURE_INVALID` | all | A controller signature failed verification |
+| `THRESHOLD_NOT_MET` | all | Valid signatures do not meet the signing threshold |
+| `AID_INCONSISTENT` | all | Event `i` field differs from KEL's established AID |
+| `SEQUENCE_INVALID` | all | Event sequence number is out of order |
+| `FIRST_EVENT_NOT_INCEPTION` | all | First event is not `icp` or `dip` |
+| `NON_TRANSFERABLE_VIOLATION` | all | Non-transferable AID has events after inception |
+| `CONFIG_TRAIT_VIOLATION` | all | Establishment-only AID has interaction event |
+| `CONFIG_TRAIT_REMOVED` | all | Rotation removes an inception config trait |
+| `DUPLICATE_KEYS` | all | Duplicate entries in signing key list |
+| `DUPLICATE_NEXT_DIGESTS` | all | Duplicate entries in next key digest list |
+| `WITNESS_THRESHOLD_UNSATISFIABLE` | all | `bt` exceeds witness count |
+| `WITNESS_DELTA_INVALID` | all | Malformed witness add/remove in rotation |
+| `MISSING_PARENT_KEL` | all | Delegated event but no parent KEL supplied |
+| `PARENT_SIGNATURE_INVALID` | all | VRC signature or CID mismatch |
+| `VRC_KEY_INDEX_INVALID` | all | VRC `keyIndex` out of range for parent key list |
+| `PARENT_THRESHOLD_NOT_MET` | all | Valid VRC signatures don't meet delegator's `kt` |
+| `WITNESS_RECEIPT_SIGNATURE_INVALID` | `fully-witnessed` | A witness receipt signature failed verification |
+| `WITNESS_RECEIPT_THRESHOLD_NOT_MET` | `fully-witnessed` | Verified receipt count below `bt` |

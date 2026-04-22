@@ -147,7 +147,7 @@ _Generated from:_
 ### kel-validation — Validate structural and cryptographic correctness of KEL event sequences
 
 **Layers:** core
-**Status:** VERIFIED (69 passed, 0 failed)
+**Status:** VERIFIED (75 passed, 0 failed)
 
 **Invariants**
 
@@ -163,6 +163,8 @@ _Generated from:_
 - `aid-derivation` — For inception events (icp/dip), i must equal d — the AID is the SAID
   - ✅ `aid-equals-said-for-inception`
   - ✅ `aid-not-equal-said`
+  - ✅ `valid-icp-aid-equals-d`
+  - ✅ `tampered-icp-aid-derivation-invalid`
 - `aid-consistency` — All events in a KEL must carry the same i value
   - ✅ `mid-chain-different-aid`
 - `sequence-monotonicity` — Sequence numbers must start at "0" for inception and increment by exactly 1 for each subsequent event
@@ -248,6 +250,12 @@ _Generated from:_
   - ✅ `duplicate-keys-fails`
 - `no-duplicate-next-digests` — n[] must not contain duplicate digests
   - ✅ `duplicate-next-digests-fails`
+- `witness-receipt-signature` — In fully-witnessed mode, witness receipt signatures must cryptographically verify against the event canonical bytes using the witness identifier as the public key (non-transferable basic identifier model)
+  - ✅ `witness-receipt-sig-verified-fully-witnessed`
+  - ✅ `witness-receipt-bad-sig-fully-witnessed`
+- `delegation-multi-sig` — VRC verification must check all VRC attachments against the parent establishment key list and satisfy the parent signing threshold (kt), not just k[0]
+  - ✅ `vrc-key-index-out-of-range-maps-correctly`
+  - ✅ `delegator-threshold-not-met-maps-correctly`
 
 **Functionality**
 
@@ -255,14 +263,14 @@ _Generated from:_
 |---|---|---|---|---|---|---|
 | validate-said | VERIFIED | 3 | 0 | 0 | 0 | 0 |
 | validate-required-fields | VERIFIED | 5 | 0 | 0 | 0 | 0 |
-| validate-aid-rules | VERIFIED | 3 | 0 | 0 | 0 | 0 |
+| validate-aid-rules | VERIFIED | 5 | 0 | 0 | 0 | 0 |
 | validate-sequence | VERIFIED | 5 | 0 | 0 | 0 | 0 |
 | validate-chain-linkage | VERIFIED | 3 | 0 | 0 | 0 | 0 |
 | validate-signatures | VERIFIED | 6 | 0 | 0 | 0 | 0 |
 | validate-threshold | VERIFIED | 7 | 0 | 0 | 0 | 0 |
 | validate-key-rotation | VERIFIED | 7 | 0 | 0 | 0 | 0 |
-| validate-delegation | VERIFIED | 6 | 0 | 0 | 0 | 0 |
-| validate-witnesses | VERIFIED | 8 | 0 | 0 | 0 | 0 |
+| validate-delegation | VERIFIED | 8 | 0 | 0 | 0 | 0 |
+| validate-witnesses | VERIFIED | 10 | 0 | 0 | 0 | 0 |
 | validate-config-traits | VERIFIED | 8 | 0 | 0 | 0 | 0 |
 | validate-key-uniqueness | VERIFIED | 3 | 0 | 0 | 0 | 0 |
 | validate-chain | VERIFIED | 5 | 0 | 0 | 0 | 0 |
@@ -311,220 +319,238 @@ _Generated from:_
 - ✅ `mid-chain-different-aid` — An ixn with a different AID from the inception is rejected
   _verifies:_ `aid-consistency`
   <sub>[src/kel/__tests__/validation.test.ts:418](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L418)</sub>
+- ✅ `valid-icp-aid-equals-d` — Valid icp has i === d (AID derivation sanity check)
+  _verifies:_ `aid-derivation`
+  <sub>[src/kel/__tests__/validation.test.ts:437](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L437)</sub>
+- ✅ `tampered-icp-aid-derivation-invalid` — Tampered icp with i !== d reports AID_DERIVATION_INVALID (SAID still valid because i is zeroed in preimage)
+  _verifies:_ `aid-derivation`
+  <sub>[src/kel/__tests__/validation.test.ts:455](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L455)</sub>
 
 </Accordion>
 <Accordion title="validate-sequence — Sequence monotonicity and first-event check (VERIFIED)">
 
 - ✅ `valid-sequence` — icp(0) + ixn(1) + rot(2) passes sequence validation
   _verifies:_ `sequence-monotonicity`
-  <sub>[src/kel/__tests__/validation.test.ts:443](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L443)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:483](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L483)</sub>
 - ✅ `inception-s-not-zero` — Inception with s="1" is rejected
   _verifies:_ `sequence-monotonicity`
-  <sub>[src/kel/__tests__/validation.test.ts:465](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L465)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:505](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L505)</sub>
 - ✅ `sequence-gap` — icp(0) + ixn(2) with gap is rejected
   _verifies:_ `sequence-monotonicity`
-  <sub>[src/kel/__tests__/validation.test.ts:483](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L483)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:523](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L523)</sub>
 - ✅ `first-event-not-inception` — Starting a KEL with an ixn (not icp/dip) is rejected
   _verifies:_ `first-event-is-inception`
-  <sub>[src/kel/__tests__/validation.test.ts:499](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L499)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:539](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L539)</sub>
 - ✅ `empty-kel` — Empty KEL array validates as valid
   _verifies:_ `sequence-monotonicity`
-  <sub>[src/kel/__tests__/validation.test.ts:516](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L516)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:556](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L556)</sub>
 
 </Accordion>
 <Accordion title="validate-chain-linkage — Previous event p-field chain integrity (VERIFIED)">
 
 - ✅ `valid-p-chain` — ixn.p correctly references icp.d
   _verifies:_ `previous-event-chain`
-  <sub>[src/kel/__tests__/validation.test.ts:536](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L536)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:576](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L576)</sub>
 - ✅ `tampered-p` — Tampered p field is detected
   _verifies:_ `previous-event-chain`
-  <sub>[src/kel/__tests__/validation.test.ts:554](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L554)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:594](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L594)</sub>
 - ✅ `missing-p-field` — Deleted p field on ixn is caught by both required-fields and chain-linkage checks
   _verifies:_ `previous-event-chain`
-  <sub>[src/kel/__tests__/validation.test.ts:573](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L573)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:613](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L613)</sub>
 
 </Accordion>
 <Accordion title="validate-signatures — Cryptographic signature verification (VERIFIED)">
 
 - ✅ `valid-signature-verifies` — A properly signed inception event passes signature validation
   _verifies:_ `signature-cryptographic-validity`
-  <sub>[src/kel/__tests__/validation.test.ts:650](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L650)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:690](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L690)</sub>
 - ✅ `wrong-key-signature-fails` — Signing with KEY4 but attaching as keyIndex 0 (KEY1 slot) fails
   _verifies:_ `signature-cryptographic-validity`
-  <sub>[src/kel/__tests__/validation.test.ts:664](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L664)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:704](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L704)</sub>
 - ✅ `tampered-body-invalidates-sig` — Signing correctly then tampering the event body invalidates the signature
   _verifies:_ `signature-cryptographic-validity`
-  <sub>[src/kel/__tests__/validation.test.ts:691](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L691)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:731](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L731)</sub>
 - ✅ `ixn-uses-establishment-keys` — After icp with KEY1, ixn signed with KEY1 passes
   _verifies:_ `signing-key-source`
-  <sub>[src/kel/__tests__/validation.test.ts:710](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L710)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:750](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L750)</sub>
 - ✅ `ixn-after-rotation-uses-rotated-keys` — After icp(KEY1) + rot(KEY2), ixn signed with KEY2 passes; signed with KEY1 fails
   _verifies:_ `signing-key-source`
-  <sub>[src/kel/__tests__/validation.test.ts:726](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L726)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:766](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L766)</sub>
 - ✅ `key-index-out-of-range` — Attaching a signature with keyIndex=5 but only 1 key is invalid
   _verifies:_ `signature-cryptographic-validity`
-  <sub>[src/kel/__tests__/validation.test.ts:756](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L756)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:796](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L796)</sub>
 
 </Accordion>
 <Accordion title="validate-threshold — Simple and weighted threshold enforcement (VERIFIED)">
 
 - ✅ `simple-1-of-1-passes` — Single key, single signature meets threshold of 1
   _verifies:_ `signing-threshold-simple`
-  <sub>[src/kel/__tests__/validation.test.ts:790](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L790)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:830](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L830)</sub>
 - ✅ `simple-2-of-3-with-2-passes` — 3 keys, kt=2, 2 valid signatures meets threshold
   _verifies:_ `signing-threshold-simple`
-  <sub>[src/kel/__tests__/validation.test.ts:804](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L804)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:844](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L844)</sub>
 - ✅ `simple-2-of-3-with-1-fails` — 3 keys, kt=2, only 1 signature does not meet threshold
   _verifies:_ `signing-threshold-simple`
-  <sub>[src/kel/__tests__/validation.test.ts:822](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L822)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:862](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L862)</sub>
 - ✅ `simple-3-of-3-all-sign-passes` — 3 keys, kt=3, all 3 sign — threshold met
   _verifies:_ `signing-threshold-simple`
-  <sub>[src/kel/__tests__/validation.test.ts:842](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L842)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:882](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L882)</sub>
 - ✅ `weighted-single-clause` — Weighted threshold [1/2, 1/2] with both keys signing passes
   _verifies:_ `signing-threshold-weighted`
-  <sub>[src/kel/__tests__/validation.test.ts:858](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L858)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:898](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L898)</sub>
 - ✅ `weighted-insufficient` — Weighted threshold [1/3, 1/3, 1/3] with only 2 keys signing fails (2/3 < 1)
   _verifies:_ `signing-threshold-weighted`
-  <sub>[src/kel/__tests__/validation.test.ts:874](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L874)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:914](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L914)</sub>
 - ✅ `weighted-sufficient` — Weighted threshold [1/2, 1/2] with only key 0 signing fails (1/2 < 1)
   _verifies:_ `signing-threshold-weighted`
-  <sub>[src/kel/__tests__/validation.test.ts:892](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L892)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:932](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L932)</sub>
 
 </Accordion>
 <Accordion title="validate-key-rotation — Key commitment chain and non-transferable finality (VERIFIED)">
 
 - ✅ `valid-rotation-key-chain` — icp with n=[digest(KEY2)], rot with k=[KEY2] passes key chain validation
   _verifies:_ `key-commitment-chain`
-  <sub>[src/kel/__tests__/validation.test.ts:916](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L916)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:956](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L956)</sub>
 - ✅ `wrong-rotation-key` — icp with n=[digest(KEY2)], rot with k=[KEY3] fails key chain
   _verifies:_ `key-commitment-chain`
-  <sub>[src/kel/__tests__/validation.test.ts:932](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L932)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:972](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L972)</sub>
 - ✅ `non-transferable-blocks-rotation` — icp with n=[] (non-transferable) blocks any rotation event
   _verifies:_ `non-transferable-finality`
-  <sub>[src/kel/__tests__/validation.test.ts:949](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L949)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:989](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L989)</sub>
 - ✅ `non-transferable-blocks-ixn` — icp with n=[] (non-transferable) blocks ALL subsequent events including ixn
   _verifies:_ `non-transferable-finality`
-  <sub>[src/kel/__tests__/validation.test.ts:984](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L984)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1024](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1024)</sub>
 - ✅ `non-transferable-query` — KELOps.isNonTransferable correctly identifies non-transferable KELs
   _verifies:_ `non-transferable-finality`
-  <sub>[src/kel/__tests__/validation.test.ts:1015](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1015)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1055](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1055)</sub>
 - ✅ `double-rotation` — icp(KEY1, n=KEY2) -> rot(KEY2, n=KEY3) -> rot(KEY3, n=KEY4) all pass
   _verifies:_ `key-commitment-chain`
-  <sub>[src/kel/__tests__/validation.test.ts:1036](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1036)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1076](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1076)</sub>
 - ✅ `rotation-immediately-after-inception` — icp then rot as event index 1 passes
   _verifies:_ `key-commitment-chain`
-  <sub>[src/kel/__tests__/validation.test.ts:1060](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1060)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1100](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1100)</sub>
 
 </Accordion>
 <Accordion title="validate-delegation — VRC requirement and signature verification for delegated events (VERIFIED)">
 
 - ✅ `valid-dip-with-vrc` — Delegated inception with valid parent VRC passes delegation validation
   _verifies:_ `delegation-vrc-required`, `delegation-vrc-signature`
-  <sub>[src/kel/__tests__/validation.test.ts:1138](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1138)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1178](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1178)</sub>
 - ✅ `missing-vrc-attachment` — Delegated inception without VRC attachment fails delegation validation
   _verifies:_ `delegation-vrc-required`
-  <sub>[src/kel/__tests__/validation.test.ts:1153](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1153)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1193](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1193)</sub>
 - ✅ `wrong-parent-signature` — VRC signed with wrong key fails signature verification
   _verifies:_ `delegation-vrc-signature`
-  <sub>[src/kel/__tests__/validation.test.ts:1169](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1169)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1209](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1209)</sub>
 - ✅ `vrc-cid-mismatch` — VRC with wrong child SAID fails validation
   _verifies:_ `delegation-vrc-signature`
-  <sub>[src/kel/__tests__/validation.test.ts:1185](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1185)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1225](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1225)</sub>
 - ✅ `missing-parent-kel` — Delegated inception without parent KEL option fails with missingParentKel flag
   _verifies:_ `delegation-vrc-required`
-  <sub>[src/kel/__tests__/validation.test.ts:1208](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1208)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1248](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1248)</sub>
 - ✅ `dip-without-parent-kel-error-message` — Missing parent KEL error message mentions the parent KEL requirement
   _verifies:_ `delegation-vrc-required`
-  <sub>[src/kel/__tests__/validation.test.ts:1224](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1224)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1264](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1264)</sub>
+- ✅ `vrc-key-index-out-of-range-maps-correctly` — VRC with out-of-range keyIndex produces VRC_KEY_INDEX_INVALID, not PARENT_SIGNATURE_INVALID
+  _verifies:_ `delegation-multi-sig`
+  <sub>[src/kel/__tests__/validation.test.ts:1925](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1925)</sub>
+- ✅ `delegator-threshold-not-met-maps-correctly` — Valid VRC signatures that do not meet delegator kt produce PARENT_THRESHOLD_NOT_MET
+  _verifies:_ `delegation-multi-sig`
+  <sub>[src/kel/__tests__/validation.test.ts:1952](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1952)</sub>
 
 </Accordion>
 <Accordion title="validate-witnesses — Witness threshold, receipts, and delta validity (VERIFIED)">
 
 - ✅ `bt-zero-no-receipts-needed` — bt=0 with no witnesses passes in all modes
   _verifies:_ `witness-threshold-satisfiable`
-  <sub>[src/kel/__tests__/validation.test.ts:1343](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1343)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1381](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1381)</sub>
 - ✅ `bt-equals-witness-count-passes` — bt=2 with 2 witnesses and 2 receipts passes in fully-witnessed mode
   _verifies:_ `witness-receipt-threshold`
-  <sub>[src/kel/__tests__/validation.test.ts:1362](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1362)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1400](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1400)</sub>
 - ✅ `bt-exceeds-witness-count` — bt=3 but only 2 witnesses fails with threshold unsatisfiable
   _verifies:_ `witness-threshold-satisfiable`
-  <sub>[src/kel/__tests__/validation.test.ts:1378](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1378)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1416](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1416)</sub>
 - ✅ `insufficient-receipts-fully-witnessed` — bt=2 with 2 witnesses but only 1 receipt fails in fully-witnessed mode
   _verifies:_ `witness-receipt-threshold`
-  <sub>[src/kel/__tests__/validation.test.ts:1396](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1396)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1434](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1434)</sub>
 - ✅ `structural-mode-ignores-receipts` — bt=2 with 2 witnesses but 0 receipts passes in structural mode
   _verifies:_ `witness-receipt-threshold`
-  <sub>[src/kel/__tests__/validation.test.ts:1415](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1415)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1453](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1453)</sub>
 - ✅ `rotation-valid-br-ba` — Rotation removing WIT1 and adding WIT2 passes
   _verifies:_ `witness-delta-validity`
-  <sub>[src/kel/__tests__/validation.test.ts:1432](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1432)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1470](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1470)</sub>
 - ✅ `rotation-invalid-br-non-existent` — Rotation removing a witness not in the current set fails
   _verifies:_ `witness-delta-validity`
-  <sub>[src/kel/__tests__/validation.test.ts:1455](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1455)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1493](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1493)</sub>
 - ✅ `rotation-invalid-ba-duplicate` — Rotation adding a witness already in the set fails
   _verifies:_ `witness-delta-validity`
-  <sub>[src/kel/__tests__/validation.test.ts:1478](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1478)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1516](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1516)</sub>
+- ✅ `witness-receipt-sig-verified-fully-witnessed` — Valid witness receipts with correct signatures pass in fully-witnessed mode
+  _verifies:_ `witness-receipt-signature`
+  <sub>[src/kel/__tests__/validation.test.ts:1876](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1876)</sub>
+- ✅ `witness-receipt-bad-sig-fully-witnessed` — Witness receipt with invalid signature fails in fully-witnessed mode
+  _verifies:_ `witness-receipt-signature`
+  <sub>[src/kel/__tests__/validation.test.ts:1897](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1897)</sub>
 
 </Accordion>
 <Accordion title="validate-config-traits — EO, DND, and trait immutability enforcement (VERIFIED)">
 
 - ✅ `eo-blocks-ixn` — Establishment-only (EO) trait blocks interaction events
   _verifies:_ `config-eo-enforcement`
-  <sub>[src/kel/__tests__/validation.test.ts:1507](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1507)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1545](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1545)</sub>
 - ✅ `eo-allows-rotation` — Establishment-only (EO) trait allows rotation events
   _verifies:_ `config-eo-enforcement`
-  <sub>[src/kel/__tests__/validation.test.ts:1527](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1527)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1565](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1565)</sub>
 - ✅ `config-traits-set-at-inception` — Config traits from inception are recorded in derived state
   _verifies:_ `config-trait-immutability`
-  <sub>[src/kel/__tests__/validation.test.ts:1546](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1546)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1584](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1584)</sub>
 - ✅ `rotation-cannot-remove-traits` — Rotation that removes an inception trait fails with CONFIG_TRAIT_REMOVED
   _verifies:_ `config-trait-immutability`
-  <sub>[src/kel/__tests__/validation.test.ts:1564](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1564)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1602](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1602)</sub>
 - ✅ `rotation-preserving-traits-passes` — Rotation that preserves inception traits passes validation
   _verifies:_ `config-trait-immutability`
-  <sub>[src/kel/__tests__/validation.test.ts:1585](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1585)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1623](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1623)</sub>
 - ✅ `dnd-blocks-delegator` — DND trait prevents identifier from serving as a delegator
   _verifies:_ `config-dnd-enforcement`
-  <sub>[src/kel/__tests__/validation.test.ts:1620](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1620)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1658](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1658)</sub>
 - ✅ `no-dnd-allows-delegation` — Absence of DND trait allows identifier to serve as delegator
   _verifies:_ `config-dnd-enforcement`
-  <sub>[src/kel/__tests__/validation.test.ts:1633](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1633)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1671](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1671)</sub>
 - ✅ `empty-kel-is-not-dnd` — Empty KEL returns false for DND check
   _verifies:_ `config-dnd-enforcement`
-  <sub>[src/kel/__tests__/validation.test.ts:1646](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1646)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1684](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1684)</sub>
 
 </Accordion>
 <Accordion title="validate-key-uniqueness — No duplicate keys in k[] or n[] (VERIFIED)">
 
 - ✅ `no-duplicate-keys-passes` — Inception with unique signing keys passes validation
   _verifies:_ `no-duplicate-signing-keys`
-  <sub>[src/kel/__tests__/validation.test.ts:1664](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1664)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1702](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1702)</sub>
 - ✅ `duplicate-keys-fails` — Inception with duplicate signing key in k[] fails validation
   _verifies:_ `no-duplicate-signing-keys`
-  <sub>[src/kel/__tests__/validation.test.ts:1678](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1678)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1716](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1716)</sub>
 - ✅ `duplicate-next-digests-fails` — Inception with duplicate digest in n[] fails validation
   _verifies:_ `no-duplicate-next-digests`
-  <sub>[src/kel/__tests__/validation.test.ts:1705](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1705)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1743](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1743)</sub>
 
 </Accordion>
 <Accordion title="validate-chain — End-to-end chain validation (VERIFIED)">
 
 - ✅ `valid-three-event-chain` — Valid icp → ixn → rot chain passes end-to-end validation
   _verifies:_ `sequence-monotonicity`, `previous-event-chain`
-  <sub>[src/kel/__tests__/validation.test.ts:1731](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1731)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1769](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1769)</sub>
 - ✅ `valid-five-event-chain` — Valid icp → ixn → rot → ixn → rot chain passes end-to-end validation
   _verifies:_ `sequence-monotonicity`, `previous-event-chain`
-  <sub>[src/kel/__tests__/validation.test.ts:1748](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1748)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1786](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1786)</sub>
 - ✅ `broken-chain-mid-sequence` — Second event with wrong p field breaks chain linkage
   _verifies:_ `sequence-monotonicity`, `previous-event-chain`
-  <sub>[src/kel/__tests__/validation.test.ts:1767](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1767)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1805](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1805)</sub>
 - ✅ `chain-with-delegation` — Delegated inception with VRC followed by ixn validates end-to-end
   _verifies:_ `sequence-monotonicity`, `previous-event-chain`
-  <sub>[src/kel/__tests__/validation.test.ts:1786](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1786)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1824](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1824)</sub>
 - ✅ `incremental-validation-start-index` — Validation starting from index 2 only validates the last event of a 3-event chain
   _verifies:_ `sequence-monotonicity`, `previous-event-chain`
-  <sub>[src/kel/__tests__/validation.test.ts:1811](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1811)</sub>
+  <sub>[src/kel/__tests__/validation.test.ts:1849](https://github.com/aaronp/kerits/blob/master/src/kel/__tests__/validation.test.ts#L1849)</sub>
 
 </Accordion>
 </Accordions>

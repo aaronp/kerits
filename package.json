@@ -1,6 +1,6 @@
 {
   "name": "@kerits/core",
-  "version": "0.2.61",
+  "version": "0.2.63",
   "type": "module",
   "exports": {
     ".": {
@@ -34,6 +34,12 @@
     "@kerits/architecture": "file:./packages/architecture",
     "@types/bun": "latest",
     "typescript": "^5"
+  },
+  "homepage": "https://kerits.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aaronp/kerits.git",
+    "directory": "packages/core"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org"

@@ -184,6 +184,16 @@ export const kelValidation: Capability<CapabilityId, DomainId, LayerId> = {
     },
     { id: 'no-duplicate-signing-keys', statement: 'k[] must not contain duplicate public keys' },
     { id: 'no-duplicate-next-digests', statement: 'n[] must not contain duplicate digests' },
+    {
+      id: 'witness-receipt-signature',
+      statement:
+        'In fully-witnessed mode, witness receipt signatures must cryptographically verify against the event canonical bytes using the witness identifier as the public key (non-transferable basic identifier model)',
+    },
+    {
+      id: 'delegation-multi-sig',
+      statement:
+        'VRC verification must check all VRC attachments against the parent establishment key list and satisfy the parent signing threshold (kt), not just k[0]',
+    },
   ],
 };
 
