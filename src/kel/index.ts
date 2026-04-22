@@ -15,6 +15,20 @@ export const Kel = {
 } as const;
 
 export { KELEvents } from './events.js';
+export { KELData } from './kel-data.js';
 export type { KEL } from './kel-interface.js';
+export { KELOps } from './ops.js';
+export type {
+  ControllerSignatureValidationError,
+  CurrentKeySet,
+  EstablishmentEvent,
+  EventRef,
+  KELView,
+  MatchKeyRevelationInput,
+  MatchKeyRevelationResult,
+  PreviousNextKeyCommitment,
+  ValidateAppendResult,
+  ValidateControllerSignatureResult,
+} from './ops-types.js';
 export * from './types.js';
-export type { Vault } from './vault-interface.js';
+export type { CreatedKey, KeyCreateOptions, Vault, VaultPurpose } from './vault-interface.js';

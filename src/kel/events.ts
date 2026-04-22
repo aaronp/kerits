@@ -342,4 +342,24 @@ export namespace KELEvents {
   export function nextSequence(priorSeq: string): string {
     return String(Number.parseInt(priorSeq, 10) + 1);
   }
+
+  /**
+   * Assemble a signed CESREvent from a finalized event + indexed signatures.
+   *
+   * Signatures must be CESR qb64-encoded strings (use encodeSig from cesr/sigs.js).
+   * Structural assembly only — does not verify signatures match event keys.
+   * Validation happens in KELOps.validateAppend.
+   */
+  export function assembleSignedEvent(params: {
+    event: KELEvent;
+    signatures: Array<{ keyIndex: number; sig: string }>;
+  }): import('./types.js').CESREvent {
+    const attachments: import('./types.js').CesrAttachment[] = params.signatures.map((s) => ({
+      kind: 'sig' as const,
+      form: 'indexed' as const,
+      keyIndex: s.keyIndex,
+      sig: s.sig,
+    }));
+    return { event: params.event, attachments, enc: 'JSON' };
+  }
 }

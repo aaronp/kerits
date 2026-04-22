@@ -1,10 +1,11 @@
 {
   "name": "@kerits/core",
-  "version": "0.2.40",
+  "version": "0.2.61",
   "type": "module",
   "exports": {
     ".": {
       "bun": "./src/index.ts",
+      "types": "./src/index.ts",
       "worker": "./dist/worker.js",
       "browser": "./dist/browser.js",
       "import": "./dist/index.js",
@@ -23,12 +24,14 @@
   },
   "dependencies": {
     "@noble/curves": "^2.0.1",
+    "@scure/bip39": "^2.0.1",
     "@noble/hashes": "^2.0.1",
     "@sinclair/typebox": "^0.34.41",
     "cesr-ts": "github:WebOfTrust/cesr-ts",
     "json-canonicalize": "^2.0.0"
   },
   "devDependencies": {
+    "@kerits/architecture": "file:./packages/architecture",
     "@types/bun": "latest",
     "typescript": "^5"
   },

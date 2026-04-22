@@ -102,7 +102,7 @@ const events: CESREvent[] = [
   { event: rotEvent, attachments: [{ kind: 'sig', form: 'indexed', keyIndex: 0, sig: 'ABsig...' }], enc: 'JSON' },
 ];
 
-const result = await validateKelChain(events);
+const result = validateKelChain(events);
 // {
 //   valid: boolean,
 //   eventDetails: EventValidationDetail[],
@@ -123,7 +123,7 @@ import { validateKelChain } from '@kerits/core';
 // Tamper with the prior-event reference
 const tamperedRot = { ...rotEvent, p: 'Ewrongpriorsaid...' };
 
-const result = await validateKelChain([
+const result = validateKelChain([
   { event: icpEvent, attachments: [], enc: 'JSON' },
   { event: tamperedRot, attachments: [], enc: 'JSON' },
 ]);
@@ -145,7 +145,7 @@ For long KELs you can start validation from a specific index using `options.star
 import { validateKelChain } from '@kerits/core';
 
 // Only re-validate the last 3 events of an already-verified chain
-const result = await validateKelChain(events, { startIndex: events.length - 3 });
+const result = validateKelChain(events, { startIndex: events.length - 3 });
 ```
 
 ### Delegated KELs
@@ -155,7 +155,7 @@ For delegated identifiers (`dip`/`drt` events), provide the parent KEL so that v
 ```ts title="delegated.ts"
 import { validateKelChain } from '@kerits/core';
 
-const result = await validateKelChain(delegatedEvents, { parentKel: parentEvents });
+const result = validateKelChain(delegatedEvents, { parentKel: parentEvents });
 ```
 
 ## Validation error codes

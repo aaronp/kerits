@@ -16,8 +16,10 @@ import { digestVerfer } from '../cesr/digest.js';
 import { Data } from '../common/data.js';
 import type { PublicKey, Signature, Threshold } from '../common/types.js';
 import { verify } from '../signature/verify.js';
+import { type DerivedState, reduceKelState } from './kel-state.js';
 import { matchKeyRevelation } from './rotation.js';
 import { checkThreshold, type ThresholdSpec } from './threshold.js';
+import { checkNormalizedThreshold } from './threshold-normalize.js';
 import type { AID, CESREvent, CesrAttachment, DipEvent, DrtEvent, IcpEvent, KELEvent, RotEvent } from './types.js';
 
 /**
@@ -31,13 +33,28 @@ export type ValidationErrorCode =
   | 'MISSING_PARENT_KEL'
   | 'PARENT_SIGNATURE_INVALID'
   | 'SAID_MISMATCH'
-  | 'MISSING_REQUIRED_FIELD';
+  | 'MISSING_REQUIRED_FIELD'
+  | 'SEQUENCE_INVALID'
+  | 'AID_DERIVATION_INVALID'
+  | 'AID_INCONSISTENT'
+  | 'FIRST_EVENT_NOT_INCEPTION'
+  | 'NON_TRANSFERABLE_VIOLATION'
+  | 'CONFIG_TRAIT_VIOLATION'
+  | 'CONFIG_TRAIT_REMOVED'
+  | 'WITNESS_THRESHOLD_UNSATISFIABLE'
+  | 'WITNESS_DELTA_INVALID'
+  | 'WITNESS_RECEIPT_THRESHOLD_NOT_MET'
+  | 'DUPLICATE_KEYS'
+  | 'DUPLICATE_NEXT_DIGESTS'
+  | 'INCEPTION_INVALID';
 
 /**
  * Validation error with details
  */
 export interface ValidationError {
   code: ValidationErrorCode;
+  scope: 'event' | 'chain' | 'attachment';
+  severity: 'error' | 'warning';
   message: string;
   eventIndex?: number;
   missingAid?: AID;
@@ -141,6 +158,11 @@ export interface RichValidationResult {
 }
 
 /**
+ * Validation presets control which checks are enforced
+ */
+export type ValidationPreset = 'structural' | 'fully-witnessed' | 'strict';
+
+/**
  * Options for KEL chain validation
  */
 export interface KelValidationOptions {
@@ -149,6 +171,9 @@ export interface KelValidationOptions {
 
   /** Start validation from this index (for incremental validation) */
   startIndex?: number;
+
+  /** Validation mode (default: 'structural') */
+  mode?: ValidationPreset;
 }
 
 // --------------------------------------------------------------------------------------
@@ -410,10 +435,10 @@ function validateKeyChainWithDetails(
  * @param parentKel - Optional parent KEL events for validation
  * @returns Check result with delegation details
  */
-async function validateDelegationWithDetails(
+function validateDelegationWithDetails(
   cesrEvent: CESREvent,
   parentKel?: CESREvent[],
-): Promise<CheckResult & { parentAid?: string; missingParentKel?: boolean }> {
+): CheckResult & { parentAid?: string; missingParentKel?: boolean } {
   const event = cesrEvent.event;
 
   if (!isDelegatedEvent(event)) {
@@ -629,29 +654,46 @@ export function validateKeyChain(
 }
 
 // --------------------------------------------------------------------------------------
-// Main Chain Validation
+// Two-Pass Validation
 // --------------------------------------------------------------------------------------
 
 /**
- * Validate a KEL chain with rich per-event details
+ * Check an array for duplicate entries
  *
- * Performs comprehensive validation:
- * 1. Schema validation - event matches KELEventSchema
- * 2. SAID validation - event's d field matches computed SAID
- * 3. Required fields validation - all required fields present for event type
- * 4. Signature validation - all signatures verify against their keys
- * 5. Threshold validation - enough valid signatures to meet threshold
- * 6. Key chain validation - rotation keys match previous next key commitments
- * 7. Delegate validation - delegated events have valid parent approval
+ * @param items - Array of strings to check
+ * @returns Array of duplicate values, empty if no duplicates
+ */
+function checkArrayUniqueness(items: string[]): string[] {
+  const seen = new Set<string>();
+  const duplicates: string[] = [];
+  for (const item of items) {
+    if (seen.has(item)) {
+      duplicates.push(item);
+    }
+    seen.add(item);
+  }
+  return duplicates;
+}
+
+/**
+ * Validate a KEL using pre-computed derived state (two-pass architecture).
+ *
+ * Pass 1: `reduceKelState` derives per-event state (keys, thresholds, witnesses, traits).
+ * Pass 2: `validateKel` runs validation checks against each event using that state.
+ *
+ * This separation allows callers who already have derived state to skip re-derivation,
+ * and enables future validation presets (structural, fully-witnessed, strict).
  *
  * @param events - Array of CESR events to validate
- * @param options - Optional validation options (parentKel, startIndex)
+ * @param states - Pre-computed derived state from `reduceKelState`
+ * @param options - Optional validation options (parentKel, startIndex, mode)
  * @returns RichValidationResult with per-event details and overall validity
  */
-export async function validateKelChain(
+export function validateKel(
   events: CESREvent[],
+  states: DerivedState[],
   options?: KelValidationOptions,
-): Promise<RichValidationResult> {
+): RichValidationResult {
   const eventDetails: EventValidationDetail[] = [];
   let firstError: ValidationError | undefined;
   let overallValid = true;
@@ -679,6 +721,7 @@ export async function validateKelChain(
     const cesrEvent = events[i]!;
     const event = cesrEvent.event;
     const eventType = event.t as KelEventType;
+    const state = states[i];
 
     // Initialize checks for this event
     const checks: EventValidationDetail['checks'] = {
@@ -689,21 +732,20 @@ export async function validateKelChain(
       thresholdMet: { passed: true },
     };
 
-    // 1. Event type validation - check t field is a valid KERI event type
+    // 1. Event type validation
     const validTypes = ['icp', 'rot', 'ixn', 'dip', 'drt'];
     const typeValid = validTypes.includes(event.t);
     let typeError: string | undefined;
     if (!typeValid) {
       typeError = `Invalid event type '${event.t}'. Must be one of: ${validTypes.join(', ')}`;
     }
-    checks.isValidKeriEvent = {
-      passed: typeValid,
-      error: typeError,
-    };
+    checks.isValidKeriEvent = { passed: typeValid, error: typeError };
 
     if (!typeValid && !firstError) {
       firstError = {
-        code: 'MISSING_REQUIRED_FIELD', // Using existing code for type errors
+        code: 'MISSING_REQUIRED_FIELD',
+        scope: 'event',
+        severity: 'error',
         message: typeError ?? 'Invalid KERI event type',
         eventIndex: i,
       };
@@ -723,6 +765,8 @@ export async function validateKelChain(
     if (!saidMatches && !firstError) {
       firstError = {
         code: 'SAID_MISMATCH',
+        scope: 'event',
+        severity: 'error',
         message: `SAID mismatch for event ${i}`,
         eventIndex: i,
       };
@@ -740,6 +784,8 @@ export async function validateKelChain(
     if (!requiredResult.passed && !firstError) {
       firstError = {
         code: 'MISSING_REQUIRED_FIELD',
+        scope: 'event',
+        severity: 'error',
         message: `Missing required fields in event ${i}: ${requiredResult.missing?.join(', ')}`,
         eventIndex: i,
       };
@@ -754,6 +800,8 @@ export async function validateKelChain(
     if (!prevEventResult.passed && !firstError) {
       firstError = {
         code: 'PREVIOUS_EVENT_MISMATCH',
+        scope: 'chain',
+        severity: 'error',
         message: prevEventResult.error ?? `Previous event link invalid in event ${i}`,
         eventIndex: i,
       };
@@ -771,12 +819,11 @@ export async function validateKelChain(
       keys = lastEstablishment.k as PublicKey[];
       threshold = lastEstablishment.kt as Threshold;
     } else {
-      // No establishment event found - cannot validate signatures
       keys = [];
       threshold = '0';
     }
 
-    // 4. Signature validation with details
+    // 5. Signature validation with details
     const sigResult = validateSignaturesWithDetails(cesrEvent, keys);
     checks.signaturesValid = {
       passed: sigResult.allValid,
@@ -788,21 +835,27 @@ export async function validateKelChain(
       const firstInvalid = sigResult.details.find((d) => !d.valid);
       firstError = {
         code: 'SIGNATURE_INVALID',
+        scope: 'attachment',
+        severity: 'error',
         message: `Signature at index ${firstInvalid?.keyIndex ?? 'unknown'} is invalid`,
         eventIndex: i,
       };
       overallValid = false;
     }
 
-    // 5. Threshold validation
-    const thresholdSpec: ThresholdSpec = threshold;
+    // 6. Threshold validation — prefer normalized threshold from state if available
     let thresholdMet = false;
-    try {
-      const thresholdResult = checkThreshold(thresholdSpec, Array.from(sigResult.validKeyIndices), keys.length);
-      thresholdMet = thresholdResult.satisfied;
-    } catch {
-      // Malformed threshold - consider not met
-      thresholdMet = false;
+    if (state) {
+      const normalizedResult = checkNormalizedThreshold(state.signingThreshold, sigResult.validKeyIndices);
+      thresholdMet = normalizedResult.satisfied;
+    } else {
+      try {
+        const thresholdSpec: ThresholdSpec = threshold;
+        const thresholdResult = checkThreshold(thresholdSpec, Array.from(sigResult.validKeyIndices), keys.length);
+        thresholdMet = thresholdResult.satisfied;
+      } catch {
+        thresholdMet = false;
+      }
     }
 
     checks.thresholdMet = {
@@ -815,13 +868,15 @@ export async function validateKelChain(
     if (!thresholdMet && !firstError) {
       firstError = {
         code: 'THRESHOLD_NOT_MET',
+        scope: 'attachment',
+        severity: 'error',
         message: `Threshold not met for event ${i}: ${sigResult.validKeyIndices.size} valid signatures`,
         eventIndex: i,
       };
       overallValid = false;
     }
 
-    // 6. Key chain validation for rotation events
+    // 7. Key chain validation for rotation events
     if ((event.t === 'rot' || event.t === 'drt') && lastEstablishment) {
       const keyChainResult = validateKeyChainWithDetails(event, lastEstablishment);
       checks.keyChainValid = keyChainResult;
@@ -829,6 +884,8 @@ export async function validateKelChain(
       if (!keyChainResult.passed && !firstError) {
         firstError = {
           code: 'NEXT_KEY_MISMATCH',
+          scope: 'event',
+          severity: 'error',
           message: `Keys in event ${i} do not match previous event's next key commitments`,
           eventIndex: i,
         };
@@ -836,20 +893,197 @@ export async function validateKelChain(
       }
     }
 
-    // 7. Delegation validation for delegated events
+    // 8. Delegation validation for delegated events
     if (isDelegatedEvent(event)) {
-      const delegationResult = await validateDelegationWithDetails(cesrEvent, parentKel);
+      const delegationResult = validateDelegationWithDetails(cesrEvent, parentKel);
       checks.delegationValid = delegationResult;
 
       if (!delegationResult.passed && !firstError) {
         const errorCode = delegationResult.missingParentKel ? 'MISSING_PARENT_KEL' : 'PARENT_SIGNATURE_INVALID';
         firstError = {
           code: errorCode,
+          scope: 'attachment',
+          severity: 'error',
           message: delegationResult.error ?? 'Delegation validation failed',
           eventIndex: i,
           missingAid: delegationResult.parentAid as AID | undefined,
         };
         overallValid = false;
+      }
+    }
+
+    // 9. Sequence number validation (uses derived state)
+    if (state && event.s !== state.expectedSequence) {
+      if (!firstError) {
+        firstError = {
+          code: 'SEQUENCE_INVALID',
+          scope: 'event',
+          severity: 'error',
+          message: `Sequence number mismatch at event ${i}: expected ${state.expectedSequence}, got ${event.s}`,
+          eventIndex: i,
+        };
+        overallValid = false;
+      }
+    }
+
+    // 10. AID consistency (uses derived state)
+    if (state && i > 0 && event.i !== (state.kelAid as string)) {
+      if (!firstError) {
+        firstError = {
+          code: 'AID_INCONSISTENT',
+          scope: 'chain',
+          severity: 'error',
+          message: `AID mismatch at event ${i}: expected ${state.kelAid}, got ${event.i}`,
+          eventIndex: i,
+        };
+        overallValid = false;
+      }
+    }
+
+    // 11. First event must be inception (uses derived state)
+    if (state && i === 0 && event.t !== 'icp' && event.t !== 'dip') {
+      if (!firstError) {
+        firstError = {
+          code: 'FIRST_EVENT_NOT_INCEPTION',
+          scope: 'chain',
+          severity: 'error',
+          message: `First event must be icp or dip, got ${event.t}`,
+          eventIndex: i,
+        };
+        overallValid = false;
+      }
+    }
+
+    // 12. Non-transferable violation (uses derived state)
+    // A non-transferable AID (n=[]) cannot have ANY subsequent events.
+    if (state?.nonTransferable && i > start) {
+      if (!firstError) {
+        firstError = {
+          code: 'NON_TRANSFERABLE_VIOLATION',
+          scope: 'event',
+          severity: 'error',
+          message: `Non-transferable AID cannot have any event after inception at index ${i}`,
+          eventIndex: i,
+        };
+        overallValid = false;
+      }
+    }
+
+    // 13. Config trait: EO (establishment only) blocks ixn
+    if (state?.inceptionTraits.has('EO') && event.t === 'ixn') {
+      if (!firstError) {
+        firstError = {
+          code: 'CONFIG_TRAIT_VIOLATION',
+          scope: 'event',
+          severity: 'error',
+          message: `Establishment-only (EO) AID cannot have interaction event at ${i}`,
+          eventIndex: i,
+        };
+        overallValid = false;
+      }
+    }
+
+    // 13b. Config trait immutability: rotation cannot remove inception traits
+    if (state && (event.t === 'rot' || event.t === 'drt') && state.inceptionTraits.size > 0) {
+      const rotTraits = new Set((event as RotEvent | DrtEvent).c ?? []);
+      for (const trait of state.inceptionTraits) {
+        if (!rotTraits.has(trait)) {
+          if (!firstError) {
+            firstError = {
+              code: 'CONFIG_TRAIT_REMOVED',
+              scope: 'event',
+              severity: 'error',
+              message: `Rotation at event ${i} removes inception trait '${trait}'`,
+              eventIndex: i,
+            };
+          }
+          overallValid = false;
+          break;
+        }
+      }
+    }
+
+    // 14. Duplicate keys check
+    if (isEstablishmentEvent(event)) {
+      const dupKeys = checkArrayUniqueness(event.k as string[]);
+      if (dupKeys.length > 0 && !firstError) {
+        firstError = {
+          code: 'DUPLICATE_KEYS',
+          scope: 'event',
+          severity: 'error',
+          message: `Duplicate signing keys at event ${i}: ${dupKeys.join(', ')}`,
+          eventIndex: i,
+        };
+        overallValid = false;
+      }
+
+      const dupNextDigests = checkArrayUniqueness(event.n as string[]);
+      if (dupNextDigests.length > 0 && !firstError) {
+        firstError = {
+          code: 'DUPLICATE_NEXT_DIGESTS',
+          scope: 'event',
+          severity: 'error',
+          message: `Duplicate next key digests at event ${i}: ${dupNextDigests.join(', ')}`,
+          eventIndex: i,
+        };
+        overallValid = false;
+      }
+    }
+
+    // 15. Witness validation (uses derived state)
+    if (state && isEstablishmentEvent(event)) {
+      const bt = typeof state.witnessThreshold === 'string' ? parseInt(state.witnessThreshold, 10) || 0 : 0;
+      const witnessCount = state.witnesses.size;
+
+      // 15a. Witness threshold must be satisfiable (bt <= witness count)
+      if (bt > witnessCount) {
+        if (!firstError) {
+          firstError = {
+            code: 'WITNESS_THRESHOLD_UNSATISFIABLE',
+            scope: 'event',
+            severity: 'error',
+            message: `Witness threshold ${bt} exceeds witness count ${witnessCount} at event ${i}`,
+            eventIndex: i,
+          };
+        }
+        overallValid = false;
+      }
+
+      // 15b. Witness delta validity for rotation events
+      const witnessNotes = state.notes.filter((n) => n.code === 'malformed-witnesses');
+      if (witnessNotes.length > 0) {
+        if (!firstError) {
+          firstError = {
+            code: 'WITNESS_DELTA_INVALID',
+            scope: 'event',
+            severity: 'error',
+            message: witnessNotes[0]!.message,
+            eventIndex: i,
+          };
+        }
+        overallValid = false;
+      }
+    }
+
+    // 15c. Witness receipt threshold (fully-witnessed mode only)
+    if (state && options?.mode === 'fully-witnessed' && isEstablishmentEvent(event)) {
+      const bt = typeof state.witnessThreshold === 'string' ? parseInt(state.witnessThreshold, 10) || 0 : 0;
+      if (bt > 0) {
+        const rctAttachments = cesrEvent.attachments.filter((a) => a.kind === 'rct');
+        // Count receipts from witnesses in the current witness set
+        const validReceipts = rctAttachments.filter((a) => state.witnesses.has((a as any).by as string));
+        if (validReceipts.length < bt) {
+          if (!firstError) {
+            firstError = {
+              code: 'WITNESS_RECEIPT_THRESHOLD_NOT_MET',
+              scope: 'attachment',
+              severity: 'error',
+              message: `Witness receipt threshold not met at event ${i}: ${validReceipts.length} receipts, need ${bt}`,
+              eventIndex: i,
+            };
+          }
+          overallValid = false;
+        }
       }
     }
 
@@ -887,4 +1121,24 @@ export async function validateKelChain(
     eventDetails,
     firstError,
   };
+}
+
+// --------------------------------------------------------------------------------------
+// Main Chain Validation (Thin Wrapper)
+// --------------------------------------------------------------------------------------
+
+/**
+ * Validate a KEL chain with rich per-event details
+ *
+ * Thin wrapper over the two-pass architecture:
+ * 1. `reduceKelState` derives per-event state
+ * 2. `validateKel` runs validation checks against each event
+ *
+ * @param events - Array of CESR events to validate
+ * @param options - Optional validation options (parentKel, startIndex, mode)
+ * @returns RichValidationResult with per-event details and overall validity
+ */
+export function validateKelChain(events: CESREvent[], options?: KelValidationOptions): RichValidationResult {
+  const states = reduceKelState(events);
+  return validateKel(events, states, options);
 }

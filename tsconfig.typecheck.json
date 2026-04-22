@@ -4,10 +4,12 @@
     "noEmit": true,
     "declaration": false,
     "emitDeclarationOnly": false,
+    "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
       "cesr-ts/src/*": ["../codex/src/vendor/cesr-ts/src/*"]
     }
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "src/**/__tests__/**", "src/**/*.test.ts"]
 }

@@ -7,7 +7,10 @@
 
 import { describe, expect, test } from 'bun:test';
 import type { KELEvent } from './types.js';
-import { isValidKeriEvent, type ValidationErrorCode, validateKelChain, validateRequiredFields } from './validation.js';
+import { KELOps } from './ops.js';
+import type { ValidationErrorCode } from './validation.js';
+
+const { isValidKeriEvent, validateKelChain, validateRequiredFields } = KELOps;
 
 describe('isValidKeriEvent', () => {
   test('returns true for valid event types', () => {
@@ -68,8 +71,8 @@ describe('validateRequiredFields', () => {
 });
 
 describe('validateKelChain', () => {
-  test('returns valid for empty chain', async () => {
-    const result = await validateKelChain([]);
+  test('returns valid for empty chain', () => {
+    const result = validateKelChain([]);
     expect(result.valid).toBe(true);
     expect(result.eventDetails).toEqual([]);
   });

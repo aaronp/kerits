@@ -9,3 +9,4 @@ export const Signature = {
 } as const;
 
 export type { Signer } from './signer.js';
+export { Signers } from './signers.js';

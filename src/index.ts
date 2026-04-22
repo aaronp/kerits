@@ -46,7 +46,10 @@ export * from './common/brand.js';
 export * from './common/canonical.js';
 export * from './common/data.js';
 export * from './common/errors.js';
+export { transferableKeyToPublicKey } from './common/key-conversions.js';
 export * from './common/types.js';
+export { KeriKeyPairs } from './crypto/index.js';
+export { deriveSharedSecret, ed25519ToX25519Private, ed25519ToX25519Public } from './crypto/x25519.js';
 export type {
   DipParams,
   DrtParams,
@@ -56,7 +59,6 @@ export type {
   RotParams,
   UnsignedEventResult,
 } from './kel/events.js';
-// ── KEL event factories ─────────────────────────────────────────────
 export { KELEvents } from './kel/events.js';
 // ── Namespace types ──────────────────────────────────────────────────
 // ── KEL event types ──────────────────────────────────────────────────
@@ -65,23 +67,38 @@ export type {
   CESREvent,
   CesrAttachment,
   CesrSeal,
+  ControllerSignatureValidationError,
+  CreatedKey,
+  CurrentKeySet,
   DigestSeal,
   DipEvent,
   DrtEvent,
+  EstablishmentEvent,
+  EventRef,
   IcpEvent,
   IxnEvent,
   KEL,
   KELEvent,
+  KELView,
   KelAppend,
   KelManifest,
+  KeyCreateOptions,
   KeyIndex,
   KSN,
+  MatchKeyRevelationInput,
+  MatchKeyRevelationResult,
+  PreviousNextKeyCommitment,
   PublishedResource,
   PublishFormat,
   RotEvent,
+  ValidateAppendResult,
+  ValidateControllerSignatureResult,
   Vault,
   VaultAppend,
+  VaultPurpose,
 } from './kel/index.js';
+// ── KEL ops ─────────────────────────────────────────────────────────
+// ── KEL ops ─────────────────────────────────────────────────────────
 // ── KEL event schemas and namespaces ─────────────────────────────────
 export {
   AnySealSchema,
@@ -97,6 +114,7 @@ export {
   IcpEventSchema,
   IxnEventSchema,
   KELEventSchema,
+  KELOps,
   Kel,
   KelAppendSchema,
   KelAppends,
@@ -108,6 +126,11 @@ export {
   RotEventSchema,
   VaultAppendSchema,
 } from './kel/index.js';
+// ── KEL event factories ─────────────────────────────────────────────
+export { KELData } from './kel/kel-data.js';
+// ── KEL state derivation ────────────────────────────────────────────
+export type { DerivedState } from './kel/kel-state.js';
+export { reduceKelState } from './kel/kel-state.js';
 export type {
   ThresholdCheckResult,
   ThresholdSpec,
@@ -118,6 +141,9 @@ export {
   checkThreshold,
   parseSimpleThreshold,
 } from './kel/threshold.js';
+// ── KEL threshold normalization ─────────────────────────────────────
+export type { NormalizedThreshold } from './kel/threshold-normalize.js';
+export { normalizeThreshold } from './kel/threshold-normalize.js';
 // ── KEL validation ──────────────────────────────────────────────────
 export type {
   CheckResult,
@@ -128,11 +154,13 @@ export type {
   SignatureDetail,
   ValidationError,
   ValidationErrorCode,
+  ValidationPreset,
   ValidationResult,
 } from './kel/validation.js';
 export {
   isValidKeriEvent,
   validateEventSaid,
+  validateKel,
   validateKelChain,
   validateKeyChain,
   validateRequiredFields,
@@ -145,7 +173,8 @@ export {
   validateSAID,
 } from './said/said.js';
 export type { Signer } from './signature/index.js';
-export { Signature } from './signature/index.js';
+// Value namespace renamed to avoid shadowing the Signature branded type from common/types.
+export { Signature as SignatureOps, Signers } from './signature/index.js';
 // ── Crypto primitives ────────────────────────────────────────────────
 export {
   bytesToHex,

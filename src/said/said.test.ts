@@ -1,42 +1,83 @@
 import { describe, expect, it } from 'bun:test';
 import { encodeSAID, saidFromJson, validateSAID } from './said.js';
+import { scenario } from '../architecture/index.js';
+import { saidEncode, saidVerify } from '../architecture/registry.js';
 
 describe('encodeSAID', () => {
-  it('should compute a SAID for a simple object', () => {
-    const obj = { d: '', hello: 'world' };
-    const said = encodeSAID(obj);
-    expect(typeof said).toBe('string');
-    expect(said.length).toBeGreaterThan(10);
-    // CESR Blake3-256 digests start with 'E'
-    expect(said.startsWith('E')).toBe(true);
-  });
+  scenario(
+    {
+      id: 'encodes-simple-object',
+      functionality: saidEncode,
+      description: 'Computes a CESR-prefixed SAID for a trivial object',
+      covers: ['encode-and-verify-are-compatible'],
+    },
+    () => {
+      const obj = { d: '', hello: 'world' };
+      const said = encodeSAID(obj);
+      expect(typeof said).toBe('string');
+      expect(said.length).toBeGreaterThan(10);
+      expect(said.startsWith('E')).toBe(true);
+    },
+  );
 
-  it('should produce deterministic results', () => {
-    const obj = { d: '', hello: 'world' };
-    const said1 = encodeSAID(obj);
-    const said2 = encodeSAID(obj);
-    expect(said1).toBe(said2);
-  });
+  scenario(
+    {
+      id: 'is-deterministic',
+      functionality: saidEncode,
+      description: 'Same input produces the same SAID',
+      covers: ['deterministic'],
+    },
+    () => {
+      const obj = { d: '', hello: 'world' };
+      const said1 = encodeSAID(obj);
+      const said2 = encodeSAID(obj);
+      expect(said1).toBe(said2);
+    },
+  );
 });
 
 describe('validateSAID', () => {
-  it('should validate a correct SAID', () => {
-    const obj = { d: '', hello: 'world' };
-    const said = encodeSAID(obj);
-    const objWithSaid = { ...obj, d: said };
-    expect(validateSAID(said, objWithSaid)).toBe(true);
-  });
+  scenario(
+    {
+      id: 'accepts-correct-said',
+      functionality: saidVerify,
+      description: 'validateSAID returns true for a correctly-sealed object',
+      covers: ['encode-and-verify-are-compatible'],
+    },
+    () => {
+      const obj = { d: '', hello: 'world' };
+      const said = encodeSAID(obj);
+      const objWithSaid = { ...obj, d: said };
+      expect(validateSAID(said, objWithSaid)).toBe(true);
+    },
+  );
 
-  it('should reject an incorrect SAID', () => {
-    const obj = { d: '', hello: 'world' };
-    const said = encodeSAID(obj);
-    const tampered = { d: said, hello: 'tampered' };
-    expect(validateSAID(said, tampered)).toBe(false);
-  });
+  scenario(
+    {
+      id: 'rejects-tampered-object',
+      functionality: saidVerify,
+      description: 'validateSAID returns false when the object has been mutated',
+      covers: ['verification-rejects-mismatch'],
+    },
+    () => {
+      const obj = { d: '', hello: 'world' };
+      const said = encodeSAID(obj);
+      const tampered = { d: said, hello: 'tampered' };
+      expect(validateSAID(said, tampered)).toBe(false);
+    },
+  );
 
-  it('should return false for invalid SAID strings', () => {
-    expect(validateSAID('not-a-said', { d: 'not-a-said' })).toBe(false);
-  });
+  scenario(
+    {
+      id: 'rejects-invalid-said-string',
+      functionality: saidVerify,
+      description: 'validateSAID returns false for garbage SAID strings',
+      covers: ['verification-rejects-mismatch'],
+    },
+    () => {
+      expect(validateSAID('not-a-said', { d: 'not-a-said' })).toBe(false);
+    },
+  );
 });
 
 describe('saidFromJson', () => {
