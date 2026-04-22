@@ -4,19 +4,19 @@
  * A DerivationSurface declares how an artifact family (KEL event, TEL event,
  * ACDC envelope, etc.) projects itself onto a SAID preimage. The helper
  * performs placeholder substitution, optional version-string size
- * convergence, canonicalization, digest, and sealing — and never decides
- * policy about which fields a family chooses.
+ * convergence, insertion-order serialization, digest, and sealing — and
+ * never decides policy about which fields a family chooses.
  *
  * See docs/superpowers/specs/2026-04-16-keri-said-derivation-design.md.
  *
- * PB-012 touch-point: this file canonicalizes via the existing RFC-8785
- * canonicalizer (Data.fromJson(...).canonicalize()). KERI-compliant
- * insertion-order serialization is a separate plan; when it lands, only
- * the canonicalizer changes and scenarios 5 and 9 flip from todo to
- * passing.
+ * Serialization: This file uses insertion-order JSON serialization
+ * (serializeInsertionOrder) for KERI SAID derivation. Non-KERI SAID paths
+ * (Data.saidify, canonical()) remain on RFC-8785. See
+ * docs/superpowers/specs/2026-04-22-keri-insertion-order-said-design.md.
  */
 
 import { Data, SAID_PLACEHOLDER } from './data.js';
+import { type JsonValue, serializeInsertionOrder } from './serialize-insertion-order.js';
 
 // -------- DerivationSurface (discriminated union) --------
 
@@ -70,9 +70,61 @@ function project<A extends Record<string, unknown>>(artifact: A, fields: readonl
   return out;
 }
 
-function digestCanonical(obj: Record<string, unknown>): string {
-  const { raw } = Data.fromJson(obj).canonicalize();
-  return Data.digest(raw);
+function digestInsertionOrderJson(obj: Record<string, unknown>): string {
+  const bytes = new TextEncoder().encode(serializeInsertionOrder(obj as JsonValue));
+  return Data.digest(bytes);
+}
+
+/**
+ * Compute a KERI version string using insertion-order serialization for byte measurement.
+ *
+ * Same convergence semantics as Data.computeVersionString() (insert SAID placeholder,
+ * serialize, measure byte length, update size, repeat until stable) but uses
+ * serializeInsertionOrder() instead of RFC-8785. File-internal; not exported.
+ *
+ * IMPORTANT: This function takes the full preimage (including the version-string field)
+ * and rebuilds it key-by-key to preserve Object.keys() order. Using spread to re-insert
+ * the version field would place it at the end, corrupting insertion order.
+ */
+function computeKeriVersionString(
+  preimage: Record<string, unknown>,
+  versionStringField: string,
+  kind: string,
+  protocol: string,
+  saidFieldName: string,
+): string {
+  let version = `${protocol}10${kind}000000_`;
+  let previousSize = 0;
+
+  // 10 iterations mirrors Data.computeVersionString(). A 6-digit size field can only
+  // change the serialized length by a few bytes per iteration, so convergence is
+  // typically reached in 1–2 iterations for realistic KERI artifacts.
+  for (let iteration = 0; iteration < 10; iteration++) {
+    // Rebuild key-by-key to preserve the original key order from project().
+    const measured: Record<string, unknown> = {};
+    for (const key of Object.keys(preimage)) {
+      if (key === versionStringField) {
+        measured[key] = version;
+      } else if (key === saidFieldName) {
+        measured[key] = SAID_PLACEHOLDER;
+      } else {
+        measured[key] = preimage[key];
+      }
+    }
+
+    const bytes = new TextEncoder().encode(serializeInsertionOrder(measured as JsonValue));
+    const size = bytes.length;
+
+    if (size === previousSize) {
+      return version;
+    }
+
+    previousSize = size;
+    const sizeHex = size.toString(16).padStart(6, '0');
+    version = `${protocol}10${kind}${sizeHex}_`;
+  }
+
+  throw new Error('KERI version string calculation did not converge');
 }
 
 // -------- API --------
@@ -101,14 +153,12 @@ export function deriveSaid<A extends Record<string, unknown>>(
 
   // Step 3: version-string convergence (versioned path).
   if (surface.hasVersionString) {
-    // Compute the converged version string over the projection (with said-field placeholder).
-    const { [surface.versionStringField]: _ignored, ...preimageWithoutVersion } = preimage;
-    const version = Data.computeVersionString(preimageWithoutVersion, 'JSON', 'KERI', surface.saidField);
+    const version = computeKeriVersionString(preimage, surface.versionStringField, 'JSON', 'KERI', surface.saidField);
     preimage[surface.versionStringField] = version;
   }
 
   // Step 4: digest the preimage.
-  const said = digestCanonical(preimage);
+  const said = digestInsertionOrderJson(preimage);
 
   // Step 5: seal — copy original artifact, overwrite said field.
   const sealed = surface.hasVersionString
@@ -142,7 +192,7 @@ export function recomputeSaid(
   const preimage = project(artifact, surface.derivedFieldsInOrder);
   preimage[surface.saidField] = SAID_PLACEHOLDER;
 
-  const recomputed = digestCanonical(preimage);
+  const recomputed = digestInsertionOrderJson(preimage);
   return {
     matches: declared !== undefined && declared === recomputed,
     declared,

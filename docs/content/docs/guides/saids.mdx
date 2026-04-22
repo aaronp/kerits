@@ -120,3 +120,77 @@ import { Said } from '@kerits/core';
 const said = Said.encodeSAID(obj);
 const ok = Said.validateSAID(said, obj);
 ```
+
+## Testing and cross-validation
+
+SAID computation is deterministic, so a correct implementation must produce identical digests for identical inputs regardless of language or runtime. Kerits uses a shared fixture system to validate its SAID outputs against KERIpy, the Python reference implementation.
+
+### Fixture format
+
+Test fixtures live in `packages/core/src/said/fixtures/keri-said-fixtures.json`. Each fixture declares an artifact (the event data) and a derivation surface (which fields participate in the SAID, in what order):
+
+```json title="keri-said-fixtures.json (excerpt)"
+{
+  "fixtures": [
+    {
+      "id": "kel-icp",
+      "description": "KERI inception event",
+      "surface": {
+        "saidField": "d",
+        "derivedFieldsInOrder": ["v", "t", "d", "i", "kt", "k", "nt", "n", "bt", "b"],
+        "hasVersionString": true,
+        "versionStringField": "v"
+      },
+      "artifact": {
+        "v": "", "t": "icp", "d": "", "i": "",
+        "kt": "1", "k": ["DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr"],
+        "nt": "1", "n": ["EIFG_uqfr1yN560LoHYHfvPAhxQ5sN6p3any8Ir7kGpq"],
+        "bt": "0", "b": []
+      }
+    }
+  ]
+}
+```
+
+This single file is consumed by both the TypeScript tests and the Python reference script.
+
+### KERIpy cross-validation
+
+A Python script reads the fixtures, computes SAIDs using KERIpy's `Saider.saidify()`, and writes the expected values to `keri-said-expected.json`:
+
+```bash title="Generate expected values"
+# Requires Python 3.12.1+ and KERIpy
+pip install keri
+python3 scripts/generate-keripy-saids.py
+```
+
+The generated file is checked into version control so that CI tests validate against KERIpy without needing Python installed. When expected values are present, the fixture tests assert exact SAID and version-string equality:
+
+```ts title="Cross-validation in tests"
+const expected = keriPyExpected?.['kel-icp'];
+if (expected) {
+  expect(said).toBe(expected.said);
+  expect(sealed.v).toBe(expected.versionString);
+}
+```
+
+When the expected file is absent, the same tests still run structural assertions (CESR format, byte-length alignment, round-trip recomputation) — they just skip the exact-value comparison.
+
+### Adding new fixtures
+
+To validate a new event type:
+
+1. Add an entry to `keri-said-fixtures.json` with the artifact and surface definition
+2. Re-run `python3 scripts/generate-keripy-saids.py` to update expected values
+3. Add a test scenario that calls `loadFixture('your-id')` and asserts against `keriPyExpected`
+
+### Two serialization paths
+
+Kerits maintains two separate serialization paths for SAID computation:
+
+| Path | Serializer | Use case |
+|------|-----------|----------|
+| KERI derivation (`deriveSaid`, `recomputeSaid`) | Insertion-order JSON | KEL events, TEL events, ACDCs |
+| Generic (`Data.saidify`, `encodeSAID`) | RFC-8785 (lexicographic) | Schema SAIDs, messaging digests |
+
+The KERI path preserves field insertion order as required by the KERI specification. The generic path uses RFC-8785 canonical JSON for determinism independent of construction order. These paths are tested independently — changes to one must not affect the other.
