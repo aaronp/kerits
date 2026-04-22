@@ -165,6 +165,11 @@ export {
   validateKeyChain,
   validateRequiredFields,
 } from './kel/validation.js';
+// ── Remote publishing contracts ──────────────────────────────────────
+export * from './remote/index.js';
+// ── Result type ──────────────────────────────────────────────────────
+export type { Result } from './result.js';
+export { err, ok } from './result.js';
 export { Said } from './said/index.js';
 // ── SAID helpers ─────────────────────────────────────────────────────
 export { nextKeyDigestQb64FromPublicKeyQb64 } from './said/next-key-digest.js';

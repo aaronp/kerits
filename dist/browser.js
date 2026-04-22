@@ -9312,6 +9312,18 @@ function toEd25519KeyPairBranded(keyPair) {
   };
 }
 var CesrSignatureSchema = CesrType("CESR Signature", "qb64-signature");
+// src/remote/typed-remote.ts
+function createTypedRemote(store, codec, resolvePath) {
+  return {
+    async publish(key, value2) {
+      return store.publish(resolvePath(key), codec.encode(value2));
+    },
+    async fetch(key) {
+      const data = await store.fetch(resolvePath(key));
+      return data === undefined ? undefined : codec.decode(data);
+    }
+  };
+}
 // src/version.ts
 var VERSION = "0.2.29";
 var GIT_SHA = "d1e70800220ea648aef6936fb3c93499019a571c";
@@ -9344,6 +9356,7 @@ export {
   parseBlake3Qb64,
   parseBlake3Hex,
   parseAidQb64,
+  ok,
   normalizeThreshold,
   nextKeyDigestQb64FromPublicKeyQb64,
   keyRefEquals,
@@ -9356,6 +9369,7 @@ export {
   getPublicKey,
   getCodeMeta,
   generateKeyPair,
+  err,
   encodeSig as encodeSignature,
   encodeSAID,
   encodeKey,
@@ -9371,6 +9385,7 @@ export {
   decodeDigest,
   decodeBase64Url,
   decode2 as decode,
+  createTypedRemote,
   createStructuredValidationError,
   createSaidMessageType,
   checkThreshold,

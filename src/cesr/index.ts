@@ -1,3 +1,4 @@
+import * as attachments from './attachments.js';
 import * as digest from './digest.js';
 import * as keys from './keys.js';
 import * as prefix from './prefix.js';
@@ -10,6 +11,7 @@ export const Cesr = {
   ...prefix,
   ...sigs,
   ...digest,
+  ...attachments,
 } as const;
 
 export type * from './types.js';

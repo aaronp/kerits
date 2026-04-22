@@ -1,0 +1,140 @@
+{
+  "_schemaVersion": 1,
+  "_comment": "Shared CESR attachment fixtures for cross-validation between kerits and KERIpy. Field names are neutral (not Python/TS class names). sigRaw values are hex-encoded raw bytes (Ed25519 = 64 bytes = 128 hex chars).",
+  "fixtures": [
+    {
+      "id": "A-single-indexed-sig",
+      "counterCode": "-A",
+      "family": "controllerIndexedSigs",
+      "items": [
+        {
+          "sigAlg": "Ed25519",
+          "keyIndex": 0,
+          "sigRaw": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ]
+    },
+    {
+      "id": "A-multi-indexed-sig",
+      "counterCode": "-A",
+      "family": "controllerIndexedSigs",
+      "items": [
+        {
+          "sigAlg": "Ed25519",
+          "keyIndex": 0,
+          "sigRaw": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "sigAlg": "Ed25519",
+          "keyIndex": 1,
+          "sigRaw": "01010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101"
+        }
+      ]
+    },
+    {
+      "id": "A-wider-index-encoding",
+      "counterCode": "-A",
+      "family": "controllerIndexedSigs",
+      "items": [
+        {
+          "sigAlg": "Ed25519",
+          "keyIndex": 64,
+          "sigRaw": "02020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202"
+        }
+      ]
+    },
+    {
+      "id": "B-single-witness-sig",
+      "counterCode": "-B",
+      "family": "witnessIndexedSigs",
+      "items": [
+        {
+          "sigAlg": "Ed25519",
+          "keyIndex": 0,
+          "sigRaw": "03030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303"
+        }
+      ]
+    },
+    {
+      "id": "B-multi-witness-sig",
+      "counterCode": "-B",
+      "family": "witnessIndexedSigs",
+      "items": [
+        {
+          "sigAlg": "Ed25519",
+          "keyIndex": 0,
+          "sigRaw": "03030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303"
+        },
+        {
+          "sigAlg": "Ed25519",
+          "keyIndex": 1,
+          "sigRaw": "04040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404"
+        }
+      ]
+    },
+    {
+      "id": "C-single-receipt-couple",
+      "counterCode": "-C",
+      "family": "nonTransReceiptCouples",
+      "items": [
+        {
+          "prefixQb64": "BDg3H7Sr-eES0XWXiO8nvMxW6mD_1LIlbWMFYHBw3HQM",
+          "sigAlg": "Ed25519",
+          "sigRaw": "05050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505"
+        }
+      ]
+    },
+    {
+      "id": "C-multi-receipt-couple",
+      "counterCode": "-C",
+      "family": "nonTransReceiptCouples",
+      "items": [
+        {
+          "prefixQb64": "BDg3H7Sr-eES0XWXiO8nvMxW6mD_1LIlbWMFYHBw3HQM",
+          "sigAlg": "Ed25519",
+          "sigRaw": "05050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505"
+        },
+        {
+          "prefixQb64": "DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr",
+          "sigAlg": "Ed25519",
+          "sigRaw": "06060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606"
+        }
+      ]
+    },
+    {
+      "id": "D-single-trans-receipt",
+      "counterCode": "-D",
+      "family": "transReceiptQuadruples",
+      "items": [
+        {
+          "prefixQb64": "BDg3H7Sr-eES0XWXiO8nvMxW6mD_1LIlbWMFYHBw3HQM",
+          "sn": 0,
+          "digestQb64": "ELC5L3iBVD77d_MYbYGGCUQhqM2J7HOkDGhk3rFiSCY0",
+          "sigAlg": "Ed25519",
+          "sigRaw": "07070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707"
+        }
+      ]
+    },
+    {
+      "id": "D-multi-trans-receipt",
+      "counterCode": "-D",
+      "family": "transReceiptQuadruples",
+      "items": [
+        {
+          "prefixQb64": "BDg3H7Sr-eES0XWXiO8nvMxW6mD_1LIlbWMFYHBw3HQM",
+          "sn": 0,
+          "digestQb64": "ELC5L3iBVD77d_MYbYGGCUQhqM2J7HOkDGhk3rFiSCY0",
+          "sigAlg": "Ed25519",
+          "sigRaw": "07070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707"
+        },
+        {
+          "prefixQb64": "DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr",
+          "sn": 1,
+          "digestQb64": "EIFG_uqfr1yN560LoHYHfvPAhxQ5sN6p3any8Ir7kGpq",
+          "sigAlg": "Ed25519",
+          "sigRaw": "08080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808"
+        }
+      ]
+    }
+  ]
+}
