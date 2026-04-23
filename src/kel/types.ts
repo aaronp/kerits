@@ -155,7 +155,7 @@ export const RotEventSchema = Type.Object(
     nt: ThresholdSchema,
     n: Type.Array(CesrDigestSchema, { minItems: 1 }),
     ...RotationWitnessFields,
-    c: Type.Array(Type.String(), { title: 'Configuration Traits' }),
+    c: Type.Optional(Type.Array(Type.String(), { title: 'Configuration Traits', default: [] })),
     a: Type.Array(Type.Unknown(), { title: 'Anchors' }),
   },
   {
@@ -423,7 +423,7 @@ export namespace KSNs {
         nextThreshold = evt.nt;
         witnessThreshold = evt.bt;
         witnesses = [...evt.b];
-        config = evt.c;
+        config = evt.c ?? [];
       } else if (evt.t === 'rot' || evt.t === 'drt') {
         currentKeys = evt.k;
         nextDigests = evt.n;
@@ -435,7 +435,7 @@ export namespace KSNs {
         const removed = new Set(rotEvt.br);
         witnesses = witnesses.filter((w) => !removed.has(w));
         witnesses.push(...rotEvt.ba);
-        config = rotEvt.c;
+        config = rotEvt.c ?? [];
       }
       // ixn events don't change establishment state — skip
     }
@@ -512,7 +512,7 @@ export const DrtEventSchema = Type.Object(
     nt: ThresholdSchema,
     n: Type.Array(CesrDigestSchema, { minItems: 1 }),
     ...RotationWitnessFields,
-    c: Type.Array(Type.String(), { title: 'Configuration Traits' }),
+    c: Type.Optional(Type.Array(Type.String(), { title: 'Configuration Traits', default: [] })),
     a: Type.Array(Type.Unknown(), { title: 'Anchors' }),
   },
   {

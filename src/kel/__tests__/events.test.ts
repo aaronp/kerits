@@ -117,9 +117,9 @@ describe('KELEvents Factory', () => {
         bt: '0',
         br: [],
         ba: [],
-        c: [],
         a: [],
       });
+      expect(unsignedEvent).not.toHaveProperty('c');
       expect(unsignedEvent).not.toHaveProperty('di');
     });
 
@@ -183,9 +183,9 @@ describe('KELEvents Factory', () => {
         bt: '0',
         br: [],
         ba: [],
-        c: [],
         a: [],
       });
+      expect(unsignedEvent).not.toHaveProperty('c');
       // drt does not have di field
       expect(unsignedEvent).not.toHaveProperty('di');
     });

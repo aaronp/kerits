@@ -219,7 +219,10 @@ describe('reduceKelState', () => {
         signingThreshold: '1',
         nextThreshold: '1',
       });
-      unsignedEvent.t = 'dip'; // Force type to dip without di
+      unsignedEvent.t = 'dip'; // Force type to dip without di field value
+      // deriveSaid requires all surface fields to be present, so provide an
+      // empty di — kel-state should still flag the missing/empty delegator.
+      (unsignedEvent as any).di = '';
       const { event } = KELEvents.finalize(unsignedEvent, true);
       const states = reduceKelState([wrapEvent(event)]);
       expect(states[0]!.notes).toContainEqual(

@@ -27,8 +27,8 @@ import { digestVerfer } from '../../cesr/digest.js';
 import { decodeKey } from '../../cesr/keys.js';
 import { encodeSig } from '../../cesr/sigs.js';
 import { sign } from '../../signature/primitives.js';
-import { Data } from '../../common/data.js';
 import { KELEvents } from '../events.js';
+import { canonicalizeEvent } from '../event-crypto.js';
 import { KELOps } from '../ops.js';
 import type { RichValidationResult } from '../validation.js';
 import type { AID, KeriKeyPair, SAID, Signature } from '../../common/types.js';
@@ -59,7 +59,7 @@ const EXTRA2 = KeriKeyPairs.fromSeedNumber(301);
 // ---------------------------------------------------------------------------
 
 function signEvent(event: KELEvent, keypair: KeriKeyPair): string {
-  const { raw } = Data.fromJson(event).canonicalize();
+  const raw = canonicalizeEvent(event);
   const privBytes = decodeKey(keypair.privateKey).raw;
   const sigBytes = sign(raw, privBytes);
   return encodeSig(sigBytes, keypair.transferable ?? true).qb64;

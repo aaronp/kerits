@@ -8,6 +8,18 @@
 //
 // Flat re-exports are provided for convenience and backwards compatibility.
 
+export type { SaidValidationResult } from './acdc/index.js';
+// ── ACDC types and ops ───────────────────────────────────────────────
+export { ACDCData, ACDCOps, Acdc } from './acdc/index.js';
+export type {
+  ACDCCredential,
+  ACDCProof,
+  CredentialJudgment,
+  CredentialPolicy,
+  CredentialStatus,
+  CredentialStatusEvidence,
+  CredentialStatusSource,
+} from './acdc/types.js';
 export type {
   CESRCodeMeta,
   CESRDecoded,
@@ -45,11 +57,16 @@ export * from './common/base64url.js';
 export * from './common/brand.js';
 export * from './common/canonical.js';
 export * from './common/data.js';
+// ── SAID helpers ─────────────────────────────────────────────────────
+export type { DerivationSurface } from './common/derivation-surface.js';
+export { deriveSaid, recomputeSaid, serializeForSigning } from './common/derivation-surface.js';
 export * from './common/errors.js';
 export { transferableKeyToPublicKey } from './common/key-conversions.js';
 export * from './common/types.js';
 export { KeriKeyPairs } from './crypto/index.js';
 export { deriveSharedSecret, ed25519ToX25519Private, ed25519ToX25519Public } from './crypto/x25519.js';
+// ── KEL event canonicalization ────────────────────────────────────────
+export { canonicalizeEvent } from './kel/event-crypto.js';
 export type {
   DipParams,
   DrtParams,
@@ -97,8 +114,6 @@ export type {
   VaultAppend,
   VaultPurpose,
 } from './kel/index.js';
-// ── KEL ops ─────────────────────────────────────────────────────────
-// ── KEL ops ─────────────────────────────────────────────────────────
 // ── KEL event schemas and namespaces ─────────────────────────────────
 export {
   AnySealSchema,
@@ -171,12 +186,37 @@ export * from './remote/index.js';
 export type { Result } from './result.js';
 export { err, ok } from './result.js';
 export { Said } from './said/index.js';
-// ── SAID helpers ─────────────────────────────────────────────────────
 export { nextKeyDigestQb64FromPublicKeyQb64 } from './said/next-key-digest.js';
 export {
   encodeSAID,
   validateSAID,
 } from './said/said.js';
+export {
+  ACDC_CREDENTIAL_SURFACE,
+  ACDC_SCHEMA_SURFACE,
+  buildACDCCredentialSurface,
+  KEL_DIP_SURFACE,
+  KEL_DRT_SURFACE,
+  KEL_ICP_SURFACE,
+  KEL_IXN_SURFACE,
+  KEL_ROT_SURFACE,
+  TEL_BIS_SURFACE,
+  TEL_BRV_SURFACE,
+  TEL_ISS_SURFACE,
+  TEL_REV_SURFACE,
+  TEL_VCP_SURFACE,
+  TEL_VCP_WITH_NONCE_SURFACE,
+  TEL_VRT_SURFACE,
+} from './said/surfaces.js';
+// ── Schema types and ops ─────────────────────────────────────────────
+export { Schema, SchemaData, SchemaOps } from './schema/index.js';
+export type {
+  ACDCSchema,
+  FlatField,
+  JSONSchema,
+  SchemaEdge,
+  SchemaInfo,
+} from './schema/types.js';
 export type { Signer } from './signature/index.js';
 // Value namespace renamed to avoid shadowing the Signature branded type from common/types.
 export { Signature as SignatureOps, Signers } from './signature/index.js';
@@ -196,6 +236,20 @@ export {
   sign,
   verify,
 } from './signature/primitives.js';
+// ── TEL types and ops ────────────────────────────────────────────────
+export { TELData, TELOps, Tel } from './tel/index.js';
+export type { TelValidationError, TelValidationResult } from './tel/ops.js';
+export type {
+  BisEvent,
+  BrvEvent,
+  EstablishmentTelEvent,
+  IssEvent,
+  RevEvent,
+  RSN,
+  TelEvent,
+  VcpEvent,
+  VrtEvent,
+} from './tel/types.js';
 
 // ── Version ──────────────────────────────────────────────────────────
 export * from './version.js';

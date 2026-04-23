@@ -5,18 +5,45 @@
  * Used by both validation.ts and validation-predicates.ts.
  */
 
-import { Data } from '../common/data.js';
+import type { DerivationSurface } from '../common/derivation-surface.js';
+import { serializeForSigning } from '../common/derivation-surface.js';
 import type { PublicKey, Signature } from '../common/types.js';
+import {
+  KEL_DIP_SURFACE,
+  KEL_DRT_SURFACE,
+  KEL_ICP_SURFACE,
+  KEL_IXN_SURFACE,
+  KEL_ROT_SURFACE,
+} from '../said/surfaces.js';
 import { verify } from '../signature/verify.js';
 import type { KELEvent } from './types.js';
 
+function selectSurface(ilk: string): DerivationSurface {
+  switch (ilk) {
+    case 'icp':
+      return KEL_ICP_SURFACE;
+    case 'rot':
+      return KEL_ROT_SURFACE;
+    case 'ixn':
+      return KEL_IXN_SURFACE;
+    case 'dip':
+      return KEL_DIP_SURFACE;
+    case 'drt':
+      return KEL_DRT_SURFACE;
+    default:
+      throw new Error(`canonicalizeEvent: unknown ilk '${ilk}'`);
+  }
+}
+
 /**
- * Canonicalize a KEL event to its RFC8785 JSON bytes.
+ * Canonicalize a KEL event to its insertion-order JSON bytes.
  *
- * KERI signatures are created over these canonical bytes.
+ * KERI signatures are created over these canonical bytes, using the
+ * surface's derivedFieldsInOrder for consistent field ordering.
  */
 export function canonicalizeEvent(event: KELEvent): Uint8Array {
-  const { raw } = Data.fromJson(event).canonicalize();
+  const surface = selectSurface(event.t);
+  const { raw } = serializeForSigning(event as Record<string, unknown>, surface);
   return raw;
 }
 

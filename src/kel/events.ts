@@ -12,8 +12,17 @@
  * @module kel/events
  */
 
-import { Data } from '../common/data.js';
+import { SAID_PLACEHOLDER } from '../common/data.js';
+import type { DerivationSurface } from '../common/derivation-surface.js';
+import { deriveSaid, serializeForSigning } from '../common/derivation-surface.js';
 import type { AID, PublicKey, SAID, Threshold } from '../common/types.js';
+import {
+  KEL_DIP_SURFACE,
+  KEL_DRT_SURFACE,
+  KEL_ICP_SURFACE,
+  KEL_IXN_SURFACE,
+  KEL_ROT_SURFACE,
+} from '../said/surfaces.js';
 import type { KELEvent } from './types.js';
 
 /**
@@ -97,6 +106,25 @@ export interface FinalizedEventResult {
 /**
  * KEL Events namespace - Factory functions for building KEL events
  */
+const INCEPTION_ILKS = new Set(['icp', 'dip']);
+
+function selectSurface(ilk: string): DerivationSurface {
+  switch (ilk) {
+    case 'icp':
+      return KEL_ICP_SURFACE;
+    case 'rot':
+      return KEL_ROT_SURFACE;
+    case 'ixn':
+      return KEL_IXN_SURFACE;
+    case 'dip':
+      return KEL_DIP_SURFACE;
+    case 'drt':
+      return KEL_DRT_SURFACE;
+    default:
+      throw new Error(`selectSurface: unknown ilk '${ilk}'`);
+  }
+}
+
 export namespace KELEvents {
   /**
    * Build unsigned inception event (icp)
@@ -178,7 +206,7 @@ export namespace KELEvents {
       bt: params.witnessThreshold ?? '0',
       br: params.witnessesRemoved ?? [],
       ba: params.witnessesAdded ?? [],
-      c: params.config ?? [],
+      ...(params.config !== undefined ? { c: params.config } : {}),
       a: params.anchors ?? [],
     };
 
@@ -208,7 +236,7 @@ export namespace KELEvents {
       bt: params.witnessThreshold ?? '0',
       br: params.witnessesRemoved ?? [],
       ba: params.witnessesAdded ?? [],
-      c: params.config ?? [],
+      ...(params.config !== undefined ? { c: params.config } : {}),
       a: params.anchors ?? [],
     };
 
@@ -272,29 +300,34 @@ export namespace KELEvents {
    * ```
    */
   export function computeSaid(unsignedEvent: any, isInception = false): FinalizedEventResult {
-    // Canonicalize unsigned event
-    const canonUnsigned = Data.fromJson(unsignedEvent).canonicalize();
+    const surface = selectSurface(unsignedEvent.t);
+    const ilkIsInception = INCEPTION_ILKS.has(unsignedEvent.t);
 
-    // Compute SAID over unsigned body
-    const said = Data.digest(canonUnsigned.raw);
+    // Runtime guard: isInception must agree with ilk
+    if (isInception !== ilkIsInception) {
+      throw new Error(
+        `computeSaid: isInception=${isInception} but ilk '${unsignedEvent.t}' ` +
+          `${ilkIsInception ? 'is' : 'is not'} an inception event`,
+      );
+    }
 
-    // Build finalized event
-    const event: KELEvent = isInception
-      ? {
-          ...unsignedEvent,
-          d: said,
-          i: said, // For inception, i = d
-        }
-      : {
-          ...unsignedEvent,
-          d: said,
-        };
+    // For inception events (icp/dip), keripy substitutes BOTH d and i with
+    // the 44-char placeholder before computing the SAID. deriveSaid only
+    // substitutes the saidField (d), so we must set i = SAID_PLACEHOLDER
+    // on the input before derivation.
+    const eventForDerivation = isInception ? { ...unsignedEvent, i: SAID_PLACEHOLDER } : unsignedEvent;
 
-    // Compute correct version string
-    event.v = Data.computeVersionString(event, 'JSON');
+    // Compute canonical unsigned bytes (pre-SAID form, with placeholders)
+    const canonUnsigned = serializeForSigning(eventForDerivation, surface);
 
-    // Canonicalize final event (for signing)
-    const canonFinal = Data.fromJson(event).canonicalize();
+    // Derive SAID using keripy-compatible insertion-order serialization
+    const { sealed, said } = deriveSaid(eventForDerivation, surface);
+
+    // For inception events, set i = d = said (both are SAIDified)
+    const event: KELEvent = isInception ? { ...sealed, i: said } : (sealed as KELEvent);
+
+    // Compute canonical final bytes (for signing)
+    const canonFinal = serializeForSigning(event, surface);
 
     return {
       event: event as KELEvent,

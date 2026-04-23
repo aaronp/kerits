@@ -11,8 +11,8 @@
  * @module kel/event-signing
  */
 
-import { canonicalizeToBytes } from '../signature/primitives.js';
 import type { Signer } from '../signature/signer.js';
+import { canonicalizeEvent } from './event-crypto.js';
 import type { KEL } from './kel-interface.js';
 import { isEstablishment, isIxn } from './predicates.js';
 import type { CESREvent, CesrAttachment, KELEvent, PublicKey } from './types.js';
@@ -21,7 +21,7 @@ import type { Vault } from './vault-interface.js';
 /**
  * Encodes a KEL event to canonical bytes for signing.
  *
- * Currently supports only JSON (RFC8785) encoding.
+ * Uses surface-based insertion-order JSON serialization (keripy-compatible).
  * Future: Add CBOR and MGPK support.
  *
  * @param event - The KEL event to encode
@@ -31,11 +31,11 @@ import type { Vault } from './vault-interface.js';
  */
 export function encodeEventBytes(event: KELEvent, encoding: 'JSON' | 'CBOR' | 'MGPK' = 'JSON'): Uint8Array {
   if (encoding !== 'JSON') {
-    throw new Error(`Encoding ${encoding} not yet supported. Only JSON (RFC8785) is currently implemented.`);
+    throw new Error(`Encoding ${encoding} not yet supported. Only JSON is currently implemented.`);
   }
 
-  // Use RFC8785 canonical JSON serialization
-  return canonicalizeToBytes(event);
+  // Use surface-based insertion-order serialization (keripy-compatible)
+  return canonicalizeEvent(event);
 }
 
 /**

@@ -6,31 +6,110 @@
       "description": "KERI inception event with single signing key, single next key digest, no witnesses",
       "surface": {
         "saidField": "d",
-        "derivedFieldsInOrder": ["v", "t", "d", "i", "kt", "k", "nt", "n", "bt", "b"],
+        "derivedFieldsInOrder": ["v", "t", "d", "i", "s", "kt", "k", "nt", "n", "bt", "b", "c", "a"],
         "hasVersionString": true,
-        "versionStringField": "v"
+        "versionStringField": "v",
+        "protocol": "KERI"
       },
       "artifact": {
         "v": "KERI10JSON000000_",
         "t": "icp",
         "d": "",
         "i": "",
+        "s": "0",
         "kt": "1",
         "k": ["DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr"],
         "nt": "1",
         "n": ["EIFG_uqfr1yN560LoHYHfvPAhxQ5sN6p3any8Ir7kGpq"],
         "bt": "0",
-        "b": []
+        "b": [],
+        "c": [],
+        "a": []
+      }
+    },
+    {
+      "id": "kel-rot",
+      "description": "KERI rotation event with key rotation, no witness changes",
+      "surface": {
+        "saidField": "d",
+        "derivedFieldsInOrder": ["v", "t", "d", "i", "s", "p", "kt", "k", "nt", "n", "bt", "br", "ba", "a"],
+        "hasVersionString": true,
+        "versionStringField": "v",
+        "protocol": "KERI"
+      },
+      "artifact": {
+        "v": "KERI10JSON000000_",
+        "t": "rot",
+        "d": "",
+        "i": "EDP1vHcw_wc4M0MPoW1gVXEl3XEY2eJMBqhBMBCAFXMq",
+        "s": "1",
+        "p": "EpriorSaid123456789012345678901234567890123",
+        "kt": "1",
+        "k": ["DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr"],
+        "nt": "1",
+        "n": ["EIFG_uqfr1yN560LoHYHfvPAhxQ5sN6p3any8Ir7kGpq"],
+        "bt": "0",
+        "br": [],
+        "ba": [],
+        "a": []
+      }
+    },
+    {
+      "id": "kel-ixn",
+      "description": "KERI interaction event with no anchors",
+      "surface": {
+        "saidField": "d",
+        "derivedFieldsInOrder": ["v", "t", "d", "i", "s", "p", "a"],
+        "hasVersionString": true,
+        "versionStringField": "v",
+        "protocol": "KERI"
+      },
+      "artifact": {
+        "v": "KERI10JSON000000_",
+        "t": "ixn",
+        "d": "",
+        "i": "EDP1vHcw_wc4M0MPoW1gVXEl3XEY2eJMBqhBMBCAFXMq",
+        "s": "2",
+        "p": "EpriorSaid123456789012345678901234567890123",
+        "a": []
+      }
+    },
+    {
+      "id": "kel-dip",
+      "description": "KERI delegated inception event",
+      "surface": {
+        "saidField": "d",
+        "derivedFieldsInOrder": ["v", "t", "d", "i", "s", "kt", "k", "nt", "n", "bt", "b", "c", "a", "di"],
+        "hasVersionString": true,
+        "versionStringField": "v",
+        "protocol": "KERI"
+      },
+      "artifact": {
+        "v": "KERI10JSON000000_",
+        "t": "dip",
+        "d": "",
+        "i": "",
+        "s": "0",
+        "kt": "1",
+        "k": ["DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr"],
+        "nt": "1",
+        "n": ["EIFG_uqfr1yN560LoHYHfvPAhxQ5sN6p3any8Ir7kGpq"],
+        "bt": "0",
+        "b": [],
+        "c": [],
+        "a": [],
+        "di": "EDP1vHcw_wc4M0MPoW1gVXEl3XEY2eJMBqhBMBCAFXMq"
       }
     },
     {
       "id": "tel-vcp",
-      "description": "TEL registry inception (vcp) with issuer identifier, no witnesses",
+      "description": "TEL registry inception (vcp) with issuer identifier, no backers",
       "surface": {
         "saidField": "d",
-        "derivedFieldsInOrder": ["v", "t", "d", "i", "ii", "b", "bt"],
+        "derivedFieldsInOrder": ["v", "t", "d", "i", "ii", "s", "c", "bt", "b"],
         "hasVersionString": true,
-        "versionStringField": "v"
+        "versionStringField": "v",
+        "protocol": "KERI"
       },
       "artifact": {
         "v": "KERI10JSON000000_",
@@ -38,8 +117,95 @@
         "d": "",
         "i": "",
         "ii": "EDP1vHcw_wc4M0MPoW1gVXEl3XEY2eJMBqhBMBCAFXMq",
-        "b": [],
-        "bt": "0"
+        "s": "0",
+        "c": [],
+        "bt": "0",
+        "b": []
+      }
+    },
+    {
+      "id": "tel-iss",
+      "description": "TEL simple credential issuance (backerless)",
+      "surface": {
+        "saidField": "d",
+        "derivedFieldsInOrder": ["v", "t", "d", "i", "s", "ri", "dt"],
+        "hasVersionString": true,
+        "versionStringField": "v",
+        "protocol": "KERI"
+      },
+      "artifact": {
+        "v": "KERI10JSON000000_",
+        "t": "iss",
+        "d": "",
+        "i": "EcredSaid12345678901234567890123456789012345",
+        "s": "0",
+        "ri": "EDP1vHcw_wc4M0MPoW1gVXEl3XEY2eJMBqhBMBCAFXMq",
+        "dt": "2026-04-23T12:00:00.000000+00:00"
+      }
+    },
+    {
+      "id": "tel-rev",
+      "description": "TEL simple credential revocation (backerless)",
+      "surface": {
+        "saidField": "d",
+        "derivedFieldsInOrder": ["v", "t", "d", "i", "s", "ri", "p", "dt"],
+        "hasVersionString": true,
+        "versionStringField": "v",
+        "protocol": "KERI"
+      },
+      "artifact": {
+        "v": "KERI10JSON000000_",
+        "t": "rev",
+        "d": "",
+        "i": "EcredSaid12345678901234567890123456789012345",
+        "s": "1",
+        "ri": "EDP1vHcw_wc4M0MPoW1gVXEl3XEY2eJMBqhBMBCAFXMq",
+        "p": "EpriorSaid123456789012345678901234567890123",
+        "dt": "2026-04-23T13:00:00.000000+00:00"
+      }
+    },
+    {
+      "id": "acdc-schema",
+      "description": "ACDC schema envelope with simple JSON Schema",
+      "surface": {
+        "saidField": "d",
+        "derivedFieldsInOrder": ["v", "t", "d", "s"],
+        "hasVersionString": true,
+        "versionStringField": "v",
+        "protocol": "ACDC"
+      },
+      "artifact": {
+        "v": "ACDC10JSON000000_",
+        "t": "sch",
+        "d": "",
+        "s": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" }
+          },
+          "required": ["name"]
+        }
+      }
+    },
+    {
+      "id": "acdc-credential",
+      "description": "ACDC credential with inline attributes, no nonce",
+      "surface": {
+        "saidField": "d",
+        "derivedFieldsInOrder": ["v", "d", "i", "s", "a"],
+        "hasVersionString": true,
+        "versionStringField": "v",
+        "protocol": "ACDC"
+      },
+      "artifact": {
+        "v": "ACDC10JSON000000_",
+        "d": "",
+        "i": "EDP1vHcw_wc4M0MPoW1gVXEl3XEY2eJMBqhBMBCAFXMq",
+        "s": "EschemaSaid12345678901234567890123456789012",
+        "a": {
+          "name": "Alice"
+        }
       }
     }
   ]

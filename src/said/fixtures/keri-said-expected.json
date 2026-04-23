@@ -3,32 +3,149 @@
   "_keripy_version": "1.3.4",
   "expected": {
     "kel-icp": {
-      "said": "EOjhRpsVA-GWQrLs15JRshl_rlO-IFcXsR9vZ4viMK9m",
-      "versionString": "KERI10JSON0000e9_",
+      "said": "EJNhinGv9IVLhBWVfDWUMuwaBctqtFpySeEUF3X6Z7K-",
+      "versionString": "KERI10JSON0000ff_",
       "sealedArtifact": {
-        "v": "KERI10JSON0000e9_",
+        "v": "KERI10JSON0000ff_",
         "t": "icp",
-        "d": "EOjhRpsVA-GWQrLs15JRshl_rlO-IFcXsR9vZ4viMK9m",
+        "d": "EJNhinGv9IVLhBWVfDWUMuwaBctqtFpySeEUF3X6Z7K-",
         "i": "",
+        "s": "0",
         "kt": "1",
         "k": ["DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr"],
         "nt": "1",
         "n": ["EIFG_uqfr1yN560LoHYHfvPAhxQ5sN6p3any8Ir7kGpq"],
         "bt": "0",
-        "b": []
+        "b": [],
+        "c": [],
+        "a": []
+      }
+    },
+    "kel-rot": {
+      "said": "EAaMqmt3_k9IR5zvRdfVbMspzGPgKTDPKvgigeJkRbAc",
+      "versionString": "KERI10JSON00015f_",
+      "sealedArtifact": {
+        "v": "KERI10JSON00015f_",
+        "t": "rot",
+        "d": "EAaMqmt3_k9IR5zvRdfVbMspzGPgKTDPKvgigeJkRbAc",
+        "i": "EDP1vHcw_wc4M0MPoW1gVXEl3XEY2eJMBqhBMBCAFXMq",
+        "s": "1",
+        "p": "EpriorSaid123456789012345678901234567890123",
+        "kt": "1",
+        "k": ["DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr"],
+        "nt": "1",
+        "n": ["EIFG_uqfr1yN560LoHYHfvPAhxQ5sN6p3any8Ir7kGpq"],
+        "bt": "0",
+        "br": [],
+        "ba": [],
+        "a": []
+      }
+    },
+    "kel-ixn": {
+      "said": "EHACNl_uQV_80zrsCdXkVsLf0mtQctiQ2DAybZnZCAOQ",
+      "versionString": "KERI10JSON0000ca_",
+      "sealedArtifact": {
+        "v": "KERI10JSON0000ca_",
+        "t": "ixn",
+        "d": "EHACNl_uQV_80zrsCdXkVsLf0mtQctiQ2DAybZnZCAOQ",
+        "i": "EDP1vHcw_wc4M0MPoW1gVXEl3XEY2eJMBqhBMBCAFXMq",
+        "s": "2",
+        "p": "EpriorSaid123456789012345678901234567890123",
+        "a": []
+      }
+    },
+    "kel-dip": {
+      "said": "EJxkEbfn-Z9Ve2du1VkiPlgPuJB_DNTw7GewSK41CwVS",
+      "versionString": "KERI10JSON000133_",
+      "sealedArtifact": {
+        "v": "KERI10JSON000133_",
+        "t": "dip",
+        "d": "EJxkEbfn-Z9Ve2du1VkiPlgPuJB_DNTw7GewSK41CwVS",
+        "i": "",
+        "s": "0",
+        "kt": "1",
+        "k": ["DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr"],
+        "nt": "1",
+        "n": ["EIFG_uqfr1yN560LoHYHfvPAhxQ5sN6p3any8Ir7kGpq"],
+        "bt": "0",
+        "b": [],
+        "c": [],
+        "a": [],
+        "di": "EDP1vHcw_wc4M0MPoW1gVXEl3XEY2eJMBqhBMBCAFXMq"
       }
     },
     "tel-vcp": {
-      "said": "EPACVjFR4V3_3Xv1ZkqyxT7akSppUa9A5QUIKCi389PE",
-      "versionString": "KERI10JSON0000a1_",
+      "said": "EKK8AbsLxJupnNG0dK4ZPpDac1naTLSUr2ukVGnUDqDY",
+      "versionString": "KERI10JSON0000b0_",
       "sealedArtifact": {
-        "v": "KERI10JSON0000a1_",
+        "v": "KERI10JSON0000b0_",
         "t": "vcp",
-        "d": "EPACVjFR4V3_3Xv1ZkqyxT7akSppUa9A5QUIKCi389PE",
+        "d": "EKK8AbsLxJupnNG0dK4ZPpDac1naTLSUr2ukVGnUDqDY",
         "i": "",
         "ii": "EDP1vHcw_wc4M0MPoW1gVXEl3XEY2eJMBqhBMBCAFXMq",
-        "b": [],
-        "bt": "0"
+        "s": "0",
+        "c": [],
+        "bt": "0",
+        "b": []
+      }
+    },
+    "tel-iss": {
+      "said": "EN-C3eSNo3ArCD2_Y07Fh72w4APNm4VcXuHx4jW6kRo9",
+      "versionString": "KERI10JSON0000ed_",
+      "sealedArtifact": {
+        "v": "KERI10JSON0000ed_",
+        "t": "iss",
+        "d": "EN-C3eSNo3ArCD2_Y07Fh72w4APNm4VcXuHx4jW6kRo9",
+        "i": "EcredSaid12345678901234567890123456789012345",
+        "s": "0",
+        "ri": "EDP1vHcw_wc4M0MPoW1gVXEl3XEY2eJMBqhBMBCAFXMq",
+        "dt": "2026-04-23T12:00:00.000000+00:00"
+      }
+    },
+    "tel-rev": {
+      "said": "EAdBJncjACWlVvZD_-qIQKe1N6W5Jdt-D1LIzHG0WGYy",
+      "versionString": "KERI10JSON00011f_",
+      "sealedArtifact": {
+        "v": "KERI10JSON00011f_",
+        "t": "rev",
+        "d": "EAdBJncjACWlVvZD_-qIQKe1N6W5Jdt-D1LIzHG0WGYy",
+        "i": "EcredSaid12345678901234567890123456789012345",
+        "s": "1",
+        "ri": "EDP1vHcw_wc4M0MPoW1gVXEl3XEY2eJMBqhBMBCAFXMq",
+        "p": "EpriorSaid123456789012345678901234567890123",
+        "dt": "2026-04-23T13:00:00.000000+00:00"
+      }
+    },
+    "acdc-schema": {
+      "said": "EPS_h8w0l0Lz9sQNJJyX2RUy2AekgGT2ZUIcEjeyCtQN",
+      "versionString": "ACDC10JSON0000e1_",
+      "sealedArtifact": {
+        "v": "ACDC10JSON0000e1_",
+        "t": "sch",
+        "d": "EPS_h8w0l0Lz9sQNJJyX2RUy2AekgGT2ZUIcEjeyCtQN",
+        "s": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": ["name"]
+        }
+      }
+    },
+    "acdc-credential": {
+      "said": "EIysBysCrhgXc9eB4rBF9ZNAmL9vFhdWx9Gbc6jh6i8S",
+      "versionString": "ACDC10JSON0000c6_",
+      "sealedArtifact": {
+        "v": "ACDC10JSON0000c6_",
+        "d": "EIysBysCrhgXc9eB4rBF9ZNAmL9vFhdWx9Gbc6jh6i8S",
+        "i": "EDP1vHcw_wc4M0MPoW1gVXEl3XEY2eJMBqhBMBCAFXMq",
+        "s": "EschemaSaid12345678901234567890123456789012",
+        "a": {
+          "name": "Alice"
+        }
       }
     }
   }

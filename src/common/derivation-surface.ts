@@ -28,6 +28,8 @@ type BaseDerivationSurface = {
 type VersionedDerivationSurface = BaseDerivationSurface & {
   readonly hasVersionString: true;
   readonly versionStringField: string;
+  /** Protocol identifier for the version string, e.g. 'KERI' or 'ACDC'. */
+  readonly protocol: string;
 };
 
 type UnversionedDerivationSurface = BaseDerivationSurface & {
@@ -153,7 +155,13 @@ export function deriveSaid<A extends Record<string, unknown>>(
 
   // Step 3: version-string convergence (versioned path).
   if (surface.hasVersionString) {
-    const version = computeKeriVersionString(preimage, surface.versionStringField, 'JSON', 'KERI', surface.saidField);
+    const version = computeKeriVersionString(
+      preimage,
+      surface.versionStringField,
+      'JSON',
+      surface.protocol,
+      surface.saidField,
+    );
     preimage[surface.versionStringField] = version;
   }
 
@@ -198,4 +206,22 @@ export function recomputeSaid(
     declared,
     recomputed,
   };
+}
+
+/**
+ * Serialize a sealed artifact in surface field order for signing.
+ *
+ * Projects the artifact onto the surface's derivedFieldsInOrder and serializes
+ * using insertion-order JSON. The result is the canonical bytes that should be
+ * signed — identical field order to the SAID preimage, but with the actual SAID
+ * filled in (not the placeholder).
+ */
+export function serializeForSigning(
+  artifact: Record<string, unknown>,
+  surface: DerivationSurface,
+): { raw: Uint8Array; text: string } {
+  const projected = project(artifact, surface.derivedFieldsInOrder);
+  const text = serializeInsertionOrder(projected as JsonValue);
+  const raw = new TextEncoder().encode(text);
+  return { raw, text };
 }

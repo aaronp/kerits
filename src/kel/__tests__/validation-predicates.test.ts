@@ -3,8 +3,8 @@ import { KeriKeyPairs } from '../../crypto/index.js';
 import { decodeKey } from '../../cesr/keys.js';
 import { encodeSig } from '../../cesr/sigs.js';
 import { sign } from '../../signature/primitives.js';
-import { Data } from '../../common/data.js';
 import { KELEvents } from '../events.js';
+import { canonicalizeEvent } from '../event-crypto.js';
 import { digestVerfer } from '../../cesr/digest.js';
 import type { AID, KeriKeyPair, Signature } from '../../common/types.js';
 import type { KELEvent } from '../types.js';
@@ -30,7 +30,7 @@ const PARENT3 = KeriKeyPairs.fromSeedNumber(202);
 
 /** Sign an event's canonical bytes with a keypair, return qb64 signature */
 function signEventBytes(event: KELEvent, keypair: KeriKeyPair): string {
-  const { raw } = Data.fromJson(event).canonicalize();
+  const raw = canonicalizeEvent(event);
   const privBytes = decodeKey(keypair.privateKey).raw;
   const sigBytes = sign(raw, privBytes);
   return encodeSig(sigBytes, keypair.transferable ?? true).qb64;

@@ -25,17 +25,17 @@ export class Data {
   }
 
   /**
-   * Compute version string with correct size field
+   * Compute version string with correct size field.
    *
-   * Version format: <protocol><major><minor><kind><size>_
-   * where <size> is 6-digit DECIMAL of canonical JSON **byte** length (not character count).
-   *
-   * This is iterative because the size depends on the version string itself!
+   * @deprecated Use {@link deriveSaid} from `common/derivation-surface.ts` instead.
+   * This legacy path uses RFC-8785 (sorted keys) and **decimal** size encoding,
+   * which does NOT match KERIpy. The new `deriveSaid` path uses insertion-order
+   * serialization and hex size encoding for keripy compatibility.
    *
    * @param eventWithoutVersion - The event/envelope object without version field
    * @param kind - Encoding kind (default: 'JSON')
    * @param protocol - Protocol prefix (default: 'KERI', can be 'ACDC' for credentials)
-   * @param saidFieldName - Field name for SAID placeholder (default: 'd'). If present in eventWithoutVersion, it will be replaced with SAID_PLACEHOLDER during size computation.
+   * @param saidFieldName - Field name for SAID placeholder (default: 'd').
    */
   static computeVersionString(
     eventWithoutVersion: any,
@@ -84,7 +84,12 @@ export class Data {
   }
 
   /**
-   * Generate SAID and add it to the data
+   * Generate SAID and add it to the data.
+   *
+   * @deprecated Use {@link deriveSaid} from `common/derivation-surface.ts` instead.
+   * This legacy path uses RFC-8785 canonicalization (sorted keys), which does NOT
+   * match KERIpy's insertion-order serialization. SAIDs produced by this method
+   * will differ from those produced by KERIpy for the same input.
    *
    * @param fieldName - Field name for SAID (default: 'd')
    * @returns Object with SAID and updated data
@@ -159,7 +164,10 @@ function encodeCESRDigest(digest: Uint8Array, code: string): string {
 }
 
 /**
- * Convenience function: Generate SAID for an object without Data wrapper
+ * Convenience function: Generate SAID for an object without Data wrapper.
+ *
+ * @deprecated Use {@link deriveSaid} from `common/derivation-surface.ts` instead.
+ * See `Data.saidify` deprecation notice for details.
  *
  * @param obj - Object to generate SAID for
  * @param fieldName - Field name for SAID (default: 'd')

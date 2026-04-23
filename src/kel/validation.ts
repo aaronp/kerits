@@ -13,8 +13,17 @@
  */
 
 import { digestVerfer } from '../cesr/digest.js';
-import { Data } from '../common/data.js';
+import { SAID_PLACEHOLDER } from '../common/data.js';
+import type { DerivationSurface } from '../common/derivation-surface.js';
+import { recomputeSaid } from '../common/derivation-surface.js';
 import type { PublicKey, Signature, Threshold } from '../common/types.js';
+import {
+  KEL_DIP_SURFACE,
+  KEL_DRT_SURFACE,
+  KEL_ICP_SURFACE,
+  KEL_IXN_SURFACE,
+  KEL_ROT_SURFACE,
+} from '../said/surfaces.js';
 import { verifyEventSignature } from './event-crypto.js';
 import { type DerivedState, reduceKelState } from './kel-state.js';
 import { matchKeyRevelation } from './rotation.js';
@@ -200,23 +209,35 @@ export interface KelValidationOptions {
  * @param event - The KEL event
  * @returns The computed SAID for this event
  */
-function computeEventSaid(event: KELEvent): string {
-  // Clone the event and reset SAID-derived fields to their placeholder values
-  const eventCopy = { ...event } as Record<string, unknown>;
-  eventCopy.d = '';
-
-  // For inception events, i = d, so reset i as well
-  if (event.t === 'icp' || event.t === 'dip') {
-    eventCopy.i = '';
+function selectSurfaceForValidation(ilk: string): DerivationSurface | undefined {
+  switch (ilk) {
+    case 'icp':
+      return KEL_ICP_SURFACE;
+    case 'rot':
+      return KEL_ROT_SURFACE;
+    case 'ixn':
+      return KEL_IXN_SURFACE;
+    case 'dip':
+      return KEL_DIP_SURFACE;
+    case 'drt':
+      return KEL_DRT_SURFACE;
+    default:
+      return undefined;
   }
+}
 
-  // Set version string to the placeholder used by build functions
-  // KELEvents.computeSaid hashes the event with this placeholder v
-  eventCopy.v = 'KERI10JSON000000_';
+function computeEventSaid(event: KELEvent): string {
+  const surface = selectSurfaceForValidation(event.t);
+  if (!surface) return ''; // Unknown ilk — will fail SAID check
 
-  // Canonicalize and compute digest
-  const { raw } = Data.fromJson(eventCopy).canonicalize();
-  return Data.digest(raw);
+  // For inception events (icp/dip), keripy substitutes BOTH d and i with
+  // the 44-char placeholder before computing the SAID. recomputeSaid only
+  // substitutes the saidField (d), so we must set i = SAID_PLACEHOLDER
+  // on the input before recomputation.
+  const eventForRecompute = event.t === 'icp' || event.t === 'dip' ? { ...event, i: SAID_PLACEHOLDER } : event;
+
+  const { recomputed } = recomputeSaid(eventForRecompute as Record<string, unknown>, surface);
+  return recomputed;
 }
 
 /**
@@ -232,13 +253,13 @@ function getRequiredFields(eventType: string): string[] {
     case 'icp':
       return [...common, 'kt', 'k', 'nt', 'n', 'bt', 'b', 'c', 'a'];
     case 'rot':
-      return [...common, 'p', 'kt', 'k', 'nt', 'n', 'bt', 'br', 'ba', 'c', 'a'];
+      return [...common, 'p', 'kt', 'k', 'nt', 'n', 'bt', 'br', 'ba', 'a'];
     case 'ixn':
       return [...common, 'p', 'a'];
     case 'dip':
       return [...common, 'kt', 'k', 'nt', 'n', 'bt', 'b', 'c', 'a', 'di'];
     case 'drt':
-      return [...common, 'p', 'kt', 'k', 'nt', 'n', 'bt', 'br', 'ba', 'c', 'a'];
+      return [...common, 'p', 'kt', 'k', 'nt', 'n', 'bt', 'br', 'ba', 'a'];
     default:
       return common;
   }

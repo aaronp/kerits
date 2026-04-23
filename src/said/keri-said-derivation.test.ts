@@ -1,8 +1,8 @@
-import { describe, expect } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import { scenario } from '../architecture/index.js';
 import { saidDerive, saidRecompute } from '../architecture/registry.js';
 import { Data, SAID_PLACEHOLDER } from '../common/data.js';
-import { deriveSaid, recomputeSaid } from '../common/derivation-surface.js';
+import { deriveSaid, recomputeSaid, serializeForSigning } from '../common/derivation-surface.js';
 import type { DerivationSurface } from '../common/derivation-surface.js';
 import { serializeInsertionOrder, type JsonValue } from '../common/serialize-insertion-order.js';
 
@@ -36,6 +36,7 @@ function toSurface(f: FixtureEntry): DerivationSurface {
       derivedFieldsInOrder: s.derivedFieldsInOrder as [string, ...string[]],
       hasVersionString: true,
       versionStringField: s.versionStringField!,
+      protocol: s.protocol ?? 'KERI',
     };
   }
   return {
@@ -56,6 +57,7 @@ const VERSIONED: DerivationSurface = {
   derivedFieldsInOrder: ['v', 't', 'd', 'hello', 'n'],
   hasVersionString: true,
   versionStringField: 'v',
+  protocol: 'KERI',
 };
 
 describe('keri-said-derivation: said-derive', () => {
@@ -163,6 +165,7 @@ describe('keri-said-derivation: said-derive', () => {
         derivedFieldsInOrder: ['v', 't', 'd', 'payload'],
         hasVersionString: true,
         versionStringField: 'v',
+        protocol: 'KERI',
       };
       const { sealed } = deriveSaid(artifact, BOUNDARY);
 
@@ -316,6 +319,123 @@ describe('keri-said-derivation: said-derive', () => {
       }
     },
   );
+
+  scenario(
+    {
+      id: 'derives-stable-said-for-kel-rot-fixture',
+      functionality: saidDerive,
+      description:
+        'Derives a stable SAID for a KERI rotation event fixture using insertion-order ' +
+        'serialization. Asserts against KERIpy expected values when available.',
+      covers: ['keri-canonical-serialization', 'said-field-binding', 'placeholder-at-said-field'],
+    },
+    () => {
+      const fixture = loadFixture('kel-rot');
+      const surface = toSurface(fixture);
+      const { sealed, said } = deriveSaid(fixture.artifact, surface);
+
+      expect(said.startsWith('E')).toBe(true);
+      expect(said).toHaveLength(44);
+      expect(sealed.d).toBe(said);
+
+      const sizeMatch = (sealed.v as string).match(/^KERI10JSON([0-9a-f]{6})_$/);
+      expect(sizeMatch).not.toBeNull();
+      const declaredSize = Number.parseInt(sizeMatch![1], 16);
+
+      const preimage: Record<string, unknown> = {};
+      for (const f of surface.derivedFieldsInOrder) {
+        preimage[f] = (sealed as Record<string, unknown>)[f];
+      }
+      preimage.d = SAID_PLACEHOLDER;
+      const bytes = new TextEncoder().encode(
+        serializeInsertionOrder(preimage as unknown as JsonValue),
+      );
+      expect(bytes.length).toBe(declaredSize);
+
+      const expected = keriPyExpected?.['kel-rot'];
+      if (expected?.versionString) {
+        expect(sealed.v).toBe(expected.versionString);
+      }
+    },
+  );
+
+  scenario(
+    {
+      id: 'derives-stable-said-for-kel-ixn-fixture',
+      functionality: saidDerive,
+      description:
+        'Derives a stable SAID for a KERI interaction event fixture using insertion-order ' +
+        'serialization. Asserts against KERIpy expected values when available.',
+      covers: ['keri-canonical-serialization', 'said-field-binding', 'placeholder-at-said-field'],
+    },
+    () => {
+      const fixture = loadFixture('kel-ixn');
+      const surface = toSurface(fixture);
+      const { sealed, said } = deriveSaid(fixture.artifact, surface);
+
+      expect(said.startsWith('E')).toBe(true);
+      expect(said).toHaveLength(44);
+      expect(sealed.d).toBe(said);
+
+      const sizeMatch = (sealed.v as string).match(/^KERI10JSON([0-9a-f]{6})_$/);
+      expect(sizeMatch).not.toBeNull();
+      const declaredSize = Number.parseInt(sizeMatch![1], 16);
+
+      const preimage: Record<string, unknown> = {};
+      for (const f of surface.derivedFieldsInOrder) {
+        preimage[f] = (sealed as Record<string, unknown>)[f];
+      }
+      preimage.d = SAID_PLACEHOLDER;
+      const bytes = new TextEncoder().encode(
+        serializeInsertionOrder(preimage as unknown as JsonValue),
+      );
+      expect(bytes.length).toBe(declaredSize);
+
+      const expected = keriPyExpected?.['kel-ixn'];
+      if (expected?.versionString) {
+        expect(sealed.v).toBe(expected.versionString);
+      }
+    },
+  );
+
+  scenario(
+    {
+      id: 'derives-stable-said-for-kel-dip-fixture',
+      functionality: saidDerive,
+      description:
+        'Derives a stable SAID for a KERI delegated inception event fixture using insertion-order ' +
+        'serialization. Asserts against KERIpy expected values when available.',
+      covers: ['keri-canonical-serialization', 'said-field-binding', 'placeholder-at-said-field'],
+    },
+    () => {
+      const fixture = loadFixture('kel-dip');
+      const surface = toSurface(fixture);
+      const { sealed, said } = deriveSaid(fixture.artifact, surface);
+
+      expect(said.startsWith('E')).toBe(true);
+      expect(said).toHaveLength(44);
+      expect(sealed.d).toBe(said);
+
+      const sizeMatch = (sealed.v as string).match(/^KERI10JSON([0-9a-f]{6})_$/);
+      expect(sizeMatch).not.toBeNull();
+      const declaredSize = Number.parseInt(sizeMatch![1], 16);
+
+      const preimage: Record<string, unknown> = {};
+      for (const f of surface.derivedFieldsInOrder) {
+        preimage[f] = (sealed as Record<string, unknown>)[f];
+      }
+      preimage.d = SAID_PLACEHOLDER;
+      const bytes = new TextEncoder().encode(
+        serializeInsertionOrder(preimage as unknown as JsonValue),
+      );
+      expect(bytes.length).toBe(declaredSize);
+
+      const expected = keriPyExpected?.['kel-dip'];
+      if (expected?.versionString) {
+        expect(sealed.v).toBe(expected.versionString);
+      }
+    },
+  );
 });
 
 describe('keri-said-derivation: said-recompute', () => {
@@ -412,8 +532,6 @@ describe('keri-said-derivation: said-recompute', () => {
       expect(said).toHaveLength(44);
 
       // Cross-validate against KERIpy when expected values are available.
-      // Version string uses hex encoding matching KERIpy. SAID comparison is
-      // deferred until the CESR encoding branch lands.
       const expected = keriPyExpected?.['tel-vcp'];
       if (expected) {
         if (expected.versionString) {
@@ -422,6 +540,245 @@ describe('keri-said-derivation: said-recompute', () => {
       }
     },
   );
+
+  scenario(
+    {
+      id: 'derives-and-recomputes-kel-rot-fixture',
+      functionality: saidRecompute,
+      description:
+        'Derives and recomputes a stable SAID for a KERI rotation event fixture. ' +
+        'Verifies KERI protocol version string and SAID round-trip.',
+      covers: ['keri-canonical-serialization'],
+    },
+    () => {
+      const fixture = loadFixture('kel-rot');
+      const surface = toSurface(fixture);
+      const { sealed, said } = deriveSaid(fixture.artifact, surface);
+
+      const result = recomputeSaid(sealed, surface);
+      expect(result.matches).toBe(true);
+      expect(result.declared).toBe(said);
+
+      expect(said.startsWith('E')).toBe(true);
+      expect(said).toHaveLength(44);
+      expect((sealed.v as string).startsWith('KERI')).toBe(true);
+
+      const expected = keriPyExpected?.['kel-rot'];
+      if (expected?.versionString) {
+        expect(sealed.v).toBe(expected.versionString);
+      }
+    },
+  );
+
+  scenario(
+    {
+      id: 'derives-and-recomputes-kel-ixn-fixture',
+      functionality: saidRecompute,
+      description:
+        'Derives and recomputes a stable SAID for a KERI interaction event fixture. ' +
+        'Verifies KERI protocol version string and SAID round-trip.',
+      covers: ['keri-canonical-serialization'],
+    },
+    () => {
+      const fixture = loadFixture('kel-ixn');
+      const surface = toSurface(fixture);
+      const { sealed, said } = deriveSaid(fixture.artifact, surface);
+
+      const result = recomputeSaid(sealed, surface);
+      expect(result.matches).toBe(true);
+      expect(result.declared).toBe(said);
+
+      expect(said.startsWith('E')).toBe(true);
+      expect(said).toHaveLength(44);
+      expect((sealed.v as string).startsWith('KERI')).toBe(true);
+
+      const expected = keriPyExpected?.['kel-ixn'];
+      if (expected?.versionString) {
+        expect(sealed.v).toBe(expected.versionString);
+      }
+    },
+  );
+
+  scenario(
+    {
+      id: 'derives-and-recomputes-kel-dip-fixture',
+      functionality: saidRecompute,
+      description:
+        'Derives and recomputes a stable SAID for a KERI delegated inception event fixture. ' +
+        'Verifies KERI protocol version string and SAID round-trip.',
+      covers: ['keri-canonical-serialization'],
+    },
+    () => {
+      const fixture = loadFixture('kel-dip');
+      const surface = toSurface(fixture);
+      const { sealed, said } = deriveSaid(fixture.artifact, surface);
+
+      const result = recomputeSaid(sealed, surface);
+      expect(result.matches).toBe(true);
+      expect(result.declared).toBe(said);
+
+      expect(said.startsWith('E')).toBe(true);
+      expect(said).toHaveLength(44);
+      expect((sealed.v as string).startsWith('KERI')).toBe(true);
+
+      const expected = keriPyExpected?.['kel-dip'];
+      if (expected?.versionString) {
+        expect(sealed.v).toBe(expected.versionString);
+      }
+    },
+  );
+
+  scenario(
+    {
+      id: 'derives-and-recomputes-tel-iss-fixture',
+      functionality: saidRecompute,
+      description:
+        'Derives and recomputes a stable SAID for a TEL iss (simple credential issuance) ' +
+        'fixture. Verifies KERI protocol version string and SAID round-trip.',
+      covers: ['keri-canonical-serialization'],
+    },
+    () => {
+      const fixture = loadFixture('tel-iss');
+      const surface = toSurface(fixture);
+      const { sealed, said } = deriveSaid(fixture.artifact, surface);
+
+      // Round-trip.
+      const result = recomputeSaid(sealed, surface);
+      expect(result.matches).toBe(true);
+      expect(result.declared).toBe(said);
+
+      // Structural invariants.
+      expect(said.startsWith('E')).toBe(true);
+      expect(said).toHaveLength(44);
+
+      // Version string uses KERI protocol.
+      expect((sealed.v as string).startsWith('KERI')).toBe(true);
+
+      const expected = keriPyExpected?.['tel-iss'];
+      if (expected?.versionString) {
+        expect(sealed.v).toBe(expected.versionString);
+      }
+    },
+  );
+
+  scenario(
+    {
+      id: 'derives-and-recomputes-tel-rev-fixture',
+      functionality: saidRecompute,
+      description:
+        'Derives and recomputes a stable SAID for a TEL rev (simple credential revocation) ' +
+        'fixture. Verifies KERI protocol version string and SAID round-trip.',
+      covers: ['keri-canonical-serialization'],
+    },
+    () => {
+      const fixture = loadFixture('tel-rev');
+      const surface = toSurface(fixture);
+      const { sealed, said } = deriveSaid(fixture.artifact, surface);
+
+      const result = recomputeSaid(sealed, surface);
+      expect(result.matches).toBe(true);
+      expect(result.declared).toBe(said);
+
+      expect(said.startsWith('E')).toBe(true);
+      expect(said).toHaveLength(44);
+      expect((sealed.v as string).startsWith('KERI')).toBe(true);
+
+      const expected = keriPyExpected?.['tel-rev'];
+      if (expected?.versionString) {
+        expect(sealed.v).toBe(expected.versionString);
+      }
+    },
+  );
+
+  scenario(
+    {
+      id: 'derives-and-recomputes-acdc-schema-fixture',
+      functionality: saidRecompute,
+      description:
+        'Derives and recomputes a stable SAID for an ACDC schema envelope fixture. ' +
+        'Verifies ACDC protocol version string and SAID round-trip.',
+      covers: ['keri-canonical-serialization'],
+    },
+    () => {
+      const fixture = loadFixture('acdc-schema');
+      const surface = toSurface(fixture);
+      const { sealed, said } = deriveSaid(fixture.artifact, surface);
+
+      const result = recomputeSaid(sealed, surface);
+      expect(result.matches).toBe(true);
+      expect(result.declared).toBe(said);
+
+      expect(said.startsWith('E')).toBe(true);
+      expect(said).toHaveLength(44);
+
+      // Version string uses ACDC protocol.
+      expect((sealed.v as string).startsWith('ACDC')).toBe(true);
+
+      const expected = keriPyExpected?.['acdc-schema'];
+      if (expected?.versionString) {
+        expect(sealed.v).toBe(expected.versionString);
+      }
+    },
+  );
+
+  scenario(
+    {
+      id: 'derives-and-recomputes-acdc-credential-fixture',
+      functionality: saidRecompute,
+      description:
+        'Derives and recomputes a stable SAID for an ACDC credential fixture. ' +
+        'Verifies ACDC protocol version string and SAID round-trip.',
+      covers: ['keri-canonical-serialization'],
+    },
+    () => {
+      const fixture = loadFixture('acdc-credential');
+      const surface = toSurface(fixture);
+      const { sealed, said } = deriveSaid(fixture.artifact, surface);
+
+      const result = recomputeSaid(sealed, surface);
+      expect(result.matches).toBe(true);
+      expect(result.declared).toBe(said);
+
+      expect(said.startsWith('E')).toBe(true);
+      expect(said).toHaveLength(44);
+
+      // Version string uses ACDC protocol — no ilk/type field on credentials.
+      expect((sealed.v as string).startsWith('ACDC')).toBe(true);
+      expect(sealed.t).toBeUndefined();
+
+      const expected = keriPyExpected?.['acdc-credential'];
+      if (expected?.versionString) {
+        expect(sealed.v).toBe(expected.versionString);
+      }
+    },
+  );
+});
+
+describe('keri-said-derivation: serializeForSigning', () => {
+  test('serializeForSigning projects sealed artifact onto surface field order', () => {
+    const surface: DerivationSurface = {
+      saidField: 'd',
+      derivedFieldsInOrder: ['v', 't', 'd', 'i', 's', 'p', 'a'],
+      hasVersionString: true,
+      versionStringField: 'v',
+      protocol: 'KERI',
+    };
+    const sealed = {
+      v: 'KERI10JSON00007b_',
+      t: 'ixn',
+      d: 'Eabc',
+      i: 'Exyz',
+      s: '1',
+      p: 'Eprior',
+      a: [],
+      extraField: 'ignored',
+    };
+    const { raw, text } = serializeForSigning(sealed, surface);
+    expect(text).not.toContain('extraField');
+    expect(text).toContain('"d":"Eabc"');
+    expect(raw).toBeInstanceOf(Uint8Array);
+    expect(raw.length).toBe(new TextEncoder().encode(text).length);
+  });
 });
 
 describe('keri-said-derivation: regression', () => {

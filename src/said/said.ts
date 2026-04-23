@@ -7,8 +7,11 @@ import type { SAID } from '../common/types.js';
 
 /**
  * Deterministically compute SAID for a JSON-like object.
- * - Stable canonicalization
- * - Stable hashing (e.g. BLAKE3-256)
+ *
+ * @deprecated Use {@link deriveSaid} from `common/derivation-surface.ts` with a
+ * {@link DerivationSurface} descriptor instead. This function delegates to
+ * cesr-ts `Saider.saidify` which may not match the keripy-compatible
+ * insertion-order serialization used by `deriveSaid`.
  *
  * @param value - Object with a 'd' field (or label specified) to compute SAID for
  * @param algo - Hash algorithm (default: blake3-256)
@@ -23,6 +26,9 @@ export function encodeSAID(value: Record<string, any>, algo: SaidAlgo = 'blake3-
 
 /**
  * Verify that the given SAID matches the given content.
+ *
+ * @deprecated Use {@link recomputeSaid} from `common/derivation-surface.ts` with a
+ * {@link DerivationSurface} descriptor instead.
  *
  * @param said - The SAID qb64 string to verify
  * @param value - The object to verify against
@@ -51,15 +57,13 @@ export function validateSAID(
 }
 
 /**
- * Compute SAID for a JSON object using the project's canonicalization + digest rules.
+ * Compute SAID for a JSON object using RFC-8785 canonicalization + Blake3 digest.
  *
- * IMPORTANT: This must match how the rest of the codebase computes SAIDs.
- * If you already have a canonical SAID primitive elsewhere (e.g. KELEvents.computeSaid),
- * switch this implementation to call that instead.
+ * @deprecated Use {@link deriveSaid} from `common/derivation-surface.ts` instead.
+ * This function uses RFC-8785 (sorted keys) canonicalization, which does NOT match
+ * KERIpy's insertion-order serialization.
  */
 export function saidFromJson(obj: unknown): SAID {
   const canon = Data.fromJson(obj).canonicalize();
-  // If Data.digest returns qb64 digest used as SAID in this codebase, keep it.
-  // Otherwise replace with your existing SAID primitive.
   return Data.digest(canon.raw) as SAID;
 }
