@@ -1,0 +1,156 @@
+---
+title: TEL Event Types
+description: Reference for the six TEL event types — what each does, when to use it, and how to build it.
+---
+
+The Transaction Event Log (TEL) manages credential registries and the credential lifecycle. Unlike the KEL, which tracks identifier key state, the TEL tracks the issuance and revocation status of verifiable credentials.
+
+TEL events fall into three categories: **registry management**, **backerless credential lifecycle** (simple), and **backed credential lifecycle**.
+
+| Type | Name | Purpose |
+|------|------|---------|
+| [`vcp`](#vcp--registry-inception) | Registry Inception | Create a new credential registry |
+| [`vrt`](#vrt--registry-rotation) | Registry Rotation | Rotate registry backers |
+| [`iss`](#iss--simple-issuance) | Simple Issuance | Issue a credential without backers |
+| [`rev`](#rev--simple-revocation) | Simple Revocation | Revoke a backerless credential |
+| [`bis`](#bis--backed-issuance) | Backed Issuance | Issue a credential with backer witnesses |
+| [`brv`](#brv--backed-revocation) | Backed Revocation | Revoke a backed credential |
+
+All events share common fields: `v` (version string), `t` (type), `d` (SAID), `i` (identifier), and `s` (sequence number). Non-inception events also carry `p` (prior event SAID) to form the hash chain.
+
+The `i` field meaning differs by category: for registry events (`vcp`/`vrt`) it is the **registry SAID**, while for credential events (`iss`/`rev`/`bis`/`brv`) it is the **credential SAID**.
+
+The build pattern is always: **build** → **computeSaid** → **sign**.
+
+### Key differences from KEL events
+
+- TEL manages credential registries and credential lifecycle, not identifier key state.
+- Registry events (`vcp`/`vrt`) use **backers** instead of witnesses.
+- Credential events reference registries via `ri` (backerless) or an `ra` seal (backed).
+- The `i` field identifies the registry or credential, not an AID.
+
+---
+
+## `vcp` — Registry Inception
+
+Creates a new credential registry. The registry identifier equals the inception event's SAID (`i === d`). Sets the issuer (`ii`), backers (`b`), backer threshold (`bt`), and configuration traits (`c`).
+
+This is always sequence `0` and has no `p` field — it is the root of the registry's event chain.
+
+```ts
+import { TELEvents } from '@kerits/core';
+
+const { unsignedEvent } = TELEvents.buildVcp({
+  issuerAid: myAid,
+  backers: [backerAid],
+  backerThreshold: '1',
+  config: [],
+});
+
+// isInception = true → sets i = d
+const { event, said } = TELEvents.computeSaid(unsignedEvent, true);
+```
+
+---
+
+## `vrt` — Registry Rotation
+
+Rotates the backer set for an existing registry. Carries `br` (backers removed) and `ba` (backers added) delta fields, mirroring how KEL rotation uses witness deltas.
+
+```ts
+import { TELEvents } from '@kerits/core';
+
+const { unsignedEvent } = TELEvents.buildVrt({
+  registryId: vcpEvent.i,
+  sequence: TELEvents.nextSequence(vcpEvent.s),
+  priorEventSaid: vcpEvent.d,
+  backerThreshold: '2',
+  backersRemoved: [],
+  backersAdded: [newBackerAid],
+});
+
+const { event } = TELEvents.computeSaid(unsignedEvent);
+```
+
+---
+
+## `iss` — Simple Issuance
+
+Issues a credential without backers. Used when the registry was created with no backer configuration. The `i` field is the credential SAID, and `ri` references the registry.
+
+This has no `p` field — it is the first event in the credential's TEL.
+
+```ts
+import { TELEvents } from '@kerits/core';
+
+const { unsignedEvent } = TELEvents.buildIss({
+  credentialSaid: acdcSaid,
+  registryId: vcpEvent.i,
+  sequence: TELEvents.nextSequence(priorEvent.s),
+  datetime: new Date().toISOString(),
+});
+
+const { event } = TELEvents.computeSaid(unsignedEvent);
+```
+
+---
+
+## `rev` — Simple Revocation
+
+Revokes a previously issued backerless credential. Carries the same fields as `iss` plus `p` (prior event SAID) to chain back to the issuance event.
+
+```ts
+import { TELEvents } from '@kerits/core';
+
+const { unsignedEvent } = TELEvents.buildRev({
+  credentialSaid: acdcSaid,
+  registryId: vcpEvent.i,
+  sequence: TELEvents.nextSequence(priorEvent.s),
+  priorEventSaid: priorEvent.d,
+  datetime: new Date().toISOString(),
+});
+
+const { event } = TELEvents.computeSaid(unsignedEvent);
+```
+
+---
+
+## `bis` — Backed Issuance
+
+Issues a credential with backer witnesses. Instead of a simple `ri` registry reference, it carries an `ra` registry anchor seal (`{ i, s, d }`) that binds the credential to a specific registry event. Also includes `ii` (issuer AID).
+
+This has no `p` field — it is the first event in the credential's TEL.
+
+```ts
+import { TELEvents } from '@kerits/core';
+
+const { unsignedEvent } = TELEvents.buildBis({
+  credentialSaid: acdcSaid,
+  issuerAid: myAid,
+  registrySeal: { i: vcpEvent.i, s: vcpEvent.s, d: vcpEvent.d },
+  sequence: TELEvents.nextSequence(priorEvent.s),
+  datetime: new Date().toISOString(),
+});
+
+const { event } = TELEvents.computeSaid(unsignedEvent);
+```
+
+---
+
+## `brv` — Backed Revocation
+
+Revokes a backed credential. Carries the same fields as `bis` but with `p` (prior event SAID) and without `ii`. The `ra` seal references the registry event at the time of revocation.
+
+```ts
+import { TELEvents } from '@kerits/core';
+
+const { unsignedEvent } = TELEvents.buildBrv({
+  credentialSaid: acdcSaid,
+  registrySeal: { i: vcpEvent.i, s: priorEvent.s, d: priorEvent.d },
+  sequence: TELEvents.nextSequence(priorEvent.s),
+  priorEventSaid: priorEvent.d,
+  datetime: new Date().toISOString(),
+});
+
+const { event } = TELEvents.computeSaid(unsignedEvent);
+```

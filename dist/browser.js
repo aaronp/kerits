@@ -9423,6 +9423,7 @@ export {
   TEL_BRV_SURFACE,
   TEL_BIS_SURFACE,
   TELOps,
+  TELEvents,
   TELData,
   Signers,
   Signature as SignatureOps,

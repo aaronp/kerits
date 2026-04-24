@@ -239,8 +239,17 @@ export {
   sign,
   verify,
 } from './signature/primitives.js';
+export type {
+  BisParams,
+  BrvParams,
+  FinalizedTelEventResult,
+  IssParams,
+  RevParams,
+  VcpParams,
+  VrtParams,
+} from './tel/events.js';
 // ── TEL types and ops ────────────────────────────────────────────────
-export { TELData, TELOps, Tel } from './tel/index.js';
+export { TELData, TELEvents, TELOps, Tel } from './tel/index.js';
 export type { TelValidationError, TelValidationResult } from './tel/ops.js';
 export type {
   BisEvent,
