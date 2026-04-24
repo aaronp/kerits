@@ -63,6 +63,7 @@ export { deriveSaid, recomputeSaid, serializeForSigning } from './common/derivat
 export * from './common/errors.js';
 export { transferableKeyToPublicKey } from './common/key-conversions.js';
 export * from './common/types.js';
+export { hkdfBlake3 } from './crypto/hkdf.js';
 export { KeriKeyPairs } from './crypto/index.js';
 export { deriveSharedSecret, ed25519ToX25519Private, ed25519ToX25519Public } from './crypto/x25519.js';
 // ── KEL event canonicalization ────────────────────────────────────────
@@ -220,6 +221,8 @@ export type {
 export type { Signer } from './signature/index.js';
 // Value namespace renamed to avoid shadowing the Signature branded type from common/types.
 export { Signature as SignatureOps, Signers } from './signature/index.js';
+export type { KeyAgreementCapability, KeyAgreementInput } from './signature/key-agreement.js';
+export { MAX_HKDF_DERIVE_LENGTH } from './signature/key-agreement.js';
 // ── Crypto primitives ────────────────────────────────────────────────
 export {
   bytesToHex,

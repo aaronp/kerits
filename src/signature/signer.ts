@@ -1,4 +1,5 @@
 import type { AID, PublicKey, SAID, Signature } from '../common/types.js';
+import type { KeyAgreementInput } from './key-agreement.js';
 
 /**
  * Represents the controller of a keypair and the ability to sign data
@@ -21,6 +22,12 @@ export interface Signer {
    * X25519 public key derived from the signing key (for ECDH/AEAD).
    */
   getX25519PublicKey(): Promise<Uint8Array>;
+
+  /**
+   * Perform X25519 ECDH + HKDF-Blake3 key derivation internally.
+   * Private key bytes never leave the Signer boundary.
+   */
+  deriveX25519HkdfBlake3Key(input: KeyAgreementInput): Promise<Uint8Array>;
 
   /**
    * Does this signer have this public key?

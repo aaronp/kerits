@@ -1,5 +1,9 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, it, test } from 'bun:test';
 import { KeriKeyPairs } from '../crypto/index.js';
+import { decodeKey } from '../cesr/keys.js';
+import { deriveSharedSecret, ed25519ToX25519Private, ed25519ToX25519Public } from '../crypto/x25519.js';
+import { hkdfBlake3 } from '../crypto/hkdf.js';
+import { MAX_HKDF_DERIVE_LENGTH } from './key-agreement.js';
 import type { AID, SAID, Signature } from '../common/types.js';
 import { Signers } from './signers.js';
 
@@ -48,5 +52,68 @@ describe('Signers.fromKeyPair', () => {
     const data = new TextEncoder().encode('hello KERI');
     const sig = await signer.signBytes(data);
     expect(verify(keyPair.publicKey, sig as Signature, data)).toBe(true);
+  });
+});
+
+describe('Signers.fromKeyPair deriveX25519HkdfBlake3Key', () => {
+  // Deterministic seeds for reproducible test vectors
+  const seed = new Uint8Array(32).fill(0xaa);
+  const peerSeed = new Uint8Array(32).fill(0xbb);
+  const pair = KeriKeyPairs.fromSeed(seed);
+  const aid = 'ETestAID000000000000000000000000000000000000' as AID;
+  const signer = Signers.fromKeyPair(pair, aid);
+
+  const peerPair = KeriKeyPairs.fromSeed(peerSeed);
+  const peerX25519Pub = ed25519ToX25519Public(decodeKey(peerPair.publicKey).raw);
+
+  it('produces identical output to explicit ECDH + HKDF sequence (equivalence)', async () => {
+    const info = new TextEncoder().encode('merits-keywrap/1');
+    const ownPrivRaw = decodeKey(pair.privateKey).raw;
+    const ownX25519Priv = ed25519ToX25519Private(ownPrivRaw);
+    const ownX25519Pub = ed25519ToX25519Public(decodeKey(pair.publicKey).raw);
+    const shared = deriveSharedSecret(ownX25519Priv, peerX25519Pub);
+    const expected = hkdfBlake3(shared, ownX25519Pub, info, 32);
+
+    const result = await signer.deriveX25519HkdfBlake3Key({
+      peerPublicKey: peerX25519Pub,
+      salt: ownX25519Pub,
+      info,
+      length: 32,
+    });
+
+    expect(result).toEqual(expected);
+  });
+
+  it('throws if peerPublicKey is not 32 bytes', async () => {
+    await expect(
+      signer.deriveX25519HkdfBlake3Key({
+        peerPublicKey: new Uint8Array(31),
+        salt: new Uint8Array(32),
+        info: new Uint8Array(0),
+        length: 32,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('throws if length < 1', async () => {
+    await expect(
+      signer.deriveX25519HkdfBlake3Key({
+        peerPublicKey: peerX25519Pub,
+        salt: new Uint8Array(32),
+        info: new Uint8Array(0),
+        length: 0,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('throws if length > MAX_HKDF_DERIVE_LENGTH', async () => {
+    await expect(
+      signer.deriveX25519HkdfBlake3Key({
+        peerPublicKey: peerX25519Pub,
+        salt: new Uint8Array(32),
+        info: new Uint8Array(0),
+        length: MAX_HKDF_DERIVE_LENGTH + 1,
+      }),
+    ).rejects.toThrow();
   });
 });
