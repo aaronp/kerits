@@ -15,9 +15,17 @@ export type PublishResult = {
   readonly path: RemotePath;
 };
 
+/** Semantic encoding format for artifact payloads. */
+export type PayloadFormat = 'json' | 'cesr';
+
+/** Options for RemoteStore.publish. */
+export type RemotePublishOptions = {
+  readonly payloadFormat?: PayloadFormat;
+};
+
 /** Byte-level publish/fetch against a remote store. */
 export interface RemoteStore {
-  publish(path: RemotePath, payload: Uint8Array): Promise<PublishResult>;
+  publish(path: RemotePath, payload: Uint8Array, options?: RemotePublishOptions): Promise<PublishResult>;
   fetch(path: RemotePath): Promise<Uint8Array | undefined>;
 }
 
@@ -25,6 +33,7 @@ export interface RemoteStore {
 export type RemoteCodec<T> = {
   readonly encode: (value: T) => Uint8Array;
   readonly decode: (data: Uint8Array) => T;
+  readonly payloadFormat?: PayloadFormat;
 };
 
 /** Map a domain key to a RemotePath. */

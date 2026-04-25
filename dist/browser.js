@@ -9316,7 +9316,8 @@ var CesrSignatureSchema = CesrType("CESR Signature", "qb64-signature");
 function createTypedRemote(store, codec, resolvePath) {
   return {
     async publish(key, value2) {
-      return store.publish(resolvePath(key), codec.encode(value2));
+      const payloadFormat = codec.payloadFormat ?? "json";
+      return store.publish(resolvePath(key), codec.encode(value2), { payloadFormat });
     },
     async fetch(key) {
       const data = await store.fetch(resolvePath(key));
@@ -9455,6 +9456,7 @@ export {
   Kel,
   KSNs,
   KSNSchema,
+  KERI_PREFIX,
   KEL_ROT_SURFACE,
   KEL_IXN_SURFACE,
   KEL_ICP_SURFACE,
@@ -9485,6 +9487,7 @@ export {
   CesrAttachmentSchema,
   CesrAidSchema,
   Cesr,
+  CanonicalPaths,
   CESREventSchema,
   AnySealSchema,
   Acdc,

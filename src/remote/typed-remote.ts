@@ -1,4 +1,4 @@
-import type { RemoteCodec, RemoteStore, ResolveRemotePath, TypedRemote } from './types.js';
+import type { PayloadFormat, RemoteCodec, RemoteStore, ResolveRemotePath, TypedRemote } from './types.js';
 
 /**
  * Compose a RemoteStore + RemoteCodec + path resolver into a TypedRemote.
@@ -13,7 +13,8 @@ export function createTypedRemote<K, T>(
 ): TypedRemote<K, T> {
   return {
     async publish(key, value) {
-      return store.publish(resolvePath(key), codec.encode(value));
+      const payloadFormat: PayloadFormat = codec.payloadFormat ?? 'json';
+      return store.publish(resolvePath(key), codec.encode(value), { payloadFormat });
     },
     async fetch(key) {
       const data = await store.fetch(resolvePath(key));

@@ -182,6 +182,8 @@ export {
   validateKeyChain,
   validateRequiredFields,
 } from './kel/validation.js';
+// ── Canonical URL paths ──────────────────────────────────────────────
+export { CanonicalPaths, KERI_PREFIX } from './keri/canonical-paths.js';
 // ── Remote publishing contracts ──────────────────────────────────────
 export * from './remote/index.js';
 // ── Result type ──────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import { deriveSharedSecret, ed25519ToX25519Private } from '../crypto/x25519.js'
 import type { KeyAgreementInput } from './key-agreement.js';
 import { MAX_HKDF_DERIVE_LENGTH } from './key-agreement.js';
 import type { Signer } from './signer.js';
+import { verify as verifySignature } from './verify.js';
 
 export namespace Signers {
   /**
@@ -54,5 +55,17 @@ export namespace Signers {
         return this.signBytes(saidBytes);
       },
     };
+  }
+
+  /**
+   * Verify a signature against data using a public key.
+   *
+   * @param publicKey - Public key in CESR qb64 format
+   * @param signature - Signature in CESR qb64 format
+   * @param data - Raw bytes that were signed
+   * @returns true if signature is valid, false otherwise
+   */
+  export function verify(publicKey: PublicKey, signature: Signature, data: Uint8Array): boolean {
+    return verifySignature(publicKey, signature, data);
   }
 }

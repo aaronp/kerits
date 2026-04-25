@@ -162,7 +162,7 @@ function validateSaid(credential: ACDCCredential): SaidValidationResult {
   };
 }
 
-export type { SignatureResult, SaidValidationResult };
+export type { SaidValidationResult, SignatureResult };
 
 export const ACDCOps = {
   status,
