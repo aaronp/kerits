@@ -1,6 +1,6 @@
 {
   "name": "@kerits/architecture",
-  "version": "0.2.74",
+  "version": "0.2.76",
   "type": "module",
   "exports": {
     ".": {

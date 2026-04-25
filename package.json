@@ -1,6 +1,6 @@
 {
   "name": "@kerits/core",
-  "version": "0.2.74",
+  "version": "0.2.76",
   "type": "module",
   "exports": {
     ".": {
@@ -12,6 +12,13 @@
       "default": "./dist/index.js"
     }
   },
+  "files": [
+    "src",
+    "!src/**/__tests__",
+    "!src/**/*.test.ts",
+    "!src/architecture",
+    "dist"
+  ],
   "sideEffects": false,
   "scripts": {
     "postinstall": "SUMO=node_modules/libsodium-sumo/dist/modules-sumo-esm/libsodium-sumo.mjs; DEST=node_modules/libsodium-wrappers-sumo/dist/modules-sumo-esm; [ -f \"$SUMO\" ] && [ -d \"$DEST\" ] && [ ! -f \"$DEST/libsodium-sumo.mjs\" ] && cp \"$SUMO\" \"$DEST/\" || true",
