@@ -68,6 +68,7 @@ export { KeriKeyPairs } from './crypto/index.js';
 export { deriveSharedSecret, ed25519ToX25519Private, ed25519ToX25519Public } from './crypto/x25519.js';
 // ── KEL event canonicalization ────────────────────────────────────────
 export { canonicalizeEvent } from './kel/event-crypto.js';
+export { encodeEventBytes } from './kel/event-signing.js';
 export type {
   DipParams,
   DrtParams,

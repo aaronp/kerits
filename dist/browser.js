@@ -9376,6 +9376,7 @@ export {
   encodeSig as encodeSignature,
   encodeSAID,
   encodeKey,
+  encodeEventBytes,
   encodeDigest,
   encodeBase64Url,
   encode2 as encode,
