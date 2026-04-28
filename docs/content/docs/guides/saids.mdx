@@ -1,67 +1,115 @@
 ---
 title: SAIDs
-description: Compute, embed, and verify Self-Addressing Identifiers, and create pre-rotation key commitments.
+description: Compute, embed, and verify Self-Addressing Identifiers using keripy-compliant derivation surfaces.
 ---
 
-A **SAID** (Self-Addressing Identifier) is a cryptographic digest that is embedded in the very data structure it identifies. This circular binding is achieved by first replacing the target field with an empty string, hashing the result, and then storing that hash back into the field. Any reader can independently verify a SAID by performing the same substitution and recomputing the digest — no external registry or certificate authority is required.
+A **SAID** (Self-Addressing Identifier) is a cryptographic digest embedded in the very data structure it identifies. The circular binding is achieved by replacing the target field with a placeholder, hashing the serialized result, and storing that hash back into the field. Any reader can verify a SAID by performing the same substitution and recomputing the digest — no external registry or certificate authority is required.
 
 In KERI, SAIDs appear as the `d` field of every KEL event. For inception events (`icp`, `dip`) the `i` field (the AID itself) is also set to the inception SAID, making the identifier self-certifying from the moment it is created.
 
+## Derivation Surfaces
+
+A `DerivationSurface` declares how an artifact family (KEL event, TEL event, ACDC credential) projects itself onto a SAID preimage. It specifies:
+
+- **Which fields** participate in the SAID derivation
+- **The insertion order** those fields are serialized in (matching the keripy reference implementation)
+- **Whether the artifact has a version string** and which protocol it belongs to (`KERI` or `ACDC`)
+
+```ts title="surface-example.ts"
+import type { DerivationSurface } from '@kerits/core';
+
+// A surface for KERI inception events — fields in keripy canonical order
+const KEL_ICP_SURFACE: DerivationSurface = {
+  saidField: 'd',
+  derivedFieldsInOrder: ['v', 't', 'd', 'i', 's', 'kt', 'k', 'nt', 'n', 'bt', 'b', 'c', 'a'],
+  hasVersionString: true,
+  versionStringField: 'v',
+  protocol: 'KERI',
+};
+```
+
+Kerits ships pre-built surfaces for all standard artifact families:
+
+| Surface | Artifact |
+|---------|----------|
+| `KEL_ICP_SURFACE` | Inception event |
+| `KEL_ROT_SURFACE` | Rotation event |
+| `KEL_IXN_SURFACE` | Interaction event |
+| `KEL_DIP_SURFACE` | Delegated inception |
+| `KEL_DRT_SURFACE` | Delegated rotation |
+| `TEL_VCP_SURFACE` | Registry inception |
+| `TEL_VCP_WITH_NONCE_SURFACE` | Registry inception with nonce |
+| `TEL_VRT_SURFACE` | Registry rotation |
+| `TEL_ISS_SURFACE` | Credential issuance |
+| `TEL_REV_SURFACE` | Credential revocation |
+| `TEL_BIS_SURFACE` | Backer credential issuance |
+| `TEL_BRV_SURFACE` | Backer credential revocation |
+| `ACDC_SCHEMA_SURFACE` | ACDC schema envelope |
+| `ACDC_CREDENTIAL_SURFACE` | ACDC credential (minimal) |
+
+For ACDC credentials with optional fields, use `buildACDCCredentialSurface(artifact)` to construct a surface from the fields actually present.
+
 ## Compute a SAID
 
-`encodeSAID` canonicalizes the object (RFC 8785), replaces the target label with an empty string, hashes with BLAKE3-256, and returns the CESR qb64 result (44-character string beginning with `E`).
+`deriveSaid` takes an artifact and its surface, computes the SAID using insertion-order serialization and BLAKE3-256, and returns the sealed artifact with the SAID written back:
 
-```ts title="encode-said.ts"
-import { encodeSAID } from '@kerits/core';
+```ts title="derive-said.ts"
+import { deriveSaid, KEL_IXN_SURFACE } from '@kerits/core';
 
-// The object must have a 'd' field (or the label you specify)
-const obj = {
+const artifact = {
   v: 'KERI10JSON000000_',
   t: 'ixn',
-  d: '',          // placeholder — encodeSAID replaces this
-  i: 'Eaid...',
-  s: '1',
-  p: 'Eprior...',
+  d: '',           // placeholder — deriveSaid replaces this
+  i: 'EDP1vHcw_wc4M0MPoW1gVXEl3XEY2eJMBqhBMBCAFXMq',
+  s: '2',
+  p: 'EpriorSaid123456789012345678901234567890123',
   a: [],
 };
 
-const said = encodeSAID(obj);
+const { sealed, said } = deriveSaid(artifact, KEL_IXN_SURFACE);
 // said: 'E...' — 44-char CESR Blake3-256 digest
-
-// Produce the final object by merging the computed SAID back in
-const finalObj = { ...obj, d: said };
+// sealed.d === said
+// sealed.v — version string with correct byte-length declaration
 ```
 
-`encodeSAID` accepts optional `algo` and `label` parameters if you need a different hash algorithm or a non-standard field name:
-
-```ts title="encode-said-options.ts"
-import { encodeSAID } from '@kerits/core';
-
-// Compute SAID over the 'id' field using blake3-256 (the only supported algo)
-const said = encodeSAID(myObj, 'blake3-256', 'id');
-```
+For versioned surfaces, `deriveSaid` also computes the version string (e.g. `KERI10JSON00009b_`) with the correct byte-length declaration. The version string and SAID use the same insertion-order serializer to guarantee alignment.
 
 ## Verify a SAID
 
-`validateSAID` confirms that a given qb64 SAID string correctly identifies the provided object. It recomputes the SAID internally and returns `true` if they match.
+`recomputeSaid` checks whether a sealed artifact's declared SAID matches a fresh recomputation:
 
-```ts title="validate-said.ts"
-import { validateSAID } from '@kerits/core';
+```ts title="recompute-said.ts"
+import { recomputeSaid, KEL_IXN_SURFACE } from '@kerits/core';
 
-const isValid = validateSAID(finalObj.d, finalObj);
-// true if finalObj.d was correctly computed from finalObj
+const result = recomputeSaid(sealedEvent, KEL_IXN_SURFACE);
+// result.matches:    true if declared SAID matches recomputed
+// result.declared:   the SAID value found on the artifact
+// result.recomputed: the freshly computed SAID
 
-// A tampered object returns false
-const tampered = { ...finalObj, s: '99' };
-const stillValid = validateSAID(finalObj.d, tampered);
-// false — SAID no longer matches the mutated content
+if (!result.matches) {
+  console.error('SAID verification failed');
+}
 ```
 
-`validateSAID` returns `false` (rather than throwing) for any input that cannot be verified, including malformed qb64 strings.
+`recomputeSaid` returns `matches: false` rather than throwing for invalid input, making it safe for validation pipelines.
 
-## SAIDs in KEL events
+## Serialize for Signing
 
-Inception events are special: both `d` (the event SAID) and `i` (the AID) must be set to the same value because the identifier *is* the inception event's digest. The placeholder for both fields must be `''` before computing the SAID.
+`serializeForSigning` projects a sealed artifact onto its surface field order and serializes it. The result is the canonical byte sequence that should be signed:
+
+```ts title="serialize-for-signing.ts"
+import { serializeForSigning, KEL_ICP_SURFACE } from '@kerits/core';
+
+const { raw, text } = serializeForSigning(sealedEvent, KEL_ICP_SURFACE);
+// raw:  Uint8Array — bytes to sign
+// text: string — the JSON representation
+```
+
+This produces the same field order as the SAID preimage, but with the actual SAID filled in instead of the placeholder.
+
+## SAIDs in KEL Events
+
+Inception events are special: both `d` (the event SAID) and `i` (the AID) must be set to the same value because the identifier *is* the inception event's digest.
 
 ```ts title="icp-said.ts"
 import { KELEvents, generateKeyPair, encodeKey, nextKeyDigestQb64FromPublicKeyQb64 } from '@kerits/core';
@@ -73,7 +121,6 @@ const currentQb64 = encodeKey(current.publicKey).qb64;
 const nextQb64 = encodeKey(next.publicKey).qb64;
 const nextDigest = nextKeyDigestQb64FromPublicKeyQb64(nextQb64);
 
-// KELEvents.buildIcp sets d='' and i='' automatically
 const { unsignedEvent } = KELEvents.buildIcp({
   keys: [currentQb64],
   nextKeyDigests: [nextDigest],
@@ -86,77 +133,80 @@ const { event: icpEvent, said } = KELEvents.computeSaid(unsignedEvent, true);
 
 For rotation and interaction events only `d` is cleared — `i` retains the original AID throughout the controller's lifetime.
 
-## Pre-rotation key commitments
+## Pre-rotation Key Commitments
 
 Before publishing an inception or rotation event you must commit to the *next* set of keys without revealing the private keys. `nextKeyDigestQb64FromPublicKeyQb64` computes the BLAKE3-256 digest of a CESR-encoded public key, producing the value that goes into the `n[]` field.
 
 ```ts title="next-key-digest.ts"
 import { generateKeyPair, encodeKey, nextKeyDigestQb64FromPublicKeyQb64 } from '@kerits/core';
 
-// Generate the keypair you plan to use in the *next* rotation
 const nextKeyPair = generateKeyPair();
 const nextKeyQb64 = encodeKey(nextKeyPair.publicKey).qb64;
 
-// Compute the commitment to put in the current event's n[] field
 const commitment = nextKeyDigestQb64FromPublicKeyQb64(nextKeyQb64);
 // commitment: 'E...' (44-char CESR Blake3-256 digest)
-
-// Use it in n[]
-const event = {
-  ...restOfEvent,
-  n: [commitment],
-};
 ```
 
 At rotation time, the private key for `nextKeyPair` is revealed by including `nextKeyQb64` in the rotation event's `k[]`. Validators confirm the pre-rotation commitment holds by hashing the revealed key and matching it against the digest stored in the previous event's `n[]`.
 
-## The Said namespace
+## Serialization: Two Paths
 
-`Said` bundles `encodeSAID` and `validateSAID` under a single namespace object:
+Kerits maintains two separate serialization paths for SAID computation:
 
-```ts title="said-namespace.ts"
-import { Said } from '@kerits/core';
+| Path | Serializer | Use case |
+|------|-----------|----------|
+| KERI derivation (`deriveSaid`, `recomputeSaid`) | Insertion-order JSON | KEL events, TEL events, ACDCs |
+| Generic (`Data.saidify`) | RFC-8785 (lexicographic) | Schema SAIDs, messaging digests |
 
-const said = Said.encodeSAID(obj);
-const ok = Said.validateSAID(said, obj);
+The KERI path preserves field insertion order as required by the KERI specification and keripy reference implementation. The generic path uses RFC-8785 canonical JSON for determinism independent of construction order. These paths are tested independently — changes to one must not affect the other.
+
+## KERIpy Compliance Testing
+
+SAID computation is deterministic: a correct implementation must produce identical digests for identical inputs regardless of language or runtime. Kerits validates its SAID outputs against KERIpy (the Python reference implementation) using a shared fixture system.
+
+### How it works
+
+The compliance pipeline has three stages:
+
+```
+┌─────────────────────┐     ┌──────────────────────┐     ┌─────────────────────────┐
+│ 1. Neutral fixtures │ ──▶ │ 2. KERIpy generates  │ ──▶ │ 3. TypeScript tests     │
+│    (shared JSON)    │     │    expected values    │     │    cross-validate       │
+└─────────────────────┘     └──────────────────────┘     └─────────────────────────┘
 ```
 
-## Testing and cross-validation
-
-SAID computation is deterministic, so a correct implementation must produce identical digests for identical inputs regardless of language or runtime. Kerits uses a shared fixture system to validate its SAID outputs against KERIpy, the Python reference implementation.
-
-### Fixture format
-
-Test fixtures live in `packages/core/src/said/fixtures/keri-said-fixtures.json`. Each fixture declares an artifact (the event data) and a derivation surface (which fields participate in the SAID, in what order):
+**Stage 1: Shared fixtures.** Test fixtures live in `packages/core/src/said/fixtures/keri-said-fixtures.json`. Each fixture declares an artifact and its derivation surface using neutral field names (not Python or TypeScript class names):
 
 ```json title="keri-said-fixtures.json (excerpt)"
 {
-  "fixtures": [
-    {
-      "id": "kel-icp",
-      "description": "KERI inception event",
-      "surface": {
-        "saidField": "d",
-        "derivedFieldsInOrder": ["v", "t", "d", "i", "kt", "k", "nt", "n", "bt", "b"],
-        "hasVersionString": true,
-        "versionStringField": "v"
-      },
-      "artifact": {
-        "v": "", "t": "icp", "d": "", "i": "",
-        "kt": "1", "k": ["DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr"],
-        "nt": "1", "n": ["EIFG_uqfr1yN560LoHYHfvPAhxQ5sN6p3any8Ir7kGpq"],
-        "bt": "0", "b": []
-      }
-    }
-  ]
+  "id": "kel-icp",
+  "description": "KERI inception event with single signing key",
+  "surface": {
+    "saidField": "d",
+    "derivedFieldsInOrder": ["v", "t", "d", "i", "s", "kt", "k", "nt", "n", "bt", "b", "c", "a"],
+    "hasVersionString": true,
+    "versionStringField": "v",
+    "protocol": "KERI"
+  },
+  "artifact": {
+    "v": "KERI10JSON000000_",
+    "t": "icp",
+    "d": "",
+    "i": "",
+    "s": "0",
+    "kt": "1",
+    "k": ["DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr"],
+    "nt": "1",
+    "n": ["EIFG_uqfr1yN560LoHYHfvPAhxQ5sN6p3any8Ir7kGpq"],
+    "bt": "0",
+    "b": [],
+    "c": [],
+    "a": []
+  }
 }
 ```
 
-This single file is consumed by both the TypeScript tests and the Python reference script.
-
-### KERIpy cross-validation
-
-A Python script reads the fixtures, computes SAIDs using KERIpy's `Saider.saidify()`, and writes the expected values to `keri-said-expected.json`:
+**Stage 2: Python script generates expected values.** `scripts/generate-keripy-saids.py` reads the fixtures, computes SAIDs using KERIpy's `Saider.saidify()`, and writes the results to `keri-said-expected.json`:
 
 ```bash title="Generate expected values"
 # Requires Python 3.12.1+ and KERIpy
@@ -164,33 +214,40 @@ pip install keri
 python3 scripts/generate-keripy-saids.py
 ```
 
-The generated file is checked into version control so that CI tests validate against KERIpy without needing Python installed. When expected values are present, the fixture tests assert exact SAID and version-string equality:
+The generated file records the keripy version and the computed SAID + version string for each fixture. It is checked into version control so CI tests validate against keripy without needing Python installed.
 
-```ts title="Cross-validation in tests"
+**Stage 3: TypeScript tests cross-validate.** The test suite in `keri-said-derivation.test.ts` runs two layers of assertions:
+
+- **Structural assertions** (always run): CESR format (`E` prefix, 44 chars), version-string byte alignment, deriveSaid/recomputeSaid round-trip
+- **KERIpy cross-validation** (when expected file present): exact SAID and version-string equality against keripy-computed values
+
+```ts title="Cross-validation pattern"
 const expected = keriPyExpected?.['kel-icp'];
-if (expected) {
-  expect(said).toBe(expected.said);
+if (expected?.versionString) {
   expect(sealed.v).toBe(expected.versionString);
 }
 ```
 
-When the expected file is absent, the same tests still run structural assertions (CESR format, byte-length alignment, round-trip recomputation) — they just skip the exact-value comparison.
+When the expected file is absent, structural tests still run — the suite never fails due to a missing expected file.
+
+### Covered artifact families
+
+The fixture set covers KEL events (icp, rot, ixn, dip), TEL events (vcp, iss, rev), and ACDC artifacts (schema, credential). Each fixture tests both `deriveSaid` and `recomputeSaid` round-trip.
 
 ### Adding new fixtures
 
-To validate a new event type:
-
 1. Add an entry to `keri-said-fixtures.json` with the artifact and surface definition
 2. Re-run `python3 scripts/generate-keripy-saids.py` to update expected values
-3. Add a test scenario that calls `loadFixture('your-id')` and asserts against `keriPyExpected`
+3. Add a test scenario in `keri-said-derivation.test.ts` that loads the fixture and asserts against `keriPyExpected`
 
-### Two serialization paths
+## Legacy API
 
-Kerits maintains two separate serialization paths for SAID computation:
+<Callout type="warn">
+The following functions are deprecated. Use `deriveSaid` and `recomputeSaid` with a `DerivationSurface` instead.
+</Callout>
 
-| Path | Serializer | Use case |
-|------|-----------|----------|
-| KERI derivation (`deriveSaid`, `recomputeSaid`) | Insertion-order JSON | KEL events, TEL events, ACDCs |
-| Generic (`Data.saidify`, `encodeSAID`) | RFC-8785 (lexicographic) | Schema SAIDs, messaging digests |
+- `encodeSAID(obj)` — delegates to cesr-ts `Saider.saidify`, uses RFC-8785 canonicalization (does not match keripy insertion-order serialization)
+- `validateSAID(said, obj)` — recomputes via cesr-ts and compares
+- `saidFromJson(obj)` — RFC-8785 canonicalization + Blake3 digest
 
-The KERI path preserves field insertion order as required by the KERI specification. The generic path uses RFC-8785 canonical JSON for determinism independent of construction order. These paths are tested independently — changes to one must not affect the other.
+These remain available for backward compatibility but will be removed in a future release.

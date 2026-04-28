@@ -1,6 +1,6 @@
 {
   "name": "@kerits/core",
-  "version": "0.2.85",
+  "version": "0.2.87",
   "type": "module",
   "exports": {
     ".": {
@@ -48,6 +48,18 @@
     "url": "https://github.com/aaronp/kerits.git",
     "directory": "packages/core"
   },
+  "license": "Apache-2.0",
+  "keywords": [
+    "KERI",
+    "CESR",
+    "SAID",
+    "ACDC",
+    "decentralized-identity",
+    "self-certifying",
+    "key-event-log",
+    "cryptography",
+    "ed25519"
+  ],
   "publishConfig": {
     "registry": "https://registry.npmjs.org"
   }

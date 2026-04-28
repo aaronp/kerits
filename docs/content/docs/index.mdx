@@ -21,7 +21,7 @@ description: Install and use @kerits/core for KERI primitives
 | ----------- | ---------------------------------------------------------- |
 | `KELEvents` | Factory functions for building and finalizing KEL events   |
 | `Kel`       | KEL event predicates, threshold checks, validation         |
-| `Said`      | SAID computation and verification                          |
+| `Said`      | SAID derivation and verification via derivation surfaces   |
 | `Cesr`      | CESR encoding/decoding for keys, signatures, and digests   |
 | `Signature` | Ed25519 signing namespace (see also flat `sign`/`verify`)  |
 
@@ -29,12 +29,13 @@ All functions are also available as flat re-exports for convenience:
 
 ```ts
 // Namespace style
-import { Kel, Said, Cesr } from '@kerits/core';
-const said = Said.encodeSAID(event);
+import { Kel, Cesr } from '@kerits/core';
+import { deriveSaid, KEL_IXN_SURFACE } from '@kerits/core';
+const { sealed, said } = deriveSaid(event, KEL_IXN_SURFACE);
 const encoded = Cesr.encodeKey(rawPublicKey);
 
 // Flat style
-import { encodeSAID, encodeKey } from '@kerits/core';
+import { deriveSaid, encodeKey } from '@kerits/core';
 ```
 
 ## Branded Types
