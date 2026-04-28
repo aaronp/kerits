@@ -401,6 +401,24 @@ export namespace KELOps {
   /** Validate key chain continuity (k[] keys hash to prior n[] digests). */
   export const validateKeyChain = _validateKeyChain;
 
+  // ─── Comparison helpers ───────────────────────────────────────────────────
+
+  /**
+   * Two events are equal iff they have the same self-addressing identifier.
+   * KERI events are content-addressable: same SAID ⟹ identical event body.
+   */
+  export function eventsEqual(a: CESREvent, b: CESREvent): boolean {
+    return a.event.d === b.event.d;
+  }
+
+  /**
+   * Two KELs are equal iff they have the same length and pairwise-matching SAIDs.
+   */
+  export function kelEqual(a: readonly CESREvent[], b: readonly CESREvent[]): boolean {
+    if (a.length !== b.length) return false;
+    return a.every((evt, i) => eventsEqual(evt, b[i]!));
+  }
+
   /**
    * Validate a single controller signature against a KEL event body and signing keys.
    *

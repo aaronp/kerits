@@ -1,8 +1,8 @@
 export type {
   KELPublishError,
+  KELPublishEventsResult,
   KELPublisher,
-  KELPublishResult,
-  KELPublishStatus,
+  KELPublishLocation,
 } from './kel-publish-types.js';
 export type { PublishError, PublishStatus } from './publish-types.js';
 export type { BackerReceiptsJson, RegistryPublisher } from './registry-publish-types.js';

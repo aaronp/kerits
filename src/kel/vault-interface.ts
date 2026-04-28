@@ -73,13 +73,6 @@ export interface Vault {
   getKeypairMeta<T = unknown>(publicKey: PublicKey): Promise<T | undefined>;
 
   /**
-   * Get the private key for a keypair by its public key
-   * @param publicKey - The public key to look up
-   * @returns The private key, or undefined if not found
-   */
-  getKeypairPrivate<T = unknown>(publicKey: PublicKey): Promise<T | undefined>;
-
-  /**
    * Append a key pair to the vault
    * @param append - The key pair to append with metadata
    * @returns Promise resolving to unknown (implementation-specific result)

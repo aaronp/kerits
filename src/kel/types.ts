@@ -315,30 +315,42 @@ export type PublishedResource<T> = {
   publishedAt: Timestamp;
 };
 
-/* ------------------------------------------------------------------------------------------------
- * KelManifest
- * ----------------------------------------------------------------------------------------------*/
+// ---------------------------------------------------------------------------
+// AidManifest — URL-based manifest (replaces KelManifest)
+// ---------------------------------------------------------------------------
 
-/**
- * KelManifest - Small document pointing to a KEL's events
- *
- * Provides efficient access to KEL metadata without fetching all events.
- */
-export const KelManifestSchema = Type.Object(
+export const AidManifestEventSchema = Type.Object(
   {
-    d: CesrDigestSchema,
-    aid: CesrAidSchema,
-    firstEventSaid: CesrDigestSchema,
+    sn: Type.Number({ description: 'Event sequence number' }),
+    said: Qb64Schema,
+    path: Type.String({ description: 'Canonical path' }),
+    url: Type.String({ description: 'Full URL' }),
+  },
+  { title: 'AidManifestEvent' },
+);
+export type AidManifestEvent = Static<typeof AidManifestEventSchema>;
+
+export const AidManifestSchema = Type.Object(
+  {
+    v: Type.Literal('kerits-aid-manifest/1'),
+    aid: Qb64Schema,
     latestSn: Type.Number({ description: 'Latest sequence number' }),
-    latestEventSaid: CesrDigestSchema,
-    eventSaids: Type.Array(CesrDigestSchema, { description: 'All event SAIDs in order' }),
+    ksnSaid: Qb64Schema,
+    ksnPath: Type.String({ description: 'Canonical KSN path' }),
+    ksnUrl: Type.String({ description: 'Full KSN URL' }),
+    kelPath: Type.Optional(Type.String({ description: 'Canonical full-KEL path' })),
+    kelUrl: Type.Optional(Type.String({ description: 'Full KEL URL' })),
+    events: Type.Array(AidManifestEventSchema, {
+      description: 'Per-event index with path and URL',
+      minItems: 1,
+    }),
   },
   {
-    title: 'KelManifest',
-    description: 'Manifest document for a published KEL',
+    title: 'AidManifest',
+    description: 'URL-based manifest for a published KEL — mutable resource directory',
   },
 );
-export type KelManifest = Static<typeof KelManifestSchema>;
+export type AidManifest = Static<typeof AidManifestSchema>;
 
 /* ------------------------------------------------------------------------------------------------
  * KSNs namespace — helper functions for building KSN from KEL events
@@ -459,6 +471,15 @@ export namespace KSNs {
     };
 
     return ksn;
+  }
+
+  /**
+   * Two KSNs are equal iff they have the same self-addressing digest.
+   * KSN.d is the SAID of the KSN body. If d semantics vary in future,
+   * fall back to deriving canonical SAID via deriveSaid() and comparing.
+   */
+  export function equal(a: KSN, b: KSN): boolean {
+    return a.d === b.d;
   }
 }
 
@@ -693,7 +714,7 @@ export type KelAppend = Static<typeof KelAppendSchema>;
 
 export const VaultAppendSchema = Type.Object(
   {
-    aid: CesrAidSchema,
+    aid: Type.Optional(CesrAidSchema),
     keyPair: KeriKeyPairSchema,
     purpose: Type.Optional(
       Type.Union(
@@ -703,6 +724,7 @@ export const VaultAppendSchema = Type.Object(
           Type.Literal('inception-next'),
           Type.Literal('rotation-current'),
           Type.Literal('rotation-next'),
+          Type.Literal('next-key-commitment'),
           Type.Literal('registry-backer-current'),
           Type.Literal('registry-backer-next'),
           // Messaging DH key purposes (X25519)

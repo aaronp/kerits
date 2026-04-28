@@ -82,6 +82,8 @@ export { KELEvents } from './kel/events.js';
 // ── Namespace types ──────────────────────────────────────────────────
 // ── KEL event types ──────────────────────────────────────────────────
 export type {
+  AidManifest,
+  AidManifestEvent,
   AnySeal,
   CESREvent,
   CesrAttachment,
@@ -100,7 +102,6 @@ export type {
   KELEvent,
   KELView,
   KelAppend,
-  KelManifest,
   KeyCreateOptions,
   KeyIndex,
   KSN,
@@ -118,6 +119,8 @@ export type {
 } from './kel/index.js';
 // ── KEL event schemas and namespaces ─────────────────────────────────
 export {
+  AidManifestEventSchema,
+  AidManifestSchema,
   AnySealSchema,
   CESREventSchema,
   CesrAttachment_Signature,
@@ -135,7 +138,6 @@ export {
   Kel,
   KelAppendSchema,
   KelAppends,
-  KelManifestSchema,
   KeyIndexSchema,
   KSNSchema,
   KSNs,
