@@ -1,7 +1,7 @@
 import { ed25519 } from '@noble/curves/ed25519.js';
 import { decodeKey } from '../cesr/keys.js';
 import { encodeSig } from '../cesr/sigs.js';
-import type { AID, KeriKeyPair, PublicKey, SAID, Signature } from '../common/types.js';
+import type { KeriKeyPair, PublicKey, SAID, Signature } from '../common/types.js';
 import { hkdfBlake3 } from '../crypto/hkdf.js';
 import { deriveSharedSecret, ed25519ToX25519Private } from '../crypto/x25519.js';
 import type { KeyAgreementInput } from './key-agreement.js';
@@ -11,14 +11,13 @@ import { verify as verifySignature } from './verify.js';
 
 export namespace Signers {
   /**
-   * Create a Signer from a KeriKeyPair and AID.
+   * Create a Signer from a KeriKeyPair.
    *
    * Pure implementation using only core primitives.
    * No I/O, no storage — suitable for testing and lightweight signing.
    */
-  export function fromKeyPair(keypair: KeriKeyPair, aid: AID): Signer {
+  export function fromKeyPair(keypair: KeriKeyPair): Signer {
     return {
-      aid,
       publicKey: keypair.publicKey,
 
       async getX25519PublicKey(): Promise<Uint8Array> {

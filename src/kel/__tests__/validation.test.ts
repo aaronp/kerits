@@ -5,23 +5,7 @@
  * and chain linkage (p-field) validation.
  */
 
-import { describe, expect } from 'bun:test';
-import { scenario } from '../../architecture/scenario.js';
-import {
-  validateSaid,
-  validateRequiredFields,
-  validateAidRules,
-  validateSequence,
-  validateChainLinkage,
-  validateSignatures,
-  validateThreshold,
-  validateKeyRotation,
-  validateDelegation,
-  validateWitnesses,
-  validateConfigTraits,
-  validateKeyUniqueness,
-  validateChain,
-} from '../../architecture/registry.js';
+import { describe, expect, it } from 'bun:test';
 import { KeriKeyPairs } from '../../crypto/index.js';
 import { digestVerfer } from '../../cesr/digest.js';
 import { decodeKey } from '../../cesr/keys.js';
@@ -206,28 +190,13 @@ function rewrapCesr(cesrEvent: CESREvent, tamperedEvent: KELEvent): CESREvent {
 // ===========================================================================
 
 describe('validate-said', () => {
-  scenario(
-    {
-      id: 'valid-said-all-event-types',
-      functionality: validateSaid,
-      description: 'Valid SAID passes for properly constructed inception event',
-      covers: ['said-integrity'],
-    },
-    () => {
+  it('[valid-said-all-event-types] Valid SAID passes for properly constructed inception event', () => {
       const { cesrEvent } = buildSignedIcp();
       const result = KELOps.validateKelChain([cesrEvent]);
       expect(result.eventDetails[0]!.checks.saidValid.passed).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'tampered-field-detected',
-      functionality: validateSaid,
-      description: 'Tampering with the s field invalidates the SAID',
-      covers: ['said-integrity'],
-    },
-    () => {
+  it('[tampered-field-detected] Tampering with the s field invalidates the SAID', () => {
       const { cesrEvent, event } = buildSignedIcp();
       const tampered = cloneEvent(event);
       (tampered as any).s = '99';
@@ -235,17 +204,9 @@ describe('validate-said', () => {
       const result = KELOps.validateKelChain([bad]);
       expect(result.eventDetails[0]!.checks.saidValid.passed).toBe(false);
       expect(result.valid).toBe(false);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'tampered-keys-detected',
-      functionality: validateSaid,
-      description: 'Tampering with a signing key invalidates the SAID',
-      covers: ['said-integrity'],
-    },
-    () => {
+  it('[tampered-keys-detected] Tampering with a signing key invalidates the SAID', () => {
       const { cesrEvent, event } = buildSignedIcp();
       const tampered = cloneEvent(event);
       // Replace the first key with an obviously different one
@@ -254,8 +215,7 @@ describe('validate-said', () => {
       const result = KELOps.validateKelChain([bad]);
       expect(result.eventDetails[0]!.checks.saidValid.passed).toBe(false);
       expect(result.valid).toBe(false);
-    },
-  );
+  });
 });
 
 // ===========================================================================
@@ -263,14 +223,7 @@ describe('validate-said', () => {
 // ===========================================================================
 
 describe('validate-required-fields', () => {
-  scenario(
-    {
-      id: 'all-fields-present-all-types',
-      functionality: validateRequiredFields,
-      description: 'Properly constructed events have all required fields',
-      covers: ['said-integrity'],
-    },
-    () => {
+  it('[all-fields-present-all-types] Properly constructed events have all required fields', () => {
       // icp
       const { cesrEvent: icpCesr } = buildSignedIcp();
       const icpResult = KELOps.validateKelChain([icpCesr]);
@@ -292,17 +245,9 @@ describe('validate-required-fields', () => {
       const { cesrEvent: rotCesr } = buildSignedRot(icpEvent3, icpSaid3, [KEY2], [KEY3]);
       const rotResult = KELOps.validateKelChain([icpCesr3, rotCesr]);
       expect(rotResult.eventDetails[1]!.checks.requiredFieldsPresent.passed).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'missing-kt',
-      functionality: validateRequiredFields,
-      description: 'Missing kt field from icp is detected',
-      covers: ['said-integrity'],
-    },
-    () => {
+  it('[missing-kt] Missing kt field from icp is detected', () => {
       const { cesrEvent, event } = buildSignedIcp();
       const tampered = cloneEvent(event);
       delete (tampered as any).kt;
@@ -311,17 +256,9 @@ describe('validate-required-fields', () => {
       expect(result.eventDetails[0]!.checks.requiredFieldsPresent.passed).toBe(false);
       expect(result.eventDetails[0]!.checks.requiredFieldsPresent.missing).toContain('kt');
       expect(result.valid).toBe(false);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'missing-p',
-      functionality: validateRequiredFields,
-      description: 'Missing p field from rot is detected',
-      covers: ['said-integrity'],
-    },
-    () => {
+  it('[missing-p] Missing p field from rot is detected', () => {
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp();
       const { cesrEvent: rotCesr, event: rotEvent } = buildSignedRot(icpEvent, icpSaid, [KEY2], [KEY3]);
       const tampered = cloneEvent(rotEvent);
@@ -330,17 +267,9 @@ describe('validate-required-fields', () => {
       const result = KELOps.validateKelChain([icpCesr, bad]);
       expect(result.eventDetails[1]!.checks.requiredFieldsPresent.passed).toBe(false);
       expect(result.eventDetails[1]!.checks.requiredFieldsPresent.missing).toContain('p');
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'missing-di',
-      functionality: validateRequiredFields,
-      description: 'Missing di field from dip is detected',
-      covers: ['said-integrity'],
-    },
-    () => {
+  it('[missing-di] Missing di field from dip is detected', () => {
       const { cesrEvent, event } = buildSignedDip();
       const tampered = cloneEvent(event);
       delete (tampered as any).di;
@@ -348,17 +277,9 @@ describe('validate-required-fields', () => {
       const result = KELOps.validateKelChain([bad]);
       expect(result.eventDetails[0]!.checks.requiredFieldsPresent.passed).toBe(false);
       expect(result.eventDetails[0]!.checks.requiredFieldsPresent.missing).toContain('di');
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'missing-a',
-      functionality: validateRequiredFields,
-      description: 'Missing a field from ixn is detected',
-      covers: ['said-integrity'],
-    },
-    () => {
+  it('[missing-a] Missing a field from ixn is detected', () => {
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp();
       const { cesrEvent: ixnCesr, event: ixnEvent } = buildSignedIxn(icpEvent, icpSaid, [KEY1]);
       const tampered = cloneEvent(ixnEvent);
@@ -367,8 +288,7 @@ describe('validate-required-fields', () => {
       const result = KELOps.validateKelChain([icpCesr, bad]);
       expect(result.eventDetails[1]!.checks.requiredFieldsPresent.passed).toBe(false);
       expect(result.eventDetails[1]!.checks.requiredFieldsPresent.missing).toContain('a');
-    },
-  );
+  });
 });
 
 // ===========================================================================
@@ -376,14 +296,7 @@ describe('validate-required-fields', () => {
 // ===========================================================================
 
 describe('validate-aid-rules', () => {
-  scenario(
-    {
-      id: 'aid-equals-said-for-inception',
-      functionality: validateAidRules,
-      description: 'For inception events, i === d (AID is the SAID)',
-      covers: ['aid-derivation'],
-    },
-    () => {
+  it('[aid-equals-said-for-inception] For inception events, i === d (AID is the SAID)', () => {
       const { event, cesrEvent } = buildSignedIcp();
       // Structural check: i === d
       expect(event.i).toBe(event.d);
@@ -391,17 +304,9 @@ describe('validate-aid-rules', () => {
       const result = KELOps.validateKelChain([cesrEvent]);
       expect(result.valid).toBe(true);
       expect(result.eventDetails[0]!.checks.saidValid.passed).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'aid-not-equal-said',
-      functionality: validateAidRules,
-      description: 'Tampered AID (i !== d) is caught by SAID validation',
-      covers: ['aid-derivation'],
-    },
-    () => {
+  it('[aid-not-equal-said] Tampered AID (i !== d) is caught by SAID validation', () => {
       const { cesrEvent, event } = buildSignedIcp();
       const tampered = cloneEvent(event);
       // Set i to a bogus value different from d
@@ -412,17 +317,9 @@ describe('validate-aid-rules', () => {
       // but for inception i is reset along with d, so the SAID itself may still match.
       // However, the derived state checks AID consistency.
       expect(result.valid).toBe(false);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'mid-chain-different-aid',
-      functionality: validateAidRules,
-      description: 'An ixn with a different AID from the inception is rejected',
-      covers: ['aid-consistency'],
-    },
-    () => {
+  it('[mid-chain-different-aid] An ixn with a different AID from the inception is rejected', () => {
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp();
       const { cesrEvent: ixnCesr, event: ixnEvent } = buildSignedIxn(icpEvent, icpSaid, [KEY1]);
       // Tamper the ixn to have a different AID
@@ -431,17 +328,9 @@ describe('validate-aid-rules', () => {
       const bad = rewrapCesr(ixnCesr, tampered);
       const result = KELOps.validateKelChain([icpCesr, bad]);
       expect(result.valid).toBe(false);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'valid-icp-aid-equals-d',
-      functionality: validateAidRules,
-      description: 'Valid icp has i === d (AID derivation sanity check)',
-      covers: ['aid-derivation'],
-    },
-    () => {
+  it('[valid-icp-aid-equals-d] Valid icp has i === d (AID derivation sanity check)', () => {
       const { event, cesrEvent } = buildSignedIcp();
       // Structural invariant: inception AID equals its SAID
       expect(event.i).toBe(event.d);
@@ -449,17 +338,9 @@ describe('validate-aid-rules', () => {
       expect(result.valid).toBe(true);
       // No AID_DERIVATION_INVALID error
       expect(result.firstError?.code).toBeUndefined();
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'tampered-icp-aid-derivation-invalid',
-      functionality: validateAidRules,
-      description: 'Tampered icp with i !== d reports AID_DERIVATION_INVALID (SAID still valid because i is zeroed in preimage)',
-      covers: ['aid-derivation'],
-    },
-    () => {
+  it('[tampered-icp-aid-derivation-invalid] Tampered icp with i !== d reports AID_DERIVATION_INVALID (SAID still valid because i is zeroed in preimage)', () => {
       const { cesrEvent, event } = buildSignedIcp();
       const tampered = cloneEvent(event);
       // Set i to something different from d — for inception events, computeEventSaid
@@ -471,8 +352,7 @@ describe('validate-aid-rules', () => {
       expect(result.valid).toBe(false);
       // SAID is still valid (i is zeroed in preimage), so AID derivation check fires
       expect(result.firstError?.code).toBe('AID_DERIVATION_INVALID');
-    },
-  );
+  });
 });
 
 // ===========================================================================
@@ -480,14 +360,7 @@ describe('validate-aid-rules', () => {
 // ===========================================================================
 
 describe('validate-sequence', () => {
-  scenario(
-    {
-      id: 'valid-sequence',
-      functionality: validateSequence,
-      description: 'icp(0) + ixn(1) + rot(2) passes sequence validation',
-      covers: ['sequence-monotonicity'],
-    },
-    () => {
+  it('[valid-sequence] icp(0) + ixn(1) + rot(2) passes sequence validation', () => {
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp();
       const { cesrEvent: ixnCesr, event: ixnEvent, said: ixnSaid } = buildSignedIxn(icpEvent, icpSaid, [KEY1]);
       const { cesrEvent: rotCesr } = buildSignedRot(ixnEvent, ixnSaid, [KEY2], [KEY3], { sequence: '2' });
@@ -499,17 +372,9 @@ describe('validate-sequence', () => {
       for (const detail of result.eventDetails) {
         expect(detail.checks.saidValid.passed).toBe(true);
       }
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'inception-s-not-zero',
-      functionality: validateSequence,
-      description: 'Inception with s="1" is rejected',
-      covers: ['sequence-monotonicity'],
-    },
-    () => {
+  it('[inception-s-not-zero] Inception with s="1" is rejected', () => {
       const { cesrEvent, event } = buildSignedIcp();
       const tampered = cloneEvent(event);
       (tampered as any).s = '1';
@@ -517,55 +382,30 @@ describe('validate-sequence', () => {
       const result = KELOps.validateKelChain([bad]);
       // SAID will fail (s changed), and sequence will also fail
       expect(result.valid).toBe(false);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'sequence-gap',
-      functionality: validateSequence,
-      description: 'icp(0) + ixn(2) with gap is rejected',
-      covers: ['sequence-monotonicity'],
-    },
-    () => {
+  it('[sequence-gap] icp(0) + ixn(2) with gap is rejected', () => {
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp();
       // Build ixn with sequence 2 (skipping 1)
       const { cesrEvent: ixnCesr } = buildSignedIxn(icpEvent, icpSaid, [KEY1], { sequence: '2' });
       const result = KELOps.validateKelChain([icpCesr, ixnCesr]);
       expect(result.valid).toBe(false);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'first-event-not-inception',
-      functionality: validateSequence,
-      description: 'Starting a KEL with an ixn (not icp/dip) is rejected',
-      covers: ['first-event-is-inception'],
-    },
-    () => {
+  it('[first-event-not-inception] Starting a KEL with an ixn (not icp/dip) is rejected', () => {
       // Build a standalone icp to get a valid prior, then build ixn
       const { event: icpEvent, said: icpSaid } = buildSignedIcp();
       const { cesrEvent: ixnCesr } = buildSignedIxn(icpEvent, icpSaid, [KEY1]);
       // Submit only the ixn as the first event
       const result = KELOps.validateKelChain([ixnCesr]);
       expect(result.valid).toBe(false);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'empty-kel',
-      functionality: validateSequence,
-      description: 'Empty KEL array validates as valid',
-      covers: ['sequence-monotonicity'],
-    },
-    () => {
+  it('[empty-kel] Empty KEL array validates as valid', () => {
       const result = KELOps.validateKelChain([]);
       expect(result.valid).toBe(true);
       expect(result.eventDetails.length).toBe(0);
-    },
-  );
+  });
 });
 
 // ===========================================================================
@@ -573,14 +413,7 @@ describe('validate-sequence', () => {
 // ===========================================================================
 
 describe('validate-chain-linkage', () => {
-  scenario(
-    {
-      id: 'valid-p-chain',
-      functionality: validateChainLinkage,
-      description: 'ixn.p correctly references icp.d',
-      covers: ['previous-event-chain'],
-    },
-    () => {
+  it('[valid-p-chain] ixn.p correctly references icp.d', () => {
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp();
       const { cesrEvent: ixnCesr, event: ixnEvent } = buildSignedIxn(icpEvent, icpSaid, [KEY1]);
       // Verify structural linkage
@@ -588,17 +421,9 @@ describe('validate-chain-linkage', () => {
       // Validate chain
       const result = KELOps.validateKelChain([icpCesr, ixnCesr]);
       expect(result.eventDetails[1]!.checks.previousEventValid?.passed).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'tampered-p',
-      functionality: validateChainLinkage,
-      description: 'Tampered p field is detected',
-      covers: ['previous-event-chain'],
-    },
-    () => {
+  it('[tampered-p] Tampered p field is detected', () => {
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp();
       const { cesrEvent: ixnCesr, event: ixnEvent } = buildSignedIxn(icpEvent, icpSaid, [KEY1]);
       const tampered = cloneEvent(ixnEvent);
@@ -607,17 +432,9 @@ describe('validate-chain-linkage', () => {
       const result = KELOps.validateKelChain([icpCesr, bad]);
       expect(result.eventDetails[1]!.checks.previousEventValid?.passed).toBe(false);
       expect(result.valid).toBe(false);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'missing-p-field',
-      functionality: validateChainLinkage,
-      description: 'Deleted p field on ixn is caught by both required-fields and chain-linkage checks',
-      covers: ['previous-event-chain'],
-    },
-    () => {
+  it('[missing-p-field] Deleted p field on ixn is caught by both required-fields and chain-linkage checks', () => {
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp();
       const { cesrEvent: ixnCesr, event: ixnEvent } = buildSignedIxn(icpEvent, icpSaid, [KEY1]);
       const tampered = cloneEvent(ixnEvent);
@@ -630,8 +447,7 @@ describe('validate-chain-linkage', () => {
       // Should also fail previous event linkage
       expect(result.eventDetails[1]!.checks.previousEventValid?.passed).toBe(false);
       expect(result.valid).toBe(false);
-    },
-  );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -687,28 +503,13 @@ function buildPartialSignedIcp(
 // ===========================================================================
 
 describe('validate-signatures', () => {
-  scenario(
-    {
-      id: 'valid-signature-verifies',
-      functionality: validateSignatures,
-      description: 'A properly signed inception event passes signature validation',
-      covers: ['signature-cryptographic-validity'],
-    },
-    () => {
+  it('[valid-signature-verifies] A properly signed inception event passes signature validation', () => {
       const { cesrEvent } = buildSignedIcp();
       const result = KELOps.validateKelChain([cesrEvent]);
       expect(result.eventDetails[0]!.checks.signaturesValid.passed).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'wrong-key-signature-fails',
-      functionality: validateSignatures,
-      description: 'Signing with KEY4 but attaching as keyIndex 0 (KEY1 slot) fails',
-      covers: ['signature-cryptographic-validity'],
-    },
-    () => {
+  it('[wrong-key-signature-fails] Signing with KEY4 but attaching as keyIndex 0 (KEY1 slot) fails', () => {
       // Build a normal icp with KEY1 but sign with KEY4
       const { unsignedEvent } = KELEvents.buildIcp({
         keys: [KEY1.publicKey],
@@ -725,17 +526,9 @@ describe('validate-signatures', () => {
       });
       const result = KELOps.validateKelChain([cesrEvent]);
       expect(result.eventDetails[0]!.checks.signaturesValid.passed).toBe(false);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'tampered-body-invalidates-sig',
-      functionality: validateSignatures,
-      description: 'Signing correctly then tampering the event body invalidates the signature',
-      covers: ['signature-cryptographic-validity'],
-    },
-    () => {
+  it('[tampered-body-invalidates-sig] Signing correctly then tampering the event body invalidates the signature', () => {
       const { cesrEvent, event } = buildSignedIcp();
       // Tamper: change the config array
       const tampered = cloneEvent(event);
@@ -744,33 +537,17 @@ describe('validate-signatures', () => {
       const result = KELOps.validateKelChain([bad]);
       // Signature was computed over the original body, so it should fail
       expect(result.eventDetails[0]!.checks.signaturesValid.passed).toBe(false);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'ixn-uses-establishment-keys',
-      functionality: validateSignatures,
-      description: 'After icp with KEY1, ixn signed with KEY1 passes',
-      covers: ['signing-key-source'],
-    },
-    () => {
+  it('[ixn-uses-establishment-keys] After icp with KEY1, ixn signed with KEY1 passes', () => {
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp();
       const { cesrEvent: ixnCesr } = buildSignedIxn(icpEvent, icpSaid, [KEY1]);
       const result = KELOps.validateKelChain([icpCesr, ixnCesr]);
       expect(result.eventDetails[1]!.checks.signaturesValid.passed).toBe(true);
       expect(result.eventDetails[1]!.checks.thresholdMet.passed).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'ixn-after-rotation-uses-rotated-keys',
-      functionality: validateSignatures,
-      description: 'After icp(KEY1) + rot(KEY2), ixn signed with KEY2 passes; signed with KEY1 fails',
-      covers: ['signing-key-source'],
-    },
-    () => {
+  it('[ixn-after-rotation-uses-rotated-keys] After icp(KEY1) + rot(KEY2), ixn signed with KEY2 passes; signed with KEY1 fails', () => {
       // icp with KEY1, next=KEY2
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp([KEY1], [KEY2]);
       // rot to KEY2, next=KEY3
@@ -790,17 +567,9 @@ describe('validate-signatures', () => {
       const { cesrEvent: ixnBad } = buildSignedIxn(rotEvent, rotSaid, [KEY1]);
       const badResult = KELOps.validateKelChain([icpCesr, rotCesr, ixnBad]);
       expect(badResult.eventDetails[2]!.checks.signaturesValid.passed).toBe(false);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'key-index-out-of-range',
-      functionality: validateSignatures,
-      description: 'Attaching a signature with keyIndex=5 but only 1 key is invalid',
-      covers: ['signature-cryptographic-validity'],
-    },
-    () => {
+  it('[key-index-out-of-range] Attaching a signature with keyIndex=5 but only 1 key is invalid', () => {
       const { unsignedEvent } = KELEvents.buildIcp({
         keys: [KEY1.publicKey],
         nextKeyDigests: [digestVerfer(KEY2.publicKey)],
@@ -818,8 +587,7 @@ describe('validate-signatures', () => {
       expect(result.eventDetails[0]!.checks.signaturesValid.details?.[0]?.error).toContain(
         'out of range',
       );
-    },
-  );
+  });
 });
 
 // ===========================================================================
@@ -827,28 +595,13 @@ describe('validate-signatures', () => {
 // ===========================================================================
 
 describe('validate-threshold', () => {
-  scenario(
-    {
-      id: 'simple-1-of-1-passes',
-      functionality: validateThreshold,
-      description: 'Single key, single signature meets threshold of 1',
-      covers: ['signing-threshold-simple'],
-    },
-    () => {
+  it('[simple-1-of-1-passes] Single key, single signature meets threshold of 1', () => {
       const { cesrEvent } = buildSignedIcp();
       const result = KELOps.validateKelChain([cesrEvent]);
       expect(result.eventDetails[0]!.checks.thresholdMet.passed).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'simple-2-of-3-with-2-passes',
-      functionality: validateThreshold,
-      description: '3 keys, kt=2, 2 valid signatures meets threshold',
-      covers: ['signing-threshold-simple'],
-    },
-    () => {
+  it('[simple-2-of-3-with-2-passes] 3 keys, kt=2, 2 valid signatures meets threshold', () => {
       // Build icp with 3 keys but only sign with first 2
       const keys = [KEY1, KEY2, KEY3];
       const nextKeys = [KEY4, KEY5, KEY6];
@@ -856,17 +609,9 @@ describe('validate-threshold', () => {
       const result = KELOps.validateKelChain([cesrEvent]);
       expect(result.eventDetails[0]!.checks.signaturesValid.passed).toBe(true);
       expect(result.eventDetails[0]!.checks.thresholdMet.passed).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'simple-2-of-3-with-1-fails',
-      functionality: validateThreshold,
-      description: '3 keys, kt=2, only 1 signature does not meet threshold',
-      covers: ['signing-threshold-simple'],
-    },
-    () => {
+  it('[simple-2-of-3-with-1-fails] 3 keys, kt=2, only 1 signature does not meet threshold', () => {
       const keys = [KEY1, KEY2, KEY3];
       const nextKeys = [KEY4, KEY5, KEY6];
       const { cesrEvent } = buildPartialSignedIcp(keys, nextKeys, [0], '2');
@@ -876,49 +621,25 @@ describe('validate-threshold', () => {
       // But threshold not met
       expect(result.eventDetails[0]!.checks.thresholdMet.passed).toBe(false);
       expect(result.valid).toBe(false);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'simple-3-of-3-all-sign-passes',
-      functionality: validateThreshold,
-      description: '3 keys, kt=3, all 3 sign — threshold met',
-      covers: ['signing-threshold-simple'],
-    },
-    () => {
+  it('[simple-3-of-3-all-sign-passes] 3 keys, kt=3, all 3 sign — threshold met', () => {
       const keys = [KEY1, KEY2, KEY3];
       const nextKeys = [KEY4, KEY5, KEY6];
       const { cesrEvent } = buildMultiKeySignedIcp(keys, nextKeys, '3');
       const result = KELOps.validateKelChain([cesrEvent]);
       expect(result.eventDetails[0]!.checks.thresholdMet.passed).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'weighted-single-clause',
-      functionality: validateThreshold,
-      description: 'Weighted threshold [1/2, 1/2] with both keys signing passes',
-      covers: ['signing-threshold-weighted'],
-    },
-    () => {
+  it('[weighted-single-clause] Weighted threshold [1/2, 1/2] with both keys signing passes', () => {
       const keys = [KEY1, KEY2];
       const nextKeys = [KEY3, KEY4];
       const { cesrEvent } = buildMultiKeySignedIcp(keys, nextKeys, [['1/2', '1/2']]);
       const result = KELOps.validateKelChain([cesrEvent]);
       expect(result.eventDetails[0]!.checks.thresholdMet.passed).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'weighted-insufficient',
-      functionality: validateThreshold,
-      description: 'Weighted threshold [1/3, 1/3, 1/3] with only 2 keys signing fails (2/3 < 1)',
-      covers: ['signing-threshold-weighted'],
-    },
-    () => {
+  it('[weighted-insufficient] Weighted threshold [1/3, 1/3, 1/3] with only 2 keys signing fails (2/3 < 1)', () => {
       const keys = [KEY1, KEY2, KEY3];
       const nextKeys = [KEY4, KEY5, KEY6];
       const { cesrEvent } = buildPartialSignedIcp(keys, nextKeys, [0, 1], [['1/3', '1/3', '1/3']]);
@@ -926,17 +647,9 @@ describe('validate-threshold', () => {
       // 2/3 total weight < 1.0, so threshold not met
       expect(result.eventDetails[0]!.checks.thresholdMet.passed).toBe(false);
       expect(result.valid).toBe(false);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'weighted-sufficient',
-      functionality: validateThreshold,
-      description: 'Weighted threshold [1/2, 1/2] with only key 0 signing fails (1/2 < 1)',
-      covers: ['signing-threshold-weighted'],
-    },
-    () => {
+  it('[weighted-sufficient] Weighted threshold [1/2, 1/2] with only key 0 signing fails (1/2 < 1)', () => {
       const keys = [KEY1, KEY2];
       const nextKeys = [KEY3, KEY4];
       const { cesrEvent } = buildPartialSignedIcp(keys, nextKeys, [0], [['1/2', '1/2']]);
@@ -944,8 +657,7 @@ describe('validate-threshold', () => {
       // 1/2 weight < 1.0
       expect(result.eventDetails[0]!.checks.thresholdMet.passed).toBe(false);
       expect(result.valid).toBe(false);
-    },
-  );
+  });
 });
 
 // ===========================================================================
@@ -953,47 +665,24 @@ describe('validate-threshold', () => {
 // ===========================================================================
 
 describe('validate-key-rotation', () => {
-  scenario(
-    {
-      id: 'valid-rotation-key-chain',
-      functionality: validateKeyRotation,
-      description: 'icp with n=[digest(KEY2)], rot with k=[KEY2] passes key chain validation',
-      covers: ['key-commitment-chain'],
-    },
-    () => {
+  it('[valid-rotation-key-chain] icp with n=[digest(KEY2)], rot with k=[KEY2] passes key chain validation', () => {
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp([KEY1], [KEY2]);
       const { cesrEvent: rotCesr } = buildSignedRot(icpEvent, icpSaid, [KEY2], [KEY3]);
       const result = KELOps.validateKelChain([icpCesr, rotCesr]);
       expect(result.eventDetails[1]!.checks.keyChainValid?.passed).toBe(true);
       expect(result.valid).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'wrong-rotation-key',
-      functionality: validateKeyRotation,
-      description: 'icp with n=[digest(KEY2)], rot with k=[KEY3] fails key chain',
-      covers: ['key-commitment-chain'],
-    },
-    () => {
+  it('[wrong-rotation-key] icp with n=[digest(KEY2)], rot with k=[KEY3] fails key chain', () => {
       // Commit to KEY2 in icp's n[], but rotate to KEY3 instead
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp([KEY1], [KEY2]);
       const { cesrEvent: rotCesr } = buildSignedRot(icpEvent, icpSaid, [KEY3], [KEY4]);
       const result = KELOps.validateKelChain([icpCesr, rotCesr]);
       expect(result.eventDetails[1]!.checks.keyChainValid?.passed).toBe(false);
       expect(result.valid).toBe(false);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'non-transferable-blocks-rotation',
-      functionality: validateKeyRotation,
-      description: 'icp with n=[] (non-transferable) blocks any rotation event',
-      covers: ['non-transferable-finality'],
-    },
-    () => {
+  it('[non-transferable-blocks-rotation] icp with n=[] (non-transferable) blocks any rotation event', () => {
       // Build icp with empty next key digests (non-transferable)
       const { unsignedEvent } = KELEvents.buildIcp({
         keys: [KEY1.publicKey],
@@ -1018,18 +707,9 @@ describe('validate-key-rotation', () => {
       expect(
         errorCode === 'NON_TRANSFERABLE_VIOLATION' || errorCode === 'NEXT_KEY_MISMATCH',
       ).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'non-transferable-blocks-ixn',
-      functionality: validateKeyRotation,
-      description:
-        'icp with n=[] (non-transferable) blocks ALL subsequent events including ixn',
-      covers: ['non-transferable-finality'],
-    },
-    () => {
+  it('[non-transferable-blocks-ixn] icp with n=[] (non-transferable) blocks ALL subsequent events including ixn', () => {
       // Build icp with empty next key digests (non-transferable)
       const { unsignedEvent } = KELEvents.buildIcp({
         keys: [KEY1.publicKey],
@@ -1049,17 +729,9 @@ describe('validate-key-rotation', () => {
       const result = KELOps.validateKelChain([icpCesr, ixnCesr]);
       expect(result.valid).toBe(false);
       expect(result.firstError?.code).toBe('NON_TRANSFERABLE_VIOLATION');
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'non-transferable-query',
-      functionality: validateKeyRotation,
-      description: 'KELOps.isNonTransferable correctly identifies non-transferable KELs',
-      covers: ['non-transferable-finality'],
-    },
-    () => {
+  it('[non-transferable-query] KELOps.isNonTransferable correctly identifies non-transferable KELs', () => {
       // Non-transferable: n=[]
       const { cesrEvent: ntCesr } = buildSignedIcp([KEY1], [], {});
       expect(KELOps.isNonTransferable([ntCesr])).toBe(true);
@@ -1070,17 +742,9 @@ describe('validate-key-rotation', () => {
 
       // Empty KEL
       expect(KELOps.isNonTransferable([])).toBe(false);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'double-rotation',
-      functionality: validateKeyRotation,
-      description: 'icp(KEY1, n=KEY2) -> rot(KEY2, n=KEY3) -> rot(KEY3, n=KEY4) all pass',
-      covers: ['key-commitment-chain'],
-    },
-    () => {
+  it('[double-rotation] icp(KEY1, n=KEY2) -> rot(KEY2, n=KEY3) -> rot(KEY3, n=KEY4) all pass', () => {
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp([KEY1], [KEY2]);
       const { cesrEvent: rot1Cesr, event: rot1Event, said: rot1Said } = buildSignedRot(
         icpEvent,
@@ -1094,24 +758,15 @@ describe('validate-key-rotation', () => {
       expect(result.eventDetails[1]!.checks.keyChainValid?.passed).toBe(true);
       expect(result.eventDetails[2]!.checks.keyChainValid?.passed).toBe(true);
       expect(result.valid).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'rotation-immediately-after-inception',
-      functionality: validateKeyRotation,
-      description: 'icp then rot as event index 1 passes',
-      covers: ['key-commitment-chain'],
-    },
-    () => {
+  it('[rotation-immediately-after-inception] icp then rot as event index 1 passes', () => {
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp([KEY1], [KEY2]);
       const { cesrEvent: rotCesr } = buildSignedRot(icpEvent, icpSaid, [KEY2], [KEY3]);
       const result = KELOps.validateKelChain([icpCesr, rotCesr]);
       expect(result.eventDetails[1]!.checks.keyChainValid?.passed).toBe(true);
       expect(result.valid).toBe(true);
-    },
-  );
+  });
 });
 
 // ===========================================================================
@@ -1175,61 +830,30 @@ describe('validate-delegation', () => {
   const parentIcpCesr = parentIcpResult.cesrEvent;
   const parentIcpEvent = parentIcpResult.event;
 
-  scenario(
-    {
-      id: 'valid-dip-with-vrc',
-      functionality: validateDelegation,
-      description: 'Delegated inception with valid parent VRC passes delegation validation',
-      covers: ['delegation-vrc-required', 'delegation-vrc-signature'],
-    },
-    () => {
+  it('[valid-dip-with-vrc] Delegated inception with valid parent VRC passes delegation validation', () => {
       const { cesrEvent: dipCesr } = buildSignedDipWithVrc([KEY1], [KEY2], PARENT1, parentIcpEvent);
       const result = KELOps.validateKelChain([dipCesr], { parentKel: [parentIcpCesr] });
       expect(result.eventDetails[0]!.checks.delegationValid?.passed).toBe(true);
       expect(result.valid).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'missing-vrc-attachment',
-      functionality: validateDelegation,
-      description: 'Delegated inception without VRC attachment fails delegation validation',
-      covers: ['delegation-vrc-required'],
-    },
-    () => {
+  it('[missing-vrc-attachment] Delegated inception without VRC attachment fails delegation validation', () => {
       // Build dip without VRC — use the existing buildSignedDip which has no VRC
       const { cesrEvent: dipCesr } = buildSignedDip([KEY1], [KEY2], parentIcpEvent.i as AID);
       const result = KELOps.validateKelChain([dipCesr], { parentKel: [parentIcpCesr] });
       expect(result.eventDetails[0]!.checks.delegationValid?.passed).toBe(false);
       expect(result.eventDetails[0]!.checks.delegationValid?.error).toContain('No VRC attachment');
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'wrong-parent-signature',
-      functionality: validateDelegation,
-      description: 'VRC signed with wrong key fails signature verification',
-      covers: ['delegation-vrc-signature'],
-    },
-    () => {
+  it('[wrong-parent-signature] VRC signed with wrong key fails signature verification', () => {
       // Sign VRC with EXTRA1 instead of PARENT1
       const { cesrEvent: dipCesr } = buildSignedDipWithVrc([KEY1], [KEY2], EXTRA1, parentIcpEvent);
       const result = KELOps.validateKelChain([dipCesr], { parentKel: [parentIcpCesr] });
       expect(result.eventDetails[0]!.checks.delegationValid?.passed).toBe(false);
       expect(result.eventDetails[0]!.checks.delegationValid?.error).toContain('invalid');
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'vrc-cid-mismatch',
-      functionality: validateDelegation,
-      description: 'VRC with wrong child SAID fails validation',
-      covers: ['delegation-vrc-signature'],
-    },
-    () => {
+  it('[vrc-cid-mismatch] VRC with wrong child SAID fails validation', () => {
       // Build a valid dip then tamper the VRC cid
       const { cesrEvent: dipCesr } = buildSignedDipWithVrc([KEY1], [KEY2], PARENT1, parentIcpEvent);
       const tamperedAttachments = dipCesr.attachments.map((att) => {
@@ -1242,40 +866,23 @@ describe('validate-delegation', () => {
       const result = KELOps.validateKelChain([tamperedCesr], { parentKel: [parentIcpCesr] });
       expect(result.eventDetails[0]!.checks.delegationValid?.passed).toBe(false);
       expect(result.eventDetails[0]!.checks.delegationValid?.error).toContain('mismatch');
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'missing-parent-kel',
-      functionality: validateDelegation,
-      description: 'Delegated inception without parent KEL option fails with missingParentKel flag',
-      covers: ['delegation-vrc-required'],
-    },
-    () => {
+  it('[missing-parent-kel] Delegated inception without parent KEL option fails with missingParentKel flag', () => {
       const { cesrEvent: dipCesr } = buildSignedDipWithVrc([KEY1], [KEY2], PARENT1, parentIcpEvent);
       // No parentKel option provided
       const result = KELOps.validateKelChain([dipCesr]);
       expect(result.eventDetails[0]!.checks.delegationValid?.passed).toBe(false);
       expect(result.eventDetails[0]!.checks.delegationValid?.missingParentKel).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'dip-without-parent-kel-error-message',
-      functionality: validateDelegation,
-      description: 'Missing parent KEL error message mentions the parent KEL requirement',
-      covers: ['delegation-vrc-required'],
-    },
-    () => {
+  it('[dip-without-parent-kel-error-message] Missing parent KEL error message mentions the parent KEL requirement', () => {
       const { cesrEvent: dipCesr } = buildSignedDipWithVrc([KEY1], [KEY2], PARENT1, parentIcpEvent);
       const result = KELOps.validateKelChain([dipCesr]);
       expect(result.eventDetails[0]!.checks.delegationValid?.passed).toBe(false);
       expect(result.eventDetails[0]!.checks.delegationValid?.error).toContain('Parent KEL not provided');
       expect(result.valid).toBe(false);
-    },
-  );
+  });
 });
 
 // ===========================================================================
@@ -1378,14 +985,7 @@ function buildWitnessedRot(
 }
 
 describe('validate-witnesses', () => {
-  scenario(
-    {
-      id: 'bt-zero-no-receipts-needed',
-      functionality: validateWitnesses,
-      description: 'bt=0 with no witnesses passes in all modes',
-      covers: ['witness-threshold-satisfiable'],
-    },
-    () => {
+  it('[bt-zero-no-receipts-needed] bt=0 with no witnesses passes in all modes', () => {
       // No witnesses, bt='0' — structural mode
       const { cesrEvent } = buildSignedIcp([KEY1], [KEY2]);
       const structResult = KELOps.validateKelChain([cesrEvent]);
@@ -1394,33 +994,17 @@ describe('validate-witnesses', () => {
       // Also passes in fully-witnessed mode
       const fwResult = KELOps.validateKelChain([cesrEvent], { mode: 'fully-witnessed' });
       expect(fwResult.valid).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'bt-equals-witness-count-passes',
-      functionality: validateWitnesses,
-      description: 'bt=2 with 2 witnesses and 2 receipts passes in fully-witnessed mode',
-      covers: ['witness-receipt-threshold'],
-    },
-    () => {
+  it('[bt-equals-witness-count-passes] bt=2 with 2 witnesses and 2 receipts passes in fully-witnessed mode', () => {
       const { cesrEvent } = buildWitnessedIcp([KEY1], [KEY2], [WIT1, WIT2], '2', {
         includeReceipts: true,
       });
       const result = KELOps.validateKelChain([cesrEvent], { mode: 'fully-witnessed' });
       expect(result.valid).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'bt-exceeds-witness-count',
-      functionality: validateWitnesses,
-      description: 'bt=3 but only 2 witnesses fails with threshold unsatisfiable',
-      covers: ['witness-threshold-satisfiable'],
-    },
-    () => {
+  it('[bt-exceeds-witness-count] bt=3 but only 2 witnesses fails with threshold unsatisfiable', () => {
       const { cesrEvent } = buildWitnessedIcp([KEY1], [KEY2], [WIT1, WIT2], '3', {
         includeReceipts: false,
       });
@@ -1428,17 +1012,9 @@ describe('validate-witnesses', () => {
       const result = KELOps.validateKelChain([cesrEvent]);
       expect(result.valid).toBe(false);
       expect(result.firstError?.code).toBe('WITNESS_THRESHOLD_UNSATISFIABLE');
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'insufficient-receipts-fully-witnessed',
-      functionality: validateWitnesses,
-      description: 'bt=2 with 2 witnesses but only 1 receipt fails in fully-witnessed mode',
-      covers: ['witness-receipt-threshold'],
-    },
-    () => {
+  it('[insufficient-receipts-fully-witnessed] bt=2 with 2 witnesses but only 1 receipt fails in fully-witnessed mode', () => {
       // Only include a receipt from WIT1, not WIT2
       const { cesrEvent } = buildWitnessedIcp([KEY1], [KEY2], [WIT1, WIT2], '2', {
         includeReceipts: true,
@@ -1447,34 +1023,18 @@ describe('validate-witnesses', () => {
       const result = KELOps.validateKelChain([cesrEvent], { mode: 'fully-witnessed' });
       expect(result.valid).toBe(false);
       expect(result.firstError?.code).toBe('WITNESS_RECEIPT_THRESHOLD_NOT_MET');
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'structural-mode-ignores-receipts',
-      functionality: validateWitnesses,
-      description: 'bt=2 with 2 witnesses but 0 receipts passes in structural mode',
-      covers: ['witness-receipt-threshold'],
-    },
-    () => {
+  it('[structural-mode-ignores-receipts] bt=2 with 2 witnesses but 0 receipts passes in structural mode', () => {
       const { cesrEvent } = buildWitnessedIcp([KEY1], [KEY2], [WIT1, WIT2], '2', {
         includeReceipts: false,
       });
       // Structural mode does not check receipts
       const result = KELOps.validateKelChain([cesrEvent]);
       expect(result.valid).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'rotation-valid-br-ba',
-      functionality: validateWitnesses,
-      description: 'Rotation removing WIT1 and adding WIT2 passes',
-      covers: ['witness-delta-validity'],
-    },
-    () => {
+  it('[rotation-valid-br-ba] Rotation removing WIT1 and adding WIT2 passes', () => {
       // ICP with WIT1
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildWitnessedIcp(
         [KEY1], [KEY2], [WIT1], '1', { includeReceipts: false },
@@ -1487,17 +1047,9 @@ describe('validate-witnesses', () => {
       });
       const result = KELOps.validateKelChain([icpCesr, rotCesr]);
       expect(result.valid).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'rotation-invalid-br-non-existent',
-      functionality: validateWitnesses,
-      description: 'Rotation removing a witness not in the current set fails',
-      covers: ['witness-delta-validity'],
-    },
-    () => {
+  it('[rotation-invalid-br-non-existent] Rotation removing a witness not in the current set fails', () => {
       // ICP with WIT1
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildWitnessedIcp(
         [KEY1], [KEY2], [WIT1], '1', { includeReceipts: false },
@@ -1510,17 +1062,9 @@ describe('validate-witnesses', () => {
       const result = KELOps.validateKelChain([icpCesr, rotCesr]);
       expect(result.valid).toBe(false);
       expect(result.firstError?.code).toBe('WITNESS_DELTA_INVALID');
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'rotation-invalid-ba-duplicate',
-      functionality: validateWitnesses,
-      description: 'Rotation adding a witness already in the set fails',
-      covers: ['witness-delta-validity'],
-    },
-    () => {
+  it('[rotation-invalid-ba-duplicate] Rotation adding a witness already in the set fails', () => {
       // ICP with WIT1
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildWitnessedIcp(
         [KEY1], [KEY2], [WIT1], '1', { includeReceipts: false },
@@ -1533,8 +1077,7 @@ describe('validate-witnesses', () => {
       const result = KELOps.validateKelChain([icpCesr, rotCesr]);
       expect(result.valid).toBe(false);
       expect(result.firstError?.code).toBe('WITNESS_DELTA_INVALID');
-    },
-  );
+  });
 });
 
 // ===========================================================================
@@ -1542,14 +1085,7 @@ describe('validate-witnesses', () => {
 // ===========================================================================
 
 describe('validate-config-traits', () => {
-  scenario(
-    {
-      id: 'eo-blocks-ixn',
-      functionality: validateConfigTraits,
-      description: 'Establishment-only (EO) trait blocks interaction events',
-      covers: ['config-eo-enforcement'],
-    },
-    () => {
+  it('[eo-blocks-ixn] Establishment-only (EO) trait blocks interaction events', () => {
       // ICP with EO trait
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp(
         [KEY1], [KEY2], { config: ['EO'] },
@@ -1559,17 +1095,9 @@ describe('validate-config-traits', () => {
       const result = KELOps.validateKelChain([icpCesr, ixnCesr]);
       expect(result.valid).toBe(false);
       expect(result.firstError?.code).toBe('CONFIG_TRAIT_VIOLATION');
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'eo-allows-rotation',
-      functionality: validateConfigTraits,
-      description: 'Establishment-only (EO) trait allows rotation events',
-      covers: ['config-eo-enforcement'],
-    },
-    () => {
+  it('[eo-allows-rotation] Establishment-only (EO) trait allows rotation events', () => {
       // ICP with EO trait
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp(
         [KEY1], [KEY2], { config: ['EO'] },
@@ -1578,17 +1106,9 @@ describe('validate-config-traits', () => {
       const { cesrEvent: rotCesr } = buildSignedRot(icpEvent, icpSaid, [KEY2], [KEY3], { config: ['EO'] });
       const result = KELOps.validateKelChain([icpCesr, rotCesr]);
       expect(result.valid).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'config-traits-set-at-inception',
-      functionality: validateConfigTraits,
-      description: 'Config traits from inception are recorded in derived state',
-      covers: ['config-trait-immutability'],
-    },
-    () => {
+  it('[config-traits-set-at-inception] Config traits from inception are recorded in derived state', () => {
       const { cesrEvent: icpCesr } = buildSignedIcp(
         [KEY1], [KEY2], { config: ['EO'] },
       );
@@ -1596,17 +1116,9 @@ describe('validate-config-traits', () => {
       expect(result.valid).toBe(true);
       // Verify the event has the c field set
       expect((icpCesr.event as any).c).toContain('EO');
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'rotation-cannot-remove-traits',
-      functionality: validateConfigTraits,
-      description: 'Rotation that removes an inception trait fails with CONFIG_TRAIT_REMOVED',
-      covers: ['config-trait-immutability'],
-    },
-    () => {
+  it('[rotation-cannot-remove-traits] Rotation that removes an inception trait fails with CONFIG_TRAIT_REMOVED', () => {
       // ICP with EO and DND traits
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp(
         [KEY1], [KEY2], { config: ['EO', 'DND'] },
@@ -1617,17 +1129,9 @@ describe('validate-config-traits', () => {
       const result = KELOps.validateKelChain([icpCesr, rotResult.cesrEvent]);
       expect(result.valid).toBe(false);
       expect(result.firstError?.code).toBe('CONFIG_TRAIT_REMOVED');
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'rotation-preserving-traits-passes',
-      functionality: validateConfigTraits,
-      description: 'Rotation that preserves inception traits passes validation',
-      covers: ['config-trait-immutability'],
-    },
-    () => {
+  it('[rotation-preserving-traits-passes] Rotation that preserves inception traits passes validation', () => {
       // ICP with EO trait
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp(
         [KEY1], [KEY2], { config: ['EO'] },
@@ -1652,46 +1156,21 @@ describe('validate-config-traits', () => {
       });
       const result = KELOps.validateKelChain([icpCesr, rotCesr]);
       expect(result.valid).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'dnd-blocks-delegator',
-      functionality: validateConfigTraits,
-      description: 'DND trait prevents identifier from serving as a delegator',
-      covers: ['config-dnd-enforcement'],
-    },
-    () => {
+  it('[dnd-blocks-delegator] DND trait prevents identifier from serving as a delegator', () => {
       const { cesrEvent } = buildSignedIcp([KEY1], [KEY2], { config: ['DND'] });
       expect(KELOps.isDoNotDelegate([cesrEvent])).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'no-dnd-allows-delegation',
-      functionality: validateConfigTraits,
-      description: 'Absence of DND trait allows identifier to serve as delegator',
-      covers: ['config-dnd-enforcement'],
-    },
-    () => {
+  it('[no-dnd-allows-delegation] Absence of DND trait allows identifier to serve as delegator', () => {
       const { cesrEvent } = buildSignedIcp([KEY1], [KEY2], { config: ['EO'] });
       expect(KELOps.isDoNotDelegate([cesrEvent])).toBe(false);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'empty-kel-is-not-dnd',
-      functionality: validateConfigTraits,
-      description: 'Empty KEL returns false for DND check',
-      covers: ['config-dnd-enforcement'],
-    },
-    () => {
+  it('[empty-kel-is-not-dnd] Empty KEL returns false for DND check', () => {
       expect(KELOps.isDoNotDelegate([])).toBe(false);
-    },
-  );
+  });
 });
 
 // ===========================================================================
@@ -1699,28 +1178,13 @@ describe('validate-config-traits', () => {
 // ===========================================================================
 
 describe('validate-key-uniqueness', () => {
-  scenario(
-    {
-      id: 'no-duplicate-keys-passes',
-      functionality: validateKeyUniqueness,
-      description: 'Inception with unique signing keys passes validation',
-      covers: ['no-duplicate-signing-keys'],
-    },
-    () => {
+  it('[no-duplicate-keys-passes] Inception with unique signing keys passes validation', () => {
       const { cesrEvent } = buildSignedIcp([KEY1], [KEY2]);
       const result = KELOps.validateKelChain([cesrEvent]);
       expect(result.valid).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'duplicate-keys-fails',
-      functionality: validateKeyUniqueness,
-      description: 'Inception with duplicate signing key in k[] fails validation',
-      covers: ['no-duplicate-signing-keys'],
-    },
-    () => {
+  it('[duplicate-keys-fails] Inception with duplicate signing key in k[] fails validation', () => {
       const { cesrEvent } = buildSignedIcp([KEY1], [KEY2]);
       // Tamper to add duplicate key
       const tamperedEvent = cloneEvent(cesrEvent.event);
@@ -1737,17 +1201,9 @@ describe('validate-key-uniqueness', () => {
         return true; // Chain is invalid — the duplicate check exists
       });
       expect(hasDuplicateKeysError).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'duplicate-next-digests-fails',
-      functionality: validateKeyUniqueness,
-      description: 'Inception with duplicate digest in n[] fails validation',
-      covers: ['no-duplicate-next-digests'],
-    },
-    () => {
+  it('[duplicate-next-digests-fails] Inception with duplicate digest in n[] fails validation', () => {
       const { cesrEvent } = buildSignedIcp([KEY1], [KEY2]);
       // Tamper to add duplicate next digest
       const digest = digestVerfer(KEY2.publicKey);
@@ -1757,8 +1213,7 @@ describe('validate-key-uniqueness', () => {
       const result = KELOps.validateKelChain([bad]);
       // Chain should be invalid (SAID_MISMATCH will fire first, but duplicate check also runs)
       expect(result.valid).toBe(false);
-    },
-  );
+  });
 });
 
 // ===========================================================================
@@ -1766,31 +1221,16 @@ describe('validate-key-uniqueness', () => {
 // ===========================================================================
 
 describe('validate-chain', () => {
-  scenario(
-    {
-      id: 'valid-three-event-chain',
-      functionality: validateChain,
-      description: 'Valid icp → ixn → rot chain passes end-to-end validation',
-      covers: ['sequence-monotonicity', 'previous-event-chain'],
-    },
-    () => {
+  it('[valid-three-event-chain] Valid icp → ixn → rot chain passes end-to-end validation', () => {
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp([KEY1], [KEY2]);
       const { cesrEvent: ixnCesr, event: ixnEvent, said: ixnSaid } = buildSignedIxn(icpEvent, icpSaid, [KEY1]);
       const { cesrEvent: rotCesr } = buildSignedRot(ixnEvent, ixnSaid, [KEY2], [KEY3]);
       const result = KELOps.validateKelChain([icpCesr, ixnCesr, rotCesr]);
       expect(result.valid).toBe(true);
       expect(result.eventDetails).toHaveLength(3);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'valid-five-event-chain',
-      functionality: validateChain,
-      description: 'Valid icp → ixn → rot → ixn → rot chain passes end-to-end validation',
-      covers: ['sequence-monotonicity', 'previous-event-chain'],
-    },
-    () => {
+  it('[valid-five-event-chain] Valid icp → ixn → rot → ixn → rot chain passes end-to-end validation', () => {
       const { cesrEvent: e0, event: ev0, said: s0 } = buildSignedIcp([KEY1], [KEY2]);
       const { cesrEvent: e1, event: ev1, said: s1 } = buildSignedIxn(ev0, s0, [KEY1]);
       const { cesrEvent: e2, event: ev2, said: s2 } = buildSignedRot(ev1, s1, [KEY2], [KEY3]);
@@ -1799,17 +1239,9 @@ describe('validate-chain', () => {
       const result = KELOps.validateKelChain([e0, e1, e2, e3, e4]);
       expect(result.valid).toBe(true);
       expect(result.eventDetails).toHaveLength(5);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'broken-chain-mid-sequence',
-      functionality: validateChain,
-      description: 'Second event with wrong p field breaks chain linkage',
-      covers: ['sequence-monotonicity', 'previous-event-chain'],
-    },
-    () => {
+  it('[broken-chain-mid-sequence] Second event with wrong p field breaks chain linkage', () => {
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp([KEY1], [KEY2]);
       const { cesrEvent: ixnCesr } = buildSignedIxn(icpEvent, icpSaid, [KEY1]);
       // Build a second ixn but with a wrong p field (use icpSaid instead of ixnSaid)
@@ -1818,17 +1250,9 @@ describe('validate-chain', () => {
       const result = KELOps.validateKelChain([icpCesr, ixnCesr, ixnCesr2]);
       expect(result.valid).toBe(false);
       expect(result.firstError?.code).toBe('PREVIOUS_EVENT_MISMATCH');
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'chain-with-delegation',
-      functionality: validateChain,
-      description: 'Delegated inception with VRC followed by ixn validates end-to-end',
-      covers: ['sequence-monotonicity', 'previous-event-chain'],
-    },
-    () => {
+  it('[chain-with-delegation] Delegated inception with VRC followed by ixn validates end-to-end', () => {
       // Parent KEL
       const parentIcpResult = buildSignedIcp([PARENT1], [PARENT2]);
       const parentIcpCesr = parentIcpResult.cesrEvent;
@@ -1843,17 +1267,9 @@ describe('validate-chain', () => {
       const result = KELOps.validateKelChain([dipCesr, ixnCesr], { parentKel: [parentIcpCesr] });
       expect(result.valid).toBe(true);
       expect(result.eventDetails).toHaveLength(2);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'incremental-validation-start-index',
-      functionality: validateChain,
-      description: 'Validation starting from index 2 only validates the last event of a 3-event chain',
-      covers: ['sequence-monotonicity', 'previous-event-chain'],
-    },
-    () => {
+  it('[incremental-validation-start-index] Validation starting from index 2 only validates the last event of a 3-event chain', () => {
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp([KEY1], [KEY2]);
       const { cesrEvent: ixnCesr, event: ixnEvent, said: ixnSaid } = buildSignedIxn(icpEvent, icpSaid, [KEY1]);
       const { cesrEvent: rotCesr } = buildSignedRot(ixnEvent, ixnSaid, [KEY2], [KEY3]);
@@ -1864,8 +1280,7 @@ describe('validate-chain', () => {
       expect(result.eventDetails).toHaveLength(1);
       expect(result.eventDetails[0]!.eventIndex).toBe(2);
       expect(result.eventDetails[0]!.eventType).toBe('rot');
-    },
-  );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1873,14 +1288,7 @@ describe('validate-chain', () => {
 // ---------------------------------------------------------------------------
 
 describe('validate-witness-receipt-signatures', () => {
-  scenario(
-    {
-      id: 'witness-receipt-sig-verified-fully-witnessed',
-      functionality: validateWitnesses,
-      description: 'Valid witness receipts with correct signatures pass in fully-witnessed mode',
-      covers: ['witness-receipt-signature'],
-    },
-    () => {
+  it('[witness-receipt-sig-verified-fully-witnessed] Valid witness receipts with correct signatures pass in fully-witnessed mode', () => {
       const { cesrEvent, event } = buildSignedIcp([KEY1], [KEY2], {
         witnesses: [WIT1.publicKey, WIT2.publicKey],
         witnessThreshold: '2',
@@ -1891,17 +1299,9 @@ describe('validate-witness-receipt-signatures', () => {
       const withReceipts = { ...cesrEvent, attachments: [...cesrEvent.attachments, rct1, rct2] };
       const result = KELOps.validateKelChain([withReceipts], { mode: 'fully-witnessed' });
       expect(result.valid).toBe(true);
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'witness-receipt-bad-sig-fully-witnessed',
-      functionality: validateWitnesses,
-      description: 'Witness receipt with invalid signature fails in fully-witnessed mode',
-      covers: ['witness-receipt-signature'],
-    },
-    () => {
+  it('[witness-receipt-bad-sig-fully-witnessed] Witness receipt with invalid signature fails in fully-witnessed mode', () => {
       const { cesrEvent, event } = buildSignedIcp([KEY1], [KEY2], {
         witnesses: [WIT1.publicKey, WIT2.publicKey],
         witnessThreshold: '2',
@@ -1913,8 +1313,7 @@ describe('validate-witness-receipt-signatures', () => {
       const result = KELOps.validateKelChain([withReceipts], { mode: 'fully-witnessed' });
       expect(result.valid).toBe(false);
       expect(result.firstError?.code).toBe('WITNESS_RECEIPT_SIGNATURE_INVALID');
-    },
-  );
+  });
 });
 
 // ===========================================================================
@@ -1922,14 +1321,7 @@ describe('validate-witness-receipt-signatures', () => {
 // ===========================================================================
 
 describe('validate-delegation-vrc-threshold', () => {
-  scenario(
-    {
-      id: 'vrc-key-index-out-of-range-maps-correctly',
-      functionality: validateDelegation,
-      description: 'VRC with out-of-range keyIndex produces VRC_KEY_INDEX_INVALID, not PARENT_SIGNATURE_INVALID',
-      covers: ['delegation-multi-sig'],
-    },
-    () => {
+  it('[vrc-key-index-out-of-range-maps-correctly] VRC with out-of-range keyIndex produces VRC_KEY_INDEX_INVALID, not PARENT_SIGNATURE_INVALID', () => {
       const parentIcp = buildSignedIcp([PARENT1], [PARENT2]);
       const { cesrEvent, event } = buildSignedDip([KEY1], [KEY2], PARENT1.publicKey as AID);
 
@@ -1946,17 +1338,9 @@ describe('validate-delegation-vrc-threshold', () => {
       const result = KELOps.validateKelChain([withVrc], { parentKel: [parentIcp.cesrEvent] });
       expect(result.valid).toBe(false);
       expect(result.firstError?.code).toBe('VRC_KEY_INDEX_INVALID');
-    },
-  );
+  });
 
-  scenario(
-    {
-      id: 'delegator-threshold-not-met-maps-correctly',
-      functionality: validateDelegation,
-      description: 'Valid VRC signatures that do not meet delegator kt produce PARENT_THRESHOLD_NOT_MET',
-      covers: ['delegation-multi-sig'],
-    },
-    () => {
+  it('[delegator-threshold-not-met-maps-correctly] Valid VRC signatures that do not meet delegator kt produce PARENT_THRESHOLD_NOT_MET', () => {
       // Multi-sig parent with kt=2
       const parentIcp = buildSignedIcp([PARENT1, PARENT2], [EXTRA1, EXTRA2]);
       const { cesrEvent, event } = buildSignedDip([KEY1], [KEY2], PARENT1.publicKey as AID);
@@ -1974,6 +1358,5 @@ describe('validate-delegation-vrc-threshold', () => {
       const result = KELOps.validateKelChain([withVrc], { parentKel: [parentIcp.cesrEvent] });
       expect(result.valid).toBe(false);
       expect(result.firstError?.code).toBe('PARENT_THRESHOLD_NOT_MET');
-    },
-  );
+  });
 });

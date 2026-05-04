@@ -1,4 +1,4 @@
-import type { AID, PublicKey, SAID, Signature } from '../common/types.js';
+import type { PublicKey, SAID, Signature } from '../common/types.js';
 import type { KeyAgreementInput } from './key-agreement.js';
 
 /**
@@ -11,11 +11,6 @@ import type { KeyAgreementInput } from './key-agreement.js';
  * or require a passphrase to access the underlying key material
  */
 export interface Signer {
-  /**
-   * The AID of the controller
-   */
-  aid: AID;
-
   publicKey: PublicKey;
 
   /**

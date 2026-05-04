@@ -13,15 +13,12 @@
         "json-canonicalize": "^2.0.0",
       },
       "devDependencies": {
-        "@kerits/architecture": "file:./packages/architecture",
         "@types/bun": "latest",
         "typescript": "^5",
       },
     },
   },
   "packages": {
-    "@kerits/architecture": ["@kerits/architecture@file:packages/architecture", { "devDependencies": { "@types/bun": "latest", "typescript": "^5.9.3" } }],
-
     "@noble/curves": ["@noble/curves@2.2.0", "", { "dependencies": { "@noble/hashes": "2.2.0" } }, "sha512-T/BoHgFXirb0ENSPBquzX0rcjXeM6Lo892a2jlYJkqk83LqZx0l1Of7DzlKJ6jkpvMrkHSnAcgb5JegL8SeIkQ=="],
 
     "@noble/hashes": ["@noble/hashes@2.2.0", "", {}, "sha512-IYqDGiTXab6FniAgnSdZwgWbomxpy9FtYvLKs7wCUs2a8RkITG+DFGO1DM9cr+E3/RgADRpFjrKVaJ1z6sjtEg=="],

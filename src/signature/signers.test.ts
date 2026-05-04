@@ -4,21 +4,19 @@ import { decodeKey } from '../cesr/keys.js';
 import { deriveSharedSecret, ed25519ToX25519Private, ed25519ToX25519Public } from '../crypto/x25519.js';
 import { hkdfBlake3 } from '../crypto/hkdf.js';
 import { MAX_HKDF_DERIVE_LENGTH } from './key-agreement.js';
-import type { AID, SAID, Signature } from '../common/types.js';
+import type { SAID, Signature } from '../common/types.js';
 import { Signers } from './signers.js';
 
 describe('Signers.fromKeyPair', () => {
   const keyPair = KeriKeyPairs.fromSeedNumber(1);
-  const aid = 'Etest_aid_placeholder' as AID;
 
-  test('creates a signer with correct publicKey and aid', () => {
-    const signer = Signers.fromKeyPair(keyPair, aid);
+  test('creates a signer with correct publicKey', () => {
+    const signer = Signers.fromKeyPair(keyPair);
     expect(signer.publicKey).toBe(keyPair.publicKey);
-    expect(signer.aid).toBe(aid);
   });
 
   test('signBytes produces a verifiable signature', async () => {
-    const signer = Signers.fromKeyPair(keyPair, aid);
+    const signer = Signers.fromKeyPair(keyPair);
     const data = new TextEncoder().encode('test data');
     const sig = await signer.signBytes(data);
     expect(typeof sig).toBe('string');
@@ -26,21 +24,21 @@ describe('Signers.fromKeyPair', () => {
   });
 
   test('signSaid signs UTF-8 encoded SAID', async () => {
-    const signer = Signers.fromKeyPair(keyPair, aid);
+    const signer = Signers.fromKeyPair(keyPair);
     const said = 'Eabcdef1234567890' as SAID;
     const sig = await signer.signSaid(said);
     expect(typeof sig).toBe('string');
   });
 
   test('exists returns true for own key, false for others', async () => {
-    const signer = Signers.fromKeyPair(keyPair, aid);
+    const signer = Signers.fromKeyPair(keyPair);
     expect(await signer.exists(keyPair.publicKey)).toBe(true);
     const other = KeriKeyPairs.fromSeedNumber(2);
     expect(await signer.exists(other.publicKey)).toBe(false);
   });
 
   test('getX25519PublicKey returns 32 bytes', async () => {
-    const signer = Signers.fromKeyPair(keyPair, aid);
+    const signer = Signers.fromKeyPair(keyPair);
     const x25519Key = await signer.getX25519PublicKey();
     expect(x25519Key).toBeInstanceOf(Uint8Array);
     expect(x25519Key.length).toBe(32);
@@ -48,7 +46,7 @@ describe('Signers.fromKeyPair', () => {
 
   test('signature verifies with core verify function', async () => {
     const { verify } = await import('./verify.js');
-    const signer = Signers.fromKeyPair(keyPair, aid);
+    const signer = Signers.fromKeyPair(keyPair);
     const data = new TextEncoder().encode('hello KERI');
     const sig = await signer.signBytes(data);
     expect(verify(keyPair.publicKey, sig as Signature, data)).toBe(true);
@@ -60,8 +58,7 @@ describe('Signers.fromKeyPair deriveX25519HkdfBlake3Key', () => {
   const seed = new Uint8Array(32).fill(0xaa);
   const peerSeed = new Uint8Array(32).fill(0xbb);
   const pair = KeriKeyPairs.fromSeed(seed);
-  const aid = 'ETestAID000000000000000000000000000000000000' as AID;
-  const signer = Signers.fromKeyPair(pair, aid);
+  const signer = Signers.fromKeyPair(pair);
 
   const peerPair = KeriKeyPairs.fromSeed(peerSeed);
   const peerX25519Pub = ed25519ToX25519Public(decodeKey(peerPair.publicKey).raw);

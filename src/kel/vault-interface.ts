@@ -6,7 +6,7 @@
  * Vaults impl factory stays in kv4 until Phase 2 (B-004).
  */
 
-import type { AID, Signature } from '../common/types.js';
+import type { Signature } from '../common/types.js';
 import type { Signer } from '../signature/signer.js';
 import type { KeriKeyPair, PublicKey, VaultAppend } from './types.js';
 
@@ -49,21 +49,26 @@ export interface Vault {
   getSigner(publicKey: PublicKey): Promise<Signer | undefined>;
 
   /**
-   * Get the primary signer (the one associated with the vault's AID)
-   * @returns The primary signer for this vault
-   */
-  getPrimarySigner(): Promise<Signer>;
-
-  /**
-   * Find a keypair by its digest
+   * Find a public key by its digest
    *
    * Used during key rotation to resolve the "current" keys from prior next
    * commitments. The digest is a KERI-style digest of the public key.
    *
    * @param digest - The digest to search for (KERI digest of public key)
-   * @returns The matching keypair if found, undefined otherwise
+   * @returns The matching public key if found, undefined otherwise
    */
-  findKeyPairByDigest(digest: string): Promise<KeriKeyPair | undefined>;
+  findPublicKeyByDigest(digest: string): Promise<PublicKey | undefined>;
+
+  /**
+   * Find a signer by the digest of its public key.
+   *
+   * Convenience combining findPublicKeyByDigest + getSigner in one call.
+   * Used during rotation to resolve next-key commitments to signers.
+   *
+   * @param digest - The digest to search for (KERI digest of public key)
+   * @returns Signer if found and vault holds the key, undefined otherwise
+   */
+  getSignerByDigest(digest: string): Promise<Signer | undefined>;
 
   /**
    * Get metadata for a keypair by its public key
@@ -96,16 +101,7 @@ export interface Vault {
   store(keyPair: KeriKeyPair, purpose?: VaultPurpose): Promise<PublicKey>;
 
   /**
-   * Bind a stored key to an AID. Makes the key → identity association explicit.
-   * Called after inception to associate keys with the derived AID.
-   * @param publicKey - The public key to bind
-   * @param aid - The AID to associate with
-   */
-  bind(publicKey: PublicKey, aid: AID): Promise<void>;
-
-  /**
-   * Convenience: generate a keypair + store it. Delegates to KeriKeyPairs then store().
-   * Does NOT bind to an AID — call bind() after inception.
+   * Generate a keypair and store it. Returns a CreatedKey for signing the inception event.
    * @param options - Key generation options (pass-through to KeriKeyPairs)
    * @returns CreatedKey with publicKey and signBytes (no AID required)
    */

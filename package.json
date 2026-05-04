@@ -1,6 +1,6 @@
 {
   "name": "@kerits/core",
-  "version": "0.2.87",
+  "version": "0.2.95",
   "type": "module",
   "exports": {
     ".": {
@@ -16,7 +16,6 @@
     "src",
     "!src/**/__tests__",
     "!src/**/*.test.ts",
-    "!src/architecture",
     "dist"
   ],
   "sideEffects": false,
@@ -38,7 +37,6 @@
     "json-canonicalize": "^2.0.0"
   },
   "devDependencies": {
-    "@kerits/architecture": "file:./packages/architecture",
     "@types/bun": "latest",
     "typescript": "^5"
   },

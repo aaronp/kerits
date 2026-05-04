@@ -33,7 +33,6 @@ All functions take loaded data and return answers. No `KeyValueView`, no `KeyVal
 - Expected failure modeled in result types, not exceptions
 - Branded types (`AID`, `SAID`, `PublicKey`, `Signature`) — avoid `as any`
 - Tests use `bun:test`, run with `bun test packages/core`
-- Architecture scenarios link tests to invariants via `scenario()` from `@kerits/architecture`
 
 ## Public API Surface
 

@@ -15,7 +15,7 @@ import type { Signer } from '../signature/signer.js';
 import { canonicalizeEvent } from './event-crypto.js';
 import type { KEL } from './kel-interface.js';
 import { isEstablishment, isIxn } from './predicates.js';
-import type { CESREvent, CesrAttachment, KELEvent, PublicKey } from './types.js';
+import type { AID, CESREvent, CesrAttachment, KELEvent, PublicKey } from './types.js';
 import type { Vault } from './vault-interface.js';
 
 /**
@@ -52,10 +52,16 @@ export function encodeEventBytes(event: KELEvent, encoding: 'JSON' | 'CBOR' | 'M
  *
  * @param env - The CESR event envelope to sign
  * @param signer - The Signer instance to use for signing
+ * @param aid - The AID of the controller signing this event
  * @param keyIndex - The index of the key in the event's k[] array (default: 0)
  * @returns Updated CESR event envelope with signature attached
  */
-export async function signCesrEventWithSigner(env: CESREvent, signer: Signer, keyIndex = 0): Promise<CESREvent> {
+export async function signCesrEventWithSigner(
+  env: CESREvent,
+  signer: Signer,
+  aid: AID,
+  keyIndex = 0,
+): Promise<CESREvent> {
   // Encode event to canonical bytes
   const eventBytes = encodeEventBytes(env.event, env.enc);
 
@@ -66,7 +72,7 @@ export async function signCesrEventWithSigner(env: CESREvent, signer: Signer, ke
   const sigAttachment: CesrAttachment = {
     kind: 'sig',
     form: 'indexed',
-    signerAid: signer.aid,
+    signerAid: aid,
     keyIndex,
     sig: signature,
   };
@@ -101,6 +107,13 @@ export async function signCesrEventWithSigner(env: CESREvent, signer: Signer, ke
 export async function signCesrEventWithVaultAndKEL(kel: KEL, vault: Vault, env: CESREvent): Promise<CESREvent> {
   const event = env.event;
 
+  // Get the AID from the KEL's current Key State Notice
+  const ksn = await kel.ksn();
+  if (!ksn) {
+    throw new Error('Cannot sign event: No current KSN found in KEL');
+  }
+  const aid = ksn.i as AID;
+
   // Determine which keys should sign this event
   let signingKeys: PublicKey[];
 
@@ -109,8 +122,7 @@ export async function signCesrEventWithVaultAndKEL(kel: KEL, vault: Vault, env: 
     signingKeys = (event as any).k as PublicKey[];
   } else if (isIxn(event)) {
     // Interaction events sign with current KSN keys
-    const ksn = await kel.ksn();
-    if (!ksn?.k || ksn.k.length === 0) {
+    if (!ksn.k || ksn.k.length === 0) {
       throw new Error('Cannot sign interaction event: No current KSN found');
     }
     signingKeys = ksn.k as PublicKey[];
@@ -141,7 +153,7 @@ export async function signCesrEventWithVaultAndKEL(kel: KEL, vault: Vault, env: 
     }
 
     // Sign with this key
-    signedEnv = await signCesrEventWithSigner(signedEnv, signer, keyIndex);
+    signedEnv = await signCesrEventWithSigner(signedEnv, signer, aid, keyIndex);
   }
 
   return signedEnv;
