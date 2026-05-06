@@ -52,6 +52,7 @@ export type {
   SaidAlgo,
   SigAlgo,
 } from './cesr/types.js';
+export { decodeBase64, encodeBase64 } from './common/base64.js';
 // ── Common types, branding, and utilities ────────────────────────────
 export * from './common/base64url.js';
 export * from './common/brand.js';
@@ -150,6 +151,12 @@ export { KELData } from './kel/kel-data.js';
 // ── KEL state derivation ────────────────────────────────────────────
 export type { DerivedState } from './kel/kel-state.js';
 export { reduceKelState } from './kel/kel-state.js';
+export type {
+  ExpectedCeremonyGovernance,
+  ValidateInceptionSignRequestParams,
+  ValidateInceptionSignRequestResult,
+} from './kel/msig-sign-validation.js';
+export { validateInceptionSignRequest } from './kel/msig-sign-validation.js';
 export type {
   ThresholdCheckResult,
   ThresholdSpec,
