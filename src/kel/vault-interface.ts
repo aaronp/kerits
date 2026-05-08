@@ -33,6 +33,10 @@ export type KeyCreateOptions =
  * KeyValueStore. A vault can contain multiple keypairs (current, next, rotation keys, etc.)
  * and provides methods to check ownership and retrieve signers for specific public keys.
  */
+/**
+ * @deprecated Use SigningVault from packages/sdk/src/vault/signing-vault.ts instead.
+ * Migration guide: docs/security/plan.md Phase 9
+ */
 export interface Vault {
   /**
    * Check if this vault contains a keypair for the given public key
