@@ -11,7 +11,7 @@
  * Classification:
  *   - common/types.ts: cross-cutting KERI primitives
  *   - kel/types.ts (this file): KEL event schemas, attachment schemas, KSN,
- *     CESREvent, KelAppend, VaultAppend, KelAppends namespace, KSNs namespace
+ *     CESREvent, KelAppend, KelAppends namespace, KSNs namespace
  *   - defer-to-sdk (stays in kv4): Plan/Action types, ACDC/TEL types, Contact types,
  *     messaging types, storage types
  */
@@ -25,7 +25,6 @@ import {
   CesrKeyTransferableSchema,
   CesrSignatureSchema,
   type KeriKeyPair,
-  KeriKeyPairSchema,
   NonEmpty,
   type PublicKey,
   Qb64Schema,
@@ -705,54 +704,6 @@ export const KelAppendSchema = Type.Object(
   },
 );
 export type KelAppend = Static<typeof KelAppendSchema>;
-
-/* ------------------------------------------------------------------------------------------------
- * VaultAppend
- * ----------------------------------------------------------------------------------------------*/
-
-// ----- Vault Append (keypair to store) -----
-
-export const VaultAppendSchema = Type.Object(
-  {
-    aid: Type.Optional(CesrAidSchema),
-    keyPair: KeriKeyPairSchema,
-    purpose: Type.Optional(
-      Type.Union(
-        [
-          // Signing key purposes
-          Type.Literal('inception-current'),
-          Type.Literal('inception-next'),
-          Type.Literal('rotation-current'),
-          Type.Literal('rotation-next'),
-          Type.Literal('next-key-commitment'),
-          Type.Literal('registry-backer-current'),
-          Type.Literal('registry-backer-next'),
-          // Messaging DH key purposes (X25519)
-          Type.Literal('messaging-dh-static'),
-          Type.Literal('messaging-dh-prekey'),
-          Type.Literal('messaging-dh-onetime'),
-          // Generic
-          Type.Literal('other'),
-        ],
-        {
-          description:
-            'Purpose/role of this keypair. Signing keys use inception/rotation purposes. X25519 DH keys use messaging-dh-* purposes.',
-        },
-      ),
-    ),
-    metadata: Type.Optional(
-      Type.Record(Type.String(), Type.Unknown(), {
-        description: 'Optional metadata for the key',
-      }),
-    ),
-  },
-  {
-    additionalProperties: false,
-    title: 'Vault Append',
-    description: 'Keypair to be stored in vault during plan execution',
-  },
-);
-export type VaultAppend = Static<typeof VaultAppendSchema>;
 
 /* ------------------------------------------------------------------------------------------------
  * KelAppends namespace — helpers for validating and rebuilding CESR envelopes

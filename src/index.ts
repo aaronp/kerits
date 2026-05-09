@@ -90,7 +90,6 @@ export type {
   CesrAttachment,
   CesrSeal,
   ControllerSignatureValidationError,
-  CreatedKey,
   CurrentKeySet,
   DigestSeal,
   DipEvent,
@@ -103,7 +102,6 @@ export type {
   KELEvent,
   KELView,
   KelAppend,
-  KeyCreateOptions,
   KeyIndex,
   KSN,
   MatchKeyRevelationInput,
@@ -114,9 +112,6 @@ export type {
   RotEvent,
   ValidateAppendResult,
   ValidateControllerSignatureResult,
-  Vault,
-  VaultAppend,
-  VaultPurpose,
 } from './kel/index.js';
 // ── KEL event schemas and namespaces ─────────────────────────────────
 export {
@@ -144,7 +139,6 @@ export {
   KSNs,
   PublishedResourceSchema,
   RotEventSchema,
-  VaultAppendSchema,
 } from './kel/index.js';
 // ── KEL event factories ─────────────────────────────────────────────
 export { KELData } from './kel/kel-data.js';

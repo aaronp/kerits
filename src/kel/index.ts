@@ -40,4 +40,3 @@ export {
   verifyVrcAgainstThreshold,
   verifyWitnessReceipt,
 } from './validation-predicates.js';
-export type { CreatedKey, KeyCreateOptions, Vault, VaultPurpose } from './vault-interface.js';

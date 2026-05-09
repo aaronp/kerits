@@ -9451,7 +9451,6 @@ export {
   VersionSchema,
   VerificationError,
   VaultErrorCode,
-  VaultAppendSchema,
   ValidationErrorCode,
   ValidationError,
   VERSION,
