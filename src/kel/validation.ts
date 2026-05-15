@@ -1197,3 +1197,17 @@ export function validateKelChain(events: CESREvent[], options?: KelValidationOpt
   const states = reduceKelState(events);
   return validateKel(events, states, options);
 }
+
+/**
+ * Validate a single signed inception `CESREvent` (ICP body + CESR signature attachments).
+ *
+ * Same semantics as `validateKelChain([cesr], options)` — SAID integrity, establishment
+ * rules, threshold, and signature verification against the event’s `k` keys.
+ * Pure: no I/O.
+ *
+ * Use this at application boundaries after signing via `KeriSigningAuthority` (vault),
+ * instead of ad-hoc checks.
+ */
+export function validateSignedIcp(cesr: CESREvent, options?: KelValidationOptions): RichValidationResult {
+  return validateKelChain([cesr], options);
+}

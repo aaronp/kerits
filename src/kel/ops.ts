@@ -36,6 +36,7 @@ import {
   validateKelChain as _validateKelChain,
   validateKeyChain as _validateKeyChain,
   validateRequiredFields as _validateRequiredFields,
+  validateSignedIcp as _validateSignedIcp,
 } from './validation.js';
 
 // ─── Internal helpers ───────────────────────────────────────────────────────
@@ -388,6 +389,9 @@ export namespace KELOps {
 
   /** Convenience: derive state then validate in one call. */
   export const validateKelChain = _validateKelChain;
+
+  /** Validate one signed inception envelope (ICP + signatures). */
+  export const validateSignedIcp = _validateSignedIcp;
 
   /** Check whether a raw object is a structurally valid KERI event. */
   export const isValidKeriEvent = _isValidKeriEvent;

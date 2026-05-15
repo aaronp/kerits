@@ -15,6 +15,7 @@ import { KELEvents } from '../events.js';
 import { canonicalizeEvent } from '../event-crypto.js';
 import { KELOps } from '../ops.js';
 import type { RichValidationResult } from '../validation.js';
+import { validateKelChain, validateSignedIcp } from '../validation.js';
 import type { AID, KeriKeyPair, SAID, Signature } from '../../common/types.js';
 import type { CESREvent, CesrAttachment, KELEvent } from '../types.js';
 
@@ -1358,5 +1359,15 @@ describe('validate-delegation-vrc-threshold', () => {
       const result = KELOps.validateKelChain([withVrc], { parentKel: [parentIcp.cesrEvent] });
       expect(result.valid).toBe(false);
       expect(result.firstError?.code).toBe('PARENT_THRESHOLD_NOT_MET');
+  });
+});
+
+describe('validateSignedIcp', () => {
+  it('matches validateKelChain for a single signed ICP', () => {
+    const { cesrEvent } = buildSignedIcp();
+    const a = validateSignedIcp(cesrEvent);
+    const b = validateKelChain([cesrEvent]);
+    expect(a.valid).toBe(b.valid);
+    expect(a.eventDetails).toEqual(b.eventDetails);
   });
 });

@@ -98,7 +98,6 @@ export type {
   EventRef,
   IcpEvent,
   IxnEvent,
-  KEL,
   KELEvent,
   KELView,
   KelAppend,
@@ -184,6 +183,7 @@ export {
   validateKelChain,
   validateKeyChain,
   validateRequiredFields,
+  validateSignedIcp,
 } from './kel/validation.js';
 // ── Canonical URL paths ──────────────────────────────────────────────
 export { CanonicalPaths, KERI_PREFIX } from './keri/canonical-paths.js';

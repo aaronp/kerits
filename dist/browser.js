@@ -9326,10 +9326,11 @@ function createTypedRemote(store, codec, resolvePath) {
   };
 }
 // src/version.ts
-var VERSION = "0.2.29";
-var GIT_SHA = "d1e70800220ea648aef6936fb3c93499019a571c";
+var VERSION = "0.3.1";
+var GIT_SHA = "6ae1161c8a82d091b2dbe2e41b12460e79dd37f4";
 export {
   verify,
+  validateSignedIcp,
   validateSAID,
   validateRequiredFields,
   validateKeyChain,

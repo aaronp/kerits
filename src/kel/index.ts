@@ -18,7 +18,6 @@ export const Kel = {
 
 export { KELEvents } from './events.js';
 export { KELData } from './kel-data.js';
-export type { KEL } from './kel-interface.js';
 export { KELOps } from './ops.js';
 export type {
   ControllerSignatureValidationError,
