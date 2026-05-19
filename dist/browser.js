@@ -9312,6 +9312,655 @@ function toEd25519KeyPairBranded(keyPair) {
   };
 }
 var CesrSignatureSchema = CesrType("CESR Signature", "qb64-signature");
+// src/remote/kel-manifest-data.ts
+init_esm();
+
+// src/kel/types.ts
+init_esm();
+var InceptionWitnessFields = {
+  bt: ThresholdSchema,
+  b: Type.Array(CesrAidSchema, {
+    title: "Backer Prefixes",
+    description: "Initial backer (witness) list"
+  })
+};
+var RotationWitnessFields = {
+  bt: ThresholdSchema,
+  br: Type.Array(CesrAidSchema, {
+    title: "Backers Removed",
+    description: "Backer AIDs removed in this rotation"
+  }),
+  ba: Type.Array(CesrAidSchema, {
+    title: "Backers Added",
+    description: "Backer AIDs added in this rotation"
+  })
+};
+var IcpEventSchema = Type.Object({
+  v: VersionSchema,
+  t: Type.Literal("icp", {
+    title: "Event Type",
+    description: "Event type identifier for inception"
+  }),
+  d: CesrDigestSchema,
+  i: CesrAidSchema,
+  s: Type.Literal("0", {
+    title: "Sequence",
+    description: 'Event sequence number (always "0" for inception)'
+  }),
+  kt: ThresholdSchema,
+  k: Type.Array(CesrKeyTransferableSchema, {
+    minItems: 1,
+    title: "Current Keys",
+    description: "Array of current signing keys (transferable qb64)",
+    examples: [["DAliceKey...", "DBobKey..."]]
+  }),
+  nt: ThresholdSchema,
+  n: Type.Array(CesrDigestSchema, {
+    minItems: 1,
+    title: "Next Key Digests",
+    description: "Array of next-key commitments (pre-rotation digests)",
+    examples: [["EcommitA...", "EcommitB..."]]
+  }),
+  ...InceptionWitnessFields,
+  c: Type.Array(Type.String(), {
+    title: "Configuration Traits",
+    description: 'Flags like "EO" (Establishment-Only), "DND" (Do Not Delegate).',
+    examples: [["EO"], ["EO", "DND"]]
+  }),
+  a: Type.Array(Type.Unknown(), {
+    title: "Anchors",
+    description: "External seals/anchors (opaque in this layer)"
+  })
+}, {
+  additionalProperties: false,
+  $id: "https://merits.dev/schemas/keri/kel.icp.v1.json",
+  title: "KERI Inception Event",
+  description: "KERI inception event establishing a new controller identifier (AID).",
+  examples: [
+    {
+      v: "KERI10JSON000156_",
+      t: "icp",
+      d: "EicpSaid...",
+      i: "EicpSaid...",
+      s: "0",
+      kt: "2",
+      k: ["DAliceKey...", "DBobKey..."],
+      nt: "2",
+      n: ["EcommitA...", "EcommitB..."],
+      bt: "0",
+      b: [],
+      c: ["EO"],
+      a: []
+    }
+  ]
+});
+var RotEventSchema = Type.Object({
+  v: VersionSchema,
+  t: Type.Literal("rot"),
+  d: CesrDigestSchema,
+  i: CesrAidSchema,
+  s: NonEmpty("Sequence", "Monotonic sequence as string", ["1", "2"]),
+  p: CesrDigestSchema,
+  kt: ThresholdSchema,
+  k: Type.Array(CesrKeyTransferableSchema, { minItems: 1 }),
+  nt: ThresholdSchema,
+  n: Type.Array(CesrDigestSchema, { minItems: 1 }),
+  ...RotationWitnessFields,
+  c: Type.Optional(Type.Array(Type.String(), { title: "Configuration Traits", default: [] })),
+  a: Type.Array(Type.Unknown(), { title: "Anchors" })
+}, {
+  additionalProperties: false,
+  $id: "https://merits.dev/schemas/keri/kel.rot.v1.json",
+  title: "KERI Rotation Event",
+  description: "Rotates to next keys; proves continuity via prior SAID. Uses delta-based witness changes (br/ba)."
+});
+var IxnEventSchema = Type.Object({
+  v: VersionSchema,
+  t: Type.Literal("ixn"),
+  d: CesrDigestSchema,
+  i: CesrAidSchema,
+  s: NonEmpty("Sequence", "Monotonic sequence as string", ["1", "2"]),
+  p: CesrDigestSchema,
+  a: Type.Array(Type.Unknown(), { default: [] })
+}, {
+  additionalProperties: false,
+  $id: "https://merits.dev/schemas/keri/kel.ixn.v1.json",
+  title: "KERI Interaction Event",
+  description: "Interaction; attaches data seals without key changes."
+});
+var KSNSchema = Type.Object({
+  v: VersionSchema,
+  i: CesrAidSchema,
+  s: NonEmpty("Sequence", "Current sequence number as string", ["0", "1", "2"]),
+  p: CesrDigestSchema,
+  d: CesrDigestSchema,
+  et: Type.Union([Type.Literal("icp"), Type.Literal("rot"), Type.Literal("ixn"), Type.Literal("dip"), Type.Literal("drt")], { title: "Last Event Type" }),
+  kt: ThresholdSchema,
+  k: Type.Array(CesrKeyTransferableSchema, { minItems: 1, title: "Current Keys" }),
+  nt: ThresholdSchema,
+  n: Type.Array(CesrDigestSchema, { minItems: 1, title: "Next Key Digests" }),
+  bt: ThresholdSchema,
+  b: Type.Array(CesrAidSchema, {
+    title: "Witness AIDs (current set)",
+    description: "A witness does not sign your event like a controller. A witness receives your event and later issues receipts, which are signed with the witness's keys — but those signatures are delivered out-of-band, not inside your KEL event."
+  }),
+  wa: Type.Optional(Type.Array(CesrAidSchema, { title: "Witnesses Added (delta)" })),
+  wr: Type.Optional(Type.Array(CesrAidSchema, { title: "Witnesses Removed (delta)" })),
+  c: Type.Optional(Type.Array(Type.String(), { title: "Config Traits", examples: [["EO", "DND"]] })),
+  ee: Type.Optional(Type.Object({
+    s: NonEmpty("Establishment Seq"),
+    d: CesrDigestSchema
+  }, { additionalProperties: false, title: "Last Establishment Event (icp/rot) pointer" }))
+}, {
+  additionalProperties: false,
+  $id: "https://merits.dev/schemas/keri/kel.ksn.v1.json",
+  title: "Key State Notice (KSN)",
+  description: "Summarizes the controller's current key state at the head of the KEL. Parent/delegation approvals are external evidence.",
+  examples: [
+    {
+      v: "KERI10JSON000180_",
+      i: "EicpSaid...",
+      s: "2",
+      p: "EprevSaid...",
+      d: "EheadSaid...",
+      et: "rot",
+      kt: "2",
+      k: ["DAliceKey...", "DBobKey..."],
+      nt: "2",
+      n: ["EnextA...", "EnextB..."],
+      bt: "0",
+      b: [],
+      c: ["EO"],
+      ee: { s: "2", d: "EheadSaid..." }
+    }
+  ]
+});
+var AidManifestEventSchema = Type.Object({
+  sn: Type.Number({ description: "Event sequence number" }),
+  said: Qb64Schema,
+  path: Type.String({ description: "Canonical path" }),
+  url: Type.String({ description: "Full URL" }),
+  receiptsPath: Type.Optional(Type.String({ description: "Canonical receipts path" })),
+  receiptsUrl: Type.Optional(Type.String({ description: "Full receipts URL" }))
+}, { title: "AidManifestEvent" });
+var AidManifestSchema = Type.Object({
+  v: Type.Literal("kerits-aid-manifest/1"),
+  aid: Qb64Schema,
+  latestSn: Type.Number({ description: "Latest sequence number" }),
+  ksnSaid: Qb64Schema,
+  ksnPath: Type.String({ description: "Canonical KSN path" }),
+  ksnUrl: Type.String({ description: "Full KSN URL" }),
+  kelPath: Type.Optional(Type.String({ description: "Canonical full-KEL path" })),
+  kelUrl: Type.Optional(Type.String({ description: "Full KEL URL" })),
+  events: Type.Array(AidManifestEventSchema, {
+    description: "Per-event index with path and URL",
+    minItems: 1
+  })
+}, {
+  title: "AidManifest",
+  description: "URL-based manifest for a published KEL — mutable resource directory"
+});
+var KSNs;
+((KSNs) => {
+  function fromPublicKey(publicKey, aid) {
+    const identifier = aid ?? publicKey;
+    return {
+      v: "KERI10JSON00011c_",
+      i: identifier,
+      s: "0",
+      p: "",
+      d: identifier,
+      et: "icp",
+      kt: "1",
+      k: [publicKey],
+      nt: "1",
+      n: ["EAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"],
+      bt: "0",
+      b: []
+    };
+  }
+  KSNs.fromPublicKey = fromPublicKey;
+  function fromKEL(aid, events) {
+    if (events.length === 0) {
+      return;
+    }
+    const lastEvent = events[events.length - 1]?.event;
+    const prevEvent = events.length > 1 ? events[events.length - 2]?.event : undefined;
+    if (!lastEvent) {
+      return;
+    }
+    let currentKeys = [];
+    let nextDigests = [];
+    let signingThreshold = "1";
+    let nextThreshold = "1";
+    let witnessThreshold = "0";
+    let witnesses = [];
+    let config = [];
+    for (const cesrEvt of events) {
+      const evt = cesrEvt?.event;
+      if (!evt)
+        continue;
+      if (evt.t === "icp" || evt.t === "dip") {
+        currentKeys = evt.k;
+        nextDigests = evt.n;
+        signingThreshold = evt.kt;
+        nextThreshold = evt.nt;
+        witnessThreshold = evt.bt;
+        witnesses = [...evt.b];
+        config = evt.c ?? [];
+      } else if (evt.t === "rot" || evt.t === "drt") {
+        currentKeys = evt.k;
+        nextDigests = evt.n;
+        signingThreshold = evt.kt;
+        nextThreshold = evt.nt;
+        witnessThreshold = evt.bt;
+        const rotEvt = evt;
+        const removed = new Set(rotEvt.br);
+        witnesses = witnesses.filter((w) => !removed.has(w));
+        witnesses.push(...rotEvt.ba);
+        config = rotEvt.c ?? [];
+      }
+    }
+    const ksn = {
+      v: lastEvent.v,
+      i: aid,
+      s: lastEvent.s,
+      p: prevEvent ? prevEvent.d : lastEvent.t === "icp" ? lastEvent.d : "",
+      d: lastEvent.d,
+      et: lastEvent.t,
+      kt: signingThreshold,
+      k: currentKeys,
+      nt: nextThreshold,
+      n: nextDigests,
+      bt: witnessThreshold,
+      b: witnesses,
+      ...config.length > 0 ? { c: config } : {}
+    };
+    return ksn;
+  }
+  KSNs.fromKEL = fromKEL;
+  function equal2(a, b) {
+    return a.d === b.d;
+  }
+  KSNs.equal = equal2;
+})(KSNs ||= {});
+var DipEventSchema = Type.Object({
+  v: VersionSchema,
+  t: Type.Literal("dip"),
+  d: CesrDigestSchema,
+  i: CesrAidSchema,
+  s: Type.Literal("0", { title: "Sequence" }),
+  kt: ThresholdSchema,
+  k: Type.Array(CesrKeyTransferableSchema, { minItems: 1 }),
+  nt: ThresholdSchema,
+  n: Type.Array(CesrDigestSchema, { minItems: 1 }),
+  ...InceptionWitnessFields,
+  c: Type.Array(Type.String(), { default: [] }),
+  a: Type.Array(Type.Unknown(), { default: [] }),
+  di: CesrAidSchema
+}, {
+  additionalProperties: false,
+  $id: "https://merits.dev/schemas/keri/kel.dip.v1.json",
+  title: "Delegated Inception (dip)",
+  description: "Inception for a delegated identifier. Parent approval/seal is external evidence."
+});
+var DrtEventSchema = Type.Object({
+  v: VersionSchema,
+  t: Type.Literal("drt"),
+  d: CesrDigestSchema,
+  i: CesrAidSchema,
+  s: NonEmpty("Sequence", "Monotonic sequence as string", ["1", "2"]),
+  p: CesrDigestSchema,
+  kt: ThresholdSchema,
+  k: Type.Array(CesrKeyTransferableSchema, { minItems: 1 }),
+  nt: ThresholdSchema,
+  n: Type.Array(CesrDigestSchema, { minItems: 1 }),
+  ...RotationWitnessFields,
+  c: Type.Optional(Type.Array(Type.String(), { title: "Configuration Traits", default: [] })),
+  a: Type.Array(Type.Unknown(), { title: "Anchors" })
+}, {
+  additionalProperties: false,
+  $id: "https://merits.dev/schemas/keri/kel.drt.v1.json",
+  title: "Delegated Rotation (drt)",
+  description: "Rotation for a delegated identifier. Uses delta-based witness changes (br/ba). Parent approval/seal is external evidence."
+});
+var KELEventSchema = Type.Union([IcpEventSchema, RotEventSchema, IxnEventSchema, DipEventSchema, DrtEventSchema], {
+  title: "KEL Event",
+  description: "Any valid KEL event (icp | rot | ixn | dip | drt)."
+});
+var KeyIndexSchema = Type.Union([Type.Integer({ minimum: 0 }), NonEmpty("Key Index (string)")], {
+  title: "Key Index",
+  description: "Signer key index (int or qb64 encoded index)"
+});
+var CesrAttachment_Signature = Type.Object({
+  kind: Type.Literal("sig"),
+  form: Type.Union([Type.Literal("indexed"), Type.Literal("nonIndexed")], {
+    description: "Indexed signatures typical for transferable controllers"
+  }),
+  signerAid: Type.Optional(CesrAidSchema),
+  keyIndex: Type.Optional(KeyIndexSchema),
+  sig: CesrSignatureSchema
+}, {
+  additionalProperties: false,
+  title: "Controller Signature Attachment",
+  description: 'Signature over the serialized event bytes. When form="indexed", keyIndex MUST be present.'
+});
+var CesrAttachment_WitnessReceipt = Type.Object({
+  kind: Type.Literal("rct"),
+  by: CesrAidSchema,
+  sig: CesrSignatureSchema
+}, {
+  additionalProperties: false,
+  title: "Witness Receipt (rct)",
+  description: "Non-transferable receipt from a witness"
+});
+var CesrSealSchema = Type.Object({
+  i: CesrAidSchema,
+  s: NonEmpty("Sequence"),
+  d: CesrDigestSchema
+}, { additionalProperties: false, title: "CESR Seal (i,s,d)" });
+var DigestSealSchema = Type.Object({
+  d: CesrDigestSchema
+}, { additionalProperties: false, title: "Digest Seal (d)" });
+var AnySealSchema = Type.Union([CesrSealSchema, DigestSealSchema], {
+  title: "KERI Seal",
+  description: "Full event seal (i,s,d) or digest seal (d)"
+});
+var CesrAttachment_ValidatorReceipt = Type.Object({
+  kind: Type.Literal("vrc"),
+  cid: Type.Optional(CesrDigestSchema),
+  seal: CesrSealSchema,
+  sig: CesrSignatureSchema,
+  keyIndex: Type.Optional(Type.Number({
+    title: "Key Index",
+    description: "Index into the parent establishment event key list. Defaults to 0 for backward compatibility with single-sig delegators."
+  }))
+}, {
+  additionalProperties: false,
+  title: "Validator Receipt (vrc)",
+  description: "Transferable validator receipt with explicit child SAID, seal-source, and signature"
+});
+var CesrAttachmentSchema = Type.Union([CesrAttachment_Signature, CesrAttachment_WitnessReceipt, CesrAttachment_ValidatorReceipt], {
+  title: "CESR Attachment",
+  description: "Signatures and receipts attached to an event"
+});
+var KelAppendSchema = Type.Object({
+  artifactId: NonEmpty("Artifact ID", "Local identifier within this plan", ["icp0", "rot1"]),
+  said: Qb64Schema,
+  kind: Type.Union([
+    Type.Literal("kel/icp"),
+    Type.Literal("kel/rot"),
+    Type.Literal("kel/ixn"),
+    Type.Literal("kel/dip"),
+    Type.Literal("kel/drt")
+  ], { description: "KEL event kind (derived from event.t)" }),
+  event: KELEventSchema,
+  attachments: Type.Array(CesrAttachmentSchema, {
+    default: [],
+    description: "CESR attachments (signatures, receipts) for this event"
+  }),
+  cesr: NonEmpty("CESR Event Bytes", "CESR-encoded representation of this KEL event envelope (e.g. base64 or qb64)")
+}, {
+  additionalProperties: false,
+  $id: "https://merits.dev/schemas/kerits/kel-append.v1.json",
+  title: "KEL Append",
+  description: "Minimal append instruction: SAD KEL event + SAID + CESR bytes. Canonical JSON is derived from event when needed."
+});
+var KelAppends;
+((KelAppends) => {
+  function validate(append) {
+    const { artifactId, said, kind, event } = append;
+    if (event.d !== said) {
+      throw new Error(`SAID mismatch in KelAppend[${artifactId}]: event.d=${event.d}, said=${said}`);
+    }
+    const expectedKind = `kel/${event.t}`;
+    if (kind !== expectedKind) {
+      throw new Error(`Kind mismatch in KelAppend[${artifactId}]: kind=${kind}, expected=${expectedKind}`);
+    }
+  }
+  KelAppends.validate = validate;
+  function toCESREvent(append) {
+    validate(append);
+    const env = {
+      event: append.event,
+      attachments: append.attachments || [],
+      enc: "JSON",
+      bytesB64: append.cesr
+    };
+    return env;
+  }
+  KelAppends.toCESREvent = toCESREvent;
+  function fromCESREvent(artifactId, env) {
+    if (!env.bytesB64) {
+      throw new Error(`CESREvent.bytesB64 is required to build KelAppend[${artifactId}]`);
+    }
+    const said = env.event.d;
+    return {
+      artifactId,
+      said,
+      kind: `kel/${env.event.t}`,
+      event: env.event,
+      attachments: env.attachments || [],
+      cesr: env.bytesB64
+    };
+  }
+  KelAppends.fromCESREvent = fromCESREvent;
+})(KelAppends ||= {});
+var CESREventSchema = Type.Object({
+  event: KELEventSchema,
+  attachments: Type.Array(CesrAttachmentSchema, { default: [] }),
+  enc: Type.Union([Type.Literal("JSON"), Type.Literal("CBOR"), Type.Literal("MGPK")], {
+    title: "Encoding",
+    description: "Serialization used to produce signed bytes",
+    default: "JSON"
+  }),
+  bytesB64: Type.Optional(NonEmpty("Event Bytes (base64)", "Exact serialized event bytes for verification Optional but extremely handy for deterministic re-verification and tooling (export/import, replay tests). If omitted, reproduce bytes from event + enc."))
+}, {
+  additionalProperties: false,
+  $id: "https://merits.dev/schemas/keri/kel.cesr-envelope.v1.json",
+  title: "CESR Event Envelope",
+  description: "SAD event plus CESR attachments (signatures/receipts) and serialization hints",
+  examples: [
+    {
+      event: {
+        t: "rot",
+        v: "KERI10JSON000120_",
+        d: "ErotSaid...",
+        i: "EicpSaid...",
+        s: "1",
+        p: "Eprev...",
+        kt: "1",
+        k: ["DA..."],
+        nt: "1",
+        n: ["E..."],
+        a: []
+      },
+      attachments: [
+        { kind: "sig", form: "indexed", signerAid: "EicpSaid...", keyIndex: 0, sig: "AAbb..." },
+        { kind: "rct", by: "EwitAid...", sig: "AA11..." }
+      ],
+      enc: "JSON"
+    }
+  ]
+});
+
+// src/remote/kel-resource-types.ts
+function resourceKey(resource) {
+  return `${resource.kind}:${resource.url}`;
+}
+function mergeRemoteRecords(existing, incoming) {
+  const map3 = new Map;
+  for (const record3 of existing) {
+    map3.set(resourceKey(record3.resource), record3);
+  }
+  for (const record3 of incoming) {
+    const key = resourceKey(record3.resource);
+    const prior = map3.get(key);
+    if (!prior || recordSortKey(record3) >= recordSortKey(prior)) {
+      map3.set(key, record3);
+    }
+  }
+  return [...map3.values()];
+}
+function recordSortKey(record3) {
+  return `${record3.at}\x00${String(record3.seqNo).padStart(12, "0")}`;
+}
+function manifestUrlFromRecords(records) {
+  return records.find((r) => r.resource.kind === "kel.manifest")?.resource.url;
+}
+function remoteRecordsFromAidManifest(manifest, seqNo, at, manifestUrl) {
+  const records = [{ seqNo, at, resource: { kind: "ksn", url: manifest.ksnUrl } }];
+  for (const entry of manifest.events) {
+    records.push({ seqNo, at, resource: { kind: "kel.event", url: entry.url } });
+    if (entry.receiptsUrl) {
+      records.push({ seqNo, at, resource: { kind: "kel.receipts", url: entry.receiptsUrl } });
+    }
+  }
+  records.push({ seqNo, at, resource: { kind: "kel.manifest", url: manifestUrl } });
+  return mergeRemoteRecords([], records);
+}
+
+// src/remote/kel-manifest-data.ts
+var RemoteMetadataSchema = Type.Object({
+  publishedAt: Type.String(),
+  sn: Type.Number()
+}, { additionalProperties: false });
+var KELPublishedResourceSchema = Type.Union([
+  Type.Object({ kind: Type.Literal("ksn"), url: Type.String() }, { additionalProperties: false }),
+  Type.Object({ kind: Type.Literal("kel.event"), url: Type.String() }, { additionalProperties: false }),
+  Type.Object({ kind: Type.Literal("kel.receipts"), url: Type.String() }, { additionalProperties: false }),
+  Type.Object({ kind: Type.Literal("kel.full"), url: Type.String() }, { additionalProperties: false }),
+  Type.Object({ kind: Type.Literal("kel.manifest"), url: Type.String() }, { additionalProperties: false })
+]);
+var KELManifestEntrySchema = Type.Object({
+  resource: KELPublishedResourceSchema,
+  metadata: RemoteMetadataSchema
+}, { additionalProperties: false });
+var KELManifestDataSchema = Type.Object({
+  v: Type.Literal("kerits-aid-manifest/2"),
+  aid: Qb64Schema,
+  entries: Type.Array(KELManifestEntrySchema, { minItems: 1 })
+}, { additionalProperties: false });
+function latestSnFromKelManifestData(data) {
+  const eventSns = data.entries.filter((e) => e.resource.kind === "kel.event").map((e) => e.metadata.sn);
+  if (eventSns.length === 0)
+    return -1;
+  return Math.max(...eventSns);
+}
+function aidManifestToKelManifestData(manifest, publishedAt) {
+  const entries = [
+    {
+      resource: { kind: "ksn", url: manifest.ksnUrl },
+      metadata: { publishedAt, sn: manifest.latestSn }
+    }
+  ];
+  for (const event of manifest.events) {
+    entries.push({
+      resource: { kind: "kel.event", url: event.url },
+      metadata: { publishedAt, sn: event.sn }
+    });
+    if (event.receiptsUrl) {
+      entries.push({
+        resource: { kind: "kel.receipts", url: event.receiptsUrl },
+        metadata: { publishedAt, sn: event.sn }
+      });
+    }
+  }
+  if (manifest.kelUrl) {
+    entries.push({
+      resource: { kind: "kel.full", url: manifest.kelUrl },
+      metadata: { publishedAt, sn: manifest.latestSn }
+    });
+  }
+  return { v: "kerits-aid-manifest/2", aid: manifest.aid, entries };
+}
+function saidFromEventUrl(url) {
+  const match = url.match(/\/events\/([^/]+)\/event/);
+  return match?.[1];
+}
+function pathFromUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.pathname;
+  } catch {
+    return url;
+  }
+}
+function kelManifestDataToAidManifest(data, ksnSaid) {
+  const ksnEntry = data.entries.find((e) => e.resource.kind === "ksn");
+  if (!ksnEntry) {
+    throw new Error("KELManifestData missing ksn entry");
+  }
+  const receiptsBySn = new Map;
+  for (const entry of data.entries) {
+    if (entry.resource.kind === "kel.receipts") {
+      receiptsBySn.set(entry.metadata.sn, { url: entry.resource.url, path: pathFromUrl(entry.resource.url) });
+    }
+  }
+  const events = [];
+  for (const entry of data.entries) {
+    if (entry.resource.kind !== "kel.event")
+      continue;
+    const said = saidFromEventUrl(entry.resource.url);
+    if (!said) {
+      throw new Error(`Cannot derive SAID from event URL: ${entry.resource.url}`);
+    }
+    const receipts = receiptsBySn.get(entry.metadata.sn);
+    events.push({
+      sn: entry.metadata.sn,
+      said,
+      path: pathFromUrl(entry.resource.url),
+      url: entry.resource.url,
+      receiptsPath: receipts?.path,
+      receiptsUrl: receipts?.url
+    });
+  }
+  events.sort((a, b) => a.sn - b.sn);
+  const latestSn = latestSnFromKelManifestData(data);
+  const kelFull = data.entries.find((e) => e.resource.kind === "kel.full");
+  return {
+    v: "kerits-aid-manifest/1",
+    aid: data.aid,
+    latestSn,
+    ksnSaid,
+    ksnPath: pathFromUrl(ksnEntry.resource.url),
+    ksnUrl: ksnEntry.resource.url,
+    kelPath: kelFull ? pathFromUrl(kelFull.resource.url) : undefined,
+    kelUrl: kelFull?.resource.url,
+    events
+  };
+}
+function remoteRecordsFromKelManifestData(data, at, manifestUrl) {
+  const headSn = latestSnFromKelManifestData(data);
+  const records = data.entries.map((entry) => ({
+    seqNo: headSn,
+    at,
+    resource: entry.resource
+  }));
+  if (!records.some((r) => r.resource.kind === "kel.manifest")) {
+    records.push({ seqNo: headSn, at, resource: { kind: "kel.manifest", url: manifestUrl } });
+  }
+  return mergeRemoteRecords([], records);
+}
+function parseKelManifestWire(value2) {
+  if (typeof value2 !== "object" || value2 === null)
+    return;
+  const v = value2.v;
+  if (v === "kerits-aid-manifest/2") {
+    if (!exports_value2.Check(KELManifestDataSchema, value2))
+      return;
+    return { version: 2, data: value2 };
+  }
+  if (v === "kerits-aid-manifest/1") {
+    if (!exports_value2.Check(AidManifestSchema, value2))
+      return;
+    return { version: 1, manifest: value2 };
+  }
+  return;
+}
+function manifestUrlFromKelManifestData(data) {
+  return data.entries.find((e) => e.resource.kind === "kel.manifest")?.resource.url;
+}
 // src/remote/typed-remote.ts
 function createTypedRemote(store, codec, resolvePath) {
   return {
@@ -9326,8 +9975,8 @@ function createTypedRemote(store, codec, resolvePath) {
   };
 }
 // src/version.ts
-var VERSION = "0.3.1";
-var GIT_SHA = "6ae1161c8a82d091b2dbe2e41b12460e79dd37f4";
+var VERSION = "0.3.3";
+var GIT_SHA = "f400b7f0cb028c7a4568debcbeae3e3529f5d205";
 export {
   verify,
   validateSignedIcp,
@@ -9348,12 +9997,16 @@ export {
   serializeForSigning,
   schemaSaidOf,
   saidOf,
+  resourceKey,
+  remoteRecordsFromKelManifestData,
+  remoteRecordsFromAidManifest,
   reduceKelState,
   recomputeSaid,
   randomBytes,
   parseSimpleThreshold,
   parseSha256Hex,
   parseSaidQb64,
+  parseKelManifestWire,
   parseEd25519SignatureQb64,
   parseEd25519PublicQb64,
   parseEd25519PrivateQb64,
@@ -9364,8 +10017,13 @@ export {
   ok,
   normalizeThreshold,
   nextKeyDigestQb64FromPublicKeyQb64,
+  mergeRemoteRecords,
+  manifestUrlFromRecords,
+  manifestUrlFromKelManifestData,
+  latestSnFromKelManifestData,
   keyRefEquals,
   keyRef,
+  kelManifestDataToAidManifest,
   isValidKeriEvent,
   isStructuredValidationError,
   inspect,
@@ -9407,6 +10065,7 @@ export {
   buildACDCCredentialSurface,
   asEd25519PublicRaw,
   asEd25519PrivateRaw,
+  aidManifestToKelManifestData,
   WeightedThresholdSchema,
   VersionSchema,
   VerificationError,
@@ -9437,7 +10096,7 @@ export {
   Schema,
   Said,
   SAID_PLACEHOLDER,
-  RotEventSchema,
+  RotEventSchema2 as RotEventSchema,
   Qb64Schema,
   PublishedResourceSchema,
   PermissionError,
@@ -9446,18 +10105,18 @@ export {
   NetworkError,
   MAX_HKDF_DERIVE_LENGTH,
   KeyRefSchema,
-  KeyIndexSchema,
+  KeyIndexSchema2 as KeyIndexSchema,
   KeriVersionPattern,
   KeriPublicKeySchema,
   KeriPrivateKeySchema,
   KeriKeyPairs,
   KeriKeyPairSchema,
   KelErrorCode,
-  KelAppends,
-  KelAppendSchema,
+  KelAppends2 as KelAppends,
+  KelAppendSchema2 as KelAppendSchema,
   Kel,
-  KSNs,
-  KSNSchema,
+  KSNs2 as KSNs,
+  KSNSchema2 as KSNSchema,
   KERI_PREFIX,
   KEL_ROT_SURFACE,
   KEL_IXN_SURFACE,
@@ -9465,35 +10124,36 @@ export {
   KEL_DRT_SURFACE,
   KEL_DIP_SURFACE,
   KELOps,
+  KELManifestDataSchema,
   KELEvents,
-  KELEventSchema,
+  KELEventSchema2 as KELEventSchema,
   KELData,
-  IxnEventSchema,
-  IcpEventSchema,
+  IxnEventSchema2 as IxnEventSchema,
+  IcpEventSchema2 as IcpEventSchema,
   GIT_SHA,
-  DrtEventSchema,
-  DipEventSchema,
-  DigestSealSchema,
+  DrtEventSchema2 as DrtEventSchema,
+  DipEventSchema2 as DipEventSchema,
+  DigestSealSchema2 as DigestSealSchema,
   Data,
   CoreError,
   ControllerNotFoundError,
   ConflictError,
   CesrType,
   CesrSignatureSchema,
-  CesrSealSchema,
+  CesrSealSchema2 as CesrSealSchema,
   CesrKeyTransferableSchema,
   CesrDigestSchema,
-  CesrAttachment_WitnessReceipt,
-  CesrAttachment_ValidatorReceipt,
-  CesrAttachment_Signature,
-  CesrAttachmentSchema,
+  CesrAttachment_WitnessReceipt2 as CesrAttachment_WitnessReceipt,
+  CesrAttachment_ValidatorReceipt2 as CesrAttachment_ValidatorReceipt,
+  CesrAttachment_Signature2 as CesrAttachment_Signature,
+  CesrAttachmentSchema2 as CesrAttachmentSchema,
   CesrAidSchema,
   Cesr,
   CanonicalPaths,
-  CESREventSchema,
-  AnySealSchema,
-  AidManifestSchema,
-  AidManifestEventSchema,
+  CESREventSchema2 as CESREventSchema,
+  AnySealSchema2 as AnySealSchema,
+  AidManifestSchema2 as AidManifestSchema,
+  AidManifestEventSchema2 as AidManifestEventSchema,
   Acdc,
   ACDC_SCHEMA_SURFACE,
   ACDC_CREDENTIAL_SURFACE,

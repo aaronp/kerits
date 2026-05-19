@@ -3,6 +3,6 @@ import { VERSION } from '../version.js';
 
 describe('@kerits/core VERSION', () => {
   it('matches the bootstrap version', () => {
-    expect(VERSION).toBe('0.3.1');
+    expect(VERSION).toBe('0.3.3');
   });
 });

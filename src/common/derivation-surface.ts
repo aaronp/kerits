@@ -7,12 +7,12 @@
  * convergence, insertion-order serialization, digest, and sealing — and
  * never decides policy about which fields a family chooses.
  *
- * See docs/superpowers/specs/2026-04-16-keri-said-derivation-design.md.
+ * KERI SAID derivation surface markers.
  *
  * Serialization: This file uses insertion-order JSON serialization
  * (serializeInsertionOrder) for KERI SAID derivation. Non-KERI SAID paths
  * (Data.saidify, canonical()) remain on RFC-8785. See
- * docs/superpowers/specs/2026-04-22-keri-insertion-order-said-design.md.
+ * insertion-order SAID rules in the same module.
  */
 
 import { Data, SAID_PLACEHOLDER } from './data.js';

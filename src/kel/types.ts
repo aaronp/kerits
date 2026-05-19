@@ -324,6 +324,8 @@ export const AidManifestEventSchema = Type.Object(
     said: Qb64Schema,
     path: Type.String({ description: 'Canonical path' }),
     url: Type.String({ description: 'Full URL' }),
+    receiptsPath: Type.Optional(Type.String({ description: 'Canonical receipts path' })),
+    receiptsUrl: Type.Optional(Type.String({ description: 'Full receipts URL' })),
   },
   { title: 'AidManifestEvent' },
 );

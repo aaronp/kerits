@@ -5,7 +5,7 @@
  * of the supplied object graph. Used exclusively for KERI SAID computation
  * and version-string byte measurement.
  *
- * See docs/superpowers/specs/2026-04-22-keri-insertion-order-said-design.md.
+ * Canonical insertion-order serialization for SAID computation.
  */
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
