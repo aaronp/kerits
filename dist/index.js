@@ -10016,9 +10016,10 @@ function createTypedRemote(store, codec, resolvePath) {
   };
 }
 // src/version.ts
-var VERSION = "0.3.3";
-var GIT_SHA = "f400b7f0cb028c7a4568debcbeae3e3529f5d205";
+var VERSION = "0.3.7";
+var GIT_SHA = "87c16fc65f4d51d7a7d1b5ca87f9e9a3f9a531bc";
 export {
+  verifyWitnessReceipt,
   verify,
   validateSignedIcp,
   validateSAID,
