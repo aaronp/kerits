@@ -224,6 +224,23 @@ python3 scripts/generate-keripy-cesr.py
 
 KERIpy 1.3.4 uses the KERI v2 counter code table (`CtrDex_2_0`), while cesr-ts uses the KERI v1 table. Counter codes differ between versions (e.g. `-J` vs `-A` for controller indexed sigs), but **per-item primitive encoding is identical**. The cross-validation targets per-item encoding, not the full wire including the counter prefix. This means the tests validate interoperability at the cryptographic primitive level regardless of which counter code table version is in use.
 
+**Canonical publish wire today:** kerits `encodeAttachmentGroups` emits **v1** (`-A` controller indexed sigs). keripy reference wire and `cesr-expected.json` use **v2** (`-J`). Full-byte interoperability with keripy-native parsers requires aligning on v2 or adding a transcoding layer at publish time (tracked decision).
+
+### KEL event wire (signed events)
+
+KEL artifacts on the wire are **not** the same as `CESREvent.enc`:
+
+| Concept | Meaning |
+|--------|---------|
+| `CESREvent.enc` | How the event **body** is serialized (`JSON`, `CBOR`, `MGPK`) |
+| HTTP `application/cesr` | Wire format: canonical JSON body bytes + CESR attachment groups |
+
+**Fixtures:** `packages/core/src/kel/fixtures/kel-wire-fixtures.json`  
+**Expected (keripy):** `kel-wire-expected.json` from `python3 scripts/generate-keripy-kel-wire.py`  
+**Tests:** `kel-wire-cross-validation.test.ts` — body bytes vs keripy `Serder.raw`; v1 vs v2 attachment prefix; publish harness checks `bytesB64` on `encodeCesrEvent`.
+
+Always set `bytesB64` on signed events when canonical signing bytes are known (see `createSignedInception` / `assembleSignedEvent`). Without it, `encodeCesrEvent` falls back to `JSON.stringify(event)` which may diverge from keripy wire bodies.
+
 ### Covered families
 
 The fixture set covers all four attachment group families: controller indexed signatures (`-A`), witness indexed signatures (`-B`), non-transferable receipt couples (`-C`), and transferable receipt quadruples (`-D`). Each family has single-item and multi-item fixtures, plus edge cases like wider index encoding (`keyIndex >= 64`).

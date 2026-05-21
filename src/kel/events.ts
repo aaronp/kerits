@@ -386,6 +386,8 @@ export namespace KELEvents {
   export function assembleSignedEvent(params: {
     event: KELEvent;
     signatures: Array<{ keyIndex: number; sig: string }>;
+    /** Canonical signing bytes (e.g. from `KELData.prepareIcp` or `computeSaid` canonFinal). */
+    bytesB64?: string;
   }): import('./types.js').CESREvent {
     const attachments: import('./types.js').CesrAttachment[] = params.signatures.map((s) => ({
       kind: 'sig' as const,
@@ -393,6 +395,11 @@ export namespace KELEvents {
       keyIndex: s.keyIndex,
       sig: s.sig,
     }));
-    return { event: params.event, attachments, enc: 'JSON' };
+    return {
+      event: params.event,
+      attachments,
+      enc: 'JSON',
+      ...(params.bytesB64 !== undefined ? { bytesB64: params.bytesB64 } : {}),
+    };
   }
 }
