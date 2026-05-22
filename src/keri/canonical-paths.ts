@@ -1,4 +1,5 @@
 import type { AID, SAID } from '../common/types.js';
+import type { ProfileAlias } from './profile-alias.js';
 
 /**
  * Well-known prefix for all canonical KERI paths.
@@ -23,5 +24,7 @@ export const CanonicalPaths = {
   rsn: (rid: SAID) => `${KERI_PREFIX}/registry/${rid}/rsn`,
   event: (said: SAID) => `${KERI_PREFIX}/events/${said}/event`,
   receipts: (said: SAID) => `${KERI_PREFIX}/events/${said}/receipts`,
+  profile: (aid: AID) => `${KERI_PREFIX}/aid/${aid}/profile`,
+  aliasProfile: (alias: ProfileAlias) => `${KERI_PREFIX}/alias/${alias}/profile`,
   fullUrl: (baseUrl: string, path: string) => `${baseUrl.replace(/\/+$/, '')}${path}`,
 } as const;

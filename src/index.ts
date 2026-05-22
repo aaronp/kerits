@@ -189,6 +189,9 @@ export {
 export { verifyWitnessReceipt } from './kel/validation-predicates.js';
 // ── Canonical URL paths ──────────────────────────────────────────────
 export { CanonicalPaths, KERI_PREFIX } from './keri/canonical-paths.js';
+// ── Profile alias ────────────────────────────────────────────────────
+export type { ProfileAlias } from './keri/profile-alias.js';
+export { parseProfileAlias } from './keri/profile-alias.js';
 // ── Remote publishing contracts ──────────────────────────────────────
 export * from './remote/index.js';
 // ── Result type ──────────────────────────────────────────────────────

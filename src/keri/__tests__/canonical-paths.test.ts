@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'bun:test';
 import { CanonicalPaths, KERI_PREFIX } from '../../index.js';
 import type { AID, SAID } from '../../index.js';
+import type { ProfileAlias } from '../profile-alias.js';
 
 const fakeAid = 'EFakeAID_000000000000000000000000000000000000000000' as AID;
 const fakeSaid = 'EFakeSAID_00000000000000000000000000000000000000000' as SAID;
@@ -50,6 +51,14 @@ describe('CanonicalPaths', () => {
 
   test('receipts(said)', () => {
     expect(CanonicalPaths.receipts(fakeSaid)).toBe(`/.well-known/keri/events/${fakeSaid}/receipts`);
+  });
+
+  test('profile returns correct path', () => {
+    expect(CanonicalPaths.profile('ETestAID' as AID)).toBe('/.well-known/keri/aid/ETestAID/profile');
+  });
+
+  test('aliasProfile returns correct path', () => {
+    expect(CanonicalPaths.aliasProfile('alice' as ProfileAlias)).toBe('/.well-known/keri/alias/alice/profile');
   });
 
   test('fullUrl strips trailing slashes', () => {
