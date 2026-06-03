@@ -73,6 +73,44 @@ describe('KELOps.validateAppend', () => {
   });
 });
 
+describe('KELOps.isOnlyPendingSignatureFailures', () => {
+  test('returns true when only signatures and signing threshold fail', () => {
+    const validation = {
+      eventIndex: 0,
+      eventType: 'icp' as const,
+      eventSaid: 'Esaid',
+      checks: {
+        isValidKeriEvent: { passed: true },
+        saidValid: { passed: true },
+        requiredFieldsPresent: { passed: true },
+        signaturesValid: { passed: false, error: 'bad sig' },
+        thresholdMet: { passed: false, error: '0 / 1' },
+      },
+    };
+    expect(KELOps.isOnlyPendingSignatureFailures(validation)).toBe(true);
+  });
+
+  test('returns false when key chain fails', () => {
+    const validation = {
+      eventIndex: 1,
+      eventType: 'rot' as const,
+      eventSaid: 'Erot',
+      checks: {
+        isValidKeriEvent: { passed: true },
+        saidValid: { passed: true },
+        requiredFieldsPresent: { passed: true },
+        signaturesValid: { passed: true },
+        thresholdMet: { passed: true },
+        keyChainValid: {
+          passed: false,
+          error: 'Prior establishment n[] commitments not satisfied: revealed 0 of 1',
+        },
+      },
+    };
+    expect(KELOps.isOnlyPendingSignatureFailures(validation)).toBe(false);
+  });
+});
+
 describe('KELOps.buildNextCommitment', () => {
   test('hashes public keys to digests', () => {
     const pair = KeriKeyPairs.create();

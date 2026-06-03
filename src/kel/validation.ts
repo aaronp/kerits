@@ -318,13 +318,19 @@ function validateSignaturesWithDetails(
     }
 
     const publicKey = keys[keyIndex]!;
-    const isValid = verifyEventSignature(event, publicKey, sigAtt.sig);
+    let isValid = false;
+    let verifyError: string | undefined;
+    try {
+      isValid = verifyEventSignature(event, publicKey, sigAtt.sig);
+    } catch (err) {
+      verifyError = err instanceof Error ? err.message : 'Signature verification failed';
+    }
 
     details.push({
       keyIndex,
       publicKey,
       valid: isValid,
-      error: isValid ? undefined : 'Signature verification failed',
+      error: isValid ? undefined : (verifyError ?? 'Signature verification failed'),
     });
 
     if (isValid) {
@@ -433,11 +439,12 @@ function validateKeyChainWithDetails(
   }
 
   if (!matchResult.priorNtSatisfied) {
+    const actualDigests = currentKeys.map((k: string) => digestVerfer(k));
     return {
       passed: false,
-      error: `Prior-next threshold not satisfied: revealed ${matchResult.revealed.length} of ${prevNextDigests.length} committed keys`,
+      error: `Prior establishment n[] commitments not satisfied: revealed ${matchResult.revealed.length} of ${prevNextDigests.length} next-key digests (nt=${String(previousEstablishment.nt)}). Expected digests from prior n[]: ${prevNextDigests.join(', ')}. Got digests from rotation k[]: ${actualDigests.join(', ')}.`,
       expectedDigests: [...prevNextDigests],
-      actualDigests: currentKeys.map((k: string) => digestVerfer(k)),
+      actualDigests,
       revealed: matchResult.revealed,
       augmented: matchResult.augmented,
     };
@@ -847,38 +854,51 @@ export function validateKel(
       threshold = '0';
     }
 
-    // 5. Signature validation with details
-    const sigResult = validateSignaturesWithDetails(cesrEvent, keys);
-    checks.signaturesValid = {
-      passed: sigResult.allValid,
-      details: sigResult.details,
-      error: sigResult.allValid ? undefined : 'One or more signatures failed verification',
-    };
+    // 5. Signature validation with details (skip when event type is not a known KERI ilk)
+    const sigResult = typeValid
+      ? validateSignaturesWithDetails(cesrEvent, keys)
+      : { details: [], allValid: false, validKeyIndices: new Set<number>() };
 
-    if (!sigResult.allValid && !firstError) {
-      const firstInvalid = sigResult.details.find((d) => !d.valid);
-      firstError = {
-        code: 'SIGNATURE_INVALID',
-        scope: 'attachment',
-        severity: 'error',
-        message: `Signature at index ${firstInvalid?.keyIndex ?? 'unknown'} is invalid`,
-        eventIndex: i,
+    if (typeValid) {
+      checks.signaturesValid = {
+        passed: sigResult.allValid,
+        details: sigResult.details,
+        error: sigResult.allValid ? undefined : 'One or more signatures failed verification',
       };
-      overallValid = false;
+
+      if (!sigResult.allValid && !firstError) {
+        const firstInvalid = sigResult.details.find((d) => !d.valid);
+        firstError = {
+          code: 'SIGNATURE_INVALID',
+          scope: 'attachment',
+          severity: 'error',
+          message: `Signature at index ${firstInvalid?.keyIndex ?? 'unknown'} is invalid`,
+          eventIndex: i,
+        };
+        overallValid = false;
+      }
+    } else {
+      checks.signaturesValid = {
+        passed: false,
+        details: [],
+        error: typeError ?? 'Cannot verify signatures for invalid event type',
+      };
     }
 
     // 6. Threshold validation — prefer normalized threshold from state if available
     let thresholdMet = false;
-    if (state) {
-      const normalizedResult = checkNormalizedThreshold(state.signingThreshold, sigResult.validKeyIndices);
-      thresholdMet = normalizedResult.satisfied;
-    } else {
-      try {
-        const thresholdSpec: ThresholdSpec = threshold;
-        const thresholdResult = checkThreshold(thresholdSpec, Array.from(sigResult.validKeyIndices), keys.length);
-        thresholdMet = thresholdResult.satisfied;
-      } catch {
-        thresholdMet = false;
+    if (typeValid) {
+      if (state) {
+        const normalizedResult = checkNormalizedThreshold(state.signingThreshold, sigResult.validKeyIndices);
+        thresholdMet = normalizedResult.satisfied;
+      } else {
+        try {
+          const thresholdSpec: ThresholdSpec = threshold;
+          const thresholdResult = checkThreshold(thresholdSpec, Array.from(sigResult.validKeyIndices), keys.length);
+          thresholdMet = thresholdResult.satisfied;
+        } catch {
+          thresholdMet = false;
+        }
       }
     }
 
@@ -886,10 +906,14 @@ export function validateKel(
       passed: thresholdMet,
       required: typeof threshold === 'string' ? threshold : JSON.stringify(threshold),
       validSignatureCount: sigResult.validKeyIndices.size,
-      error: thresholdMet ? undefined : `Threshold not met: ${sigResult.validKeyIndices.size} valid signatures`,
+      error: typeValid
+        ? thresholdMet
+          ? undefined
+          : `Threshold not met: ${sigResult.validKeyIndices.size} valid signatures`
+        : (typeError ?? 'Cannot verify threshold for invalid event type'),
     };
 
-    if (!thresholdMet && !firstError) {
+    if (typeValid && !thresholdMet && !firstError) {
       firstError = {
         code: 'THRESHOLD_NOT_MET',
         scope: 'attachment',

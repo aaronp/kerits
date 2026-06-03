@@ -28,7 +28,7 @@ import type {
 import { checkThreshold } from './threshold.js';
 import type { CESREvent, DipEvent, IcpEvent, IxnEvent, KELEvent, KSN } from './types.js';
 import { KSNs } from './types.js';
-import type { ValidationError } from './validation.js';
+import type { EventValidationDetail, ValidationError } from './validation.js';
 import {
   isValidKeriEvent as _isValidKeriEvent,
   validateEventSaid as _validateEventSaid,
@@ -215,6 +215,24 @@ export namespace KELOps {
     }
 
     return { ok: true, validation: candidateDetail };
+  }
+
+  /** Check names that may fail on append while signatures are still being collected. */
+  const APPEND_ALLOWED_FAILURE_CHECKS = new Set(['signaturesValid', 'thresholdMet']);
+
+  /**
+   * True when every failing validation check is limited to controller signatures
+   * or signing threshold (pending establishment). Used by KELAPI.append — not
+   * for message-regex matching, which mis-classifies e.g. key-chain nt failures.
+   */
+  export function isOnlyPendingSignatureFailures(validation: EventValidationDetail): boolean {
+    let hasFailure = false;
+    for (const [name, check] of Object.entries(validation.checks)) {
+      if (!check || check.passed) continue;
+      hasFailure = true;
+      if (!APPEND_ALLOWED_FAILURE_CHECKS.has(name)) return false;
+    }
+    return hasFailure;
   }
 
   /**

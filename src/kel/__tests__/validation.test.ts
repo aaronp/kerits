@@ -187,6 +187,24 @@ function rewrapCesr(cesrEvent: CESREvent, tamperedEvent: KELEvent): CESREvent {
 }
 
 // ===========================================================================
+// invalid event type (must not throw during signature verification)
+// ===========================================================================
+
+describe('invalid event type', () => {
+  it('[unknown-ilk] invalid t field fails validation without throwing', () => {
+    const { cesrEvent, event } = buildSignedIcp();
+    const tampered = cloneEvent(event);
+    (tampered as { t: string }).t = 'r0t';
+    const bad = rewrapCesr(cesrEvent, tampered);
+    expect(() => validateKelChain([bad])).not.toThrow();
+    const result = validateKelChain([bad]);
+    expect(result.valid).toBe(false);
+    expect(result.eventDetails[0]!.checks.isValidKeriEvent.passed).toBe(false);
+    expect(result.eventDetails[0]!.checks.signaturesValid.passed).toBe(false);
+  });
+});
+
+// ===========================================================================
 // validate-said scenarios
 // ===========================================================================
 
