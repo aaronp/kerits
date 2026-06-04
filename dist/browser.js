@@ -9975,8 +9975,8 @@ function createTypedRemote(store, codec, resolvePath) {
   };
 }
 // src/version.ts
-var VERSION = "0.3.16";
-var GIT_SHA = "5b67920dff03e8213ba2435ec3a0a029647c1f6d";
+var VERSION = "0.3.17";
+var GIT_SHA = "03e1bcba43a0573785824392e41f34dfee188461";
 export {
   verifyWitnessReceipt,
   verify,
@@ -10002,8 +10002,12 @@ export {
   remoteRecordsFromKelManifestData,
   remoteRecordsFromAidManifest,
   reduceKelState,
+  recoveryPublicKeyAt,
+  recoveryKeyDerivationSpec,
+  recoveryCommitmentAt,
   recomputeSaid,
   randomBytes,
+  profileUsernameFromDisplayName,
   parseSimpleThreshold,
   parseSha256Hex,
   parseSaidQb64,
@@ -10018,6 +10022,7 @@ export {
   parseAidQb64,
   ok,
   normalizeThreshold,
+  normalizeDisplayNameToProfileUsername,
   nextKeyDigestQb64FromPublicKeyQb64,
   mergeRemoteRecords,
   manifestUrlFromRecords,
@@ -10030,6 +10035,7 @@ export {
   isStructuredValidationError,
   inspect,
   inferSchema,
+  hkdfSha256,
   hkdfBlake3,
   hexToBytes,
   getPublicKey,
@@ -10048,6 +10054,7 @@ export {
   ed25519ToX25519Private,
   digestVerfer,
   deriveSharedSecret,
+  deriveScheduledEd25519Keypair,
   deriveSaid,
   decodeSig as decodeSignature,
   decodeKey,
@@ -10058,16 +10065,20 @@ export {
   createTypedRemote,
   createStructuredValidationError,
   createSaidMessageType,
+  createInitialRecoveryDerivation,
   checkThreshold,
   canonicalizeToBytes,
   canonicalizeEvent,
   canonicalize2 as canonicalize,
   canonical,
   bytesToHex,
+  buildDeviceRecoverySigningPath,
+  buildAccountRecoverySigningPath,
   buildACDCCredentialSurface,
   asEd25519PublicRaw,
   asEd25519PrivateRaw,
   aidManifestToKelManifestData,
+  advanceRecoveryDerivation,
   WeightedThresholdSchema,
   VersionSchema,
   VerificationError,
@@ -10099,6 +10110,8 @@ export {
   Said,
   SAID_PLACEHOLDER,
   RotEventSchema2 as RotEventSchema,
+  RECOVERY_SCHEDULE_VERSION,
+  RECOVERY_EXPAND_SALT,
   Qb64Schema,
   PublishedResourceSchema,
   PermissionError,
@@ -10160,5 +10173,6 @@ export {
   ACDC_SCHEMA_SURFACE,
   ACDC_CREDENTIAL_SURFACE,
   ACDCOps,
-  ACDCData
+  ACDCData,
+  ACCOUNT_RECOVERY_PATH_PREFIX
 };

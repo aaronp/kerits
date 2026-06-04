@@ -65,7 +65,24 @@ export * from './common/errors.js';
 export { transferableKeyToPublicKey } from './common/key-conversions.js';
 export * from './common/types.js';
 export { hkdfBlake3 } from './crypto/hkdf.js';
+export { hkdfSha256 } from './crypto/hkdf-sha256.js';
 export { KeriKeyPairs } from './crypto/index.js';
+export {
+  ACCOUNT_RECOVERY_PATH_PREFIX,
+  advanceRecoveryDerivation,
+  buildAccountRecoverySigningPath,
+  buildDeviceRecoverySigningPath,
+  createInitialRecoveryDerivation,
+  deriveScheduledEd25519Keypair,
+  type KeritsRecoveryDerivation,
+  RECOVERY_EXPAND_SALT,
+  RECOVERY_SCHEDULE_VERSION,
+  type RecoveryKdfParams,
+  type RecoveryKeyDerivationSpec,
+  recoveryCommitmentAt,
+  recoveryKeyDerivationSpec,
+  recoveryPublicKeyAt,
+} from './crypto/recovery-schedule.js';
 export { deriveSharedSecret, ed25519ToX25519Private, ed25519ToX25519Public } from './crypto/x25519.js';
 // ── KEL event canonicalization ────────────────────────────────────────
 export { canonicalizeEvent } from './kel/event-crypto.js';
@@ -192,6 +209,10 @@ export { CanonicalPaths, KERI_PREFIX } from './keri/canonical-paths.js';
 // ── Profile alias ────────────────────────────────────────────────────
 export type { ProfileAlias } from './keri/profile-alias.js';
 export { parseProfileAlias } from './keri/profile-alias.js';
+export {
+  normalizeDisplayNameToProfileUsername,
+  profileUsernameFromDisplayName,
+} from './keri/profile-username.js';
 // ── Remote publishing contracts ──────────────────────────────────────
 export * from './remote/index.js';
 // ── Result type ──────────────────────────────────────────────────────
