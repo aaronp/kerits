@@ -33,6 +33,7 @@ export const CanonicalPaths = {
   /** Individual TEL event by SAID — immutable, stores a single `TelEvent`. */
   telEvent: (said: SAID) => `${KERI_PREFIX}/tel/${said}/event`,
   profile: (aid: AID) => `${KERI_PREFIX}/aid/${aid}/profile`,
+  credentialMetadata: (aid: AID, schemaSaid: SAID) => `${KERI_PREFIX}/aid/${aid}/credential-metadata/${schemaSaid}`,
   aliasProfile: (alias: ProfileAlias) => `${KERI_PREFIX}/alias/${alias}/profile`,
   fullUrl: (baseUrl: string, path: string) => `${baseUrl.replace(/\/+$/, '')}${path}`,
 } as const;

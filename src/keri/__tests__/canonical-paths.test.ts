@@ -61,6 +61,12 @@ describe('CanonicalPaths', () => {
     expect(CanonicalPaths.aliasProfile('alice' as ProfileAlias)).toBe('/.well-known/keri/alias/alice/profile');
   });
 
+  test('credentialMetadata returns correct path for aid + schemaSaid', () => {
+    expect(CanonicalPaths.credentialMetadata(fakeAid, fakeSaid)).toBe(
+      `/.well-known/keri/aid/${fakeAid}/credential-metadata/${fakeSaid}`,
+    );
+  });
+
   test('fullUrl strips trailing slashes', () => {
     expect(CanonicalPaths.fullUrl('https://example.com/', '/path')).toBe('https://example.com/path');
     expect(CanonicalPaths.fullUrl('https://example.com///', '/path')).toBe('https://example.com/path');
