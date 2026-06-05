@@ -12,6 +12,11 @@ export const KERI_PREFIX = '/.well-known/keri';
  *
  * These are URL paths only — not storage keys. Each server backend
  * maps these paths to its own internal storage keys independently.
+ *
+ * TEL paths:
+ * - `telEvent(said)` — immutable per-SAID individual TEL event (VCP, ISS, REV, etc.)
+ * - `tel(rid)` — mutable full-history aggregate (`TelEvent[]`) for a registry, overwritten on each publish
+ * - `rsn(rid)` — mutable registry state notice (derived from the TEL chain)
  */
 export const CanonicalPaths = {
   kel: (aid: AID) => `${KERI_PREFIX}/aid/${aid}/kel`,
@@ -20,10 +25,13 @@ export const CanonicalPaths = {
   oobi: (aid: AID) => `${KERI_PREFIX}/oobi/${aid}`,
   schema: (said: SAID) => `${KERI_PREFIX}/said/${said}/schema`,
   acdc: (said: SAID) => `${KERI_PREFIX}/said/${said}/acdc`,
+  /** Full-history TEL aggregate for a registry — mutable, stores `TelEvent[]`. */
   tel: (rid: SAID) => `${KERI_PREFIX}/registry/${rid}/tel`,
   rsn: (rid: SAID) => `${KERI_PREFIX}/registry/${rid}/rsn`,
   event: (said: SAID) => `${KERI_PREFIX}/events/${said}/event`,
   receipts: (said: SAID) => `${KERI_PREFIX}/events/${said}/receipts`,
+  /** Individual TEL event by SAID — immutable, stores a single `TelEvent`. */
+  telEvent: (said: SAID) => `${KERI_PREFIX}/tel/${said}/event`,
   profile: (aid: AID) => `${KERI_PREFIX}/aid/${aid}/profile`,
   aliasProfile: (alias: ProfileAlias) => `${KERI_PREFIX}/alias/${alias}/profile`,
   fullUrl: (baseUrl: string, path: string) => `${baseUrl.replace(/\/+$/, '')}${path}`,

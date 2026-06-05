@@ -1,6 +1,6 @@
 import { type Static, Type } from '@sinclair/typebox';
 import { Value } from '@sinclair/typebox/value';
-import { Qb64Schema } from '../common/types.js';
+import { CesrDigestSchema, Qb64Schema } from '../common/types.js';
 import type { AID, AidManifest, AidManifestEvent, SAID, Timestamp } from '../kel/types.js';
 import { AidManifestSchema } from '../kel/types.js';
 import { CanonicalPaths } from '../keri/canonical-paths.js';
@@ -22,6 +22,9 @@ const KELPublishedResourceSchema = Type.Union([
   Type.Object({ kind: Type.Literal('kel.receipts'), url: Type.String() }, { additionalProperties: false }),
   Type.Object({ kind: Type.Literal('kel.full'), url: Type.String() }, { additionalProperties: false }),
   Type.Object({ kind: Type.Literal('kel.manifest'), url: Type.String() }, { additionalProperties: false }),
+  Type.Object({ kind: Type.Literal('tel.event'), url: Type.String() }, { additionalProperties: false }),
+  Type.Object({ kind: Type.Literal('tel.full'), url: Type.String() }, { additionalProperties: false }),
+  Type.Object({ kind: Type.Literal('tel.rsn'), url: Type.String() }, { additionalProperties: false }),
 ]);
 
 export const KELManifestEntrySchema = Type.Object(
@@ -33,11 +36,37 @@ export const KELManifestEntrySchema = Type.Object(
 );
 export type KELManifestEntry = Static<typeof KELManifestEntrySchema>;
 
+export const PublishedCredentialSchema = Type.Object(
+  {
+    name: Type.String({ minLength: 1 }),
+    registry: CesrDigestSchema,
+    schemas: Type.Array(CesrDigestSchema, { minItems: 1 }),
+    url: Type.String(),
+  },
+  { additionalProperties: false },
+);
+export type PublishedCredential = Static<typeof PublishedCredentialSchema>;
+
+/** Validate constraints TypeBox cannot enforce (URL format, schema uniqueness). */
+export function validatePublishedCredential(cred: PublishedCredential): string[] {
+  const errors: string[] = [];
+  try {
+    new URL(cred.url);
+  } catch {
+    errors.push('url must be a valid URI');
+  }
+  if (new Set(cred.schemas).size !== cred.schemas.length) {
+    errors.push('schemas must not contain duplicates');
+  }
+  return errors;
+}
+
 export const KELManifestDataSchema = Type.Object(
   {
     v: Type.Literal('kerits-aid-manifest/2'),
     aid: Qb64Schema,
     entries: Type.Array(KELManifestEntrySchema, { minItems: 1 }),
+    credentials: Type.Array(PublishedCredentialSchema),
   },
   { additionalProperties: false },
 );
@@ -74,7 +103,7 @@ export function aidManifestToKelManifestData(manifest: AidManifest, publishedAt:
       metadata: { publishedAt, sn: manifest.latestSn },
     });
   }
-  return { v: 'kerits-aid-manifest/2', aid: manifest.aid, entries };
+  return { v: 'kerits-aid-manifest/2', aid: manifest.aid, entries, credentials: [] };
 }
 
 function saidFromEventUrl(url: string): SAID | undefined {

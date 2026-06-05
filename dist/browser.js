@@ -9158,7 +9158,7 @@ var NonEmpty = (title, description, eg) => Type.String({
 function CesrType(title, format) {
   return Type.String({ title, description: title, format });
 }
-var KeriVersionPattern = "^KERI[0-9]{2}[A-Z]{4}[0-9]{6}_$";
+var KeriVersionPattern = "^KERI[0-9]{2}[A-Z]{4}[0-9a-f]{6}_$";
 var VersionSchema = Type.String({
   title: "KERI Version",
   description: 'KERI version string with encoding + embedded size. Example: "KERI10JSON000156_"',
@@ -9830,16 +9830,38 @@ var KELPublishedResourceSchema = Type.Union([
   Type.Object({ kind: Type.Literal("kel.event"), url: Type.String() }, { additionalProperties: false }),
   Type.Object({ kind: Type.Literal("kel.receipts"), url: Type.String() }, { additionalProperties: false }),
   Type.Object({ kind: Type.Literal("kel.full"), url: Type.String() }, { additionalProperties: false }),
-  Type.Object({ kind: Type.Literal("kel.manifest"), url: Type.String() }, { additionalProperties: false })
+  Type.Object({ kind: Type.Literal("kel.manifest"), url: Type.String() }, { additionalProperties: false }),
+  Type.Object({ kind: Type.Literal("tel.event"), url: Type.String() }, { additionalProperties: false }),
+  Type.Object({ kind: Type.Literal("tel.full"), url: Type.String() }, { additionalProperties: false }),
+  Type.Object({ kind: Type.Literal("tel.rsn"), url: Type.String() }, { additionalProperties: false })
 ]);
 var KELManifestEntrySchema = Type.Object({
   resource: KELPublishedResourceSchema,
   metadata: RemoteMetadataSchema
 }, { additionalProperties: false });
+var PublishedCredentialSchema = Type.Object({
+  name: Type.String({ minLength: 1 }),
+  registry: CesrDigestSchema,
+  schemas: Type.Array(CesrDigestSchema, { minItems: 1 }),
+  url: Type.String()
+}, { additionalProperties: false });
+function validatePublishedCredential(cred) {
+  const errors = [];
+  try {
+    new URL(cred.url);
+  } catch {
+    errors.push("url must be a valid URI");
+  }
+  if (new Set(cred.schemas).size !== cred.schemas.length) {
+    errors.push("schemas must not contain duplicates");
+  }
+  return errors;
+}
 var KELManifestDataSchema = Type.Object({
   v: Type.Literal("kerits-aid-manifest/2"),
   aid: Qb64Schema,
-  entries: Type.Array(KELManifestEntrySchema, { minItems: 1 })
+  entries: Type.Array(KELManifestEntrySchema, { minItems: 1 }),
+  credentials: Type.Array(PublishedCredentialSchema)
 }, { additionalProperties: false });
 function latestSnFromKelManifestData(data) {
   const eventSns = data.entries.filter((e) => e.resource.kind === "kel.event").map((e) => e.metadata.sn);
@@ -9872,7 +9894,7 @@ function aidManifestToKelManifestData(manifest, publishedAt) {
       metadata: { publishedAt, sn: manifest.latestSn }
     });
   }
-  return { v: "kerits-aid-manifest/2", aid: manifest.aid, entries };
+  return { v: "kerits-aid-manifest/2", aid: manifest.aid, entries, credentials: [] };
 }
 function saidFromEventUrl(url) {
   const match = url.match(/\/events\/([^/]+)\/event/);
@@ -9975,14 +9997,15 @@ function createTypedRemote(store, codec, resolvePath) {
   };
 }
 // src/version.ts
-var VERSION = "0.3.17";
-var GIT_SHA = "03e1bcba43a0573785824392e41f34dfee188461";
+var VERSION = "0.3.18";
+var GIT_SHA = "b3a7d447ae7c1485bd918ad5627a5337544cbb21";
 export {
   verifyWitnessReceipt,
   verify,
   validateSignedIcp,
   validateSAID,
   validateRequiredFields,
+  validatePublishedCredential,
   validateKeyChain,
   validateKelChain,
   validateKel,
@@ -10114,6 +10137,7 @@ export {
   RECOVERY_EXPAND_SALT,
   Qb64Schema,
   PublishedResourceSchema,
+  PublishedCredentialSchema,
   PermissionError,
   NotFoundError,
   NonEmpty,

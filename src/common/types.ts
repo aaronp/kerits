@@ -62,8 +62,8 @@ export function CesrType(title: string, format: string) {
   return Type.String({ title, description: title, format });
 }
 
-/** KERI version: KERI<major><minor><KIND><size>_ (size is 6-digit decimal) */
-export const KeriVersionPattern = '^KERI[0-9]{2}[A-Z]{4}[0-9]{6}_$';
+/** KERI version: KERI<major><minor><KIND><size>_ (size is 6-digit lowercase hex) */
+export const KeriVersionPattern = '^KERI[0-9]{2}[A-Z]{4}[0-9a-f]{6}_$';
 export const VersionSchema = Type.String({
   title: 'KERI Version',
   description: 'KERI version string with encoding + embedded size. Example: "KERI10JSON000156_"',

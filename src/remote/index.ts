@@ -1,12 +1,20 @@
-export type { KELManifestData, KELManifestEntry, ParsedKelManifest, RemoteMetadata } from './kel-manifest-data.js';
+export type {
+  KELManifestData,
+  KELManifestEntry,
+  ParsedKelManifest,
+  PublishedCredential,
+  RemoteMetadata,
+} from './kel-manifest-data.js';
 export {
   aidManifestToKelManifestData,
   KELManifestDataSchema,
   kelManifestDataToAidManifest,
   latestSnFromKelManifestData,
   manifestUrlFromKelManifestData,
+  PublishedCredentialSchema,
   parseKelManifestWire,
   remoteRecordsFromKelManifestData,
+  validatePublishedCredential,
 } from './kel-manifest-data.js';
 export type {
   KELPublishEventsResult,
