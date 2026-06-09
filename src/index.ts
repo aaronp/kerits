@@ -294,6 +294,7 @@ export type {
   VcpEvent,
   VrtEvent,
 } from './tel/types.js';
+export { BisEventSchema, IssEventSchema } from './tel/types.js';
 
 // ── Version ──────────────────────────────────────────────────────────
 export * from './version.js';

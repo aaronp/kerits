@@ -10038,8 +10038,8 @@ function createTypedRemote(store, codec, resolvePath) {
   };
 }
 // src/version.ts
-var VERSION = "0.3.19";
-var GIT_SHA = "25580e93ce3e5d58d0d183f67f11276944680a4b";
+var VERSION = "0.3.20";
+var GIT_SHA = "ec5aaabca7efe580b19dc0bfc9d1ebf072be3a1d";
 export {
   verifyWitnessReceipt,
   verify,
@@ -10209,6 +10209,7 @@ export {
   KELEventSchema2 as KELEventSchema,
   KELData,
   IxnEventSchema2 as IxnEventSchema,
+  IssEventSchema,
   IcpEventSchema2 as IcpEventSchema,
   GIT_SHA,
   DrtEventSchema2 as DrtEventSchema,
@@ -10231,6 +10232,7 @@ export {
   Cesr,
   CanonicalPaths,
   CESREventSchema2 as CESREventSchema,
+  BisEventSchema,
   AnySealSchema2 as AnySealSchema,
   AidManifestSchema2 as AidManifestSchema,
   AidManifestEventSchema2 as AidManifestEventSchema,
