@@ -119,6 +119,8 @@ export type {
   KELView,
   KelAppend,
   KeyIndex,
+  KeyStateError,
+  KeyStateResult,
   KSN,
   MatchKeyRevelationInput,
   MatchKeyRevelationResult,
@@ -128,6 +130,7 @@ export type {
   RotEvent,
   ValidateAppendResult,
   ValidateControllerSignatureResult,
+  VerifiedKeyState,
 } from './kel/index.js';
 // ── KEL event schemas and namespaces ─────────────────────────────────
 export {

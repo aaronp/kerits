@@ -2,7 +2,7 @@
  * Types for KELOps — pure KEL interpretation and validation.
  */
 
-import type { SAID, Threshold } from '../common/types.js';
+import type { AID, CesrDigest, PublicKey, SAID, Threshold } from '../common/types.js';
 import type { DipEvent, DrtEvent, IcpEvent, IxnEvent, KSN, RotEvent } from './types.js';
 import type { EventValidationDetail, ValidationError } from './validation.js';
 
@@ -83,3 +83,26 @@ export type ControllerSignatureValidationError = {
   code: 'KEY_INDEX_OUT_OF_RANGE' | 'SIGNATURE_INVALID' | 'DUPLICATE_SIGNATURE';
   message: string;
 };
+
+// --- Key state extraction (from KEL verification) ---
+
+export type VerifiedKeyState = {
+  aid: AID;
+  seqNo: number;
+  digest: string;
+  currentKeys: PublicKey[];
+  threshold: Threshold;
+  nextKeyDigests: CesrDigest[];
+};
+
+export type KeyStateError =
+  | { kind: 'missing-inception' }
+  | { kind: 'broken-chain'; seqNo: number; reason: string }
+  | { kind: 'invalid-signature'; seqNo: number }
+  | { kind: 'malformed-event'; reason: string }
+  | { kind: 'kel-rollback'; existingSeqNo: number; newSeqNo: number }
+  | { kind: 'kel-fork'; seqNo: number; existingDigest: string; newDigest: string }
+  | { kind: 'prior-digest-mismatch'; expected: string; actual: string }
+  | { kind: 'aid-mismatch'; expected: string; actual: string };
+
+export type KeyStateResult = { ok: true; keyState: VerifiedKeyState } | { ok: false; error: KeyStateError };

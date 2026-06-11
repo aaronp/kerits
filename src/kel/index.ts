@@ -25,11 +25,14 @@ export type {
   EstablishmentEvent,
   EventRef,
   KELView,
+  KeyStateError,
+  KeyStateResult,
   MatchKeyRevelationInput,
   MatchKeyRevelationResult,
   PreviousNextKeyCommitment,
   ValidateAppendResult,
   ValidateControllerSignatureResult,
+  VerifiedKeyState,
 } from './ops-types.js';
 export * from './types.js';
 export {

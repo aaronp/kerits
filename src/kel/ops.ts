@@ -9,7 +9,7 @@
  */
 
 import { digestVerfer } from '../cesr/digest.js';
-import type { AID, PublicKey, SAID, Signature, Threshold } from '../common/types.js';
+import type { AID, CesrDigest, PublicKey, SAID, Signature, Threshold } from '../common/types.js';
 import { verify } from '../signature/verify.js';
 import { encodeEventBytes } from './event-signing.js';
 import { reduceKelState as _reduceKelState } from './kel-state.js';
@@ -19,11 +19,13 @@ import type {
   EstablishmentEvent,
   EventRef,
   KELView,
+  KeyStateResult,
   MatchKeyRevelationInput,
   MatchKeyRevelationResult,
   PreviousNextKeyCommitment,
   ValidateAppendResult,
   ValidateControllerSignatureResult,
+  VerifiedKeyState,
 } from './ops-types.js';
 import { checkThreshold } from './threshold.js';
 import type { CESREvent, DipEvent, IcpEvent, IxnEvent, KELEvent, KSN } from './types.js';
@@ -40,6 +42,17 @@ import {
 } from './validation.js';
 
 // ─── Internal helpers ───────────────────────────────────────────────────────
+
+function ksnToKeyState(ksn: KSN): VerifiedKeyState {
+  return {
+    aid: ksn.i as AID,
+    seqNo: parseInt(ksn.s, 16),
+    digest: ksn.d,
+    currentKeys: ksn.k as PublicKey[],
+    threshold: ksn.kt,
+    nextKeyDigests: ksn.n as CesrDigest[],
+  };
+}
 
 function toEventRef(env: CESREvent, index: number): EventRef {
   return {
@@ -439,6 +452,42 @@ export namespace KELOps {
   export function kelEqual(a: readonly CESREvent[], b: readonly CESREvent[]): boolean {
     if (a.length !== b.length) return false;
     return a.every((evt, i) => eventsEqual(evt, b[i]!));
+  }
+
+  /**
+   * Validate a KEL chain and derive the current key state.
+   *
+   * Composes `validateKelChain` + `KSNs.fromKEL`. The AID is derived from the
+   * inception event — callers check AID separately if needed.
+   *
+   * @param events - Ordered CESR events forming the KEL
+   * @returns KeyStateResult with the validated key state, or an error
+   */
+  export function extractKeyState(events: CESREvent[]): KeyStateResult {
+    if (events.length === 0) {
+      return { ok: false, error: { kind: 'missing-inception' } };
+    }
+
+    const validation = _validateKelChain(events);
+    if (!validation.valid) {
+      const err = validation.firstError;
+      return {
+        ok: false,
+        error: {
+          kind: 'broken-chain',
+          seqNo: err?.eventIndex ?? 0,
+          reason: err?.code ?? 'unknown validation failure',
+        },
+      };
+    }
+
+    const inceptionAid = events[0]!.event.i as AID;
+    const ksn = KSNs.fromKEL(inceptionAid, events);
+    if (!ksn) {
+      return { ok: false, error: { kind: 'missing-inception' } };
+    }
+
+    return { ok: true, keyState: ksnToKeyState(ksn) };
   }
 
   /**
