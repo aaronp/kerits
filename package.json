@@ -1,6 +1,6 @@
 {
   "name": "@kerits/core",
-  "version": "0.3.25",
+  "version": "0.3.26",
   "type": "module",
   "exports": {
     ".": {
@@ -11,6 +11,15 @@
       "browser": "./dist/browser.js",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./crypto": {
+      "bun": "./src/crypto/index.ts",
+      "react-native": "./src/crypto/index.ts",
+      "types": "./src/crypto/index.ts",
+      "worker": "./dist/crypto.js",
+      "browser": "./dist/crypto.js",
+      "import": "./dist/crypto.js",
+      "default": "./dist/crypto.js"
     }
   },
   "files": [
@@ -32,8 +41,10 @@
   "dependencies": {
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1",
+    "@scure/bip39": "^2.0.1",
     "@sinclair/typebox": "^0.34.41",
     "cesr-ts": "github:WebOfTrust/cesr-ts",
+    "jose": "^6.2.3",
     "json-canonicalize": "^2.0.0"
   },
   "devDependencies": {

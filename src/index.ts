@@ -67,6 +67,20 @@ export * from './common/types.js';
 export { hkdfBlake3 } from './crypto/hkdf.js';
 export { hkdfSha256 } from './crypto/hkdf-sha256.js';
 export { KeriKeyPairs } from './crypto/index.js';
+// ── Envelope encryption ────────────────────────────────────────────────
+export {
+  buildAAD,
+  decryptEnvelope,
+  deserializeEnvelope,
+  encryptEnvelope,
+  serializeEnvelope,
+} from './crypto/envelope/index.js';
+export type {
+  EncryptedEnvelope,
+  EnvelopeAAD,
+  PublicKeyRef,
+  UnlockProvider,
+} from './crypto/envelope/index.js';
 export {
   ACCOUNT_RECOVERY_PATH_PREFIX,
   advanceRecoveryDerivation,

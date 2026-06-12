@@ -9997,8 +9997,8 @@ function createTypedRemote(store, codec, resolvePath) {
   };
 }
 // src/version.ts
-var VERSION = "0.3.25";
-var GIT_SHA = "89647d75d26e2c725dc289cfcabea1deffa01a27";
+var VERSION = "0.3.26";
+var GIT_SHA = "c6b769ad851400f3398987ba2e5fa9862730ce4e";
 export {
   verifyWitnessReceipt,
   verify,
@@ -10019,6 +10019,7 @@ export {
   sha256Hex,
   sha256,
   serializeForSigning,
+  serializeEnvelope,
   schemaSaidOf,
   saidOf,
   resourceKey,
@@ -10065,6 +10066,7 @@ export {
   getCodeMeta,
   generateKeyPair,
   err,
+  encryptEnvelope,
   encodeSig as encodeSignature,
   encodeSAID,
   encodeKey,
@@ -10076,9 +10078,11 @@ export {
   ed25519ToX25519Public,
   ed25519ToX25519Private,
   digestVerfer,
+  deserializeEnvelope,
   deriveSharedSecret,
   deriveScheduledEd25519Keypair,
   deriveSaid,
+  decryptEnvelope,
   decodeSig as decodeSignature,
   decodeKey,
   decodeDigest,
@@ -10098,6 +10102,7 @@ export {
   buildDeviceRecoverySigningPath,
   buildAccountRecoverySigningPath,
   buildACDCCredentialSurface,
+  buildAAD,
   asEd25519PublicRaw,
   asEd25519PrivateRaw,
   aidManifestToKelManifestData,
