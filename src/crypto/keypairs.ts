@@ -6,8 +6,6 @@
  */
 
 import { ed25519 } from '@noble/curves/ed25519.js';
-import { generateMnemonic, mnemonicToEntropy, validateMnemonic } from '@scure/bip39';
-import { wordlist } from '@scure/bip39/wordlists/english.js';
 import { encodeKey } from '../cesr/keys.js';
 import type { KeriKeyPair } from '../common/types.js';
 
@@ -31,21 +29,6 @@ export namespace KeriKeyPairs {
     return seed;
   }
 
-  function mnemonicToSeed(mnemonic: string): Uint8Array {
-    if (!validateMnemonic(mnemonic, wordlist)) {
-      throw new Error('Invalid BIP39 mnemonic');
-    }
-    const entropy = mnemonicToEntropy(mnemonic, wordlist);
-    if (entropy.length === 32) return entropy;
-    if (entropy.length === 16) {
-      const seed = new Uint8Array(32);
-      seed.set(entropy, 0);
-      seed.set(entropy, 16);
-      return seed;
-    }
-    throw new Error(`Unsupported entropy length: ${entropy.length} bytes`);
-  }
-
   /**
    * Create a key pair from a 32-byte seed (Uint8Array).
    * Throws if the seed is not exactly 32 bytes.
@@ -66,20 +49,6 @@ export namespace KeriKeyPairs {
     const privateKey = entropyToSeed(seed);
     return forPrivateKey(privateKey);
   };
-
-  export const fromMnemonic = (mnemonic: string): KeriKeyPair => {
-    const seed = mnemonicToSeed(mnemonic);
-    return forPrivateKey(seed);
-  };
-
-  /**
-   * Generate a random BIP39 mnemonic (24 words by default).
-   *
-   * WARNING: Non-pure — uses cryptographic randomness.
-   */
-  export function randomMnemonic(bits: number = 256): string {
-    return generateMnemonic(wordlist, bits);
-  }
 
   let keyGenCounter = 0;
 

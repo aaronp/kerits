@@ -1,6 +1,6 @@
 {
   "name": "@kerits/core",
-  "version": "0.3.23",
+  "version": "0.3.25",
   "type": "module",
   "exports": {
     ".": {
@@ -31,7 +31,6 @@
   },
   "dependencies": {
     "@noble/curves": "^2.0.1",
-    "@scure/bip39": "^2.0.1",
     "@noble/hashes": "^2.0.1",
     "@sinclair/typebox": "^0.34.41",
     "cesr-ts": "github:WebOfTrust/cesr-ts",

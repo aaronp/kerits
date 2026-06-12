@@ -62,26 +62,4 @@ describe('KeriKeyPairs', () => {
       expect(a.publicKey).not.toBe(b.publicKey);
     });
   });
-
-  describe('randomMnemonic', () => {
-    it('returns a 24-word mnemonic by default', () => {
-      const mnemonic = KeriKeyPairs.randomMnemonic();
-      const words = mnemonic.split(' ');
-      expect(words.length).toBe(24);
-    });
-  });
-
-  describe('fromMnemonic', () => {
-    it('is deterministic — same mnemonic produces the same key pair', () => {
-      const mnemonic = KeriKeyPairs.randomMnemonic();
-      const a = KeriKeyPairs.fromMnemonic(mnemonic);
-      const b = KeriKeyPairs.fromMnemonic(mnemonic);
-      expect(a.publicKey).toBe(b.publicKey);
-      expect(a.privateKey).toBe(b.privateKey);
-    });
-
-    it('rejects an invalid mnemonic', () => {
-      expect(() => KeriKeyPairs.fromMnemonic('not a valid mnemonic phrase')).toThrow('Invalid BIP39 mnemonic');
-    });
-  });
 });
