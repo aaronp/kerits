@@ -64,9 +64,12 @@ export { deriveSaid, recomputeSaid, serializeForSigning } from './common/derivat
 export * from './common/errors.js';
 export { transferableKeyToPublicKey } from './common/key-conversions.js';
 export * from './common/types.js';
-export { hkdfBlake3 } from './crypto/hkdf.js';
-export { hkdfSha256 } from './crypto/hkdf-sha256.js';
-export { KeriKeyPairs } from './crypto/index.js';
+export type {
+  EncryptedEnvelope,
+  EnvelopeAAD,
+  PublicKeyRef,
+  UnlockProvider,
+} from './crypto/envelope/index.js';
 // ── Envelope encryption ────────────────────────────────────────────────
 export {
   buildAAD,
@@ -75,12 +78,9 @@ export {
   encryptEnvelope,
   serializeEnvelope,
 } from './crypto/envelope/index.js';
-export type {
-  EncryptedEnvelope,
-  EnvelopeAAD,
-  PublicKeyRef,
-  UnlockProvider,
-} from './crypto/envelope/index.js';
+export { hkdfBlake3 } from './crypto/hkdf.js';
+export { hkdfSha256 } from './crypto/hkdf-sha256.js';
+export { KeriKeyPairs } from './crypto/index.js';
 export {
   ACCOUNT_RECOVERY_PATH_PREFIX,
   advanceRecoveryDerivation,
