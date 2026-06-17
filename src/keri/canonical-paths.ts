@@ -36,4 +36,16 @@ export const CanonicalPaths = {
   credentialMetadata: (aid: AID, schemaSaid: SAID) => `${KERI_PREFIX}/aid/${aid}/credential-metadata/${schemaSaid}`,
   aliasProfile: (alias: ProfileAlias) => `${KERI_PREFIX}/alias/${alias}/profile`,
   fullUrl: (baseUrl: string, path: string) => `${baseUrl.replace(/\/+$/, '')}${path}`,
+  /** Strips the `/.well-known/keri/...` suffix from a manifest (or any canonical) URL to recover the base URL. */
+  baseUrlFromManifest: (manifestUrl: string) => manifestUrl.replace(/\/\.well-known\/keri\/.*$/, ''),
+  /** Derives all canonical URLs for an AID from a manifest URL. */
+  resolveAidUrls: (manifestUrl: string, aid: AID) => {
+    const base = manifestUrl.replace(/\/\.well-known\/keri\/.*$/, '');
+    return {
+      profileUrl: `${base}${CanonicalPaths.profile(aid)}`,
+      kelUrl: `${base}${CanonicalPaths.kel(aid)}`,
+      ksnUrl: `${base}${CanonicalPaths.ksn(aid)}`,
+      oobiUrl: `${base}${CanonicalPaths.oobi(aid)}`,
+    };
+  },
 } as const;

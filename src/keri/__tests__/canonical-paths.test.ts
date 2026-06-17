@@ -72,4 +72,26 @@ describe('CanonicalPaths', () => {
     expect(CanonicalPaths.fullUrl('https://example.com///', '/path')).toBe('https://example.com/path');
     expect(CanonicalPaths.fullUrl('https://example.com', '/path')).toBe('https://example.com/path');
   });
+
+  test('baseUrlFromManifest strips the /.well-known/keri/... suffix', () => {
+    expect(CanonicalPaths.baseUrlFromManifest('https://r2.kerits.id/.well-known/keri/aid/ETest/manifest'))
+      .toBe('https://r2.kerits.id');
+    expect(CanonicalPaths.baseUrlFromManifest('https://r2.kerits.id/.well-known/keri/aid/ETest/profile'))
+      .toBe('https://r2.kerits.id');
+  });
+
+  test('resolveAidUrls derives all canonical URLs from a manifest URL', () => {
+    // setup: manifest URL for a known AID
+    const aid = 'ETestAID' as AID;
+    const manifestUrl = `https://r2.kerits.id/.well-known/keri/aid/${aid}/manifest`;
+
+    // call our method under test
+    const urls = CanonicalPaths.resolveAidUrls(manifestUrl, aid);
+
+    // assertions: all 4 canonical URLs derived from the base
+    expect(urls.profileUrl).toBe(`https://r2.kerits.id/.well-known/keri/aid/${aid}/profile`);
+    expect(urls.kelUrl).toBe(`https://r2.kerits.id/.well-known/keri/aid/${aid}/kel`);
+    expect(urls.ksnUrl).toBe(`https://r2.kerits.id/.well-known/keri/aid/${aid}/ksn`);
+    expect(urls.oobiUrl).toBe(`https://r2.kerits.id/.well-known/keri/oobi/${aid}`);
+  });
 });

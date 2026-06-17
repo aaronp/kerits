@@ -10038,8 +10038,8 @@ function createTypedRemote(store, codec, resolvePath) {
   };
 }
 // src/version.ts
-var VERSION = "0.3.27";
-var GIT_SHA = "8e8f232af83e278f176cff0d096b66ffe5e00015";
+var VERSION = "0.3.38";
+var GIT_SHA = "2b0b9cab15b9dd955d4b73d54b1410fb7350bebc";
 export {
   verifyWitnessReceipt,
   verify,
