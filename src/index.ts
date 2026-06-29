@@ -230,6 +230,8 @@ export {
   normalizeDisplayNameToProfileUsername,
   profileUsernameFromDisplayName,
 } from './keri/profile-username.js';
+// ── Policy types ────────────────────────────────────────────────────
+export * from './policy/index.js';
 // ── Remote publishing contracts ──────────────────────────────────────
 export * from './remote/index.js';
 // ── Result type ──────────────────────────────────────────────────────

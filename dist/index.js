@@ -9353,6 +9353,10 @@ function toEd25519KeyPairBranded(keyPair) {
   };
 }
 var CesrSignatureSchema = CesrType("CESR Signature", "qb64-signature");
+// src/policy/presentation-definition.ts
+function presentationDefinitionSaid(pd) {
+  return Data.digestFor(pd);
+}
 // src/remote/kel-manifest-data.ts
 init_esm();
 
@@ -10038,8 +10042,8 @@ function createTypedRemote(store, codec, resolvePath) {
   };
 }
 // src/version.ts
-var VERSION = "0.3.38";
-var GIT_SHA = "2b0b9cab15b9dd955d4b73d54b1410fb7350bebc";
+var VERSION = "0.3.48";
+var GIT_SHA = "550980e51f96d3b90739129b056751d1d4a38ddf";
 export {
   verifyWitnessReceipt,
   verify,
@@ -10073,6 +10077,7 @@ export {
   recomputeSaid,
   randomBytes,
   profileUsernameFromDisplayName,
+  presentationDefinitionSaid,
   parseSimpleThreshold,
   parseSha256Hex,
   parseSaidQb64,
