@@ -1683,7 +1683,7 @@ var init_iterator2 = __esm(() => {
 function RequiredArray(properties) {
   return globalThis.Object.keys(properties).filter((key) => !IsOptional(properties[key]));
 }
-function _Object(properties, options) {
+function _Object_(properties, options) {
   const required = RequiredArray(properties);
   const schema = required.length > 0 ? { [Kind]: "Object", type: "object", required, properties } : { [Kind]: "Object", type: "object", properties };
   return CreateType(schema, options);
@@ -1693,7 +1693,7 @@ var init_object = __esm(() => {
   init_type2();
   init_symbols2();
   init_kind();
-  Object2 = _Object;
+  Object2 = _Object_;
 });
 
 // node_modules/@sinclair/typebox/build/esm/type/object/index.mjs
@@ -10001,8 +10001,8 @@ function createTypedRemote(store, codec, resolvePath) {
   };
 }
 // src/version.ts
-var VERSION = "0.3.48";
-var GIT_SHA = "550980e51f96d3b90739129b056751d1d4a38ddf";
+var VERSION = "0.3.58";
+var GIT_SHA = "b2bb9b9e80b747e7f61971ce6eea53cd90f360ba";
 export {
   verifyWitnessReceipt,
   verify,
@@ -10070,6 +10070,7 @@ export {
   getPublicKey,
   getCodeMeta,
   generateKeyPair,
+  eventContainsAnchorForSaid,
   err,
   encryptEnvelope,
   encodeSig as encodeSignature,

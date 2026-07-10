@@ -220,7 +220,7 @@ export {
   validateSignedIcp,
 } from './kel/validation.js';
 // ── KEL validation predicates ────────────────────────────────────────
-export { verifyWitnessReceipt } from './kel/validation-predicates.js';
+export { eventContainsAnchorForSaid, verifyWitnessReceipt } from './kel/validation-predicates.js';
 // ── Canonical URL paths ──────────────────────────────────────────────
 export { CanonicalPaths, KERI_PREFIX } from './keri/canonical-paths.js';
 // ── Profile alias ────────────────────────────────────────────────────
