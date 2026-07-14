@@ -34,6 +34,10 @@ export const CanonicalPaths = {
   telEvent: (said: SAID) => `${KERI_PREFIX}/tel/${said}/event`,
   profile: (aid: AID) => `${KERI_PREFIX}/aid/${aid}/profile`,
   credentialMetadata: (aid: AID, schemaSaid: SAID) => `${KERI_PREFIX}/aid/${aid}/credential-metadata/${schemaSaid}`,
+  /** Content-addressed PresentationDefinition (global). */
+  policy: (said: SAID) => `/policies/${said}`,
+  /** Mutable AID-owned alias pointing at a published policy SAID. */
+  policyAlias: (aid: AID, slug: string) => `${KERI_PREFIX}/aid/${aid}/policies/${slug}`,
   aliasProfile: (alias: ProfileAlias) => `${KERI_PREFIX}/alias/${alias}/profile`,
   fullUrl: (baseUrl: string, path: string) => `${baseUrl.replace(/\/+$/, '')}${path}`,
   /** Strips the `/.well-known/keri/...` suffix from a manifest (or any canonical) URL to recover the base URL. */

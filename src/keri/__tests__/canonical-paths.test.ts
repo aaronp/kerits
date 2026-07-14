@@ -67,6 +67,16 @@ describe('CanonicalPaths', () => {
     );
   });
 
+  test('policy returns content-addressed path', () => {
+    expect(CanonicalPaths.policy(fakeSaid)).toBe(`/policies/${fakeSaid}`);
+  });
+
+  test('policyAlias returns AID-namespaced slug path', () => {
+    expect(CanonicalPaths.policyAlias(fakeAid, 'has-employment')).toBe(
+      `/.well-known/keri/aid/${fakeAid}/policies/has-employment`,
+    );
+  });
+
   test('fullUrl strips trailing slashes', () => {
     expect(CanonicalPaths.fullUrl('https://example.com/', '/path')).toBe('https://example.com/path');
     expect(CanonicalPaths.fullUrl('https://example.com///', '/path')).toBe('https://example.com/path');
