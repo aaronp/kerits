@@ -10042,8 +10042,8 @@ function createTypedRemote(store, codec, resolvePath) {
   };
 }
 // src/version.ts
-var VERSION = "0.3.61";
-var GIT_SHA = "9d101251765123a4fe9625ae9d087dae1db3b22a";
+var VERSION = "0.3.62";
+var GIT_SHA = "18e327a6022765fd056a9cce8771398702b1955a";
 export {
   verifyWitnessReceipt,
   verify,
@@ -10150,6 +10150,8 @@ export {
   buildAccountRecoverySigningPath,
   buildACDCCredentialSurface,
   buildAAD,
+  assessTelKelAnchors,
+  assessTelKelAnchor,
   asEd25519PublicRaw,
   asEd25519PrivateRaw,
   aidManifestToKelManifestData,

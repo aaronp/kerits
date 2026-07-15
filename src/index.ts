@@ -184,6 +184,7 @@ export type {
   ValidateInceptionSignRequestResult,
 } from './kel/msig-sign-validation.js';
 export { validateInceptionSignRequest } from './kel/msig-sign-validation.js';
+export { assessTelKelAnchor, assessTelKelAnchors, type TelKelAnchorResult } from './kel/tel-kel-anchor.js';
 export type {
   ThresholdCheckResult,
   ThresholdSpec,

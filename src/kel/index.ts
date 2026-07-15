@@ -34,6 +34,11 @@ export type {
   ValidateControllerSignatureResult,
   VerifiedKeyState,
 } from './ops-types.js';
+export {
+  assessTelKelAnchor,
+  assessTelKelAnchors,
+  type TelKelAnchorResult,
+} from './tel-kel-anchor.js';
 export * from './types.js';
 export {
   eventContainsAnchorForSaid,
