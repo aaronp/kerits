@@ -67,7 +67,7 @@ describe('presentationDefinitionSaid', () => {
     // method under test
     const said = presentationDefinitionSaid(goldenPd);
 
-    // assertions: pinned golden vector
-    expect(said).toBe('EA3a93J1XgR9CQsqieUs_Bwv58o-VAkCaJCRZ7fjDysk');
+    // assertions: pinned golden vector (canonical CESR Blake3-256 digest)
+    expect(said).toBe('EAN2vdydV4EfQkLKonlLPwcL-fKPlQJAmiQkWe34w8rJ');
   });
 });

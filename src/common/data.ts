@@ -5,7 +5,7 @@
  */
 
 import { blake3 } from '@noble/hashes/blake3.js';
-import { encodeBase64Url } from './base64url.js';
+import { encodeDigest } from '../cesr/digest.js';
 import { canonical } from './canonical.js';
 
 /**
@@ -102,10 +102,7 @@ export class Data {
     // Canonicalize and hash
     const canonicalText = canonical(dataWithPlaceholder);
     const canonicalBytes = new TextEncoder().encode(canonicalText);
-    const hash = blake3(canonicalBytes, { dkLen: 32 });
-
-    // Encode as CESR Blake3-256 (code 'E')
-    const said = encodeCESRDigest(hash, 'E');
+    const said = Data.digest(canonicalBytes);
 
     // Replace placeholder with actual SAID
     const finalData = structuredClone(this.data);
@@ -131,11 +128,11 @@ export class Data {
    * Compute Blake3 digest of canonical bytes
    *
    * @param raw - Canonical bytes to hash
-   * @returns CESR-encoded digest (Blake3-256 with 'E' prefix)
+   * @returns CESR-encoded digest (Blake3-256 with KERI Matter qb64)
    */
   static digest(raw: Uint8Array): string {
     const hash = blake3(raw, { dkLen: 32 });
-    return encodeCESRDigest(hash, 'E');
+    return encodeDigest(hash, 'E');
   }
 
   /**
@@ -150,17 +147,6 @@ export class Data {
     const { raw } = Data.fromJson(obj).canonicalize();
     return Data.digest(raw);
   }
-}
-
-/**
- * Encode digest as CESR (simplified qb64-like encoding)
- *
- * Note: This is a simplified encoding for internal use. For strict KERI/CESR
- * interoperability, use the full CESR derivation code system.
- */
-function encodeCESRDigest(digest: Uint8Array, code: string): string {
-  const b64 = encodeBase64Url(digest);
-  return code + b64;
 }
 
 /**
@@ -253,13 +239,8 @@ export async function inferSchema(value: any): Promise<any> {
  * ```
  */
 export function schemaSaidOf(schema: any): string {
-  // Canonicalize the schema (TypeBox schemas are just JSON)
   const canonicalText = canonical(schema);
-  const canonicalBytes = new TextEncoder().encode(canonicalText);
-  const hash = blake3(canonicalBytes, { dkLen: 32 });
-
-  // Encode as CESR Blake3-256 (code 'E')
-  return encodeCESRDigest(hash, 'E');
+  return Data.digest(new TextEncoder().encode(canonicalText));
 }
 
 /**

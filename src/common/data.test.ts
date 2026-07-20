@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'bun:test';
+import { Cesr } from '../cesr/index.js';
 import { Data, SAID_PLACEHOLDER, saidOf, schemaSaidOf } from './data.js';
+import { canonical } from './canonical.js';
 
 describe('SAID_PLACEHOLDER', () => {
   it('is 44 characters long', () => {
@@ -59,6 +61,15 @@ describe('Data.saidify', () => {
     const { said: s2 } = Data.fromJson({ x: 2 }).saidify();
     expect(s1).not.toBe(s2);
   });
+
+  it('saidify uses the same CESR Matter digest as Data.digest', () => {
+    const data = Data.fromJson({ name: 'test' });
+    const placeholder = structuredClone(data.toJson());
+    placeholder.d = SAID_PLACEHOLDER;
+    const bytes = new TextEncoder().encode(canonical(placeholder));
+    const { said } = data.saidify();
+    expect(said).toBe(Data.digest(bytes));
+  });
 });
 
 describe('Data.digest', () => {
@@ -67,6 +78,13 @@ describe('Data.digest', () => {
     const digest = Data.digest(raw);
     expect(digest.length).toBe(44);
     expect(digest[0]).toBe('E');
+  });
+
+  it('produces canonical CESR digests that round-trip through Cesr.decode/encode', () => {
+    const digest = Data.digest(new TextEncoder().encode('hello'));
+    const decoded = Cesr.decode(digest);
+    expect(decoded.code).toBe('E');
+    expect(Cesr.encode(decoded.raw, decoded.code)).toBe(digest);
   });
 });
 

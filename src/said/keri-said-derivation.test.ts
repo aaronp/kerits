@@ -226,13 +226,13 @@ describe('keri-said-derivation: said-derive', () => {
     expect(bytes.length).toBe(declaredSize);
 
     // Cross-validate against KERIpy when expected values are available.
-    // Version string uses hex encoding matching KERIpy. SAID comparison is
-    // deferred until the CESR encoding branch lands (encodeCESRDigest currently
-    // uses naive code+base64url instead of proper CESR padding).
     const expected = keriPyExpected?.['kel-icp'];
     if (expected) {
       if (expected.versionString) {
         expect(sealed.v).toBe(expected.versionString);
+      }
+      if (expected.said) {
+        expect(said).toBe(expected.said);
       }
     }
   });
@@ -264,6 +264,9 @@ describe('keri-said-derivation: said-derive', () => {
     if (expected?.versionString) {
       expect(sealed.v).toBe(expected.versionString);
     }
+    if (expected?.said) {
+      expect(said).toBe(expected.said);
+    }
   });
 
   it('[derives-stable-said-for-kel-ixn-fixture] Derives a stable SAID for a KERI interaction event fixture using insertion-order serialization. Asserts against KERIpy expected values when available.', () => {
@@ -293,6 +296,9 @@ describe('keri-said-derivation: said-derive', () => {
     if (expected?.versionString) {
       expect(sealed.v).toBe(expected.versionString);
     }
+    if (expected?.said) {
+      expect(said).toBe(expected.said);
+    }
   });
 
   it('[derives-stable-said-for-kel-dip-fixture] Derives a stable SAID for a KERI delegated inception event fixture using insertion-order serialization. Asserts against KERIpy expected values when available.', () => {
@@ -321,6 +327,9 @@ describe('keri-said-derivation: said-derive', () => {
     const expected = keriPyExpected?.['kel-dip'];
     if (expected?.versionString) {
       expect(sealed.v).toBe(expected.versionString);
+    }
+    if (expected?.said) {
+      expect(said).toBe(expected.said);
     }
   });
 });
@@ -385,6 +394,9 @@ describe('keri-said-derivation: said-recompute', () => {
       if (expected.versionString) {
         expect(sealed.v).toBe(expected.versionString);
       }
+      if (expected.said) {
+        expect(said).toBe(expected.said);
+      }
     }
   });
 
@@ -405,6 +417,9 @@ describe('keri-said-derivation: said-recompute', () => {
     if (expected?.versionString) {
       expect(sealed.v).toBe(expected.versionString);
     }
+    if (expected?.said) {
+      expect(said).toBe(expected.said);
+    }
   });
 
   it('[derives-and-recomputes-kel-ixn-fixture] Derives and recomputes a stable SAID for a KERI interaction event fixture. Verifies KERI protocol version string and SAID round-trip.', () => {
@@ -424,6 +439,9 @@ describe('keri-said-derivation: said-recompute', () => {
     if (expected?.versionString) {
       expect(sealed.v).toBe(expected.versionString);
     }
+    if (expected?.said) {
+      expect(said).toBe(expected.said);
+    }
   });
 
   it('[derives-and-recomputes-kel-dip-fixture] Derives and recomputes a stable SAID for a KERI delegated inception event fixture. Verifies KERI protocol version string and SAID round-trip.', () => {
@@ -442,6 +460,9 @@ describe('keri-said-derivation: said-recompute', () => {
     const expected = keriPyExpected?.['kel-dip'];
     if (expected?.versionString) {
       expect(sealed.v).toBe(expected.versionString);
+    }
+    if (expected?.said) {
+      expect(said).toBe(expected.said);
     }
   });
 
@@ -466,6 +487,9 @@ describe('keri-said-derivation: said-recompute', () => {
     if (expected?.versionString) {
       expect(sealed.v).toBe(expected.versionString);
     }
+    if (expected?.said) {
+      expect(said).toBe(expected.said);
+    }
   });
 
   it('[derives-and-recomputes-tel-rev-fixture] Derives and recomputes a stable SAID for a TEL rev (simple credential revocation) fixture. Verifies KERI protocol version string and SAID round-trip.', () => {
@@ -484,6 +508,9 @@ describe('keri-said-derivation: said-recompute', () => {
     const expected = keriPyExpected?.['tel-rev'];
     if (expected?.versionString) {
       expect(sealed.v).toBe(expected.versionString);
+    }
+    if (expected?.said) {
+      expect(said).toBe(expected.said);
     }
   });
 
@@ -506,6 +533,9 @@ describe('keri-said-derivation: said-recompute', () => {
     if (expected?.versionString) {
       expect(sealed.v).toBe(expected.versionString);
     }
+    if (expected?.said) {
+      expect(said).toBe(expected.said);
+    }
   });
 
   it('[derives-and-recomputes-acdc-credential-fixture] Derives and recomputes a stable SAID for an ACDC credential fixture. Verifies ACDC protocol version string and SAID round-trip.', () => {
@@ -527,6 +557,9 @@ describe('keri-said-derivation: said-recompute', () => {
     const expected = keriPyExpected?.['acdc-credential'];
     if (expected?.versionString) {
       expect(sealed.v).toBe(expected.versionString);
+    }
+    if (expected?.said) {
+      expect(said).toBe(expected.said);
     }
   });
 });
