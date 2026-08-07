@@ -98,10 +98,11 @@ describe('CanonicalPaths', () => {
     // call our method under test
     const urls = CanonicalPaths.resolveAidUrls(manifestUrl, aid);
 
-    // assertions: all 4 canonical URLs derived from the base
+    // assertions: all 5 canonical URLs derived from the base
     expect(urls.profileUrl).toBe(`https://r2.kerits.id/.well-known/keri/aid/${aid}/profile`);
     expect(urls.kelUrl).toBe(`https://r2.kerits.id/.well-known/keri/aid/${aid}/kel`);
     expect(urls.ksnUrl).toBe(`https://r2.kerits.id/.well-known/keri/aid/${aid}/ksn`);
     expect(urls.oobiUrl).toBe(`https://r2.kerits.id/.well-known/keri/oobi/${aid}`);
+    expect(urls.membersUrl).toBe(`https://r2.kerits.id/.well-known/keri/aid/${aid}/members`);
   });
 });

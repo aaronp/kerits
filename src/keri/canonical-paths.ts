@@ -33,6 +33,7 @@ export const CanonicalPaths = {
   /** Individual TEL event by SAID — immutable, stores a single `TelEvent`. */
   telEvent: (said: SAID) => `${KERI_PREFIX}/tel/${said}/event`,
   profile: (aid: AID) => `${KERI_PREFIX}/aid/${aid}/profile`,
+  members: (aid: AID) => `${KERI_PREFIX}/aid/${aid}/members`,
   credentialMetadata: (aid: AID, schemaSaid: SAID) => `${KERI_PREFIX}/aid/${aid}/credential-metadata/${schemaSaid}`,
   /** Content-addressed PresentationDefinition (global). */
   policy: (said: SAID) => `/policies/${said}`,
@@ -54,6 +55,7 @@ export const CanonicalPaths = {
       kelUrl: `${base}${CanonicalPaths.kel(aid)}`,
       ksnUrl: `${base}${CanonicalPaths.ksn(aid)}`,
       oobiUrl: `${base}${CanonicalPaths.oobi(aid)}`,
+      membersUrl: `${base}${CanonicalPaths.members(aid)}`,
     };
   },
 } as const;

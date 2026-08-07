@@ -37,6 +37,16 @@ export {
   remoteRecordsFromAidManifest,
   resourceKey,
 } from './kel-resource-types.js';
+export {
+  buildPublishedMembershipDirectory,
+  type GroupMemberInput,
+  type MemberDirectoryEntry,
+  MemberDirectoryEntrySchema,
+  type MemberRole,
+  memberRole,
+  type PublishedMembershipDirectory,
+  PublishedMembershipDirectorySchema,
+} from './membership-directory.js';
 export type { PublishError, PublishStatus } from './publish-types.js';
 export type { BackerReceiptsJson, RegistryPublisher } from './registry-publish-types.js';
 export type { SchemaPublisher } from './schema-publish-types.js';

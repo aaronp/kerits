@@ -4538,49 +4538,65 @@ function canonicalize(obj, allowCircular) {
 function canonical(obj) {
   return canonicalize(obj);
 }
+// node_modules/@noble/hashes/_u64.js
+var fromNumH = (n) => n / 2 ** 32 | 0;
+var fromNumL = (n) => n >>> 0;
+var rotrSH = (h, l, s) => h >>> s | l << 32 - s;
+var rotrSL = (h, l, s) => h << 32 - s | l >>> s;
+var rotrBH = (h, l, s) => h << 64 - s | l >>> s - 32;
+var rotrBL = (h, l, s) => h >>> s - 32 | l << 64 - s;
+var rotr32H = (_h, l) => l;
+var rotr32L = (h, _l) => h;
+function add(Ah, Al, Bh, Bl) {
+  const l = (Al >>> 0) + (Bl >>> 0);
+  return { h: Ah + Bh + (l / 2 ** 32 | 0) | 0, l: l | 0 };
+}
+var add3L = (Al, Bl, Cl) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0);
+var add3H = (low, Ah, Bh, Ch) => Ah + Bh + Ch + (low / 2 ** 32 | 0) | 0;
+
 // node_modules/@noble/hashes/utils.js
 function isBytes(a) {
   return a instanceof Uint8Array || ArrayBuffer.isView(a) && a.constructor.name === "Uint8Array" && "BYTES_PER_ELEMENT" in a && a.BYTES_PER_ELEMENT === 1;
 }
+var atitle = (title) => title ? `"${title}" ` : "";
 function anumber(n, title = "") {
-  if (typeof n !== "number") {
-    const prefix = title && `"${title}" `;
-    throw new TypeError(`${prefix}expected number, got ${typeof n}`);
-  }
-  if (!Number.isSafeInteger(n) || n < 0) {
-    const prefix = title && `"${title}" `;
-    throw new RangeError(`${prefix}expected integer >= 0, got ${n}`);
-  }
+  if (typeof n !== "number")
+    throw new TypeError(atitle(title) + "expected number, got " + typeof n);
+  if (!Number.isSafeInteger(n) || n < 0)
+    throw new RangeError(atitle(title) + "expected integer >= 0, got " + n);
+  return n;
 }
 function abytes(value, length, title = "") {
+  if (isBytes(value) && (length === undefined || value.length === length))
+    return value;
+  if (length !== undefined)
+    anumber(length, "length");
   const bytes = isBytes(value);
-  const len = value?.length;
-  const needsLen = length !== undefined;
-  if (!bytes || needsLen && len !== length) {
-    const prefix = title && `"${title}" `;
-    const ofLen = needsLen ? ` of length ${length}` : "";
-    const got = bytes ? `length=${len}` : `type=${typeof value}`;
-    const message = prefix + "expected Uint8Array" + ofLen + ", got " + got;
-    if (!bytes)
-      throw new TypeError(message);
-    throw new RangeError(message);
-  }
-  return value;
+  const ofLen = length !== undefined ? ` of length ${length}` : "";
+  const got = bytes ? `length=${value.length}` : `type=${typeof value}`;
+  const message = atitle(title) + "expected Uint8Array" + ofLen + ", got " + got;
+  if (!bytes)
+    throw new TypeError(message);
+  throw new RangeError(message);
 }
 function copyBytes(bytes) {
   return Uint8Array.from(abytes(bytes));
 }
+var aobject = (value, label) => {
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+    throw new TypeError((label === "object" ? "" : `"${label}" `) + "expected object, got type=" + typeof value);
+};
 function aexists(instance, checkFinished = true) {
   if (instance.destroyed)
-    throw new Error("Hash instance has been destroyed");
+    throw new Error("hash was destroyed");
   if (checkFinished && instance.finished)
-    throw new Error("Hash#digest() has already been called");
+    throw new Error("digest() was already called");
 }
 function aoutput(out, instance) {
-  abytes(out, undefined, "digestInto() output");
+  abytes(out, undefined, "output");
   const min = instance.outputLen;
-  if (out.length < min) {
-    throw new RangeError('"digestInto() output" expected to be of length >=' + min);
+  if (!(out.length >= min)) {
+    throw new RangeError('"output" expected length >= ' + min);
   }
 }
 function u8(arr) {
@@ -4609,7 +4625,17 @@ function byteSwap32(arr) {
   return arr;
 }
 var swap32IfBE = isLE ? (u) => u : byteSwap32;
+function checkOpts(defaults, opts, title = "opts") {
+  aobject(defaults, "defaults");
+  if (opts !== undefined)
+    aobject(opts, title);
+  const merged = Object.assign(defaults, opts);
+  return merged;
+}
 function createHasher(hashCons, info = {}) {
+  if (typeof hashCons !== "function")
+    throw new TypeError('"hashCons" expected function, got type=' + typeof hashCons);
+  info = checkOpts({}, info, "info");
   const hashC = (msg, opts) => hashCons(opts).update(msg).digest();
   const tmp = hashCons(undefined);
   hashC.outputLen = tmp.outputLen;
@@ -4631,27 +4657,6 @@ var SHA256_IV = /* @__PURE__ */ Uint32Array.from([
   528734635,
   1541459225
 ]);
-
-// node_modules/@noble/hashes/_u64.js
-var U32_MASK64 = /* @__PURE__ */ BigInt(2 ** 32 - 1);
-var _32n = /* @__PURE__ */ BigInt(32);
-function fromBig(n, le = false) {
-  if (le)
-    return { h: Number(n & U32_MASK64), l: Number(n >> _32n & U32_MASK64) };
-  return { h: Number(n >> _32n & U32_MASK64) | 0, l: Number(n & U32_MASK64) | 0 };
-}
-var rotrSH = (h, l, s) => h >>> s | l << 32 - s;
-var rotrSL = (h, l, s) => h << 32 - s | l >>> s;
-var rotrBH = (h, l, s) => h << 64 - s | l >>> s - 32;
-var rotrBL = (h, l, s) => h >>> s - 32 | l << 64 - s;
-var rotr32H = (_h, l) => l;
-var rotr32L = (h, _l) => h;
-function add(Ah, Al, Bh, Bl) {
-  const l = (Al >>> 0) + (Bl >>> 0);
-  return { h: Ah + Bh + (l / 2 ** 32 | 0) | 0, l: l | 0 };
-}
-var add3L = (Al, Bl, Cl) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0);
-var add3H = (low, Ah, Bh, Ch) => Ah + Bh + Ch + (low / 2 ** 32 | 0) | 0;
 
 // node_modules/@noble/hashes/_blake.js
 var BSIGMA = /* @__PURE__ */ Uint8Array.from([
@@ -4953,18 +4958,25 @@ function G1b(a, b, c, d, msg, x) {
   let Bl = BBUF[2 * b], Bh = BBUF[2 * b + 1];
   let Cl = BBUF[2 * c], Ch = BBUF[2 * c + 1];
   let Dl = BBUF[2 * d], Dh = BBUF[2 * d + 1];
-  let ll = add3L(Al, Bl, Xl);
+  const ll = add3L(Al, Bl, Xl);
   Ah = add3H(ll, Ah, Bh, Xh);
   Al = ll | 0;
-  ({ Dh, Dl } = { Dh: Dh ^ Ah, Dl: Dl ^ Al });
-  ({ Dh, Dl } = { Dh: rotr32H(Dh, Dl), Dl: rotr32L(Dh, Dl) });
+  let xh = Dh ^ Ah, xl = Dl ^ Al;
+  Dh = rotr32H(xh, xl);
+  Dl = rotr32L(xh, xl);
   ({ h: Ch, l: Cl } = add(Ch, Cl, Dh, Dl));
-  ({ Bh, Bl } = { Bh: Bh ^ Ch, Bl: Bl ^ Cl });
-  ({ Bh, Bl } = { Bh: rotrSH(Bh, Bl, 24), Bl: rotrSL(Bh, Bl, 24) });
-  BBUF[2 * a] = Al, BBUF[2 * a + 1] = Ah;
-  BBUF[2 * b] = Bl, BBUF[2 * b + 1] = Bh;
-  BBUF[2 * c] = Cl, BBUF[2 * c + 1] = Ch;
-  BBUF[2 * d] = Dl, BBUF[2 * d + 1] = Dh;
+  xh = Bh ^ Ch;
+  xl = Bl ^ Cl;
+  Bh = rotrSH(xh, xl, 24);
+  Bl = rotrSL(xh, xl, 24);
+  BBUF[2 * a] = Al;
+  BBUF[2 * a + 1] = Ah;
+  BBUF[2 * b] = Bl;
+  BBUF[2 * b + 1] = Bh;
+  BBUF[2 * c] = Cl;
+  BBUF[2 * c + 1] = Ch;
+  BBUF[2 * d] = Dl;
+  BBUF[2 * d + 1] = Dh;
 }
 function G2b(a, b, c, d, msg, x) {
   const Xl = msg[x], Xh = msg[x + 1];
@@ -4972,23 +4984,30 @@ function G2b(a, b, c, d, msg, x) {
   let Bl = BBUF[2 * b], Bh = BBUF[2 * b + 1];
   let Cl = BBUF[2 * c], Ch = BBUF[2 * c + 1];
   let Dl = BBUF[2 * d], Dh = BBUF[2 * d + 1];
-  let ll = add3L(Al, Bl, Xl);
+  const ll = add3L(Al, Bl, Xl);
   Ah = add3H(ll, Ah, Bh, Xh);
   Al = ll | 0;
-  ({ Dh, Dl } = { Dh: Dh ^ Ah, Dl: Dl ^ Al });
-  ({ Dh, Dl } = { Dh: rotrSH(Dh, Dl, 16), Dl: rotrSL(Dh, Dl, 16) });
+  let xh = Dh ^ Ah, xl = Dl ^ Al;
+  Dh = rotrSH(xh, xl, 16);
+  Dl = rotrSL(xh, xl, 16);
   ({ h: Ch, l: Cl } = add(Ch, Cl, Dh, Dl));
-  ({ Bh, Bl } = { Bh: Bh ^ Ch, Bl: Bl ^ Cl });
-  ({ Bh, Bl } = { Bh: rotrBH(Bh, Bl, 63), Bl: rotrBL(Bh, Bl, 63) });
-  BBUF[2 * a] = Al, BBUF[2 * a + 1] = Ah;
-  BBUF[2 * b] = Bl, BBUF[2 * b + 1] = Bh;
-  BBUF[2 * c] = Cl, BBUF[2 * c + 1] = Ch;
-  BBUF[2 * d] = Dl, BBUF[2 * d + 1] = Dh;
+  xh = Bh ^ Ch;
+  xl = Bl ^ Cl;
+  Bh = rotrBH(xh, xl, 63);
+  Bl = rotrBL(xh, xl, 63);
+  BBUF[2 * a] = Al;
+  BBUF[2 * a + 1] = Ah;
+  BBUF[2 * b] = Bl;
+  BBUF[2 * b + 1] = Bh;
+  BBUF[2 * c] = Cl;
+  BBUF[2 * c + 1] = Ch;
+  BBUF[2 * d] = Dl;
+  BBUF[2 * d + 1] = Dh;
 }
 function checkBlake2Opts(outputLen, opts = {}, keyLen, saltLen, persLen) {
   anumber(keyLen);
   if (outputLen <= 0 || outputLen > keyLen)
-    throw new Error("outputLen bigger than keyLen");
+    throw new Error('"dkLen" must be 1..' + keyLen + ", got " + outputLen);
   const { key, salt, personalization } = opts;
   if (key !== undefined && (key.length < 1 || key.length > keyLen))
     throw new Error('"key" expected to be undefined or of length=1..' + keyLen);
@@ -5042,7 +5061,7 @@ class _BLAKE2 {
         swap32IfBE(data32);
         continue;
       }
-      buffer.set(data.subarray(pos, pos + take), this.pos);
+      buffer.set(pos === 0 && take === len ? data : data.subarray(pos, pos + take), this.pos);
       this.pos += take;
       this.length += take;
       pos += take;
@@ -5052,16 +5071,16 @@ class _BLAKE2 {
   digestInto(out) {
     aexists(this);
     aoutput(out, this);
+    if (out.byteOffset & 3)
+      throw new RangeError('"output" expected 4-byte aligned byteOffset, got ' + out.byteOffset);
     const { pos, buffer32 } = this;
     this.finished = true;
-    clean(this.buffer.subarray(pos));
+    this.buffer.fill(0, pos);
     swap32IfBE(buffer32);
     this.compress(buffer32, 0, true);
     swap32IfBE(buffer32);
-    if (out.byteOffset & 3)
-      throw new RangeError('"digestInto() output" expected 4-byte aligned byteOffset, got ' + out.byteOffset);
     const state = this.get();
-    const out32 = u32(out);
+    const out32 = out === this.buffer ? buffer32 : u32(out);
     const full = Math.floor(this.outputLen / 4);
     for (let i = 0;i < full; i++)
       out32[i] = swap8IfBE(state[i]);
@@ -5115,6 +5134,7 @@ class _BLAKE2b extends _BLAKE2 {
   v7l = B2B_IV[14] | 0;
   v7h = B2B_IV[15] | 0;
   constructor(opts = {}) {
+    opts = checkOpts({}, opts);
     const olen = opts.dkLen === undefined ? 64 : opts.dkLen;
     super(128, olen);
     checkBlake2Opts(olen, opts, 64, 16, 16);
@@ -5127,7 +5147,7 @@ class _BLAKE2b extends _BLAKE2 {
     this.v0l ^= this.outputLen | keyLength << 8 | 1 << 16 | 1 << 24;
     if (salt !== undefined) {
       abytes(salt, undefined, "salt");
-      const slt = u32(salt);
+      const slt = u32(copyBytes(salt));
       this.v4l ^= swap8IfBE(slt[0]);
       this.v4h ^= swap8IfBE(slt[1]);
       this.v5l ^= swap8IfBE(slt[2]);
@@ -5135,7 +5155,7 @@ class _BLAKE2b extends _BLAKE2 {
     }
     if (personalization !== undefined) {
       abytes(personalization, undefined, "personalization");
-      const pers = u32(personalization);
+      const pers = u32(copyBytes(personalization));
       this.v6l ^= swap8IfBE(pers[0]);
       this.v6h ^= swap8IfBE(pers[1]);
       this.v7l ^= swap8IfBE(pers[2]);
@@ -5145,6 +5165,7 @@ class _BLAKE2b extends _BLAKE2 {
       const tmp = new Uint8Array(this.blockLen);
       tmp.set(key);
       this.update(tmp);
+      clean(tmp);
     }
   }
   get() {
@@ -5170,9 +5191,28 @@ class _BLAKE2b extends _BLAKE2 {
     this.v7h = v7h | 0;
   }
   compress(msg, offset, isLast) {
-    this.get().forEach((v, i) => BBUF[i] = v);
+    const { v0l, v0h, v1l, v1h, v2l, v2h, v3l, v3h, v4l, v4h, v5l, v5h, v6l, v6h, v7l, v7h } = this;
+    {
+      BBUF[0] = v0l;
+      BBUF[1] = v0h;
+      BBUF[2] = v1l;
+      BBUF[3] = v1h;
+      BBUF[4] = v2l;
+      BBUF[5] = v2h;
+      BBUF[6] = v3l;
+      BBUF[7] = v3h;
+      BBUF[8] = v4l;
+      BBUF[9] = v4h;
+      BBUF[10] = v5l;
+      BBUF[11] = v5h;
+      BBUF[12] = v6l;
+      BBUF[13] = v6h;
+      BBUF[14] = v7l;
+      BBUF[15] = v7h;
+    }
     BBUF.set(B2B_IV, 16);
-    let { h, l } = fromBig(BigInt(this.length));
+    const l = fromNumL(this.length);
+    const h = fromNumH(this.length);
     BBUF[24] = B2B_IV[8] ^ l;
     BBUF[25] = B2B_IV[9] ^ h;
     if (isLast) {
@@ -5223,7 +5263,7 @@ class _BLAKE2b extends _BLAKE2 {
     this.set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
   }
 }
-function compress(s, offset, msg, rounds, v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15) {
+function _compress(s, offset, msg, rounds, v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15) {
   let j = 0;
   for (let i = 0;i < rounds; i++) {
     ({ a: v0, b: v4, c: v8, d: v12 } = G1s(v0, v4, v8, v12, msg[offset + s[j++]]));
@@ -5257,6 +5297,7 @@ class _BLAKE2s extends _BLAKE2 {
   v6 = B2S_IV[6] | 0;
   v7 = B2S_IV[7] | 0;
   constructor(opts = {}) {
+    opts = checkOpts({}, opts);
     const olen = opts.dkLen === undefined ? 32 : opts.dkLen;
     super(64, olen);
     checkBlake2Opts(olen, opts, 32, 8, 8);
@@ -5269,13 +5310,13 @@ class _BLAKE2s extends _BLAKE2 {
     this.v0 ^= this.outputLen | keyLength << 8 | 1 << 16 | 1 << 24;
     if (salt !== undefined) {
       abytes(salt, undefined, "salt");
-      const slt = u32(salt);
+      const slt = u32(copyBytes(salt));
       this.v4 ^= swap8IfBE(slt[0]);
       this.v5 ^= swap8IfBE(slt[1]);
     }
     if (personalization !== undefined) {
       abytes(personalization, undefined, "personalization");
-      const pers = u32(personalization);
+      const pers = u32(copyBytes(personalization));
       this.v6 ^= swap8IfBE(pers[0]);
       this.v7 ^= swap8IfBE(pers[1]);
     }
@@ -5283,6 +5324,7 @@ class _BLAKE2s extends _BLAKE2 {
       const tmp = new Uint8Array(this.blockLen);
       tmp.set(key);
       this.update(tmp);
+      clean(tmp);
     }
   }
   get() {
@@ -5300,8 +5342,9 @@ class _BLAKE2s extends _BLAKE2 {
     this.v7 = v7 | 0;
   }
   compress(msg, offset, isLast) {
-    const { h, l } = fromBig(BigInt(this.length));
-    const { v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15 } = compress(BSIGMA, offset, msg, 10, this.v0, this.v1, this.v2, this.v3, this.v4, this.v5, this.v6, this.v7, B2S_IV[0], B2S_IV[1], B2S_IV[2], B2S_IV[3], l ^ B2S_IV[4], h ^ B2S_IV[5], isLast ? ~B2S_IV[6] : B2S_IV[6], B2S_IV[7]);
+    const l = fromNumL(this.length);
+    const h = fromNumH(this.length);
+    const { v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15 } = _compress(BSIGMA, offset, msg, 10, this.v0, this.v1, this.v2, this.v3, this.v4, this.v5, this.v6, this.v7, B2S_IV[0], B2S_IV[1], B2S_IV[2], B2S_IV[3], l ^ B2S_IV[4], h ^ B2S_IV[5], isLast ? ~B2S_IV[6] : B2S_IV[6], B2S_IV[7]);
     this.v0 ^= v0 ^ v8;
     this.v1 ^= v1 ^ v9;
     this.v2 ^= v2 ^ v10;
@@ -5352,12 +5395,13 @@ class _BLAKE3 extends _BLAKE2 {
   chunkOut = 0;
   enableXOF = true;
   constructor(opts = {}, flags = 0) {
+    opts = checkOpts({}, opts);
     super(64, opts.dkLen === undefined ? 32 : opts.dkLen);
     const { key, context } = opts;
     const hasContext = context !== undefined;
     if (key !== undefined) {
       if (hasContext)
-        throw new Error('Only "key" or "context" can be specified at same time');
+        throw new Error('cannot use both "key" and "context"');
       abytes(key, 32, "key");
       const k = copyBytes(key);
       this.IV = u32(k);
@@ -5371,7 +5415,7 @@ class _BLAKE3 extends _BLAKE2 {
       swap32IfBE(this.IV);
       this.flags = flags | B3_Flags.DERIVE_KEY_MATERIAL;
     } else {
-      this.IV = B3_IV.slice();
+      this.IV = B3_IV;
       this.flags = flags;
     }
     this.state = this.IV.slice();
@@ -5383,8 +5427,9 @@ class _BLAKE3 extends _BLAKE2 {
   set() {}
   b2Compress(counter, flags, buf, bufPos = 0) {
     const { state: s, pos } = this;
-    const { h, l } = fromBig(BigInt(counter), true);
-    const { v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15 } = compress(B3_SIGMA, bufPos, buf, 7, s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], B3_IV[0], B3_IV[1], B3_IV[2], B3_IV[3], h, l, pos, flags);
+    const t0 = fromNumL(counter);
+    const t1 = fromNumH(counter);
+    const { v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15 } = _compress(B3_SIGMA, bufPos, buf, 7, s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], B3_IV[0], B3_IV[1], B3_IV[2], B3_IV[3], t0, t1, pos, flags);
     s[0] = v0 ^ v8;
     s[1] = v1 ^ v9;
     s[2] = v2 ^ v10;
@@ -5424,30 +5469,47 @@ class _BLAKE3 extends _BLAKE2 {
     this.pos = 0;
   }
   _cloneInto(to) {
+    const staleOutput = !!to && to.finished && !to.destroyed;
     to = super._cloneInto(to);
     const { IV, flags, state, chunkPos, posOut, chunkOut, stack, chunksDone } = this;
-    to.state.set(state.slice());
+    to.state.set(state);
     to.stack = stack.map((i) => Uint32Array.from(i));
-    to.IV.set(IV);
+    if (IV === B3_IV) {
+      if (to.IV !== B3_IV)
+        clean(to.IV);
+      to.IV = B3_IV;
+    } else if (to.IV === B3_IV) {
+      to.IV = IV.slice();
+    } else {
+      to.IV.set(IV);
+    }
     to.flags = flags;
     to.chunkPos = chunkPos;
     to.chunksDone = chunksDone;
     to.posOut = posOut;
     to.chunkOut = chunkOut;
     to.enableXOF = this.enableXOF;
-    to.bufferOut32.set(this.bufferOut32);
+    if (this.finished) {
+      to.bufferOut32.set(this.bufferOut32);
+    } else if (staleOutput) {
+      clean(to.bufferOut32);
+    }
     return to;
   }
   destroy() {
     this.destroyed = true;
-    clean(this.state, this.buffer32, this.IV, this.bufferOut32);
+    clean(this.state, this.buffer32, this.bufferOut32);
+    if (this.IV !== B3_IV)
+      clean(this.IV);
     clean(...this.stack);
   }
   b2CompressOut() {
     const { state: s, pos, flags, buffer32, bufferOut32: out32 } = this;
-    const { h, l } = fromBig(BigInt(this.chunkOut++));
+    const outCounter = this.chunkOut++;
+    const t0 = fromNumL(outCounter);
+    const t1 = fromNumH(outCounter);
     swap32IfBE(buffer32);
-    const { v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15 } = compress(B3_SIGMA, 0, buffer32, 7, s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], B3_IV[0], B3_IV[1], B3_IV[2], B3_IV[3], l, h, pos, flags);
+    const { v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15 } = _compress(B3_SIGMA, 0, buffer32, 7, s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], B3_IV[0], B3_IV[1], B3_IV[2], B3_IV[3], t0, t1, pos, flags);
     out32[0] = v0 ^ v8;
     out32[1] = v1 ^ v9;
     out32[2] = v2 ^ v10;
@@ -5472,7 +5534,7 @@ class _BLAKE3 extends _BLAKE2 {
     if (this.finished)
       return;
     this.finished = true;
-    clean(this.buffer.subarray(this.pos));
+    this.buffer.fill(0, this.pos);
     let flags = this.flags | B3_Flags.ROOT;
     if (this.stack.length) {
       flags |= B3_Flags.PARENT;
@@ -5504,7 +5566,7 @@ class _BLAKE3 extends _BLAKE2 {
   }
   xofInto(out) {
     if (!this.enableXOF)
-      throw new Error("XOF is not possible after digest call");
+      throw new Error("no XOF after digest()");
     return this.writeInto(out);
   }
   xof(bytes) {
@@ -5516,7 +5578,7 @@ class _BLAKE3 extends _BLAKE2 {
     if (this.finished)
       throw new Error("digest() was already called");
     this.enableXOF = false;
-    this.writeInto(out.subarray(0, this.outputLen));
+    this.writeInto(out.length === this.outputLen ? out : out.subarray(0, this.outputLen));
     this.destroy();
   }
   digest() {
@@ -11859,6 +11921,34 @@ function parseKelManifestWire(value2) {
 function manifestUrlFromKelManifestData(data) {
   return data.entries.find((e) => e.resource.kind === "kel.manifest")?.resource.url;
 }
+// src/remote/membership-directory.ts
+init_esm();
+var MemberDirectoryEntrySchema = Type.Object({
+  aid: Type.String(),
+  contributingKey: Type.Optional(Type.String())
+}, { additionalProperties: false });
+function memberRole(entry) {
+  return entry.contributingKey !== undefined ? "admin" : "member";
+}
+var PublishedMembershipDirectorySchema = Type.Object({
+  v: Type.Literal("kerits-members/1"),
+  subjectAid: Type.String(),
+  members: Type.Array(MemberDirectoryEntrySchema, { minItems: 1 }),
+  kelSequenceNumber: Type.Integer({ minimum: 0 }),
+  updatedAt: Type.String()
+}, { additionalProperties: false });
+function buildPublishedMembershipDirectory(input) {
+  return {
+    v: "kerits-members/1",
+    subjectAid: input.subjectAid,
+    members: input.members.map((m) => ({
+      aid: m.aid,
+      contributingKey: m.contributingKey
+    })),
+    kelSequenceNumber: input.kelSequenceNumber,
+    updatedAt: new Date().toISOString()
+  };
+}
 // src/remote/typed-remote.ts
 function createTypedRemote(store, codec, resolvePath) {
   return {
@@ -11873,8 +11963,8 @@ function createTypedRemote(store, codec, resolvePath) {
   };
 }
 // src/version.ts
-var VERSION = "0.3.65";
-var GIT_SHA = "7d070fc20ec69ac5590f291fcafa760ea69406d7";
+var VERSION = "0.3.99";
+var GIT_SHA = "1aaaa694bdb48248f3144d2214342d84fea732d5";
 export {
   verifyWitnessReceipt,
   verify,
@@ -11926,6 +12016,7 @@ export {
   normalizeDisplayNameToProfileUsername,
   nextKeyDigestQb64FromPublicKeyQb64,
   mergeRemoteRecords,
+  memberRole,
   manifestUrlFromRecords,
   manifestUrlFromKelManifestData,
   latestSnFromKelManifestData,
@@ -11977,6 +12068,7 @@ export {
   canonicalize2 as canonicalize,
   canonical,
   bytesToHex,
+  buildPublishedMembershipDirectory,
   buildDeviceRecoverySigningPath,
   buildAccountRecoverySigningPath,
   buildACDCCredentialSurface,
@@ -12022,11 +12114,13 @@ export {
   RECOVERY_EXPAND_SALT,
   Qb64Schema,
   PublishedResourceSchema,
+  PublishedMembershipDirectorySchema,
   PublishedCredentialSchema,
   PermissionError,
   NotFoundError,
   NonEmpty,
   NetworkError,
+  MemberDirectoryEntrySchema,
   MAX_HKDF_DERIVE_LENGTH,
   KeyRefSchema,
   KeyIndexSchema2 as KeyIndexSchema,
