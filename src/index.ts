@@ -270,9 +270,9 @@ export type {
   SchemaEdge,
   SchemaInfo,
 } from './schema/types.js';
-export type { Signer } from './signature/index.js';
+export type { Ed25519Signer, Secp256k1Signer, Signer } from './signature/index.js';
 // Value namespace renamed to avoid shadowing the Signature branded type from common/types.
-export { Signature as SignatureOps, Signers } from './signature/index.js';
+export { isEd25519Signer, isSecp256k1Signer, Signature as SignatureOps, Signers } from './signature/index.js';
 export type { KeyAgreementCapability, KeyAgreementInput } from './signature/key-agreement.js';
 export { MAX_HKDF_DERIVE_LENGTH } from './signature/key-agreement.js';
 // ── Crypto primitives ────────────────────────────────────────────────

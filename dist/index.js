@@ -10691,8 +10691,8 @@ function createTypedRemote(store, codec, resolvePath) {
   };
 }
 // src/version.ts
-var VERSION = "0.3.99";
-var GIT_SHA = "1aaaa694bdb48248f3144d2214342d84fea732d5";
+var VERSION = "0.3.101";
+var GIT_SHA = "dad9dd03de1017d937fb286d48ea9e086f937344";
 export {
   verifyWitnessReceipt,
   verify,
@@ -10753,6 +10753,8 @@ export {
   kelManifestDataToAidManifest,
   isValidKeriEvent,
   isStructuredValidationError,
+  isSecp256k1Signer,
+  isEd25519Signer,
   inspect,
   inferSchema,
   hkdfSha256,

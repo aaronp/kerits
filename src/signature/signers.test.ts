@@ -4,7 +4,9 @@ import { decodeKey } from '../cesr/keys.js';
 import { deriveSharedSecret, ed25519ToX25519Private, ed25519ToX25519Public } from '../crypto/x25519.js';
 import { hkdfBlake3 } from '../crypto/hkdf.js';
 import { MAX_HKDF_DERIVE_LENGTH } from './key-agreement.js';
-import type { SAID, Signature } from '../common/types.js';
+import type { PublicKey, SAID, Signature } from '../common/types.js';
+import { isEd25519Signer } from './signer.js';
+import type { Signer } from './signer.js';
 import { Signers } from './signers.js';
 
 describe('Signers.fromKeyPair', () => {
@@ -112,5 +114,25 @@ describe('Signers.fromKeyPair deriveX25519HkdfBlake3Key', () => {
         length: MAX_HKDF_DERIVE_LENGTH + 1,
       }),
     ).rejects.toThrow();
+  });
+});
+
+describe('isEd25519Signer', () => {
+  test('returns true for Ed25519Signer from Signers.fromKeyPair', () => {
+    // ed25519 signer has X25519 key-agreement methods
+    const keyPair = KeriKeyPairs.fromSeedNumber(1);
+    const signer = Signers.fromKeyPair(keyPair);
+    expect(isEd25519Signer(signer)).toBe(true);
+  });
+
+  test('returns false for a base Signer without key-agreement methods', () => {
+    // a minimal Signer with no X25519 methods
+    const baseSigner: Signer = {
+      publicKey: 'test' as PublicKey,
+      exists: async () => false,
+      signBytes: async () => '' as Signature,
+      signSaid: async () => '' as Signature,
+    };
+    expect(isEd25519Signer(baseSigner)).toBe(false);
   });
 });

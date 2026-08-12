@@ -8,5 +8,6 @@ export const Signature = {
   verify,
 } as const;
 
-export type { Signer } from './signer.js';
+export type { Ed25519Signer, Secp256k1Signer, Signer } from './signer.js';
+export { isEd25519Signer, isSecp256k1Signer } from './signer.js';
 export { Signers } from './signers.js';

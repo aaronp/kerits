@@ -6,7 +6,7 @@ import { hkdfBlake3 } from '../crypto/hkdf.js';
 import { deriveSharedSecret, ed25519ToX25519Private } from '../crypto/x25519.js';
 import type { KeyAgreementInput } from './key-agreement.js';
 import { MAX_HKDF_DERIVE_LENGTH } from './key-agreement.js';
-import type { Signer } from './signer.js';
+import type { Ed25519Signer } from './signer.js';
 import { verify as verifySignature } from './verify.js';
 
 export namespace Signers {
@@ -16,7 +16,7 @@ export namespace Signers {
    * Pure implementation using only core primitives.
    * No I/O, no storage — suitable for testing and lightweight signing.
    */
-  export function fromKeyPair(keypair: KeriKeyPair): Signer {
+  export function fromKeyPair(keypair: KeriKeyPair): Ed25519Signer {
     return {
       publicKey: keypair.publicKey,
 
