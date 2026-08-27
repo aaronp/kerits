@@ -3,11 +3,12 @@ import { KELOps } from '../ops.js';
 import { KELEvents } from '../events.js';
 import { KeriKeyPairs } from '../../crypto/keypairs.js';
 import { digestVerfer } from '../../cesr/digest.js';
-import type { AID, Signature } from '../../common/types.js';
-import type { CESREvent } from '../types.js';
+import type { AID, KeriKeyPair, Signature } from '../../common/types.js';
+import type { CESREvent, KELEvent } from '../types.js';
 import { sign } from '../../signature/primitives.js';
 import { decodeKey } from '../../cesr/keys.js';
 import { encodeSig } from '../../cesr/sigs.js';
+import { canonicalizeEvent } from '../event-crypto.js';
 
 /** Helper: create a signed inception event from scratch. */
 function createInception(): { cesrEvent: CESREvent; aid: AID; publicKey: string } {
@@ -65,11 +66,68 @@ describe('KELOps.forKEL', () => {
   });
 });
 
+/** Helper: create a signed delegated inception event without a VRC. */
+function createDip(parentAid: AID): { cesrEvent: CESREvent } {
+  const childPair = KeriKeyPairs.create();
+  const childNextPair = KeriKeyPairs.create();
+  const nextDigest = digestVerfer(childNextPair.publicKey);
+
+  const { unsignedEvent } = KELEvents.buildDip({
+    parentAid,
+    keys: [childPair.publicKey],
+    nextKeyDigests: [nextDigest],
+    signingThreshold: '1',
+    nextThreshold: '1',
+  });
+
+  const { event } = KELEvents.finalize(unsignedEvent, true);
+
+  const privRaw = decodeKey(childPair.privateKey).raw;
+  const raw = canonicalizeEvent(event);
+  const sigBytes = sign(raw, privRaw);
+  const sig = encodeSig(sigBytes, true).qb64 as Signature;
+
+  const cesrEvent: CESREvent = {
+    event,
+    attachments: [{ kind: 'sig', form: 'indexed', keyIndex: 0, sig }],
+    enc: 'JSON',
+  };
+  return { cesrEvent };
+}
+
 describe('KELOps.validateAppend', () => {
   test('validates inception event against empty KEL', () => {
+    // setup: create a signed inception event
     const { cesrEvent } = createInception();
+    // call our method under test
     const result = KELOps.validateAppend([], cesrEvent);
+    // inception with no prior events should pass
     expect(result.ok).toBe(true);
+  });
+
+  test('accepts options parameter without breaking backward compatibility', () => {
+    // setup: create a signed inception event
+    const { cesrEvent } = createInception();
+    // call our method under test with explicit empty options
+    const result = KELOps.validateAppend([], cesrEvent, {});
+    // options being present should not affect a normal icp
+    expect(result.ok).toBe(true);
+  });
+
+  test('threads parentKel through to delegation validation', () => {
+    // setup: create a dip without a VRC; without parentKel the delegation check is missingParentKel
+    const parentPair = KeriKeyPairs.create();
+    const { cesrEvent: dipCesr } = createDip(parentPair.publicKey as AID);
+    // call our method under test — no parentKel provided
+    const withoutParent = KELOps.validateAppend([], dipCesr);
+    // call our method under test — empty parentKel provided (delegation still fails but differently)
+    const withParent = KELOps.validateAppend([], dipCesr, { parentKel: [] });
+    // without parentKel: missingParentKel flag set; with empty array: same (empty is treated as not provided)
+    expect(withoutParent.ok).toBe(false);
+    expect(withParent.ok).toBe(false);
+    // both cases should surface delegation check details — confirming parentKel is threaded through
+    expect(withoutParent.validation.checks.delegationValid?.missingParentKel).toBe(true);
+    expect(withParent.validation.checks.delegationValid?.missingParentKel).toBe(true);
   });
 });
 

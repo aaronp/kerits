@@ -26,6 +26,11 @@ import type { Brand } from './brand.js';
 /** Autonomic Identifier (CESR qb64 encoded) */
 export type AID = string & { __brand: 'AID' };
 
+/** Lightweight check: does the string look like a CESR qb64 AID (`E` prefix, 44 chars)? */
+export function isAid(input: string): input is AID {
+  return /^E[A-Za-z0-9_-]{43}$/.test(input);
+}
+
 /** Self-Addressing Identifier (CESR qb64 digest) */
 export type SAID = string & { __brand: 'SAID' };
 

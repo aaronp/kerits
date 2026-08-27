@@ -17,22 +17,22 @@ var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
 // node_modules/@sinclair/typebox/build/esm/type/guard/value.mjs
 var exports_value = {};
 __export(exports_value, {
-  IsUndefined: () => IsUndefined,
-  IsUint8Array: () => IsUint8Array,
-  IsSymbol: () => IsSymbol,
-  IsString: () => IsString,
-  IsRegExp: () => IsRegExp,
-  IsObject: () => IsObject,
-  IsNumber: () => IsNumber,
-  IsNull: () => IsNull,
-  IsIterator: () => IsIterator,
-  IsFunction: () => IsFunction,
-  IsDate: () => IsDate,
-  IsBoolean: () => IsBoolean,
-  IsBigInt: () => IsBigInt,
-  IsAsyncIterator: () => IsAsyncIterator,
+  HasPropertyKey: () => HasPropertyKey,
   IsArray: () => IsArray,
-  HasPropertyKey: () => HasPropertyKey
+  IsAsyncIterator: () => IsAsyncIterator,
+  IsBigInt: () => IsBigInt,
+  IsBoolean: () => IsBoolean,
+  IsDate: () => IsDate,
+  IsFunction: () => IsFunction,
+  IsIterator: () => IsIterator,
+  IsNull: () => IsNull,
+  IsNumber: () => IsNumber,
+  IsObject: () => IsObject,
+  IsRegExp: () => IsRegExp,
+  IsString: () => IsString,
+  IsSymbol: () => IsSymbol,
+  IsUint8Array: () => IsUint8Array,
+  IsUndefined: () => IsUndefined
 });
 function HasPropertyKey(value, key) {
   return key in value;
@@ -321,55 +321,55 @@ var init_symbols2 = __esm(() => {
 // node_modules/@sinclair/typebox/build/esm/type/guard/kind.mjs
 var exports_kind = {};
 __export(exports_kind, {
-  IsVoid: () => IsVoid,
-  IsUnsafe: () => IsUnsafe,
-  IsUnknown: () => IsUnknown,
-  IsUnion: () => IsUnion,
-  IsUndefined: () => IsUndefined3,
-  IsUint8Array: () => IsUint8Array3,
-  IsTuple: () => IsTuple,
-  IsTransform: () => IsTransform,
-  IsThis: () => IsThis,
-  IsTemplateLiteral: () => IsTemplateLiteral,
-  IsSymbol: () => IsSymbol3,
-  IsString: () => IsString3,
-  IsSchema: () => IsSchema,
-  IsRegExp: () => IsRegExp2,
-  IsRef: () => IsRef,
-  IsRecursive: () => IsRecursive,
-  IsRecord: () => IsRecord,
-  IsReadonly: () => IsReadonly,
-  IsProperties: () => IsProperties,
-  IsPromise: () => IsPromise2,
-  IsOptional: () => IsOptional,
-  IsObject: () => IsObject3,
-  IsNumber: () => IsNumber3,
-  IsNull: () => IsNull3,
-  IsNot: () => IsNot,
-  IsNever: () => IsNever,
-  IsMappedResult: () => IsMappedResult,
-  IsMappedKey: () => IsMappedKey,
-  IsLiteralValue: () => IsLiteralValue,
-  IsLiteralString: () => IsLiteralString,
-  IsLiteralNumber: () => IsLiteralNumber,
-  IsLiteralBoolean: () => IsLiteralBoolean,
-  IsLiteral: () => IsLiteral,
-  IsKindOf: () => IsKindOf,
-  IsKind: () => IsKind,
-  IsIterator: () => IsIterator3,
-  IsIntersect: () => IsIntersect,
-  IsInteger: () => IsInteger2,
-  IsImport: () => IsImport,
-  IsFunction: () => IsFunction3,
-  IsDate: () => IsDate3,
-  IsConstructor: () => IsConstructor,
-  IsComputed: () => IsComputed,
-  IsBoolean: () => IsBoolean3,
-  IsBigInt: () => IsBigInt3,
-  IsAsyncIterator: () => IsAsyncIterator3,
-  IsArray: () => IsArray3,
+  IsAny: () => IsAny,
   IsArgument: () => IsArgument,
-  IsAny: () => IsAny
+  IsArray: () => IsArray3,
+  IsAsyncIterator: () => IsAsyncIterator3,
+  IsBigInt: () => IsBigInt3,
+  IsBoolean: () => IsBoolean3,
+  IsComputed: () => IsComputed,
+  IsConstructor: () => IsConstructor,
+  IsDate: () => IsDate3,
+  IsFunction: () => IsFunction3,
+  IsImport: () => IsImport,
+  IsInteger: () => IsInteger2,
+  IsIntersect: () => IsIntersect,
+  IsIterator: () => IsIterator3,
+  IsKind: () => IsKind,
+  IsKindOf: () => IsKindOf,
+  IsLiteral: () => IsLiteral,
+  IsLiteralBoolean: () => IsLiteralBoolean,
+  IsLiteralNumber: () => IsLiteralNumber,
+  IsLiteralString: () => IsLiteralString,
+  IsLiteralValue: () => IsLiteralValue,
+  IsMappedKey: () => IsMappedKey,
+  IsMappedResult: () => IsMappedResult,
+  IsNever: () => IsNever,
+  IsNot: () => IsNot,
+  IsNull: () => IsNull3,
+  IsNumber: () => IsNumber3,
+  IsObject: () => IsObject3,
+  IsOptional: () => IsOptional,
+  IsPromise: () => IsPromise2,
+  IsProperties: () => IsProperties,
+  IsReadonly: () => IsReadonly,
+  IsRecord: () => IsRecord,
+  IsRecursive: () => IsRecursive,
+  IsRef: () => IsRef,
+  IsRegExp: () => IsRegExp2,
+  IsSchema: () => IsSchema,
+  IsString: () => IsString3,
+  IsSymbol: () => IsSymbol3,
+  IsTemplateLiteral: () => IsTemplateLiteral,
+  IsThis: () => IsThis,
+  IsTransform: () => IsTransform,
+  IsTuple: () => IsTuple,
+  IsUint8Array: () => IsUint8Array3,
+  IsUndefined: () => IsUndefined3,
+  IsUnion: () => IsUnion,
+  IsUnknown: () => IsUnknown,
+  IsUnsafe: () => IsUnsafe,
+  IsVoid: () => IsVoid
 });
 function IsReadonly(value2) {
   return IsObject(value2) && value2[ReadonlyKind] === "Readonly";
@@ -525,57 +525,57 @@ var init_kind = __esm(() => {
 // node_modules/@sinclair/typebox/build/esm/type/guard/type.mjs
 var exports_type = {};
 __export(exports_type, {
-  TypeGuardUnknownTypeError: () => TypeGuardUnknownTypeError,
-  IsVoid: () => IsVoid2,
-  IsUnsafe: () => IsUnsafe2,
-  IsUnknown: () => IsUnknown2,
-  IsUnionLiteral: () => IsUnionLiteral,
-  IsUnion: () => IsUnion2,
-  IsUndefined: () => IsUndefined4,
-  IsUint8Array: () => IsUint8Array4,
-  IsTuple: () => IsTuple2,
-  IsTransform: () => IsTransform2,
-  IsThis: () => IsThis2,
-  IsTemplateLiteral: () => IsTemplateLiteral2,
-  IsSymbol: () => IsSymbol4,
-  IsString: () => IsString4,
-  IsSchema: () => IsSchema2,
-  IsRegExp: () => IsRegExp3,
-  IsRef: () => IsRef2,
-  IsRecursive: () => IsRecursive2,
-  IsRecord: () => IsRecord2,
-  IsReadonly: () => IsReadonly2,
-  IsProperties: () => IsProperties2,
-  IsPromise: () => IsPromise3,
-  IsOptional: () => IsOptional2,
-  IsObject: () => IsObject4,
-  IsNumber: () => IsNumber4,
-  IsNull: () => IsNull4,
-  IsNot: () => IsNot2,
-  IsNever: () => IsNever2,
-  IsMappedResult: () => IsMappedResult2,
-  IsMappedKey: () => IsMappedKey2,
-  IsLiteralValue: () => IsLiteralValue2,
-  IsLiteralString: () => IsLiteralString2,
-  IsLiteralNumber: () => IsLiteralNumber2,
-  IsLiteralBoolean: () => IsLiteralBoolean2,
-  IsLiteral: () => IsLiteral2,
-  IsKindOf: () => IsKindOf2,
-  IsKind: () => IsKind2,
-  IsIterator: () => IsIterator4,
-  IsIntersect: () => IsIntersect2,
-  IsInteger: () => IsInteger3,
-  IsImport: () => IsImport2,
-  IsFunction: () => IsFunction4,
-  IsDate: () => IsDate4,
-  IsConstructor: () => IsConstructor2,
-  IsComputed: () => IsComputed2,
-  IsBoolean: () => IsBoolean4,
-  IsBigInt: () => IsBigInt4,
-  IsAsyncIterator: () => IsAsyncIterator4,
-  IsArray: () => IsArray4,
+  IsAny: () => IsAny2,
   IsArgument: () => IsArgument2,
-  IsAny: () => IsAny2
+  IsArray: () => IsArray4,
+  IsAsyncIterator: () => IsAsyncIterator4,
+  IsBigInt: () => IsBigInt4,
+  IsBoolean: () => IsBoolean4,
+  IsComputed: () => IsComputed2,
+  IsConstructor: () => IsConstructor2,
+  IsDate: () => IsDate4,
+  IsFunction: () => IsFunction4,
+  IsImport: () => IsImport2,
+  IsInteger: () => IsInteger3,
+  IsIntersect: () => IsIntersect2,
+  IsIterator: () => IsIterator4,
+  IsKind: () => IsKind2,
+  IsKindOf: () => IsKindOf2,
+  IsLiteral: () => IsLiteral2,
+  IsLiteralBoolean: () => IsLiteralBoolean2,
+  IsLiteralNumber: () => IsLiteralNumber2,
+  IsLiteralString: () => IsLiteralString2,
+  IsLiteralValue: () => IsLiteralValue2,
+  IsMappedKey: () => IsMappedKey2,
+  IsMappedResult: () => IsMappedResult2,
+  IsNever: () => IsNever2,
+  IsNot: () => IsNot2,
+  IsNull: () => IsNull4,
+  IsNumber: () => IsNumber4,
+  IsObject: () => IsObject4,
+  IsOptional: () => IsOptional2,
+  IsPromise: () => IsPromise3,
+  IsProperties: () => IsProperties2,
+  IsReadonly: () => IsReadonly2,
+  IsRecord: () => IsRecord2,
+  IsRecursive: () => IsRecursive2,
+  IsRef: () => IsRef2,
+  IsRegExp: () => IsRegExp3,
+  IsSchema: () => IsSchema2,
+  IsString: () => IsString4,
+  IsSymbol: () => IsSymbol4,
+  IsTemplateLiteral: () => IsTemplateLiteral2,
+  IsThis: () => IsThis2,
+  IsTransform: () => IsTransform2,
+  IsTuple: () => IsTuple2,
+  IsUint8Array: () => IsUint8Array4,
+  IsUndefined: () => IsUndefined4,
+  IsUnion: () => IsUnion2,
+  IsUnionLiteral: () => IsUnionLiteral,
+  IsUnknown: () => IsUnknown2,
+  IsUnsafe: () => IsUnsafe2,
+  IsVoid: () => IsVoid2,
+  TypeGuardUnknownTypeError: () => TypeGuardUnknownTypeError
 });
 function IsPattern(value2) {
   try {
@@ -849,12 +849,12 @@ var init_patterns2 = __esm(() => {
 // node_modules/@sinclair/typebox/build/esm/type/registry/format.mjs
 var exports_format = {};
 __export(exports_format, {
-  Set: () => Set2,
-  Has: () => Has,
-  Get: () => Get,
-  Entries: () => Entries,
+  Clear: () => Clear,
   Delete: () => Delete,
-  Clear: () => Clear
+  Entries: () => Entries,
+  Get: () => Get,
+  Has: () => Has,
+  Set: () => Set2
 });
 function Entries() {
   return new Map(map);
@@ -882,12 +882,12 @@ var init_format = __esm(() => {
 // node_modules/@sinclair/typebox/build/esm/type/registry/type.mjs
 var exports_type2 = {};
 __export(exports_type2, {
-  Set: () => Set3,
-  Has: () => Has2,
-  Get: () => Get2,
-  Entries: () => Entries2,
+  Clear: () => Clear2,
   Delete: () => Delete2,
-  Clear: () => Clear2
+  Entries: () => Entries2,
+  Get: () => Get2,
+  Has: () => Has2,
+  Set: () => Set3
 });
 function Entries2() {
   return new Map(map2);
@@ -3962,68 +3962,68 @@ var init_json = __esm(() => {
 // node_modules/@sinclair/typebox/build/esm/type/type/type.mjs
 var exports_type3 = {};
 __export(exports_type3, {
-  Void: () => Void,
-  Uppercase: () => Uppercase,
-  Unsafe: () => Unsafe,
-  Unknown: () => Unknown,
-  Union: () => Union,
-  Undefined: () => Undefined,
-  Uncapitalize: () => Uncapitalize,
-  Uint8Array: () => Uint8Array2,
-  Tuple: () => Tuple,
-  Transform: () => Transform,
-  TemplateLiteral: () => TemplateLiteral,
-  Symbol: () => Symbol2,
-  String: () => String2,
-  ReturnType: () => ReturnType,
-  Rest: () => Rest,
-  Required: () => Required,
-  RegExp: () => RegExp2,
-  Ref: () => Ref,
-  Recursive: () => Recursive,
-  Record: () => Record,
-  ReadonlyOptional: () => ReadonlyOptional,
-  Readonly: () => Readonly,
-  Promise: () => Promise2,
-  Pick: () => Pick,
-  Partial: () => Partial,
-  Parameters: () => Parameters,
-  Optional: () => Optional,
-  Omit: () => Omit,
-  Object: () => Object2,
-  Number: () => Number2,
-  Null: () => Null,
-  Not: () => Not2,
-  Never: () => Never,
-  Module: () => Module,
-  Mapped: () => Mapped,
-  Lowercase: () => Lowercase,
-  Literal: () => Literal,
-  KeyOf: () => KeyOf,
-  Iterator: () => Iterator,
-  Intersect: () => Intersect,
-  Integer: () => Integer,
-  Instantiate: () => Instantiate,
-  InstanceType: () => InstanceType,
-  Index: () => Index,
-  Function: () => Function,
-  Extract: () => Extract,
-  Extends: () => Extends,
-  Exclude: () => Exclude,
-  Enum: () => Enum,
-  Date: () => Date2,
-  ConstructorParameters: () => ConstructorParameters,
-  Constructor: () => Constructor,
-  Const: () => Const,
-  Composite: () => Composite,
-  Capitalize: () => Capitalize,
-  Boolean: () => Boolean,
-  BigInt: () => BigInt2,
-  Awaited: () => Awaited,
-  AsyncIterator: () => AsyncIterator,
-  Array: () => Array2,
+  Any: () => Any,
   Argument: () => Argument,
-  Any: () => Any
+  Array: () => Array2,
+  AsyncIterator: () => AsyncIterator,
+  Awaited: () => Awaited,
+  BigInt: () => BigInt2,
+  Boolean: () => Boolean,
+  Capitalize: () => Capitalize,
+  Composite: () => Composite,
+  Const: () => Const,
+  Constructor: () => Constructor,
+  ConstructorParameters: () => ConstructorParameters,
+  Date: () => Date2,
+  Enum: () => Enum,
+  Exclude: () => Exclude,
+  Extends: () => Extends,
+  Extract: () => Extract,
+  Function: () => Function,
+  Index: () => Index,
+  InstanceType: () => InstanceType,
+  Instantiate: () => Instantiate,
+  Integer: () => Integer,
+  Intersect: () => Intersect,
+  Iterator: () => Iterator,
+  KeyOf: () => KeyOf,
+  Literal: () => Literal,
+  Lowercase: () => Lowercase,
+  Mapped: () => Mapped,
+  Module: () => Module,
+  Never: () => Never,
+  Not: () => Not2,
+  Null: () => Null,
+  Number: () => Number2,
+  Object: () => Object2,
+  Omit: () => Omit,
+  Optional: () => Optional,
+  Parameters: () => Parameters,
+  Partial: () => Partial,
+  Pick: () => Pick,
+  Promise: () => Promise2,
+  Readonly: () => Readonly,
+  ReadonlyOptional: () => ReadonlyOptional,
+  Record: () => Record,
+  Recursive: () => Recursive,
+  Ref: () => Ref,
+  RegExp: () => RegExp2,
+  Required: () => Required,
+  Rest: () => Rest,
+  ReturnType: () => ReturnType,
+  String: () => String2,
+  Symbol: () => Symbol2,
+  TemplateLiteral: () => TemplateLiteral,
+  Transform: () => Transform,
+  Tuple: () => Tuple,
+  Uint8Array: () => Uint8Array2,
+  Uncapitalize: () => Uncapitalize,
+  Undefined: () => Undefined,
+  Union: () => Union,
+  Unknown: () => Unknown,
+  Unsafe: () => Unsafe,
+  Uppercase: () => Uppercase,
+  Void: () => Void
 });
 var init_type5 = __esm(() => {
   init_any2();
@@ -4183,159 +4183,159 @@ var init_type6 = __esm(() => {
 // node_modules/@sinclair/typebox/build/esm/index.mjs
 var exports_esm = {};
 __export(exports_esm, {
-  Void: () => Void,
-  ValueGuard: () => exports_value,
-  Uppercase: () => Uppercase,
-  Unsafe: () => Unsafe,
-  Unknown: () => Unknown,
-  UnionEvaluated: () => UnionEvaluated,
-  Union: () => Union,
-  Undefined: () => Undefined,
-  Uncapitalize: () => Uncapitalize,
-  Uint8Array: () => Uint8Array2,
-  TypeRegistry: () => exports_type2,
-  TypeGuard: () => exports_type,
-  TypeBoxError: () => TypeBoxError,
-  Type: () => Type,
-  Tuple: () => Tuple,
-  TransformKind: () => TransformKind,
-  TransformEncodeBuilder: () => TransformEncodeBuilder,
-  TransformDecodeBuilder: () => TransformDecodeBuilder,
-  Transform: () => Transform,
-  TemplateLiteralToUnion: () => TemplateLiteralToUnion,
-  TemplateLiteralSyntax: () => TemplateLiteralSyntax,
-  TemplateLiteralPatternError: () => TemplateLiteralPatternError,
-  TemplateLiteralPattern: () => TemplateLiteralPattern,
-  TemplateLiteralParserError: () => TemplateLiteralParserError,
-  TemplateLiteralParseExact: () => TemplateLiteralParseExact,
-  TemplateLiteralParse: () => TemplateLiteralParse,
-  TemplateLiteralGenerateError: () => TemplateLiteralGenerateError,
-  TemplateLiteralGenerate: () => TemplateLiteralGenerate,
-  TemplateLiteralFiniteError: () => TemplateLiteralFiniteError,
-  TemplateLiteralExpressionGenerate: () => TemplateLiteralExpressionGenerate,
-  TemplateLiteral: () => TemplateLiteral,
-  TModule: () => TModule,
-  Symbol: () => Symbol2,
-  String: () => String2,
-  SetUnionMany: () => SetUnionMany,
-  SetUnion: () => SetUnion,
-  SetIsSubset: () => SetIsSubset,
-  SetIntersectMany: () => SetIntersectMany,
-  SetIntersect: () => SetIntersect,
-  SetIncludes: () => SetIncludes,
-  SetDistinct: () => SetDistinct,
-  SetComplement: () => SetComplement,
-  ReturnType: () => ReturnType,
-  Rest: () => Rest,
-  RequiredFromMappedResult: () => RequiredFromMappedResult,
-  Required: () => Required,
-  RegExp: () => RegExp2,
-  Ref: () => Ref,
-  Recursive: () => Recursive,
-  RecordValue: () => RecordValue2,
-  RecordPattern: () => RecordPattern,
-  RecordKey: () => RecordKey2,
-  Record: () => Record,
-  ReadonlyOptional: () => ReadonlyOptional,
-  ReadonlyKind: () => ReadonlyKind,
-  ReadonlyFromMappedResult: () => ReadonlyFromMappedResult,
-  Readonly: () => Readonly,
-  Promise: () => Promise2,
-  PickFromMappedResult: () => PickFromMappedResult,
-  PickFromMappedKey: () => PickFromMappedKey,
-  Pick: () => Pick,
-  PatternStringExact: () => PatternStringExact,
-  PatternString: () => PatternString,
-  PatternNumberExact: () => PatternNumberExact,
-  PatternNumber: () => PatternNumber,
-  PatternNeverExact: () => PatternNeverExact,
-  PatternNever: () => PatternNever,
-  PatternBooleanExact: () => PatternBooleanExact,
-  PatternBoolean: () => PatternBoolean,
-  PartialFromMappedResult: () => PartialFromMappedResult,
-  Partial: () => Partial,
-  Parameters: () => Parameters,
-  OptionalKind: () => OptionalKind,
-  OptionalFromMappedResult: () => OptionalFromMappedResult,
-  Optional: () => Optional,
-  OmitFromMappedResult: () => OmitFromMappedResult,
-  OmitFromMappedKey: () => OmitFromMappedKey,
-  Omit: () => Omit,
-  Object: () => Object2,
-  Number: () => Number2,
-  Null: () => Null,
-  Not: () => Not2,
-  Never: () => Never,
-  Module: () => Module,
-  MappedResult: () => MappedResult,
-  MappedKey: () => MappedKey,
-  MappedFunctionReturnType: () => MappedFunctionReturnType,
-  Mapped: () => Mapped,
-  Lowercase: () => Lowercase,
-  Literal: () => Literal,
-  KindGuard: () => exports_kind,
-  Kind: () => Kind,
-  KeyOfPropertyKeysToRest: () => KeyOfPropertyKeysToRest,
-  KeyOfPropertyKeys: () => KeyOfPropertyKeys,
-  KeyOfPropertyEntries: () => KeyOfPropertyEntries,
-  KeyOfPattern: () => KeyOfPattern,
-  KeyOfFromMappedResult: () => KeyOfFromMappedResult,
-  KeyOf: () => KeyOf,
-  JsonTypeBuilder: () => JsonTypeBuilder,
-  JavaScriptTypeBuilder: () => JavaScriptTypeBuilder,
-  Iterator: () => Iterator,
-  IsTemplateLiteralFinite: () => IsTemplateLiteralFinite,
-  IsTemplateLiteralExpressionFinite: () => IsTemplateLiteralExpressionFinite,
-  IntrinsicFromMappedKey: () => IntrinsicFromMappedKey,
-  Intrinsic: () => Intrinsic,
-  IntersectEvaluated: () => IntersectEvaluated,
-  Intersect: () => Intersect,
-  Integer: () => Integer,
-  Instantiate: () => Instantiate,
-  InstanceType: () => InstanceType,
-  IndexPropertyKeys: () => IndexPropertyKeys,
-  IndexFromPropertyKeys: () => IndexFromPropertyKeys,
-  IndexFromPropertyKey: () => IndexFromPropertyKey,
-  IndexFromMappedResult: () => IndexFromMappedResult,
-  IndexFromMappedKey: () => IndexFromMappedKey,
-  IndexFromComputed: () => IndexFromComputed,
-  Index: () => Index,
-  Increment: () => Increment,
-  Hint: () => Hint,
-  Function: () => Function,
-  FromTypes: () => FromTypes,
-  FormatRegistry: () => exports_format,
-  ExtractFromTemplateLiteral: () => ExtractFromTemplateLiteral,
-  ExtractFromMappedResult: () => ExtractFromMappedResult,
-  Extract: () => Extract,
-  ExtendsUndefinedCheck: () => ExtendsUndefinedCheck,
-  ExtendsResult: () => ExtendsResult,
-  ExtendsResolverError: () => ExtendsResolverError,
-  ExtendsFromMappedResult: () => ExtendsFromMappedResult,
-  ExtendsFromMappedKey: () => ExtendsFromMappedKey,
-  ExtendsCheck: () => ExtendsCheck,
-  Extends: () => Extends,
-  ExcludeFromTemplateLiteral: () => ExcludeFromTemplateLiteral,
-  ExcludeFromMappedResult: () => ExcludeFromMappedResult,
-  Exclude: () => Exclude,
-  Enum: () => Enum,
-  Date: () => Date2,
-  CreateType: () => CreateType,
-  ConstructorParameters: () => ConstructorParameters,
-  Constructor: () => Constructor,
-  Const: () => Const,
-  Composite: () => Composite,
-  CloneType: () => CloneType,
-  CloneRest: () => CloneRest,
-  Clone: () => Clone,
-  Capitalize: () => Capitalize,
-  Boolean: () => Boolean,
-  BigInt: () => BigInt2,
-  Awaited: () => Awaited,
-  AsyncIterator: () => AsyncIterator,
-  Array: () => Array2,
+  Any: () => Any,
   Argument: () => Argument,
-  Any: () => Any
+  Array: () => Array2,
+  AsyncIterator: () => AsyncIterator,
+  Awaited: () => Awaited,
+  BigInt: () => BigInt2,
+  Boolean: () => Boolean,
+  Capitalize: () => Capitalize,
+  Clone: () => Clone,
+  CloneRest: () => CloneRest,
+  CloneType: () => CloneType,
+  Composite: () => Composite,
+  Const: () => Const,
+  Constructor: () => Constructor,
+  ConstructorParameters: () => ConstructorParameters,
+  CreateType: () => CreateType,
+  Date: () => Date2,
+  Enum: () => Enum,
+  Exclude: () => Exclude,
+  ExcludeFromMappedResult: () => ExcludeFromMappedResult,
+  ExcludeFromTemplateLiteral: () => ExcludeFromTemplateLiteral,
+  Extends: () => Extends,
+  ExtendsCheck: () => ExtendsCheck,
+  ExtendsFromMappedKey: () => ExtendsFromMappedKey,
+  ExtendsFromMappedResult: () => ExtendsFromMappedResult,
+  ExtendsResolverError: () => ExtendsResolverError,
+  ExtendsResult: () => ExtendsResult,
+  ExtendsUndefinedCheck: () => ExtendsUndefinedCheck,
+  Extract: () => Extract,
+  ExtractFromMappedResult: () => ExtractFromMappedResult,
+  ExtractFromTemplateLiteral: () => ExtractFromTemplateLiteral,
+  FormatRegistry: () => exports_format,
+  FromTypes: () => FromTypes,
+  Function: () => Function,
+  Hint: () => Hint,
+  Increment: () => Increment,
+  Index: () => Index,
+  IndexFromComputed: () => IndexFromComputed,
+  IndexFromMappedKey: () => IndexFromMappedKey,
+  IndexFromMappedResult: () => IndexFromMappedResult,
+  IndexFromPropertyKey: () => IndexFromPropertyKey,
+  IndexFromPropertyKeys: () => IndexFromPropertyKeys,
+  IndexPropertyKeys: () => IndexPropertyKeys,
+  InstanceType: () => InstanceType,
+  Instantiate: () => Instantiate,
+  Integer: () => Integer,
+  Intersect: () => Intersect,
+  IntersectEvaluated: () => IntersectEvaluated,
+  Intrinsic: () => Intrinsic,
+  IntrinsicFromMappedKey: () => IntrinsicFromMappedKey,
+  IsTemplateLiteralExpressionFinite: () => IsTemplateLiteralExpressionFinite,
+  IsTemplateLiteralFinite: () => IsTemplateLiteralFinite,
+  Iterator: () => Iterator,
+  JavaScriptTypeBuilder: () => JavaScriptTypeBuilder,
+  JsonTypeBuilder: () => JsonTypeBuilder,
+  KeyOf: () => KeyOf,
+  KeyOfFromMappedResult: () => KeyOfFromMappedResult,
+  KeyOfPattern: () => KeyOfPattern,
+  KeyOfPropertyEntries: () => KeyOfPropertyEntries,
+  KeyOfPropertyKeys: () => KeyOfPropertyKeys,
+  KeyOfPropertyKeysToRest: () => KeyOfPropertyKeysToRest,
+  Kind: () => Kind,
+  KindGuard: () => exports_kind,
+  Literal: () => Literal,
+  Lowercase: () => Lowercase,
+  Mapped: () => Mapped,
+  MappedFunctionReturnType: () => MappedFunctionReturnType,
+  MappedKey: () => MappedKey,
+  MappedResult: () => MappedResult,
+  Module: () => Module,
+  Never: () => Never,
+  Not: () => Not2,
+  Null: () => Null,
+  Number: () => Number2,
+  Object: () => Object2,
+  Omit: () => Omit,
+  OmitFromMappedKey: () => OmitFromMappedKey,
+  OmitFromMappedResult: () => OmitFromMappedResult,
+  Optional: () => Optional,
+  OptionalFromMappedResult: () => OptionalFromMappedResult,
+  OptionalKind: () => OptionalKind,
+  Parameters: () => Parameters,
+  Partial: () => Partial,
+  PartialFromMappedResult: () => PartialFromMappedResult,
+  PatternBoolean: () => PatternBoolean,
+  PatternBooleanExact: () => PatternBooleanExact,
+  PatternNever: () => PatternNever,
+  PatternNeverExact: () => PatternNeverExact,
+  PatternNumber: () => PatternNumber,
+  PatternNumberExact: () => PatternNumberExact,
+  PatternString: () => PatternString,
+  PatternStringExact: () => PatternStringExact,
+  Pick: () => Pick,
+  PickFromMappedKey: () => PickFromMappedKey,
+  PickFromMappedResult: () => PickFromMappedResult,
+  Promise: () => Promise2,
+  Readonly: () => Readonly,
+  ReadonlyFromMappedResult: () => ReadonlyFromMappedResult,
+  ReadonlyKind: () => ReadonlyKind,
+  ReadonlyOptional: () => ReadonlyOptional,
+  Record: () => Record,
+  RecordKey: () => RecordKey2,
+  RecordPattern: () => RecordPattern,
+  RecordValue: () => RecordValue2,
+  Recursive: () => Recursive,
+  Ref: () => Ref,
+  RegExp: () => RegExp2,
+  Required: () => Required,
+  RequiredFromMappedResult: () => RequiredFromMappedResult,
+  Rest: () => Rest,
+  ReturnType: () => ReturnType,
+  SetComplement: () => SetComplement,
+  SetDistinct: () => SetDistinct,
+  SetIncludes: () => SetIncludes,
+  SetIntersect: () => SetIntersect,
+  SetIntersectMany: () => SetIntersectMany,
+  SetIsSubset: () => SetIsSubset,
+  SetUnion: () => SetUnion,
+  SetUnionMany: () => SetUnionMany,
+  String: () => String2,
+  Symbol: () => Symbol2,
+  TModule: () => TModule,
+  TemplateLiteral: () => TemplateLiteral,
+  TemplateLiteralExpressionGenerate: () => TemplateLiteralExpressionGenerate,
+  TemplateLiteralFiniteError: () => TemplateLiteralFiniteError,
+  TemplateLiteralGenerate: () => TemplateLiteralGenerate,
+  TemplateLiteralGenerateError: () => TemplateLiteralGenerateError,
+  TemplateLiteralParse: () => TemplateLiteralParse,
+  TemplateLiteralParseExact: () => TemplateLiteralParseExact,
+  TemplateLiteralParserError: () => TemplateLiteralParserError,
+  TemplateLiteralPattern: () => TemplateLiteralPattern,
+  TemplateLiteralPatternError: () => TemplateLiteralPatternError,
+  TemplateLiteralSyntax: () => TemplateLiteralSyntax,
+  TemplateLiteralToUnion: () => TemplateLiteralToUnion,
+  Transform: () => Transform,
+  TransformDecodeBuilder: () => TransformDecodeBuilder,
+  TransformEncodeBuilder: () => TransformEncodeBuilder,
+  TransformKind: () => TransformKind,
+  Tuple: () => Tuple,
+  Type: () => Type,
+  TypeBoxError: () => TypeBoxError,
+  TypeGuard: () => exports_type,
+  TypeRegistry: () => exports_type2,
+  Uint8Array: () => Uint8Array2,
+  Uncapitalize: () => Uncapitalize,
+  Undefined: () => Undefined,
+  Union: () => Union,
+  UnionEvaluated: () => UnionEvaluated,
+  Unknown: () => Unknown,
+  Unsafe: () => Unsafe,
+  Uppercase: () => Uppercase,
+  ValueGuard: () => exports_value,
+  Void: () => Void
 });
 var init_esm = __esm(() => {
   init_clone();
@@ -4541,18 +4541,6 @@ function canonical(obj) {
 // node_modules/@noble/hashes/_u64.js
 var fromNumH = (n) => n / 2 ** 32 | 0;
 var fromNumL = (n) => n >>> 0;
-var rotrSH = (h, l, s) => h >>> s | l << 32 - s;
-var rotrSL = (h, l, s) => h << 32 - s | l >>> s;
-var rotrBH = (h, l, s) => h << 64 - s | l >>> s - 32;
-var rotrBL = (h, l, s) => h >>> s - 32 | l << 64 - s;
-var rotr32H = (_h, l) => l;
-var rotr32L = (h, _l) => h;
-function add(Ah, Al, Bh, Bl) {
-  const l = (Al >>> 0) + (Bl >>> 0);
-  return { h: Ah + Bh + (l / 2 ** 32 | 0) | 0, l: l | 0 };
-}
-var add3L = (Al, Bl, Cl) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0);
-var add3H = (low, Ah, Bh, Ch) => Ah + Bh + Ch + (low / 2 ** 32 | 0) | 0;
 
 // node_modules/@noble/hashes/utils.js
 function isBytes(a) {
@@ -4659,264 +4647,6 @@ var SHA256_IV = /* @__PURE__ */ Uint32Array.from([
 ]);
 
 // node_modules/@noble/hashes/_blake.js
-var BSIGMA = /* @__PURE__ */ Uint8Array.from([
-  0,
-  1,
-  2,
-  3,
-  4,
-  5,
-  6,
-  7,
-  8,
-  9,
-  10,
-  11,
-  12,
-  13,
-  14,
-  15,
-  14,
-  10,
-  4,
-  8,
-  9,
-  15,
-  13,
-  6,
-  1,
-  12,
-  0,
-  2,
-  11,
-  7,
-  5,
-  3,
-  11,
-  8,
-  12,
-  0,
-  5,
-  2,
-  15,
-  13,
-  10,
-  14,
-  3,
-  6,
-  7,
-  1,
-  9,
-  4,
-  7,
-  9,
-  3,
-  1,
-  13,
-  12,
-  11,
-  14,
-  2,
-  6,
-  5,
-  10,
-  4,
-  0,
-  15,
-  8,
-  9,
-  0,
-  5,
-  7,
-  2,
-  4,
-  10,
-  15,
-  14,
-  1,
-  11,
-  12,
-  6,
-  8,
-  3,
-  13,
-  2,
-  12,
-  6,
-  10,
-  0,
-  11,
-  8,
-  3,
-  4,
-  13,
-  7,
-  5,
-  15,
-  14,
-  1,
-  9,
-  12,
-  5,
-  1,
-  15,
-  14,
-  13,
-  4,
-  10,
-  0,
-  7,
-  6,
-  3,
-  9,
-  2,
-  8,
-  11,
-  13,
-  11,
-  7,
-  14,
-  12,
-  1,
-  3,
-  9,
-  5,
-  0,
-  15,
-  4,
-  8,
-  6,
-  2,
-  10,
-  6,
-  15,
-  14,
-  9,
-  11,
-  3,
-  0,
-  8,
-  12,
-  2,
-  13,
-  7,
-  1,
-  4,
-  10,
-  5,
-  10,
-  2,
-  8,
-  4,
-  7,
-  6,
-  1,
-  5,
-  15,
-  11,
-  9,
-  14,
-  3,
-  12,
-  13,
-  0,
-  0,
-  1,
-  2,
-  3,
-  4,
-  5,
-  6,
-  7,
-  8,
-  9,
-  10,
-  11,
-  12,
-  13,
-  14,
-  15,
-  14,
-  10,
-  4,
-  8,
-  9,
-  15,
-  13,
-  6,
-  1,
-  12,
-  0,
-  2,
-  11,
-  7,
-  5,
-  3,
-  11,
-  8,
-  12,
-  0,
-  5,
-  2,
-  15,
-  13,
-  10,
-  14,
-  3,
-  6,
-  7,
-  1,
-  9,
-  4,
-  7,
-  9,
-  3,
-  1,
-  13,
-  12,
-  11,
-  14,
-  2,
-  6,
-  5,
-  10,
-  4,
-  0,
-  15,
-  8,
-  9,
-  0,
-  5,
-  7,
-  2,
-  4,
-  10,
-  15,
-  14,
-  1,
-  11,
-  12,
-  6,
-  8,
-  3,
-  13,
-  2,
-  12,
-  6,
-  10,
-  0,
-  11,
-  8,
-  3,
-  4,
-  13,
-  7,
-  5,
-  15,
-  14,
-  1,
-  9
-]);
 function G1s(a, b, c, d, x) {
   a = a + b + x | 0;
   d = rotr(d ^ a, 16);
@@ -4933,90 +4663,6 @@ function G2s(a, b, c, d, x) {
 }
 
 // node_modules/@noble/hashes/blake2.js
-var B2B_IV = /* @__PURE__ */ Uint32Array.from([
-  4089235720,
-  1779033703,
-  2227873595,
-  3144134277,
-  4271175723,
-  1013904242,
-  1595750129,
-  2773480762,
-  2917565137,
-  1359893119,
-  725511199,
-  2600822924,
-  4215389547,
-  528734635,
-  327033209,
-  1541459225
-]);
-var BBUF = /* @__PURE__ */ new Uint32Array(32);
-function G1b(a, b, c, d, msg, x) {
-  const Xl = msg[x], Xh = msg[x + 1];
-  let Al = BBUF[2 * a], Ah = BBUF[2 * a + 1];
-  let Bl = BBUF[2 * b], Bh = BBUF[2 * b + 1];
-  let Cl = BBUF[2 * c], Ch = BBUF[2 * c + 1];
-  let Dl = BBUF[2 * d], Dh = BBUF[2 * d + 1];
-  const ll = add3L(Al, Bl, Xl);
-  Ah = add3H(ll, Ah, Bh, Xh);
-  Al = ll | 0;
-  let xh = Dh ^ Ah, xl = Dl ^ Al;
-  Dh = rotr32H(xh, xl);
-  Dl = rotr32L(xh, xl);
-  ({ h: Ch, l: Cl } = add(Ch, Cl, Dh, Dl));
-  xh = Bh ^ Ch;
-  xl = Bl ^ Cl;
-  Bh = rotrSH(xh, xl, 24);
-  Bl = rotrSL(xh, xl, 24);
-  BBUF[2 * a] = Al;
-  BBUF[2 * a + 1] = Ah;
-  BBUF[2 * b] = Bl;
-  BBUF[2 * b + 1] = Bh;
-  BBUF[2 * c] = Cl;
-  BBUF[2 * c + 1] = Ch;
-  BBUF[2 * d] = Dl;
-  BBUF[2 * d + 1] = Dh;
-}
-function G2b(a, b, c, d, msg, x) {
-  const Xl = msg[x], Xh = msg[x + 1];
-  let Al = BBUF[2 * a], Ah = BBUF[2 * a + 1];
-  let Bl = BBUF[2 * b], Bh = BBUF[2 * b + 1];
-  let Cl = BBUF[2 * c], Ch = BBUF[2 * c + 1];
-  let Dl = BBUF[2 * d], Dh = BBUF[2 * d + 1];
-  const ll = add3L(Al, Bl, Xl);
-  Ah = add3H(ll, Ah, Bh, Xh);
-  Al = ll | 0;
-  let xh = Dh ^ Ah, xl = Dl ^ Al;
-  Dh = rotrSH(xh, xl, 16);
-  Dl = rotrSL(xh, xl, 16);
-  ({ h: Ch, l: Cl } = add(Ch, Cl, Dh, Dl));
-  xh = Bh ^ Ch;
-  xl = Bl ^ Cl;
-  Bh = rotrBH(xh, xl, 63);
-  Bl = rotrBL(xh, xl, 63);
-  BBUF[2 * a] = Al;
-  BBUF[2 * a + 1] = Ah;
-  BBUF[2 * b] = Bl;
-  BBUF[2 * b + 1] = Bh;
-  BBUF[2 * c] = Cl;
-  BBUF[2 * c + 1] = Ch;
-  BBUF[2 * d] = Dl;
-  BBUF[2 * d + 1] = Dh;
-}
-function checkBlake2Opts(outputLen, opts = {}, keyLen, saltLen, persLen) {
-  anumber(keyLen);
-  if (outputLen <= 0 || outputLen > keyLen)
-    throw new Error('"dkLen" must be 1..' + keyLen + ", got " + outputLen);
-  const { key, salt, personalization } = opts;
-  if (key !== undefined && (key.length < 1 || key.length > keyLen))
-    throw new Error('"key" expected to be undefined or of length=1..' + keyLen);
-  if (salt !== undefined)
-    abytes(salt, saltLen, "salt");
-  if (personalization !== undefined)
-    abytes(personalization, persLen, "personalization");
-}
-
 class _BLAKE2 {
   buffer;
   buffer32;
@@ -5115,154 +4761,6 @@ class _BLAKE2 {
     return this._cloneInto();
   }
 }
-
-class _BLAKE2b extends _BLAKE2 {
-  v0l = B2B_IV[0] | 0;
-  v0h = B2B_IV[1] | 0;
-  v1l = B2B_IV[2] | 0;
-  v1h = B2B_IV[3] | 0;
-  v2l = B2B_IV[4] | 0;
-  v2h = B2B_IV[5] | 0;
-  v3l = B2B_IV[6] | 0;
-  v3h = B2B_IV[7] | 0;
-  v4l = B2B_IV[8] | 0;
-  v4h = B2B_IV[9] | 0;
-  v5l = B2B_IV[10] | 0;
-  v5h = B2B_IV[11] | 0;
-  v6l = B2B_IV[12] | 0;
-  v6h = B2B_IV[13] | 0;
-  v7l = B2B_IV[14] | 0;
-  v7h = B2B_IV[15] | 0;
-  constructor(opts = {}) {
-    opts = checkOpts({}, opts);
-    const olen = opts.dkLen === undefined ? 64 : opts.dkLen;
-    super(128, olen);
-    checkBlake2Opts(olen, opts, 64, 16, 16);
-    let { key, personalization, salt } = opts;
-    let keyLength = 0;
-    if (key !== undefined) {
-      abytes(key, undefined, "key");
-      keyLength = key.length;
-    }
-    this.v0l ^= this.outputLen | keyLength << 8 | 1 << 16 | 1 << 24;
-    if (salt !== undefined) {
-      abytes(salt, undefined, "salt");
-      const slt = u32(copyBytes(salt));
-      this.v4l ^= swap8IfBE(slt[0]);
-      this.v4h ^= swap8IfBE(slt[1]);
-      this.v5l ^= swap8IfBE(slt[2]);
-      this.v5h ^= swap8IfBE(slt[3]);
-    }
-    if (personalization !== undefined) {
-      abytes(personalization, undefined, "personalization");
-      const pers = u32(copyBytes(personalization));
-      this.v6l ^= swap8IfBE(pers[0]);
-      this.v6h ^= swap8IfBE(pers[1]);
-      this.v7l ^= swap8IfBE(pers[2]);
-      this.v7h ^= swap8IfBE(pers[3]);
-    }
-    if (key !== undefined) {
-      const tmp = new Uint8Array(this.blockLen);
-      tmp.set(key);
-      this.update(tmp);
-      clean(tmp);
-    }
-  }
-  get() {
-    let { v0l, v0h, v1l, v1h, v2l, v2h, v3l, v3h, v4l, v4h, v5l, v5h, v6l, v6h, v7l, v7h } = this;
-    return [v0l, v0h, v1l, v1h, v2l, v2h, v3l, v3h, v4l, v4h, v5l, v5h, v6l, v6h, v7l, v7h];
-  }
-  set(v0l, v0h, v1l, v1h, v2l, v2h, v3l, v3h, v4l, v4h, v5l, v5h, v6l, v6h, v7l, v7h) {
-    this.v0l = v0l | 0;
-    this.v0h = v0h | 0;
-    this.v1l = v1l | 0;
-    this.v1h = v1h | 0;
-    this.v2l = v2l | 0;
-    this.v2h = v2h | 0;
-    this.v3l = v3l | 0;
-    this.v3h = v3h | 0;
-    this.v4l = v4l | 0;
-    this.v4h = v4h | 0;
-    this.v5l = v5l | 0;
-    this.v5h = v5h | 0;
-    this.v6l = v6l | 0;
-    this.v6h = v6h | 0;
-    this.v7l = v7l | 0;
-    this.v7h = v7h | 0;
-  }
-  compress(msg, offset, isLast) {
-    const { v0l, v0h, v1l, v1h, v2l, v2h, v3l, v3h, v4l, v4h, v5l, v5h, v6l, v6h, v7l, v7h } = this;
-    {
-      BBUF[0] = v0l;
-      BBUF[1] = v0h;
-      BBUF[2] = v1l;
-      BBUF[3] = v1h;
-      BBUF[4] = v2l;
-      BBUF[5] = v2h;
-      BBUF[6] = v3l;
-      BBUF[7] = v3h;
-      BBUF[8] = v4l;
-      BBUF[9] = v4h;
-      BBUF[10] = v5l;
-      BBUF[11] = v5h;
-      BBUF[12] = v6l;
-      BBUF[13] = v6h;
-      BBUF[14] = v7l;
-      BBUF[15] = v7h;
-    }
-    BBUF.set(B2B_IV, 16);
-    const l = fromNumL(this.length);
-    const h = fromNumH(this.length);
-    BBUF[24] = B2B_IV[8] ^ l;
-    BBUF[25] = B2B_IV[9] ^ h;
-    if (isLast) {
-      BBUF[28] = ~BBUF[28];
-      BBUF[29] = ~BBUF[29];
-    }
-    let j = 0;
-    const s = BSIGMA;
-    for (let i = 0;i < 12; i++) {
-      G1b(0, 4, 8, 12, msg, offset + 2 * s[j++]);
-      G2b(0, 4, 8, 12, msg, offset + 2 * s[j++]);
-      G1b(1, 5, 9, 13, msg, offset + 2 * s[j++]);
-      G2b(1, 5, 9, 13, msg, offset + 2 * s[j++]);
-      G1b(2, 6, 10, 14, msg, offset + 2 * s[j++]);
-      G2b(2, 6, 10, 14, msg, offset + 2 * s[j++]);
-      G1b(3, 7, 11, 15, msg, offset + 2 * s[j++]);
-      G2b(3, 7, 11, 15, msg, offset + 2 * s[j++]);
-      G1b(0, 5, 10, 15, msg, offset + 2 * s[j++]);
-      G2b(0, 5, 10, 15, msg, offset + 2 * s[j++]);
-      G1b(1, 6, 11, 12, msg, offset + 2 * s[j++]);
-      G2b(1, 6, 11, 12, msg, offset + 2 * s[j++]);
-      G1b(2, 7, 8, 13, msg, offset + 2 * s[j++]);
-      G2b(2, 7, 8, 13, msg, offset + 2 * s[j++]);
-      G1b(3, 4, 9, 14, msg, offset + 2 * s[j++]);
-      G2b(3, 4, 9, 14, msg, offset + 2 * s[j++]);
-    }
-    this.v0l ^= BBUF[0] ^ BBUF[16];
-    this.v0h ^= BBUF[1] ^ BBUF[17];
-    this.v1l ^= BBUF[2] ^ BBUF[18];
-    this.v1h ^= BBUF[3] ^ BBUF[19];
-    this.v2l ^= BBUF[4] ^ BBUF[20];
-    this.v2h ^= BBUF[5] ^ BBUF[21];
-    this.v3l ^= BBUF[6] ^ BBUF[22];
-    this.v3h ^= BBUF[7] ^ BBUF[23];
-    this.v4l ^= BBUF[8] ^ BBUF[24];
-    this.v4h ^= BBUF[9] ^ BBUF[25];
-    this.v5l ^= BBUF[10] ^ BBUF[26];
-    this.v5h ^= BBUF[11] ^ BBUF[27];
-    this.v6l ^= BBUF[12] ^ BBUF[28];
-    this.v6h ^= BBUF[13] ^ BBUF[29];
-    this.v7l ^= BBUF[14] ^ BBUF[30];
-    this.v7h ^= BBUF[15] ^ BBUF[31];
-    clean(BBUF);
-  }
-  destroy() {
-    this.destroyed = true;
-    clean(this.buffer32);
-    this.set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-  }
-}
 function _compress(s, offset, msg, rounds, v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15) {
   let j = 0;
   for (let i = 0;i < rounds; i++) {
@@ -5284,81 +4782,6 @@ function _compress(s, offset, msg, rounds, v0, v1, v2, v3, v4, v5, v6, v7, v8, v
     ({ a: v3, b: v4, c: v9, d: v14 } = G2s(v3, v4, v9, v14, msg[offset + s[j++]]));
   }
   return { v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15 };
-}
-var B2S_IV = /* @__PURE__ */ SHA256_IV.slice();
-
-class _BLAKE2s extends _BLAKE2 {
-  v0 = B2S_IV[0] | 0;
-  v1 = B2S_IV[1] | 0;
-  v2 = B2S_IV[2] | 0;
-  v3 = B2S_IV[3] | 0;
-  v4 = B2S_IV[4] | 0;
-  v5 = B2S_IV[5] | 0;
-  v6 = B2S_IV[6] | 0;
-  v7 = B2S_IV[7] | 0;
-  constructor(opts = {}) {
-    opts = checkOpts({}, opts);
-    const olen = opts.dkLen === undefined ? 32 : opts.dkLen;
-    super(64, olen);
-    checkBlake2Opts(olen, opts, 32, 8, 8);
-    let { key, personalization, salt } = opts;
-    let keyLength = 0;
-    if (key !== undefined) {
-      abytes(key, undefined, "key");
-      keyLength = key.length;
-    }
-    this.v0 ^= this.outputLen | keyLength << 8 | 1 << 16 | 1 << 24;
-    if (salt !== undefined) {
-      abytes(salt, undefined, "salt");
-      const slt = u32(copyBytes(salt));
-      this.v4 ^= swap8IfBE(slt[0]);
-      this.v5 ^= swap8IfBE(slt[1]);
-    }
-    if (personalization !== undefined) {
-      abytes(personalization, undefined, "personalization");
-      const pers = u32(copyBytes(personalization));
-      this.v6 ^= swap8IfBE(pers[0]);
-      this.v7 ^= swap8IfBE(pers[1]);
-    }
-    if (key !== undefined) {
-      const tmp = new Uint8Array(this.blockLen);
-      tmp.set(key);
-      this.update(tmp);
-      clean(tmp);
-    }
-  }
-  get() {
-    const { v0, v1, v2, v3, v4, v5, v6, v7 } = this;
-    return [v0, v1, v2, v3, v4, v5, v6, v7];
-  }
-  set(v0, v1, v2, v3, v4, v5, v6, v7) {
-    this.v0 = v0 | 0;
-    this.v1 = v1 | 0;
-    this.v2 = v2 | 0;
-    this.v3 = v3 | 0;
-    this.v4 = v4 | 0;
-    this.v5 = v5 | 0;
-    this.v6 = v6 | 0;
-    this.v7 = v7 | 0;
-  }
-  compress(msg, offset, isLast) {
-    const l = fromNumL(this.length);
-    const h = fromNumH(this.length);
-    const { v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15 } = _compress(BSIGMA, offset, msg, 10, this.v0, this.v1, this.v2, this.v3, this.v4, this.v5, this.v6, this.v7, B2S_IV[0], B2S_IV[1], B2S_IV[2], B2S_IV[3], l ^ B2S_IV[4], h ^ B2S_IV[5], isLast ? ~B2S_IV[6] : B2S_IV[6], B2S_IV[7]);
-    this.v0 ^= v0 ^ v8;
-    this.v1 ^= v1 ^ v9;
-    this.v2 ^= v2 ^ v10;
-    this.v3 ^= v3 ^ v11;
-    this.v4 ^= v4 ^ v12;
-    this.v5 ^= v5 ^ v13;
-    this.v6 ^= v6 ^ v14;
-    this.v7 ^= v7 ^ v15;
-  }
-  destroy() {
-    this.destroyed = true;
-    clean(this.buffer32);
-    this.set(0, 0, 0, 0, 0, 0, 0, 0);
-  }
 }
 
 // node_modules/@noble/hashes/blake3.js
@@ -10614,13 +10037,13 @@ init_guard();
 init_error2();
 var exports_pointer = {};
 __export(exports_pointer, {
-  ValuePointerRootSetError: () => ValuePointerRootSetError,
-  ValuePointerRootDeleteError: () => ValuePointerRootDeleteError,
-  Set: () => Set4,
-  Has: () => Has3,
-  Get: () => Get3,
+  Delete: () => Delete3,
   Format: () => Format,
-  Delete: () => Delete3
+  Get: () => Get3,
+  Has: () => Has3,
+  Set: () => Set4,
+  ValuePointerRootDeleteError: () => ValuePointerRootDeleteError,
+  ValuePointerRootSetError: () => ValuePointerRootSetError
 });
 
 class ValuePointerRootSetError extends TypeBoxError {
@@ -11050,27 +10473,30 @@ function Parse(...args) {
 // node_modules/@sinclair/typebox/build/esm/value/value/value.mjs
 var exports_value2 = {};
 __export(exports_value2, {
-  ValueErrorIterator: () => ValueErrorIterator,
-  Patch: () => Patch,
-  Parse: () => Parse,
-  Mutate: () => Mutate,
-  Hash: () => Hash,
-  Errors: () => Errors,
-  Equal: () => Equal,
-  Encode: () => Encode,
-  Edit: () => Edit,
-  Diff: () => Diff,
-  Default: () => Default5,
-  Decode: () => Decode,
-  Create: () => Create2,
-  Convert: () => Convert,
-  Clone: () => Clone2,
-  Clean: () => Clean,
-  Check: () => Check,
+  Assert: () => Assert,
   Cast: () => Cast,
-  Assert: () => Assert
+  Check: () => Check,
+  Clean: () => Clean,
+  Clone: () => Clone2,
+  Convert: () => Convert,
+  Create: () => Create2,
+  Decode: () => Decode,
+  Default: () => Default5,
+  Diff: () => Diff,
+  Edit: () => Edit,
+  Encode: () => Encode,
+  Equal: () => Equal,
+  Errors: () => Errors,
+  Hash: () => Hash,
+  Mutate: () => Mutate,
+  Parse: () => Parse,
+  Patch: () => Patch,
+  ValueErrorIterator: () => ValueErrorIterator
 });
 // src/common/types.ts
+function isAid(input) {
+  return /^E[A-Za-z0-9_-]{43}$/.test(input);
+}
 var Qb64Schema = Type.String({
   minLength: 4,
   title: "CESR qb64",
@@ -11963,223 +11389,224 @@ function createTypedRemote(store, codec, resolvePath) {
   };
 }
 // src/version.ts
-var VERSION = "0.3.101";
-var GIT_SHA = "dad9dd03de1017d937fb286d48ea9e086f937344";
+var VERSION = "0.3.107";
+var GIT_SHA = "dd33c6d988cb6f0f14b81114641be696fc3388f9";
 export {
-  verifyWitnessReceipt,
-  verify,
-  validateSignedIcp,
-  validateSAID,
-  validateRequiredFields,
-  validatePublishedCredential,
-  validateKeyChain,
-  validateKelChain,
-  validateKel,
-  validateInceptionSignRequest,
-  validateEventSaid,
-  transferableKeyToPublicKey,
-  toEd25519KeyPairBranded,
-  sign,
-  sha512Hex,
-  sha512,
-  sha256Hex,
-  sha256,
-  serializeForSigning,
-  serializeEnvelope,
-  schemaSaidOf,
-  saidOf,
-  resourceKey,
-  remoteRecordsFromKelManifestData,
-  remoteRecordsFromAidManifest,
-  reduceKelState,
-  recoveryPublicKeyAt,
-  recoveryKeyDerivationSpec,
-  recoveryCommitmentAt,
-  recomputeSaid,
-  randomBytes,
-  profileUsernameFromDisplayName,
-  presentationDefinitionSaid,
-  parseSimpleThreshold,
-  parseSha256Hex,
-  parseSaidQb64,
-  parseProfileAlias,
-  parseKelManifestWire,
-  parseEd25519SignatureQb64,
-  parseEd25519PublicQb64,
-  parseEd25519PrivateQb64,
-  parseBlake3Qb64Digest,
-  parseBlake3Qb64,
-  parseBlake3Hex,
-  parseAidQb64,
-  ok,
-  normalizeThreshold,
-  normalizeDisplayNameToProfileUsername,
-  nextKeyDigestQb64FromPublicKeyQb64,
-  mergeRemoteRecords,
-  memberRole,
-  manifestUrlFromRecords,
-  manifestUrlFromKelManifestData,
-  latestSnFromKelManifestData,
-  keyRefEquals,
-  keyRef,
-  kelManifestDataToAidManifest,
-  isValidKeriEvent,
-  isStructuredValidationError,
-  isSecp256k1Signer,
-  isEd25519Signer,
-  inspect,
-  inferSchema,
-  hkdfSha256,
-  hkdfBlake3,
-  hexToBytes,
-  getPublicKey,
-  getCodeMeta,
-  generateKeyPair,
-  eventContainsAnchorForSaid,
-  err,
-  encryptEnvelope,
-  encodeSig as encodeSignature,
-  encodeSAID,
-  encodeKey,
-  encodeEventBytes,
-  encodeDigest2 as encodeDigest,
-  encodeBase64Url,
-  encodeBase64,
-  encode3 as encode,
-  ed25519ToX25519Public,
-  ed25519ToX25519Private,
-  digestVerfer,
-  deserializeEnvelope,
-  deriveSharedSecret,
-  deriveScheduledEd25519Keypair,
-  deriveSaid,
-  decryptEnvelope,
-  decodeSig as decodeSignature,
-  decodeKey,
-  decodeDigest,
-  decodeBase64Url,
-  decodeBase64,
-  decode2 as decode,
-  createTypedRemote,
-  createStructuredValidationError,
-  createSaidMessageType,
-  createInitialRecoveryDerivation,
-  checkThreshold,
-  canonicalizeToBytes,
-  canonicalizeEvent,
-  canonicalize2 as canonicalize,
-  canonical,
-  bytesToHex,
-  buildPublishedMembershipDirectory,
-  buildDeviceRecoverySigningPath,
-  buildAccountRecoverySigningPath,
-  buildACDCCredentialSurface,
-  buildAAD,
-  assessTelKelAnchors,
-  assessTelKelAnchor,
-  asEd25519PublicRaw,
-  asEd25519PrivateRaw,
-  aidManifestToKelManifestData,
-  advanceRecoveryDerivation,
-  WeightedThresholdSchema,
-  VersionSchema,
-  VerificationError,
-  VaultErrorCode,
-  ValidationErrorCode,
-  ValidationError,
-  VERSION,
-  TimestampSchema,
-  ThresholdSchema,
-  ThresholdExpressionSchema,
-  ThresholdExpressionPattern,
-  ThresholdError,
-  Tel,
-  TEL_VRT_SURFACE,
-  TEL_VCP_WITH_NONCE_SURFACE,
-  TEL_VCP_SURFACE,
-  TEL_REV_SURFACE,
-  TEL_ISS_SURFACE,
-  TEL_BRV_SURFACE,
-  TEL_BIS_SURFACE,
-  TELOps,
-  TELEvents,
-  TELData,
-  Signers,
-  Signature as SignatureOps,
-  SchemaOps,
-  SchemaData,
-  Schema,
-  Said,
-  SAID_PLACEHOLDER,
-  RotEventSchema2 as RotEventSchema,
-  RECOVERY_SCHEDULE_VERSION,
-  RECOVERY_EXPAND_SALT,
-  Qb64Schema,
-  PublishedResourceSchema,
-  PublishedMembershipDirectorySchema,
-  PublishedCredentialSchema,
-  PermissionError,
-  NotFoundError,
-  NonEmpty,
-  NetworkError,
-  MemberDirectoryEntrySchema,
-  MAX_HKDF_DERIVE_LENGTH,
-  KeyRefSchema,
-  KeyIndexSchema2 as KeyIndexSchema,
-  KeriVersionPattern,
-  KeriPublicKeySchema,
-  KeriPrivateKeySchema,
-  KeriKeyPairs,
-  KeriKeyPairSchema,
-  KelErrorCode,
-  KelAppends2 as KelAppends,
-  KelAppendSchema2 as KelAppendSchema,
-  Kel,
-  KSNs2 as KSNs,
-  KSNSchema2 as KSNSchema,
-  KERI_PREFIX,
-  KEL_ROT_SURFACE,
-  KEL_IXN_SURFACE,
-  KEL_ICP_SURFACE,
-  KEL_DRT_SURFACE,
-  KEL_DIP_SURFACE,
-  KELOps,
-  KELManifestDataSchema,
-  KELEvents,
-  KELEventSchema2 as KELEventSchema,
-  KELData,
-  IxnEventSchema2 as IxnEventSchema,
-  IssEventSchema,
-  IcpEventSchema2 as IcpEventSchema,
-  GIT_SHA,
-  DrtEventSchema2 as DrtEventSchema,
-  DipEventSchema2 as DipEventSchema,
-  DigestSealSchema2 as DigestSealSchema,
-  Data,
-  CoreError,
-  ControllerNotFoundError,
-  ConflictError,
-  CesrType,
-  CesrSignatureSchema,
-  CesrSealSchema2 as CesrSealSchema,
-  CesrKeyTransferableSchema,
-  CesrDigestSchema,
-  CesrAttachment_WitnessReceipt2 as CesrAttachment_WitnessReceipt,
-  CesrAttachment_ValidatorReceipt2 as CesrAttachment_ValidatorReceipt,
-  CesrAttachment_Signature2 as CesrAttachment_Signature,
-  CesrAttachmentSchema2 as CesrAttachmentSchema,
-  CesrAidSchema,
-  Cesr,
-  CanonicalPaths,
-  CESREventSchema2 as CESREventSchema,
-  BisEventSchema,
-  AnySealSchema2 as AnySealSchema,
-  AidManifestSchema2 as AidManifestSchema,
-  AidManifestEventSchema2 as AidManifestEventSchema,
-  Acdc,
-  ACDC_SCHEMA_SURFACE,
-  ACDC_CREDENTIAL_SURFACE,
-  ACDCOps,
+  ACCOUNT_RECOVERY_PATH_PREFIX,
   ACDCData,
-  ACCOUNT_RECOVERY_PATH_PREFIX
+  ACDCOps,
+  ACDC_CREDENTIAL_SURFACE,
+  ACDC_SCHEMA_SURFACE,
+  Acdc,
+  AidManifestEventSchema2 as AidManifestEventSchema,
+  AidManifestSchema2 as AidManifestSchema,
+  AnySealSchema2 as AnySealSchema,
+  BisEventSchema,
+  CESREventSchema2 as CESREventSchema,
+  CanonicalPaths,
+  Cesr,
+  CesrAidSchema,
+  CesrAttachmentSchema2 as CesrAttachmentSchema,
+  CesrAttachment_Signature2 as CesrAttachment_Signature,
+  CesrAttachment_ValidatorReceipt2 as CesrAttachment_ValidatorReceipt,
+  CesrAttachment_WitnessReceipt2 as CesrAttachment_WitnessReceipt,
+  CesrDigestSchema,
+  CesrKeyTransferableSchema,
+  CesrSealSchema2 as CesrSealSchema,
+  CesrSignatureSchema,
+  CesrType,
+  ConflictError,
+  ControllerNotFoundError,
+  CoreError,
+  Data,
+  DigestSealSchema2 as DigestSealSchema,
+  DipEventSchema2 as DipEventSchema,
+  DrtEventSchema2 as DrtEventSchema,
+  GIT_SHA,
+  IcpEventSchema2 as IcpEventSchema,
+  IssEventSchema,
+  IxnEventSchema2 as IxnEventSchema,
+  KELData,
+  KELEventSchema2 as KELEventSchema,
+  KELEvents,
+  KELManifestDataSchema,
+  KELOps,
+  KEL_DIP_SURFACE,
+  KEL_DRT_SURFACE,
+  KEL_ICP_SURFACE,
+  KEL_IXN_SURFACE,
+  KEL_ROT_SURFACE,
+  KERI_PREFIX,
+  KSNSchema2 as KSNSchema,
+  KSNs2 as KSNs,
+  Kel,
+  KelAppendSchema2 as KelAppendSchema,
+  KelAppends2 as KelAppends,
+  KelErrorCode,
+  KeriKeyPairSchema,
+  KeriKeyPairs,
+  KeriPrivateKeySchema,
+  KeriPublicKeySchema,
+  KeriVersionPattern,
+  KeyIndexSchema2 as KeyIndexSchema,
+  KeyRefSchema,
+  MAX_HKDF_DERIVE_LENGTH,
+  MemberDirectoryEntrySchema,
+  NetworkError,
+  NonEmpty,
+  NotFoundError,
+  PermissionError,
+  PublishedCredentialSchema,
+  PublishedMembershipDirectorySchema,
+  PublishedResourceSchema,
+  Qb64Schema,
+  RECOVERY_EXPAND_SALT,
+  RECOVERY_SCHEDULE_VERSION,
+  RotEventSchema2 as RotEventSchema,
+  SAID_PLACEHOLDER,
+  Said,
+  Schema,
+  SchemaData,
+  SchemaOps,
+  Signature as SignatureOps,
+  Signers,
+  TELData,
+  TELEvents,
+  TELOps,
+  TEL_BIS_SURFACE,
+  TEL_BRV_SURFACE,
+  TEL_ISS_SURFACE,
+  TEL_REV_SURFACE,
+  TEL_VCP_SURFACE,
+  TEL_VCP_WITH_NONCE_SURFACE,
+  TEL_VRT_SURFACE,
+  Tel,
+  ThresholdError,
+  ThresholdExpressionPattern,
+  ThresholdExpressionSchema,
+  ThresholdSchema,
+  TimestampSchema,
+  VERSION,
+  ValidationError,
+  ValidationErrorCode,
+  VaultErrorCode,
+  VerificationError,
+  VersionSchema,
+  WeightedThresholdSchema,
+  advanceRecoveryDerivation,
+  aidManifestToKelManifestData,
+  asEd25519PrivateRaw,
+  asEd25519PublicRaw,
+  assessTelKelAnchor,
+  assessTelKelAnchors,
+  buildAAD,
+  buildACDCCredentialSurface,
+  buildAccountRecoverySigningPath,
+  buildDeviceRecoverySigningPath,
+  buildPublishedMembershipDirectory,
+  bytesToHex,
+  canonical,
+  canonicalize2 as canonicalize,
+  canonicalizeEvent,
+  canonicalizeToBytes,
+  checkThreshold,
+  createInitialRecoveryDerivation,
+  createSaidMessageType,
+  createStructuredValidationError,
+  createTypedRemote,
+  decode2 as decode,
+  decodeBase64,
+  decodeBase64Url,
+  decodeDigest,
+  decodeKey,
+  decodeSig as decodeSignature,
+  decryptEnvelope,
+  deriveSaid,
+  deriveScheduledEd25519Keypair,
+  deriveSharedSecret,
+  deserializeEnvelope,
+  digestVerfer,
+  ed25519ToX25519Private,
+  ed25519ToX25519Public,
+  encode3 as encode,
+  encodeBase64,
+  encodeBase64Url,
+  encodeDigest2 as encodeDigest,
+  encodeEventBytes,
+  encodeKey,
+  encodeSAID,
+  encodeSig as encodeSignature,
+  encryptEnvelope,
+  err,
+  eventContainsAnchorForSaid,
+  generateKeyPair,
+  getCodeMeta,
+  getPublicKey,
+  hexToBytes,
+  hkdfBlake3,
+  hkdfSha256,
+  inferSchema,
+  inspect,
+  isAid,
+  isEd25519Signer,
+  isSecp256k1Signer,
+  isStructuredValidationError,
+  isValidKeriEvent,
+  kelManifestDataToAidManifest,
+  keyRef,
+  keyRefEquals,
+  latestSnFromKelManifestData,
+  manifestUrlFromKelManifestData,
+  manifestUrlFromRecords,
+  memberRole,
+  mergeRemoteRecords,
+  nextKeyDigestQb64FromPublicKeyQb64,
+  normalizeDisplayNameToProfileUsername,
+  normalizeThreshold,
+  ok,
+  parseAidQb64,
+  parseBlake3Hex,
+  parseBlake3Qb64,
+  parseBlake3Qb64Digest,
+  parseEd25519PrivateQb64,
+  parseEd25519PublicQb64,
+  parseEd25519SignatureQb64,
+  parseKelManifestWire,
+  parseProfileAlias,
+  parseSaidQb64,
+  parseSha256Hex,
+  parseSimpleThreshold,
+  presentationDefinitionSaid,
+  profileUsernameFromDisplayName,
+  randomBytes,
+  recomputeSaid,
+  recoveryCommitmentAt,
+  recoveryKeyDerivationSpec,
+  recoveryPublicKeyAt,
+  reduceKelState,
+  remoteRecordsFromAidManifest,
+  remoteRecordsFromKelManifestData,
+  resourceKey,
+  saidOf,
+  schemaSaidOf,
+  serializeEnvelope,
+  serializeForSigning,
+  sha256,
+  sha256Hex,
+  sha512,
+  sha512Hex,
+  sign,
+  toEd25519KeyPairBranded,
+  transferableKeyToPublicKey,
+  validateEventSaid,
+  validateInceptionSignRequest,
+  validateKel,
+  validateKelChain,
+  validateKeyChain,
+  validatePublishedCredential,
+  validateRequiredFields,
+  validateSAID,
+  validateSignedIcp,
+  verify,
+  verifyWitnessReceipt
 };

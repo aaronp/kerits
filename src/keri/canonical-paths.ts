@@ -25,6 +25,7 @@ export const CanonicalPaths = {
   oobi: (aid: AID) => `${KERI_PREFIX}/oobi/${aid}`,
   schema: (said: SAID) => `${KERI_PREFIX}/said/${said}/schema`,
   acdc: (said: SAID) => `${KERI_PREFIX}/said/${said}/acdc`,
+  credentialPass: (said: SAID) => `${KERI_PREFIX}/said/${said}/pass`,
   /** Full-history TEL aggregate for a registry — mutable, stores `TelEvent[]`. */
   tel: (rid: SAID) => `${KERI_PREFIX}/registry/${rid}/tel`,
   rsn: (rid: SAID) => `${KERI_PREFIX}/registry/${rid}/rsn`,
@@ -44,6 +45,8 @@ export const CanonicalPaths = {
   /** Publisher-scoped metadata for one immutable policy SAID. */
   policyMetadata: (aid: AID, policySAID: SAID) => `${KERI_PREFIX}/aid/${aid}/policies/${policySAID}/metadata`,
   aliasProfile: (alias: ProfileAlias) => `${KERI_PREFIX}/alias/${alias}/profile`,
+  /** did:web DID document path for an alias — lives outside /.well-known/keri/ per did:web spec. */
+  didDocument: (alias: ProfileAlias) => `/${alias}/did.json`,
   fullUrl: (baseUrl: string, path: string) => `${baseUrl.replace(/\/+$/, '')}${path}`,
   /** Strips the `/.well-known/keri/...` suffix from a manifest (or any canonical) URL to recover the base URL. */
   baseUrlFromManifest: (manifestUrl: string) => manifestUrl.replace(/\/\.well-known\/keri\/.*$/, ''),

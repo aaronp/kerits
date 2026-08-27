@@ -13,7 +13,7 @@
  */
 import type { DipParams, DrtParams, IcpParams, IxnParams, RotParams, UnsignedEventResult } from './events.js';
 import { KELEvents } from './events.js';
-import type { IcpEvent } from './types.js';
+import type { DipEvent, IcpEvent } from './types.js';
 
 export namespace KELData {
   // Builder functions only — no domain logic
@@ -33,6 +33,18 @@ export namespace KELData {
     const { unsignedEvent } = KELEvents.buildIcp(params);
     const { event, canonFinal } = KELEvents.computeSaid(unsignedEvent, true);
     return { event: event as IcpEvent, bytes: canonFinal.raw };
+  }
+
+  /**
+   * Build a delegated inception event and compute its SAID in one step.
+   *
+   * Returns the finalized event (with i, d, and di fields set) and canonical
+   * bytes ready for signing. Does not validate signatures or thresholds.
+   */
+  export function prepareDip(params: DipParams): { event: DipEvent; bytes: Uint8Array } {
+    const { unsignedEvent } = KELEvents.buildDip(params);
+    const { event, canonFinal } = KELEvents.computeSaid(unsignedEvent, true);
+    return { event: event as DipEvent, bytes: canonFinal.raw };
   }
 }
 

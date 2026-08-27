@@ -182,10 +182,14 @@ export namespace KELOps {
    * @param candidate - The new event to validate against the chain
    * @returns Discriminated union with `ok` flag and `EventValidationDetail`
    */
-  export function validateAppend(existingEvents: CESREvent[], candidate: CESREvent): ValidateAppendResult {
+  export function validateAppend(
+    existingEvents: CESREvent[],
+    candidate: CESREvent,
+    options?: { parentKel?: CESREvent[] },
+  ): ValidateAppendResult {
     const allEvents = [...existingEvents, candidate];
     const startIndex = existingEvents.length;
-    const result = _validateKelChain(allEvents, { startIndex });
+    const result = _validateKelChain(allEvents, { startIndex, parentKel: options?.parentKel });
     const candidateDetail = result.eventDetails[0];
 
     if (!candidateDetail) {
