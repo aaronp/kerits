@@ -30,7 +30,8 @@ import { matchKeyRevelation } from './rotation.js';
 import { checkThreshold, type ThresholdSpec } from './threshold.js';
 import { checkNormalizedThreshold } from './threshold-normalize.js';
 import type { AID, CESREvent, CesrAttachment, DipEvent, DrtEvent, IcpEvent, KELEvent, RotEvent } from './types.js';
-import { verifyVrcAgainstThreshold, verifyWitnessReceipt } from './validation-predicates.js';
+import { verifyWitnessReceipt } from './validation-predicates.js';
+import { validateDelegation } from './delegation-validation.js';
 
 /**
  * Error codes for KEL validation failures
@@ -470,90 +471,29 @@ function validateDelegationWithDetails(
   cesrEvent: CESREvent,
   parentKel?: CESREvent[],
 ): CheckResult & { parentAid?: string; missingParentKel?: boolean; vrcFailureReason?: string } {
-  const event = cesrEvent.event;
+  const result = validateDelegation({
+    childEvent: cesrEvent,
+    parentKel,
+  });
 
-  if (!isDelegatedEvent(event)) {
+  if (result.passed) {
+    return { passed: true, parentAid: result.parentAid };
+  }
+
+  // Non-delegated events pass (caller already guards with isDelegatedEvent)
+  if (result.reason === 'not-delegated') {
     return { passed: true };
   }
 
-  // Try to get the delegator AID from the event.
-  // dip events carry di; drt events do not (delegation established at inception).
-  const parentAid = ((event as any).di as string | undefined) ?? 'unknown';
-
-  if (!parentKel || parentKel.length === 0) {
-    return {
-      passed: false,
-      error: 'Parent KEL not provided',
-      parentAid,
-      missingParentKel: true,
-    };
-  }
-
-  // Look for VRC (validator receipt) attachment from parent
-  const vrcAttachments = getVrcAttachments(cesrEvent);
-
-  if (vrcAttachments.length === 0) {
-    return {
-      passed: false,
-      error: `No VRC attachment found for delegated event from parent ${parentAid}`,
-      parentAid,
-    };
-  }
-
-  // Resolve the parent establishment event at the seal-referenced sequence number.
-  // The VRC seal's `s` field identifies the parent event sequence at which the delegator
-  // endorsed this event. We need the most recent establishment event at or before that
-  // sequence to get the correct signing keys (the delegator's key state at endorsement time).
-  const sealSeq = vrcAttachments[0]?.seal?.s;
-  const sealSeqNum = sealSeq != null ? parseInt(sealSeq as string, 10) : undefined;
-
-  let parentEstablishment: (IcpEvent | RotEvent | DipEvent | DrtEvent) | undefined;
-  for (const pEvent of parentKel) {
-    const pSeqNum = parseInt(pEvent.event.s as string, 10);
-    // Stop walking once we've passed the seal-referenced sequence
-    if (sealSeqNum != null && pSeqNum > sealSeqNum) break;
-    if (isEstablishmentEvent(pEvent.event)) {
-      parentEstablishment = pEvent.event;
-    }
-  }
-
-  if (!parentEstablishment) {
-    return {
-      passed: false,
-      error: 'No establishment event found in parent KEL at or before seal sequence',
-      parentAid,
-    };
-  }
-
-  // Use aggregate VRC verifier with full threshold support
-  const vrcResult = verifyVrcAgainstThreshold(
-    vrcAttachments.map((v) => ({
-      cid: v.cid as string,
-      seal: { s: v.seal.s as string, d: v.seal.d as string },
-      sig: v.sig as Signature,
-      keyIndex: v.keyIndex as number | undefined,
-    })),
-    event as KELEvent,
-    { k: parentEstablishment.k as PublicKey[], kt: parentEstablishment.kt as Threshold },
-  );
-
-  if (!vrcResult.passed) {
-    // Map VRC failure reason to a typed field for the caller — no string matching
-    const VRC_REASON_TO_ERROR_MESSAGE: Record<string, string> = {
-      'threshold-not-met': `Delegator threshold not met: ${vrcResult.validKeyIndices.length} valid signatures`,
-      'key-index-out-of-range': 'VRC key index out of range for parent key list',
-      'cid-mismatch': `VRC child SAID mismatch: expected ${event.d}`,
-      'signature-invalid': 'Parent signature invalid for delegated event',
-    };
-    return {
-      passed: false,
-      error: VRC_REASON_TO_ERROR_MESSAGE[vrcResult.reason] ?? 'Delegation validation failed',
-      parentAid,
-      vrcFailureReason: vrcResult.reason, // typed field for error code mapping
-    };
-  }
-
-  return { passed: true, parentAid };
+  // Map new validation reasons to legacy interface
+  const missingParentKel = result.reason === 'missing-parent-kel' || result.reason === 'missing-seal-source';
+  return {
+    passed: false,
+    error: `Delegation validation failed: ${result.reason}`,
+    parentAid: result.parentAid,
+    missingParentKel,
+    vrcFailureReason: result.reason, // reuse the field for backward compat with error code mapping
+  };
 }
 
 // --------------------------------------------------------------------------------------
@@ -570,7 +510,7 @@ function isEstablishmentEvent(event: KELEvent): event is IcpEvent | RotEvent | D
 /**
  * Type guard for delegated events (have di field)
  */
-function isDelegatedEvent(event: KELEvent): event is DipEvent | DrtEvent {
+export function isDelegatedEvent(event: KELEvent): event is DipEvent | DrtEvent {
   return event.t === 'dip' || event.t === 'drt';
 }
 
@@ -579,13 +519,6 @@ function isDelegatedEvent(event: KELEvent): event is DipEvent | DrtEvent {
  */
 function getSignatureAttachments(cesrEvent: CESREvent): Array<CesrAttachment & { kind: 'sig' }> {
   return cesrEvent.attachments.filter((a): a is CesrAttachment & { kind: 'sig' } => a.kind === 'sig');
-}
-
-/**
- * Get VRC (validator receipt) attachments from a CESREvent
- */
-function getVrcAttachments(cesrEvent: CESREvent): Array<CesrAttachment & { kind: 'vrc' }> {
-  return cesrEvent.attachments.filter((a): a is CesrAttachment & { kind: 'vrc' } => a.kind === 'vrc');
 }
 
 /**
@@ -951,15 +884,17 @@ export function validateKel(
         if (delegationResult.missingParentKel) {
           errorCode = 'MISSING_PARENT_KEL';
         } else {
-          // Use typed vrcFailureReason field — no fragile string matching
-          const VRC_REASON_TO_CODE: Record<string, ValidationErrorCode> = {
-            'threshold-not-met': 'PARENT_THRESHOLD_NOT_MET',
-            'key-index-out-of-range': 'VRC_KEY_INDEX_INVALID',
-            'cid-mismatch': 'PARENT_SIGNATURE_INVALID',
-            'signature-invalid': 'PARENT_SIGNATURE_INVALID',
+          // Map delegation validation reasons to error codes
+          const REASON_TO_CODE: Record<string, ValidationErrorCode> = {
+            'parent-signatures-invalid': 'PARENT_SIGNATURE_INVALID',
+            'parent-said-mismatch': 'PARENT_SIGNATURE_INVALID',
+            'parent-event-not-found': 'PARENT_SIGNATURE_INVALID',
+            'parent-aid-mismatch': 'PARENT_SIGNATURE_INVALID',
+            'anchor-seal-missing': 'PARENT_SIGNATURE_INVALID',
+            'missing-seal-source': 'PARENT_SIGNATURE_INVALID',
           };
           const reason = delegationResult.vrcFailureReason;
-          errorCode = (reason && VRC_REASON_TO_CODE[reason]) || 'PARENT_SIGNATURE_INVALID';
+          errorCode = (reason && REASON_TO_CODE[reason]) || 'PARENT_SIGNATURE_INVALID';
         }
         firstError = {
           code: errorCode,

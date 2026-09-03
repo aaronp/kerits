@@ -655,12 +655,22 @@ export const CesrAttachment_ValidatorReceipt = Type.Object(
   },
 );
 
+/** Delegator seal-source couple — points to parent approving event (s,d). */
+export const CesrAttachment_DelegatorSealSource = Type.Object(
+  {
+    kind: Type.Literal('delegator-seal-source'),
+    s: NonEmpty('Sequence', 'Sequence number of the delegator approving event'),
+    d: CesrDigestSchema,
+  },
+  { additionalProperties: false, title: 'Delegator Seal Source Couple' },
+);
+
 /** Generic attachment union (extend later if you add seals, anchors, etc.). */
 export const CesrAttachmentSchema = Type.Union(
-  [CesrAttachment_Signature, CesrAttachment_WitnessReceipt, CesrAttachment_ValidatorReceipt],
+  [CesrAttachment_Signature, CesrAttachment_WitnessReceipt, CesrAttachment_ValidatorReceipt, CesrAttachment_DelegatorSealSource],
   {
     title: 'CESR Attachment',
-    description: 'Signatures and receipts attached to an event',
+    description: 'Signatures, receipts, and delegation seal-source couples attached to an event',
   },
 );
 export type CesrAttachment = Static<typeof CesrAttachmentSchema>;

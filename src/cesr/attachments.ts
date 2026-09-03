@@ -19,6 +19,7 @@ export function encodeAttachmentGroups(attachments: readonly CesrAttachment[]): 
   const indexedSigs: Array<Extract<CesrAttachment, { kind: 'sig'; form: 'indexed' }>> = [];
   const receiptCouples: Array<Extract<CesrAttachment, { kind: 'rct' }>> = [];
   const transReceiptQuads: Array<Extract<CesrAttachment, { kind: 'vrc' }>> = [];
+  const sealSourceCouples: Array<Extract<CesrAttachment, { kind: 'delegator-seal-source' }>> = [];
 
   for (const att of attachments) {
     if (att.kind === 'sig' && att.form === 'indexed') {
@@ -27,6 +28,8 @@ export function encodeAttachmentGroups(attachments: readonly CesrAttachment[]): 
       receiptCouples.push(att as Extract<CesrAttachment, { kind: 'rct' }>);
     } else if (att.kind === 'vrc') {
       transReceiptQuads.push(att as Extract<CesrAttachment, { kind: 'vrc' }>);
+    } else if (att.kind === 'delegator-seal-source') {
+      sealSourceCouples.push(att as Extract<CesrAttachment, { kind: 'delegator-seal-source' }>);
     } else {
       throw new Error(
         `Unsupported attachment type for encoding: kind=${att.kind}${'form' in att ? `, form=${att.form}` : ''}`,
@@ -66,6 +69,17 @@ export function encodeAttachmentGroups(attachments: readonly CesrAttachment[]): 
     result += counter.qb64;
     for (const att of transReceiptQuads) {
       result += encodeTransReceiptQuadruple(att);
+    }
+  }
+
+  if (sealSourceCouples.length > 0) {
+    const counter = new Counter({
+      code: CtrDex.SealSourceCouples,
+      count: sealSourceCouples.length,
+    });
+    result += counter.qb64;
+    for (const att of sealSourceCouples) {
+      result += encodeSealSourceCouple(att);
     }
   }
 
@@ -137,6 +151,15 @@ export function decodeAttachmentGroupsFromStream(data: Uint8Array): {
           throw new Error(`Truncated: expected ${counter.count} receipt quadruples, got ${i}`);
         }
         const { attachment, consumed } = decodeTransReceiptQuadruple(text, pos);
+        attachments.push(attachment);
+        pos += consumed;
+      }
+    } else if (counter.code === CtrDex.SealSourceCouples) {
+      for (let i = 0; i < counter.count; i++) {
+        if (pos >= text.length) {
+          throw new Error(`Truncated: expected ${counter.count} seal-source couples, got ${i}`);
+        }
+        const { attachment, consumed } = decodeSealSourceCouple(text, pos);
         attachments.push(attachment);
         pos += consumed;
       }
@@ -345,5 +368,34 @@ function decodeReceiptCouple(text: string, pos: number): { attachment: CesrAttac
       sig: sig.matter.qb64,
     },
     consumed: prefix.consumed + sig.consumed,
+  };
+}
+
+function encodeSealSourceCouple(att: Extract<CesrAttachment, { kind: 'delegator-seal-source' }>): string {
+  const snNum = parseInt(att.s, 10);
+  const raw = new Uint8Array(16);
+  const view = new DataView(raw.buffer);
+  view.setUint32(12, snNum, false); // big-endian in last 4 bytes
+  const seqnerQb64 = new Matter({ raw, code: '0A' }).qb64;
+  return seqnerQb64 + att.d;
+}
+
+function decodeSealSourceCouple(text: string, pos: number): { attachment: CesrAttachment; consumed: number } {
+  const seqner = parseMatter(text, pos, 'seal-source couple seqner');
+  const seqnerRaw = seqner.matter.raw;
+  let sn = 0;
+  for (let b = 0; b < seqnerRaw.byteLength; b++) {
+    sn = sn * 256 + (seqnerRaw[b] ?? 0);
+  }
+
+  const digest = parseMatter(text, pos + seqner.consumed, 'seal-source couple digest');
+
+  return {
+    attachment: {
+      kind: 'delegator-seal-source',
+      s: String(sn),
+      d: digest.matter.qb64,
+    },
+    consumed: seqner.consumed + digest.consumed,
   };
 }

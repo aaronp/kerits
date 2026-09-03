@@ -234,8 +234,8 @@ export namespace KELOps {
     return { ok: true, validation: candidateDetail };
   }
 
-  /** Check names that may fail on append while signatures are still being collected. */
-  const APPEND_ALLOWED_FAILURE_CHECKS = new Set(['signaturesValid', 'thresholdMet']);
+  /** Check names that may fail on append while signatures/delegation are still pending. */
+  const APPEND_ALLOWED_FAILURE_CHECKS = new Set(['signaturesValid', 'thresholdMet', 'delegationValid']);
 
   /**
    * True when every failing validation check is limited to controller signatures

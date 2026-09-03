@@ -13,6 +13,7 @@ function makeEd25519SigQb64(): string {
 }
 
 const validSigQb64 = makeEd25519SigQb64();
+const validDigestQb64 = new Matter({ raw: new Uint8Array(32), code: MtrDex.Blake3_256 }).qb64;
 
 describe('encodeAttachmentGroups', () => {
   it('returns empty bytes for empty attachments', () => {
@@ -314,6 +315,52 @@ describe('transferable receipt quadruples (-D)', () => {
     };
     const wire = encodeAttachmentGroups([att]);
     const decoded = decodeAttachmentGroups(wire);
+    expect(decoded).toHaveLength(1);
+    expect(decoded[0]).toEqual(att);
+  });
+});
+
+describe('delegator-seal-source couple (-G)', () => {
+  it('encode and decode round-trips', () => {
+    // setup: a seal-source couple pointing to parent event sn=1
+    const att: CesrAttachment = {
+      kind: 'delegator-seal-source',
+      s: '1',
+      d: validDigestQb64,
+    };
+    // method under test: encode then decode
+    const encoded = encodeAttachmentGroups([att]);
+    const decoded = decodeAttachmentGroups(encoded);
+    // assertions: round-trips cleanly
+    expect(decoded).toHaveLength(1);
+    expect(decoded[0]).toEqual(att);
+  });
+
+  it('encodes with -G counter code', () => {
+    // setup: a seal-source couple
+    const att: CesrAttachment = {
+      kind: 'delegator-seal-source',
+      s: '1',
+      d: validDigestQb64,
+    };
+    // method under test: encode
+    const encoded = encodeAttachmentGroups([att]);
+    // assertions: wire bytes start with -G counter
+    const text = new TextDecoder().decode(encoded);
+    expect(text.startsWith('-G')).toBe(true);
+  });
+
+  it('handles large sequence numbers', () => {
+    // setup: a seal-source couple with a large sn
+    const att: CesrAttachment = {
+      kind: 'delegator-seal-source',
+      s: '1000000',
+      d: validDigestQb64,
+    };
+    // method under test: encode then decode
+    const encoded = encodeAttachmentGroups([att]);
+    const decoded = decodeAttachmentGroups(encoded);
+    // assertions: sn survives the round-trip exactly
     expect(decoded).toHaveLength(1);
     expect(decoded[0]).toEqual(att);
   });

@@ -1,0 +1,6 @@
+{
+  "_schemaVersion": 1,
+  "_comment": "Delegation cross-validation fixtures. Parent ICP -> Parent IXN (with child seal) -> Child DIP (with seal-source couple). Run scripts/generate-keripy-delegation.py to produce delegation-expected.json.",
+  "parentSeed": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+  "childSeed": "efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef"
+}

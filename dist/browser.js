@@ -4574,6 +4574,14 @@ var aobject = (value, label) => {
   if (value === null || typeof value !== "object" || Array.isArray(value))
     throw new TypeError((label === "object" ? "" : `"${label}" `) + "expected object, got type=" + typeof value);
 };
+var aopts = (value, label) => {
+  aobject(value, label);
+  const proto = Object.getPrototypeOf(value);
+  if (proto !== Object.prototype && proto !== null)
+    throw new TypeError(`"${label}" expected plain object`);
+  if (Object.hasOwn(value, "__proto__"))
+    throw new TypeError(`"${label}.__proto__" is not allowed`);
+};
 function aexists(instance, checkFinished = true) {
   if (instance.destroyed)
     throw new Error("hash was destroyed");
@@ -4614,10 +4622,10 @@ function byteSwap32(arr) {
 }
 var swap32IfBE = isLE ? (u) => u : byteSwap32;
 function checkOpts(defaults, opts, title = "opts") {
-  aobject(defaults, "defaults");
+  aopts(defaults, "defaults");
   if (opts !== undefined)
-    aobject(opts, title);
-  const merged = Object.assign(defaults, opts);
+    aopts(opts, title);
+  const merged = Object.assign(Object.create(null), defaults, opts);
   return merged;
 }
 function createHasher(hashCons, info = {}) {
@@ -4875,7 +4883,7 @@ class _BLAKE3 extends _BLAKE2 {
     if (this.chunkPos === 16 || isLast) {
       let chunk = this.state;
       this.state = this.IV.slice();
-      for (let last, chunks = this.chunksDone + 1;isLast || !(chunks & 1); chunks >>= 1) {
+      for (let last, chunks = this.chunksDone + 1;isLast || !(chunks & 1); chunks = Math.floor(chunks / 2)) {
         if (!(last = this.stack.pop()))
           break;
         this.buffer32.set(last, 0);
@@ -11044,9 +11052,14 @@ var CesrAttachment_ValidatorReceipt = Type.Object({
   title: "Validator Receipt (vrc)",
   description: "Transferable validator receipt with explicit child SAID, seal-source, and signature"
 });
-var CesrAttachmentSchema = Type.Union([CesrAttachment_Signature, CesrAttachment_WitnessReceipt, CesrAttachment_ValidatorReceipt], {
+var CesrAttachment_DelegatorSealSource = Type.Object({
+  kind: Type.Literal("delegator-seal-source"),
+  s: NonEmpty("Sequence", "Sequence number of the delegator approving event"),
+  d: CesrDigestSchema
+}, { additionalProperties: false, title: "Delegator Seal Source Couple" });
+var CesrAttachmentSchema = Type.Union([CesrAttachment_Signature, CesrAttachment_WitnessReceipt, CesrAttachment_ValidatorReceipt, CesrAttachment_DelegatorSealSource], {
   title: "CESR Attachment",
-  description: "Signatures and receipts attached to an event"
+  description: "Signatures, receipts, and delegation seal-source couples attached to an event"
 });
 var KelAppendSchema = Type.Object({
   artifactId: NonEmpty("Artifact ID", "Local identifier within this plan", ["icp0", "rot1"]),
@@ -11389,8 +11402,8 @@ function createTypedRemote(store, codec, resolvePath) {
   };
 }
 // src/version.ts
-var VERSION = "0.3.107";
-var GIT_SHA = "dd33c6d988cb6f0f14b81114641be696fc3388f9";
+var VERSION = "0.3.112";
+var GIT_SHA = "318a9b17dbf3ad95acfad9e42a449c55c6da26f2";
 export {
   ACCOUNT_RECOVERY_PATH_PREFIX,
   ACDCData,

@@ -792,51 +792,63 @@ describe('validate-key-rotation', () => {
 // Helper: build a VRC attachment from a parent key over a child event
 // ===========================================================================
 
-function buildVrc(childEvent: KELEvent, parentKeypair: KeriKeyPair, parentIcp: KELEvent): CesrAttachment {
-  const sig = signEvent(childEvent, parentKeypair);
-  return {
-    kind: 'vrc' as const,
-    cid: childEvent.d,
-    seal: { i: parentIcp.i, s: parentIcp.s, d: parentIcp.d },
-    sig,
-  };
-}
-
 // ===========================================================================
-// Helper: build a signed dip with VRC from parent
+// Helper: build a signed dip with seal-source couple from parent
+//
+// Returns both the child dip and the parent ixn (with anchor) so callers can
+// include both in parentKel / chain arrays.
 // ===========================================================================
 
-function buildSignedDipWithVrc(
+function buildSignedDipWithSealSource(
   childKeys: KeriKeyPair[] = [KEY1],
   childNextKeys: KeriKeyPair[] = [KEY2],
-  parentKeypair: KeriKeyPair = PARENT1,
-  parentIcp: KELEvent,
-): { cesrEvent: CESREvent; event: KELEvent; said: SAID } {
+  parentIcpCesr: CESREvent,
+  parentSigningKeys: KeriKeyPair[] = [PARENT1],
+): {
+  dipCesr: CESREvent;
+  dipEvent: KELEvent;
+  dipSaid: SAID;
+  parentIxnCesr: CESREvent;
+} {
+  const parentIcpEvent = parentIcpCesr.event;
+
+  // Build child dip (no seal-source yet — we need the dip SAID first)
   const nextDigests = childNextKeys.map((k) => digestVerfer(k.publicKey));
-  const { unsignedEvent } = KELEvents.buildDip({
+  const { unsignedEvent: unsignedDip } = KELEvents.buildDip({
     keys: childKeys.map((k) => k.publicKey),
     nextKeyDigests: nextDigests,
     signingThreshold: String(childKeys.length),
     nextThreshold: String(childNextKeys.length),
-    parentAid: parentIcp.i as AID,
+    parentAid: parentIcpEvent.i as AID,
   });
+  const { event: dipEvent, said: dipSaid } = KELEvents.finalize(unsignedDip, true);
+  const childSig = signEvent(dipEvent, childKeys[0]!);
 
-  const { event, said } = KELEvents.finalize(unsignedEvent, true);
+  // Build parent ixn with anchor seal referencing the child dip
+  const { unsignedEvent: unsignedIxn } = KELEvents.buildIxn({
+    aid: parentIcpEvent.i as AID,
+    sequence: KELEvents.nextSequence(parentIcpEvent.s),
+    priorEventSaid: parentIcpEvent.d as SAID,
+    anchors: [{ i: dipEvent.i, s: String(dipEvent.s), d: dipEvent.d }],
+  });
+  const { event: ixnEvent, said: ixnSaid } = KELEvents.finalize(unsignedIxn, false);
+  const ixnSigs = parentSigningKeys.map((kp, idx) => ({
+    keyIndex: idx,
+    sig: signEvent(ixnEvent, kp),
+  }));
+  const parentIxnCesr = KELEvents.assembleSignedEvent({ event: ixnEvent, signatures: ixnSigs });
 
-  // Child signature
-  const childSig = signEvent(event, childKeys[0]!);
-  // Parent VRC
-  const vrc = buildVrc(event, parentKeypair, parentIcp);
-
-  const cesrEvent: CESREvent = {
-    event,
+  // Attach seal-source to the child dip pointing to the parent ixn
+  const dipCesr: CESREvent = {
+    event: dipEvent,
     attachments: [
       { kind: 'sig' as const, form: 'indexed' as const, keyIndex: 0, sig: childSig },
-      vrc,
+      { kind: 'delegator-seal-source' as const, s: String(ixnEvent.s), d: ixnSaid as string },
     ],
     enc: 'JSON',
   };
-  return { cesrEvent, event, said };
+
+  return { dipCesr, dipEvent, dipSaid, parentIxnCesr };
 }
 
 // ===========================================================================
@@ -849,57 +861,65 @@ describe('validate-delegation', () => {
   const parentIcpCesr = parentIcpResult.cesrEvent;
   const parentIcpEvent = parentIcpResult.event;
 
-  it('[valid-dip-with-vrc] Delegated inception with valid parent VRC passes delegation validation', () => {
-      const { cesrEvent: dipCesr } = buildSignedDipWithVrc([KEY1], [KEY2], PARENT1, parentIcpEvent);
-      const result = KELOps.validateKelChain([dipCesr], { parentKel: [parentIcpCesr] });
+  it('[valid-dip-with-seal-source] Delegated inception with valid seal-source passes delegation validation', () => {
+      // setup: dip with seal-source attachment pointing to parent ixn with anchor
+      const { dipCesr, parentIxnCesr } = buildSignedDipWithSealSource([KEY1], [KEY2], parentIcpCesr);
+      // method under test
+      const result = KELOps.validateKelChain([dipCesr], { parentKel: [parentIcpCesr, parentIxnCesr] });
+      // assertion: delegation check passes and chain is valid
       expect(result.eventDetails[0]!.checks.delegationValid?.passed).toBe(true);
       expect(result.valid).toBe(true);
   });
 
-  it('[missing-vrc-attachment] Delegated inception without VRC attachment fails delegation validation', () => {
-      // Build dip without VRC — use the existing buildSignedDip which has no VRC
+  it('[missing-seal-source] Delegated inception without seal-source attachment fails delegation validation', () => {
+      // setup: plain dip with no delegator-seal-source attachment
       const { cesrEvent: dipCesr } = buildSignedDip([KEY1], [KEY2], parentIcpEvent.i as AID);
+      // method under test
       const result = KELOps.validateKelChain([dipCesr], { parentKel: [parentIcpCesr] });
+      // assertion: missing seal-source is detected
       expect(result.eventDetails[0]!.checks.delegationValid?.passed).toBe(false);
-      expect(result.eventDetails[0]!.checks.delegationValid?.error).toContain('No VRC attachment');
+      expect(result.eventDetails[0]!.checks.delegationValid?.error).toContain('missing-seal-source');
   });
 
-  it('[wrong-parent-signature] VRC signed with wrong key fails signature verification', () => {
-      // Sign VRC with EXTRA1 instead of PARENT1
-      const { cesrEvent: dipCesr } = buildSignedDipWithVrc([KEY1], [KEY2], EXTRA1, parentIcpEvent);
-      const result = KELOps.validateKelChain([dipCesr], { parentKel: [parentIcpCesr] });
-      expect(result.eventDetails[0]!.checks.delegationValid?.passed).toBe(false);
-      expect(result.eventDetails[0]!.checks.delegationValid?.error).toContain('invalid');
-  });
-
-  it('[vrc-cid-mismatch] VRC with wrong child SAID fails validation', () => {
-      // Build a valid dip then tamper the VRC cid
-      const { cesrEvent: dipCesr } = buildSignedDipWithVrc([KEY1], [KEY2], PARENT1, parentIcpEvent);
-      const tamperedAttachments = dipCesr.attachments.map((att) => {
-        if (att.kind === 'vrc') {
-          return { ...att, cid: 'EBogus_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' };
-        }
-        return att;
+  it('[anchor-seal-missing] Seal-source points to parent event that lacks anchor seal for child', () => {
+      // setup: dip with seal-source but parent ixn has no anchors
+      const { dipCesr } = buildSignedDipWithSealSource([KEY1], [KEY2], parentIcpCesr);
+      // Build a parent ixn with no anchors and manually set seal-source to point to it
+      const { unsignedEvent: unsignedIxn } = KELEvents.buildIxn({
+        aid: parentIcpEvent.i as AID,
+        sequence: KELEvents.nextSequence(parentIcpEvent.s),
+        priorEventSaid: parentIcpEvent.d as SAID,
+        anchors: [], // no anchor for child
       });
-      const tamperedCesr: CESREvent = { ...dipCesr, attachments: tamperedAttachments };
-      const result = KELOps.validateKelChain([tamperedCesr], { parentKel: [parentIcpCesr] });
+      const { event: emptyIxnEvent, said: emptyIxnSaid } = KELEvents.finalize(unsignedIxn, false);
+      const emptyIxnCesr = KELEvents.assembleSignedEvent({
+        event: emptyIxnEvent,
+        signatures: [{ keyIndex: 0, sig: signEvent(emptyIxnEvent, PARENT1) }],
+      });
+      // Override the seal-source on the dip to point to the empty ixn
+      const tamperedDip: CESREvent = {
+        ...dipCesr,
+        attachments: dipCesr.attachments.map((a) =>
+          a.kind === 'delegator-seal-source'
+            ? { kind: 'delegator-seal-source' as const, s: String(emptyIxnEvent.s), d: emptyIxnSaid as string }
+            : a,
+        ),
+      };
+      // method under test
+      const result = KELOps.validateKelChain([tamperedDip], { parentKel: [parentIcpCesr, emptyIxnCesr] });
+      // assertion: anchor seal missing is detected
       expect(result.eventDetails[0]!.checks.delegationValid?.passed).toBe(false);
-      expect(result.eventDetails[0]!.checks.delegationValid?.error).toContain('mismatch');
+      expect(result.eventDetails[0]!.checks.delegationValid?.error).toContain('anchor-seal-missing');
   });
 
   it('[missing-parent-kel] Delegated inception without parent KEL option fails with missingParentKel flag', () => {
-      const { cesrEvent: dipCesr } = buildSignedDipWithVrc([KEY1], [KEY2], PARENT1, parentIcpEvent);
-      // No parentKel option provided
+      // setup: dip with seal-source but no parentKel option provided
+      const { dipCesr } = buildSignedDipWithSealSource([KEY1], [KEY2], parentIcpCesr);
+      // method under test
       const result = KELOps.validateKelChain([dipCesr]);
+      // assertion: missing seal-source (no parent KEL) sets the missingParentKel flag
       expect(result.eventDetails[0]!.checks.delegationValid?.passed).toBe(false);
       expect(result.eventDetails[0]!.checks.delegationValid?.missingParentKel).toBe(true);
-  });
-
-  it('[dip-without-parent-kel-error-message] Missing parent KEL error message mentions the parent KEL requirement', () => {
-      const { cesrEvent: dipCesr } = buildSignedDipWithVrc([KEY1], [KEY2], PARENT1, parentIcpEvent);
-      const result = KELOps.validateKelChain([dipCesr]);
-      expect(result.eventDetails[0]!.checks.delegationValid?.passed).toBe(false);
-      expect(result.eventDetails[0]!.checks.delegationValid?.error).toContain('Parent KEL not provided');
       expect(result.valid).toBe(false);
   });
 });
@@ -1271,19 +1291,18 @@ describe('validate-chain', () => {
       expect(result.firstError?.code).toBe('PREVIOUS_EVENT_MISMATCH');
   });
 
-  it('[chain-with-delegation] Delegated inception with VRC followed by ixn validates end-to-end', () => {
-      // Parent KEL
+  it('[chain-with-delegation] Delegated inception with seal-source followed by ixn validates end-to-end', () => {
+      // setup: parent KEL, child dip with seal-source, child ixn
       const parentIcpResult = buildSignedIcp([PARENT1], [PARENT2]);
       const parentIcpCesr = parentIcpResult.cesrEvent;
-      const parentIcpEvent = parentIcpResult.event;
 
-      // Child dip with VRC
-      const { cesrEvent: dipCesr, event: dipEvent, said: dipSaid } = buildSignedDipWithVrc(
-        [KEY1], [KEY2], PARENT1, parentIcpEvent,
+      const { dipCesr, dipEvent, dipSaid, parentIxnCesr } = buildSignedDipWithSealSource(
+        [KEY1], [KEY2], parentIcpCesr,
       );
-      // Child ixn
-      const { cesrEvent: ixnCesr } = buildSignedIxn(dipEvent, dipSaid, [KEY1]);
-      const result = KELOps.validateKelChain([dipCesr, ixnCesr], { parentKel: [parentIcpCesr] });
+      const { cesrEvent: childIxnCesr } = buildSignedIxn(dipEvent, dipSaid, [KEY1]);
+      // method under test
+      const result = KELOps.validateKelChain([dipCesr, childIxnCesr], { parentKel: [parentIcpCesr, parentIxnCesr] });
+      // assertion: full chain validates end-to-end
       expect(result.valid).toBe(true);
       expect(result.eventDetails).toHaveLength(2);
   });
@@ -1336,47 +1355,39 @@ describe('validate-witness-receipt-signatures', () => {
 });
 
 // ===========================================================================
-// validate-delegation-vrc-threshold scenarios
+// validate-delegation-seal-source error code scenarios
 // ===========================================================================
 
-describe('validate-delegation-vrc-threshold', () => {
-  it('[vrc-key-index-out-of-range-maps-correctly] VRC with out-of-range keyIndex produces VRC_KEY_INDEX_INVALID, not PARENT_SIGNATURE_INVALID', () => {
+describe('validate-delegation-seal-source', () => {
+  it('[missing-seal-source-maps-to-missing-parent-kel] Dip without seal-source and no parentKel maps to MISSING_PARENT_KEL', () => {
+      // setup: plain dip with no seal-source, no parentKel provided
       const parentIcp = buildSignedIcp([PARENT1], [PARENT2]);
-      const { cesrEvent, event } = buildSignedDip([KEY1], [KEY2], PARENT1.publicKey as AID);
+      const { cesrEvent } = buildSignedDip([KEY1], [KEY2], PARENT1.publicKey as AID);
 
-      // Build VRC with out-of-range keyIndex (index 5, parent only has 1 key)
-      const vrc: CesrAttachment = {
-        kind: 'vrc',
-        cid: event.d,
-        seal: { i: PARENT1.publicKey, s: '0', d: parentIcp.said },
-        sig: signEvent(event, PARENT1),
-        keyIndex: 5,
-      } as any;
-      const withVrc = { ...cesrEvent, attachments: [...cesrEvent.attachments, vrc] };
-
-      const result = KELOps.validateKelChain([withVrc], { parentKel: [parentIcp.cesrEvent] });
+      // method under test
+      const result = KELOps.validateKelChain([cesrEvent]);
+      // assertion: missing-seal-source (no parentKel guard) maps to MISSING_PARENT_KEL error code
       expect(result.valid).toBe(false);
-      expect(result.firstError?.code).toBe('VRC_KEY_INDEX_INVALID');
+      expect(result.firstError?.code).toBe('MISSING_PARENT_KEL');
   });
 
-  it('[delegator-threshold-not-met-maps-correctly] Valid VRC signatures that do not meet delegator kt produce PARENT_THRESHOLD_NOT_MET', () => {
-      // Multi-sig parent with kt=2
-      const parentIcp = buildSignedIcp([PARENT1, PARENT2], [EXTRA1, EXTRA2]);
-      const { cesrEvent, event } = buildSignedDip([KEY1], [KEY2], PARENT1.publicKey as AID);
+  it('[parent-event-not-found-maps-to-parent-signature-invalid] Seal-source pointing to absent parent event maps to PARENT_SIGNATURE_INVALID', () => {
+      // setup: dip with seal-source pointing to sn=5 but parent KEL only has sn=0
+      const parentIcp = buildSignedIcp([PARENT1], [PARENT2]);
+      const { cesrEvent: dipCesr } = buildSignedDip([KEY1], [KEY2], PARENT1.publicKey as AID);
+      const dipWithBadSource: CESREvent = {
+        ...dipCesr,
+        attachments: [
+          ...dipCesr.attachments,
+          { kind: 'delegator-seal-source' as const, s: '5', d: 'ENonExistentEvent' },
+        ],
+      };
 
-      // Only one VRC (need 2)
-      const vrc: CesrAttachment = {
-        kind: 'vrc',
-        cid: event.d,
-        seal: { i: PARENT1.publicKey, s: '0', d: parentIcp.said },
-        sig: signEvent(event, PARENT1),
-        keyIndex: 0,
-      } as any;
-      const withVrc = { ...cesrEvent, attachments: [...cesrEvent.attachments, vrc] };
-
-      const result = KELOps.validateKelChain([withVrc], { parentKel: [parentIcp.cesrEvent] });
+      // method under test
+      const result = KELOps.validateKelChain([dipWithBadSource], { parentKel: [parentIcp.cesrEvent] });
+      // assertion: parent event not found maps to PARENT_SIGNATURE_INVALID
       expect(result.valid).toBe(false);
-      expect(result.firstError?.code).toBe('PARENT_THRESHOLD_NOT_MET');
+      expect(result.firstError?.code).toBe('PARENT_SIGNATURE_INVALID');
   });
 });
 

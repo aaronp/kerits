@@ -47,3 +47,4 @@ export {
   verifyVrcAgainstThreshold,
   verifyWitnessReceipt,
 } from './validation-predicates.js';
+export { validateDelegation, type DelegationValidationInput, type DelegationValidationResult } from './delegation-validation.js';
