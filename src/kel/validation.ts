@@ -24,6 +24,7 @@ import {
   KEL_IXN_SURFACE,
   KEL_ROT_SURFACE,
 } from '../said/surfaces.js';
+import { validateDelegation } from './delegation-validation.js';
 import { verifyEventSignature } from './event-crypto.js';
 import { type DerivedState, reduceKelState } from './kel-state.js';
 import { matchKeyRevelation } from './rotation.js';
@@ -31,7 +32,6 @@ import { checkThreshold, type ThresholdSpec } from './threshold.js';
 import { checkNormalizedThreshold } from './threshold-normalize.js';
 import type { AID, CESREvent, CesrAttachment, DipEvent, DrtEvent, IcpEvent, KELEvent, RotEvent } from './types.js';
 import { verifyWitnessReceipt } from './validation-predicates.js';
-import { validateDelegation } from './delegation-validation.js';
 
 /**
  * Error codes for KEL validation failures

@@ -667,7 +667,12 @@ export const CesrAttachment_DelegatorSealSource = Type.Object(
 
 /** Generic attachment union (extend later if you add seals, anchors, etc.). */
 export const CesrAttachmentSchema = Type.Union(
-  [CesrAttachment_Signature, CesrAttachment_WitnessReceipt, CesrAttachment_ValidatorReceipt, CesrAttachment_DelegatorSealSource],
+  [
+    CesrAttachment_Signature,
+    CesrAttachment_WitnessReceipt,
+    CesrAttachment_ValidatorReceipt,
+    CesrAttachment_DelegatorSealSource,
+  ],
   {
     title: 'CESR Attachment',
     description: 'Signatures, receipts, and delegation seal-source couples attached to an event',

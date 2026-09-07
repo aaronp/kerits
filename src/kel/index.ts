@@ -16,6 +16,11 @@ export const Kel = {
   ...KELEvents,
 } as const;
 
+export {
+  type DelegationValidationInput,
+  type DelegationValidationResult,
+  validateDelegation,
+} from './delegation-validation.js';
 export { KELEvents } from './events.js';
 export { KELData } from './kel-data.js';
 export { KELOps } from './ops.js';
@@ -47,4 +52,3 @@ export {
   verifyVrcAgainstThreshold,
   verifyWitnessReceipt,
 } from './validation-predicates.js';
-export { validateDelegation, type DelegationValidationInput, type DelegationValidationResult } from './delegation-validation.js';
