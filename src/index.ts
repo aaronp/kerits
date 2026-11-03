@@ -4,7 +4,7 @@
 // KEL validation, SAID computation, and data canonicalization.
 //
 // Namespace objects provide a discoverable API surface:
-//   Cesr.encode(), Kel.checkThreshold(), Said.encodeSAID(), Signature.sign()
+//   Cesr.encode(), Kel.validateKelChain(), Said.encodeSAID(), Signature.sign()
 //
 // Flat re-exports are provided for convenience and backwards compatibility.
 
@@ -21,6 +21,43 @@ export type {
   CredentialStatusSource,
 } from './acdc/types.js';
 export type {
+  AclNode,
+  AclOp,
+  AclRef,
+  AclTarget,
+  AclTree,
+  AidKeyLookup,
+  KeyPurpose,
+  NodeLookup,
+  ResolutionError as AclResolutionError,
+  ResolutionLimits,
+  ResolvedNode,
+  ResolvedNodeLookup,
+  Snapshot,
+} from './acl/index.js';
+export {
+  ACL_MSG_V1,
+  Acl,
+  applyAdmin,
+  canonicalAclRef,
+  check,
+  checkAgainstSnapshot,
+  computeNodeSAID,
+  computeResolvedNodeSAID,
+  DEFAULT_RESOLUTION_LIMITS,
+  importSnapshot,
+  isAllowed as aclIsAllowed,
+  MAX_CASCADE_NODES,
+  makeAclNode,
+  normalizeChildren,
+  normalizeKeys,
+  ownerGroupId,
+  resolve as resolveAclNode,
+  signAclMessage,
+  snapshotOf,
+  verifyAclMessageSignature,
+} from './acl/index.js';
+export type {
   CESRCodeMeta,
   CESRDecoded,
 } from './cesr/digest.js';
@@ -32,6 +69,13 @@ export {
   encodeDigest,
   getCodeMeta,
 } from './cesr/digest.js';
+export {
+  decodeCesrEvent,
+  decodeCesrEventFromStream,
+  decodeCesrStream,
+  encodeCesrEvent,
+  encodeCesrStream,
+} from './cesr/event-codec.js';
 // ── Namespace objects ────────────────────────────────────────────────
 export { Cesr } from './cesr/index.js';
 // ── CESR encoding/decoding ───────────────────────────────────────────
@@ -52,6 +96,8 @@ export type {
   SaidAlgo,
   SigAlgo,
 } from './cesr/types.js';
+// ── Challenge (proof of current key control) ─────────────────────────
+export * from './challenge/index.js';
 export { decodeBase64, encodeBase64 } from './common/base64.js';
 // ── Common types, branding, and utilities ────────────────────────────
 export * from './common/base64url.js';
@@ -68,7 +114,6 @@ export type {
   EncryptedEnvelope,
   EnvelopeAAD,
   PublicKeyRef,
-  UnlockProvider,
 } from './crypto/envelope/index.js';
 // ── Envelope encryption ────────────────────────────────────────────────
 export {
@@ -141,6 +186,10 @@ export type {
   PreviousNextKeyCommitment,
   PublishedResource,
   PublishFormat,
+  RotationChange,
+  RotationPlan,
+  RotationPlanError,
+  RotationSigner,
   RotEvent,
   ValidateAppendResult,
   ValidateControllerSignatureResult,
@@ -172,6 +221,7 @@ export {
   KSNs,
   PublishedResourceSchema,
   RotEventSchema,
+  type SupersedeError,
 } from './kel/index.js';
 // ── KEL event factories ─────────────────────────────────────────────
 export { KELData } from './kel/kel-data.js';
@@ -184,23 +234,17 @@ export type {
   ValidateInceptionSignRequestResult,
 } from './kel/msig-sign-validation.js';
 export { validateInceptionSignRequest } from './kel/msig-sign-validation.js';
-export { assessTelKelAnchor, assessTelKelAnchors, type TelKelAnchorResult } from './kel/tel-kel-anchor.js';
-export type {
-  ThresholdCheckResult,
-  ThresholdSpec,
-  ThresholdValue,
-} from './kel/threshold.js';
-// ── KEL threshold ────────────────────────────────────────────────────
 export {
-  checkThreshold,
-  parseSimpleThreshold,
-} from './kel/threshold.js';
-// ── KEL threshold normalization ─────────────────────────────────────
-export type { NormalizedThreshold } from './kel/threshold-normalize.js';
-export { normalizeThreshold } from './kel/threshold-normalize.js';
+  anchoredLane,
+  anchoredPrefix,
+  assessTelKelAnchor,
+  assessTelKelAnchors,
+  type TelKelAnchorResult,
+} from './kel/tel-kel-anchor.js';
 // ── KEL validation ──────────────────────────────────────────────────
 export type {
   CheckResult,
+  DroppedSignature,
   EventValidationDetail,
   KelEventType,
   KelValidationOptions,
@@ -224,17 +268,60 @@ export {
 export { eventContainsAnchorForSaid, verifyWitnessReceipt } from './kel/validation-predicates.js';
 // ── Canonical URL paths ──────────────────────────────────────────────
 export { CanonicalPaths, KERI_PREFIX } from './keri/canonical-paths.js';
-// ── Profile alias ────────────────────────────────────────────────────
+// ── Profile alias (local nicknames; public handles use Usernames) ────
 export type { ProfileAlias } from './keri/profile-alias.js';
 export { parseProfileAlias } from './keri/profile-alias.js';
 export {
   normalizeDisplayNameToProfileUsername,
   profileUsernameFromDisplayName,
 } from './keri/profile-username.js';
+export { Usernames } from './keri/usernames.js';
+// ── Key management ──────────────────────────────────────────────────
+export {
+  type Algo,
+  type AlgoPlugin,
+  Algos,
+  asRawPublicKey,
+  DEFAULT_PASSPHRASE_UNLOCK_PROVIDER_ID,
+  type EncryptedKeyEntry,
+  type EncryptionPlugin,
+  FakeHsmKeyStores,
+  fromEd25519PublicRaw,
+  type GeneratedKey,
+  type GenerateKeyError,
+  type Grant,
+  InMemoryKeyStores,
+  type Keychain,
+  Keychains,
+  type KeyGenerator,
+  type KeyPersistence,
+  type KeyScope,
+  type KeyStore,
+  PublicKeys,
+  publicKeyHex,
+  type RawPublicKey,
+  type ResolveKeyError,
+  type TestKeyEntry,
+  TestKeys,
+  toCESRPublicKey,
+  toEd25519PublicRaw,
+  toRawPublicKey,
+  UI_PASSPHRASE_UNLOCK_PROVIDER_ID,
+  type UnlockProvider,
+  type UnlockProviderId,
+  UnlockProviders,
+  type Vault,
+  type VaultConfig,
+  Vaults,
+  type WithGrantOptions,
+} from './keys/index.js';
+export * from './oobi/index.js';
 // ── Policy types ────────────────────────────────────────────────────
 export * from './policy/index.js';
 // ── Remote publishing contracts ──────────────────────────────────────
 export * from './remote/index.js';
+// ── Requirements / Evidence / Policy (data-first) ────────────────────
+export * from './requirements/index.js';
 // ── Result type ──────────────────────────────────────────────────────
 export type { Result } from './result.js';
 export { err, ok } from './result.js';
@@ -269,8 +356,10 @@ export type {
   JSONSchema,
   SchemaEdge,
   SchemaInfo,
+  SchemaValidationError,
+  SchemaValidationResult,
 } from './schema/types.js';
-export type { Ed25519Signer, Secp256k1Signer, Signer } from './signature/index.js';
+export type { Ed25519Signer, Secp256k1Signer, Signer, UnexpectedAlgoError } from './signature/index.js';
 // Value namespace renamed to avoid shadowing the Signature branded type from common/types.
 export { isEd25519Signer, isSecp256k1Signer, Signature as SignatureOps, Signers } from './signature/index.js';
 export type { KeyAgreementCapability, KeyAgreementInput } from './signature/key-agreement.js';
@@ -300,16 +389,20 @@ export type {
   VcpParams,
   VrtParams,
 } from './tel/events.js';
+export type { TelLane } from './tel/index.js';
 // ── TEL types and ops ────────────────────────────────────────────────
 export { TELData, TELEvents, TELOps, Tel } from './tel/index.js';
 export type { TelValidationError, TelValidationResult } from './tel/ops.js';
 export type {
   BisEvent,
   BrvEvent,
+  CredentialEvent,
   EstablishmentTelEvent,
   IssEvent,
+  RegistryEvent,
   RevEvent,
   RSN,
+  TELScope,
   TelEvent,
   VcpEvent,
   VrtEvent,

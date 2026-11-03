@@ -8,7 +8,6 @@
 import { describe, expect, test } from 'bun:test';
 import { digestVerfer } from '../cesr/digest.js';
 import {
-  assertCurrentThresholdSatisfiable,
   assertKeyRevelation,
   buildNextCommitment,
   matchKeyRevelation,
@@ -95,20 +94,6 @@ describe('assertKeyRevelation', () => {
     expect(() => assertKeyRevelation({ n: [digest1, digest2], nt: '2' }, [key1])).toThrow(
       /Prior-next threshold not satisfied/,
     );
-  });
-});
-
-describe('assertCurrentThresholdSatisfiable', () => {
-  test('passes when threshold <= key count', () => {
-    expect(() => assertCurrentThresholdSatisfiable('2', 3)).not.toThrow();
-  });
-
-  test('throws when threshold exceeds key count', () => {
-    expect(() => assertCurrentThresholdSatisfiable('5', 3)).toThrow(/Current threshold not satisfiable/);
-  });
-
-  test('passes for weighted threshold (non-numeric)', () => {
-    expect(() => assertCurrentThresholdSatisfiable([['1/2', '1/2']], 2)).not.toThrow();
   });
 });
 

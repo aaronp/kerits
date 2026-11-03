@@ -56,3 +56,22 @@ export function assessTelKelAnchors(
 ): readonly TelKelAnchorResult[] {
   return telEventSaids.map((said) => assessTelKelAnchor(kelEvents, said));
 }
+
+/** The leading TEL events sealed in the issuer KEL; stops at the first event not `anchored`. */
+export function anchoredPrefix<T extends { d: string }>(
+  events: readonly T[],
+  issuerKelBodies: readonly KELEvent[],
+): T[] {
+  const firstUnanchored = events.findIndex((ev) => assessTelKelAnchor(issuerKelBodies, ev.d).status !== 'anchored');
+  return firstUnanchored === -1 ? [...events] : events.slice(0, firstUnanchored);
+}
+
+/**
+ * A stored TEL lane as a validator reads it: {@link anchoredPrefix}, but never cut below the lane's inception (`vcp` /
+ * `iss`). Trailing unanchored events stay unread (stored junk past the anchored head, as a KSN ignores a KEL's), while
+ * an unanchored inception is kept so the anchor check reports `tel-unanchored` instead of an empty lane.
+ */
+export function anchoredLane<T extends { d: string }>(events: readonly T[], issuerKelBodies: readonly KELEvent[]): T[] {
+  const prefix = anchoredPrefix(events, issuerKelBodies);
+  return prefix.length === 0 ? events.slice(0, 1) : prefix;
+}

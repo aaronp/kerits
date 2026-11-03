@@ -89,7 +89,7 @@ function buildSignedRot(
   priorSaid: SAID,
   newKeys: KeriKeyPair[],
   nextKeys: KeriKeyPair[],
-  opts: { sequence?: string; config?: string[] } = {},
+  opts: { sequence?: number; config?: string[] } = {},
 ): { cesrEvent: CESREvent; event: KELEvent; said: SAID } {
   const seq = opts.sequence ?? KELEvents.nextSequence(priorEvent.s);
   const { unsignedEvent } = KELEvents.buildRot({
@@ -105,8 +105,10 @@ function buildSignedRot(
 
   const { event, said } = KELEvents.finalize(unsignedEvent, false);
 
+  // rotation keys are the prior next keys in order: ondex = index
   const signatures = newKeys.map((kp, idx) => ({
     keyIndex: idx,
+    ondex: idx,
     sig: signEvent(event, kp),
   }));
 
@@ -122,7 +124,7 @@ function buildSignedIxn(
   priorEvent: KELEvent,
   priorSaid: SAID,
   signingKeys: KeriKeyPair[],
-  opts: { sequence?: string } = {},
+  opts: { sequence?: number } = {},
 ): { cesrEvent: CESREvent; event: KELEvent; said: SAID } {
   const seq = opts.sequence ?? KELEvents.nextSequence(priorEvent.s);
   const { unsignedEvent } = KELEvents.buildIxn({
@@ -382,7 +384,7 @@ describe('validate-sequence', () => {
   it('[valid-sequence] icp(0) + ixn(1) + rot(2) passes sequence validation', () => {
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp();
       const { cesrEvent: ixnCesr, event: ixnEvent, said: ixnSaid } = buildSignedIxn(icpEvent, icpSaid, [KEY1]);
-      const { cesrEvent: rotCesr } = buildSignedRot(ixnEvent, ixnSaid, [KEY2], [KEY3], { sequence: '2' });
+      const { cesrEvent: rotCesr } = buildSignedRot(ixnEvent, ixnSaid, [KEY2], [KEY3], { sequence: 2 });
       const result = KELOps.validateKelChain([icpCesr, ixnCesr, rotCesr]);
       // All three events should have valid sequence
       expect(result.eventDetails.length).toBe(3);
@@ -406,7 +408,7 @@ describe('validate-sequence', () => {
   it('[sequence-gap] icp(0) + ixn(2) with gap is rejected', () => {
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp();
       // Build ixn with sequence 2 (skipping 1)
-      const { cesrEvent: ixnCesr } = buildSignedIxn(icpEvent, icpSaid, [KEY1], { sequence: '2' });
+      const { cesrEvent: ixnCesr } = buildSignedIxn(icpEvent, icpSaid, [KEY1], { sequence: 2 });
       const result = KELOps.validateKelChain([icpCesr, ixnCesr]);
       expect(result.valid).toBe(false);
   });
@@ -544,7 +546,12 @@ describe('validate-signatures', () => {
         signatures: [{ keyIndex: 0, sig: wrongSig }],
       });
       const result = KELOps.validateKelChain([cesrEvent]);
-      expect(result.eventDetails[0]!.checks.signaturesValid.passed).toBe(false);
+      // the bad signature is dropped (listed), leaving the threshold unmet
+      expect(result.eventDetails[0]!.checks.signaturesValid.dropped).toEqual([
+        { keyIndex: 0, reason: 'signature-invalid', error: 'Signature verification failed' },
+      ]);
+      expect(result.valid).toBe(false);
+      expect(result.firstError?.code).toBe('THRESHOLD_NOT_MET');
   });
 
   it('[tampered-body-invalidates-sig] Signing correctly then tampering the event body invalidates the signature', () => {
@@ -554,8 +561,12 @@ describe('validate-signatures', () => {
       (tampered as any).c = ['EO'];
       const bad = rewrapCesr(cesrEvent, tampered);
       const result = KELOps.validateKelChain([bad]);
-      // Signature was computed over the original body, so it should fail
-      expect(result.eventDetails[0]!.checks.signaturesValid.passed).toBe(false);
+      // Signature was computed over the original body: dropped, and the event is rejected
+      expect(result.eventDetails[0]!.checks.signaturesValid.dropped?.map((d) => d.reason)).toEqual(['signature-invalid']);
+      expect(result.valid).toBe(false);
+      // the tampered body no longer matches its SAID, which is checked first; the threshold also fails
+      expect(result.firstError?.code).toBe('SAID_MISMATCH');
+      expect(result.eventDetails[0]!.checks.thresholdMet.passed).toBe(false);
   });
 
   it('[ixn-uses-establishment-keys] After icp with KEY1, ixn signed with KEY1 passes', () => {
@@ -585,7 +596,9 @@ describe('validate-signatures', () => {
       // ixn signed with KEY1 (old key) — should fail
       const { cesrEvent: ixnBad } = buildSignedIxn(rotEvent, rotSaid, [KEY1]);
       const badResult = KELOps.validateKelChain([icpCesr, rotCesr, ixnBad]);
-      expect(badResult.eventDetails[2]!.checks.signaturesValid.passed).toBe(false);
+      expect(badResult.eventDetails[2]!.checks.signaturesValid.dropped?.map((d) => d.keyIndex)).toEqual([0]);
+      expect(badResult.eventDetails[2]!.checks.thresholdMet.passed).toBe(false);
+      expect(badResult.valid).toBe(false);
   });
 
   it('[key-index-out-of-range] Attaching a signature with keyIndex=5 but only 1 key is invalid', () => {
@@ -602,10 +615,12 @@ describe('validate-signatures', () => {
         signatures: [{ keyIndex: 5, sig }],
       });
       const result = KELOps.validateKelChain([cesrEvent]);
-      expect(result.eventDetails[0]!.checks.signaturesValid.passed).toBe(false);
-      expect(result.eventDetails[0]!.checks.signaturesValid.details?.[0]?.error).toContain(
-        'out of range',
-      );
+      // the out-of-range signature is dropped (listed), leaving the threshold unmet
+      expect(result.eventDetails[0]!.checks.signaturesValid.dropped).toEqual([
+        { keyIndex: 5, reason: 'index-out-of-range', error: 'Key index 5 out of range (0-0)' },
+      ]);
+      expect(result.valid).toBe(false);
+      expect(result.firstError?.code).toBe('THRESHOLD_NOT_MET');
   });
 });
 
@@ -720,12 +735,19 @@ describe('validate-key-rotation', () => {
       const { cesrEvent: rotCesr } = buildSignedRot(event, said, [KEY2], [KEY3]);
       const result = KELOps.validateKelChain([icpCesr, rotCesr]);
       expect(result.valid).toBe(false);
-      // Non-transferable inception has n=[], so rotation key chain also fails
-      // (NEXT_KEY_MISMATCH or NON_TRANSFERABLE_VIOLATION depending on check order)
-      const errorCode = result.firstError?.code;
-      expect(
-        errorCode === 'NON_TRANSFERABLE_VIOLATION' || errorCode === 'NEXT_KEY_MISMATCH',
-      ).toBe(true);
+      // Non-transferable inception has n=[]: nothing may follow it, reported first (judged on the prior state);
+      // the rotation signature's ondex 0 also names no prior commitment, so it is skipped (listed)
+      expect(result.firstError).toEqual({
+        code: 'NON_TRANSFERABLE_VIOLATION',
+        scope: 'event',
+        severity: 'error',
+        message: 'Non-transferable AID cannot have any event after inception at index 1',
+        eventIndex: 1,
+      });
+      expect(result.eventDetails[1]!.checks.signaturesValid.dropped?.map((d) => d.reason)).toEqual(['ondex-mismatch']);
+      // not "pending": no signature can expose a commitment that doesn't exist, and keyChainValid fails too
+      expect(result.eventDetails[1]!.checks.keyChainValid?.passed).toBe(false);
+      expect(KELOps.isOnlyPendingSignatureFailures(result.eventDetails[1]!)).toBe(false);
   });
 
   it('[non-transferable-blocks-ixn] icp with n=[] (non-transferable) blocks ALL subsequent events including ixn', () => {
@@ -1014,8 +1036,10 @@ function buildWitnessedRot(
 
   const { event, said } = KELEvents.finalize(unsignedEvent, false);
 
+  // rotation keys are the prior next keys in order: ondex = index
   const signatures = newKeys.map((kp, idx) => ({
     keyIndex: idx,
+    ondex: idx,
     sig: signEvent(event, kp),
   }));
 
@@ -1051,6 +1075,24 @@ describe('validate-witnesses', () => {
       const result = KELOps.validateKelChain([cesrEvent]);
       expect(result.valid).toBe(false);
       expect(result.firstError?.code).toBe('WITNESS_THRESHOLD_UNSATISFIABLE');
+  });
+
+  it('[bt-zero-with-witnesses] bt=0 with 2 witnesses is unsatisfiable (keripy toad bounds, vector bt-0-with-witnesses)', () => {
+      // setup: two witnesses and bt "0"
+      const { cesrEvent } = buildWitnessedIcp([KEY1], [KEY2], [WIT1, WIT2], '0', { includeReceipts: false });
+
+      // call our method under test
+      const result = KELOps.validateKelChain([cesrEvent]);
+
+      // rejected at the inception with the exact code and message
+      expect(result.valid).toBe(false);
+      expect(result.firstError).toEqual({
+        code: 'WITNESS_THRESHOLD_UNSATISFIABLE',
+        scope: 'event',
+        severity: 'error',
+        message: 'Witness threshold invalid at event 0: witness threshold 0 is not within [1, 2] witnesses',
+        eventIndex: 0,
+      });
   });
 
   it('[insufficient-receipts-fully-witnessed] bt=2 with 2 witnesses but only 1 receipt fails in fully-witnessed mode', () => {
@@ -1191,7 +1233,7 @@ describe('validate-config-traits', () => {
       const sig = signEvent(rotEvent, KEY2);
       const rotCesr = KELEvents.assembleSignedEvent({
         event: rotEvent,
-        signatures: [{ keyIndex: 0, sig }],
+        signatures: [{ keyIndex: 0, ondex: 0, sig }],
       });
       const result = KELOps.validateKelChain([icpCesr, rotCesr]);
       expect(result.valid).toBe(true);
@@ -1284,7 +1326,7 @@ describe('validate-chain', () => {
       const { cesrEvent: icpCesr, event: icpEvent, said: icpSaid } = buildSignedIcp([KEY1], [KEY2]);
       const { cesrEvent: ixnCesr } = buildSignedIxn(icpEvent, icpSaid, [KEY1]);
       // Build a second ixn but with a wrong p field (use icpSaid instead of ixnSaid)
-      const { cesrEvent: ixnCesr2, event: ixnEvent2 } = buildSignedIxn(icpEvent, icpSaid, [KEY1], { sequence: '2' });
+      const { cesrEvent: ixnCesr2, event: ixnEvent2 } = buildSignedIxn(icpEvent, icpSaid, [KEY1], { sequence: 2 });
       // The second ixn's p field points to icp SAID, not the first ixn SAID
       const result = KELOps.validateKelChain([icpCesr, ixnCesr, ixnCesr2]);
       expect(result.valid).toBe(false);

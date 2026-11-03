@@ -7,8 +7,7 @@
  * @module kel/kel-state
  */
 
-import type { AID, PublicKey, SAID, Threshold } from '../common/types.js';
-import { type NormalizedThreshold, normalizeThreshold } from './threshold-normalize.js';
+import { type AID, type PublicKey, type SAID, SequenceNumber, Threshold } from '../common/types.js';
 import type { CESREvent, DipEvent, DrtEvent, IcpEvent, KELEvent, RotEvent } from './types.js';
 
 export interface DerivationNote {
@@ -23,7 +22,7 @@ export interface DerivedState {
   expectedSequence: string;
   kelAid: AID;
   signingKeys: PublicKey[];
-  signingThreshold: NormalizedThreshold;
+  signingThreshold: Threshold.Parsed;
   previousSaid: SAID | undefined;
   lastEstablishment: EstablishmentEvent | undefined;
   witnesses: Set<string>;
@@ -42,29 +41,32 @@ function isInception(event: KELEvent): event is IcpEvent | DipEvent {
   return event.t === 'icp' || event.t === 'dip';
 }
 
-function tryNormalize(
+/**
+ * Derivation never throws: a missing or malformed kt yields a placeholder plus an `unparseable-threshold` note.
+ * The placeholder never admits the event: validateKelChain rejects it as THRESHOLD_INVALID (keripy rejects it too).
+ */
+function tryParse(
   raw: Threshold | undefined,
   keyCount: number,
 ): {
-  threshold: NormalizedThreshold;
+  threshold: Threshold.Parsed;
   note?: DerivationNote;
 } {
-  if (!raw) {
+  if (raw === undefined) {
     return {
-      threshold: { type: 'simple', m: 1, n: keyCount },
+      threshold: { kind: 'numeric', m: 1 },
       note: { code: 'unparseable-threshold', message: 'Missing threshold, defaulting to 1' },
     };
-  }
-  try {
-    return { threshold: normalizeThreshold(raw, keyCount) };
-  } catch (e) {
-    return {
-      threshold: { type: 'simple', m: 1, n: keyCount },
-      note: {
-        code: 'unparseable-threshold',
-        message: `Failed to parse threshold: ${e instanceof Error ? e.message : String(e)}`,
-      },
-    };
+  } else {
+    const parsed = Threshold.parse(raw, keyCount);
+    if (parsed.ok) {
+      return { threshold: parsed.value };
+    } else {
+      return {
+        threshold: { kind: 'numeric', m: 1 },
+        note: { code: 'unparseable-threshold', message: `Failed to parse threshold: ${parsed.error.message}` },
+      };
+    }
   }
 }
 
@@ -74,7 +76,7 @@ export function reduceKelState(events: CESREvent[]): DerivedState[] {
   const states: DerivedState[] = [];
   let kelAid: AID = '' as AID;
   let signingKeys: PublicKey[] = [];
-  let signingThreshold: NormalizedThreshold = { type: 'simple', m: 1, n: 1 };
+  let signingThreshold: Threshold.Parsed = { kind: 'numeric', m: 1 };
   let previousSaid: SAID | undefined;
   let lastEstablishment: EstablishmentEvent | undefined;
   let witnesses = new Set<string>();
@@ -101,7 +103,7 @@ export function reduceKelState(events: CESREvent[]): DerivedState[] {
       signingKeys = (event.k ?? []) as PublicKey[];
       const keyCount = signingKeys.length || 1;
 
-      const { threshold, note } = tryNormalize(event.kt, keyCount);
+      const { threshold, note } = tryParse(event.kt, keyCount);
       signingThreshold = threshold;
       if (note) notes.push(note);
 
@@ -149,7 +151,7 @@ export function reduceKelState(events: CESREvent[]): DerivedState[] {
 
     states.push({
       index: i,
-      expectedSequence: String(i),
+      expectedSequence: SequenceNumber.encode(i),
       kelAid,
       signingKeys: [...signingKeys],
       signingThreshold,

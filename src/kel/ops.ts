@@ -1,16 +1,25 @@
 /**
  * KELOps — Domain logic for KEL interpretation and validation.
  *
- * Functional core: data-in, answers-out. No I/O, no KeyValueView/KeyValueStore,
- * no side effects. KELView methods are synchronous and pure.
+ * Functional core: data-in, answers-out. No I/O, no side effects.
+ * KELView methods are synchronous and pure.
  * validateAppend delegates to validateKelChain (now synchronous).
  *
  * @module kel/ops
  */
 
-import { digestVerfer } from '../cesr/digest.js';
-import type { AID, CesrDigest, PublicKey, SAID, Signature, Threshold } from '../common/types.js';
+import {
+  type AID,
+  type CesrDigest,
+  type PublicKey,
+  type SAID,
+  SequenceNumber,
+  type Signature,
+  type Threshold,
+} from '../common/types.js';
+import { err, ok, type Result } from '../result.js';
 import { verify } from '../signature/verify.js';
+import { validateAnchorTargets as _validateAnchorTargets } from './anchor-targets.js';
 import { encodeEventBytes } from './event-signing.js';
 import { reduceKelState as _reduceKelState } from './kel-state.js';
 import type {
@@ -20,17 +29,20 @@ import type {
   EventRef,
   KELView,
   KeyStateResult,
-  MatchKeyRevelationInput,
-  MatchKeyRevelationResult,
   PreviousNextKeyCommitment,
   ValidateAppendResult,
   ValidateControllerSignatureResult,
   VerifiedKeyState,
 } from './ops-types.js';
-import { checkThreshold } from './threshold.js';
+import {
+  buildNextCommitment as _buildNextCommitment,
+  matchKeyRevelation as _matchKeyRevelation,
+  planRotation as _planRotation,
+  resolveCurrentKeys as _resolveCurrentKeys,
+} from './rotation.js';
 import type { CESREvent, DipEvent, IcpEvent, IxnEvent, KELEvent, KSN } from './types.js';
 import { KSNs } from './types.js';
-import type { EventValidationDetail, ValidationError } from './validation.js';
+import type { EventValidationDetail, KelValidationOptions, ValidationError } from './validation.js';
 import {
   isValidKeriEvent as _isValidKeriEvent,
   validateEventSaid as _validateEventSaid,
@@ -46,7 +58,7 @@ import {
 function ksnToKeyState(ksn: KSN): VerifiedKeyState {
   return {
     aid: ksn.i as AID,
-    seqNo: parseInt(ksn.s, 16),
+    seqNo: SequenceNumber.of(ksn.s),
     digest: ksn.d,
     currentKeys: ksn.k as PublicKey[],
     threshold: ksn.kt,
@@ -65,6 +77,19 @@ function toEventRef(env: CESREvent, index: number): EventRef {
 function isEstablishmentType(t: string): boolean {
   return t === 'icp' || t === 'rot' || t === 'dip' || t === 'drt';
 }
+
+function isCesrEvent(value: unknown): value is CESREvent {
+  if (!value || typeof value !== 'object') return false;
+  const event = (value as { event?: unknown }).event;
+  if (!_isValidKeriEvent(event)) return false;
+  const e = event as { s?: unknown; d?: unknown };
+  return typeof e.s === 'string' && typeof e.d === 'string';
+}
+
+/** Why a superseding rotation was refused. */
+export type SupersedeError =
+  | { kind: 'kel-invalid'; reason: string }
+  | { kind: 'supersede-unsupported'; case: 'delegated' };
 
 // ─── KELOps ─────────────────────────────────────────────────────────────────
 
@@ -106,8 +131,10 @@ export namespace KELOps {
       },
 
       eventAtSequence(sn: number): EventRef | undefined {
-        const target = String(sn);
-        return refs.find((r) => r.event.s === target);
+        return refs.find((r) => {
+          const parsed = SequenceNumber.parse(r.event.s);
+          return parsed.ok && parsed.value === sn;
+        });
       },
 
       length(): number {
@@ -185,25 +212,24 @@ export namespace KELOps {
   export function validateAppend(
     existingEvents: CESREvent[],
     candidate: CESREvent,
-    options?: { parentKel?: CESREvent[] },
+    options?: Pick<KelValidationOptions, 'parentKel' | 'signaturesVerified'>,
   ): ValidateAppendResult {
     const allEvents = [...existingEvents, candidate];
     const startIndex = existingEvents.length;
-    const result = _validateKelChain(allEvents, { startIndex, parentKel: options?.parentKel });
+    const result = _validateKelChain(allEvents, { ...options, startIndex });
     const candidateDetail = result.eventDetails[0];
 
     if (!candidateDetail) {
+      const error: ValidationError = {
+        code: 'MISSING_REQUIRED_FIELD',
+        scope: 'event',
+        severity: 'error',
+        message: 'No validation detail',
+        eventIndex: startIndex,
+      };
       return {
         ok: false,
-        errors: [
-          {
-            code: 'MISSING_REQUIRED_FIELD',
-            scope: 'event',
-            severity: 'error',
-            message: 'No validation detail',
-            eventIndex: startIndex,
-          },
-        ],
+        errors: [error],
         validation: {
           eventIndex: startIndex,
           eventType: (candidate.event as any).t,
@@ -215,133 +241,103 @@ export namespace KELOps {
             signaturesValid: { passed: false },
             thresholdMet: { passed: false },
           },
+          errors: [error],
         } as any,
       };
     }
 
-    const failedChecks = Object.entries(candidateDetail.checks).filter(([_, check]) => check && !check.passed);
-    if (failedChecks.length > 0) {
-      const errors: ValidationError[] = failedChecks.map(([name, check]) => ({
-        code: 'MISSING_REQUIRED_FIELD' as const,
-        scope: 'event' as const,
-        severity: 'error' as const,
-        message: `${name}: ${(check as any).error ?? 'failed'}`,
-        eventIndex: startIndex,
-      }));
+    // every rule records its own check and error; a blocking (non-pending) error leads, so an under-signed event
+    // that also breaks a chain rule reports that rule first (keripy Kever.update rejects it outright)
+    if (candidateDetail.errors.length > 0) {
+      const lead = candidateDetail.errors.find((e) => !APPEND_PENDING_ERROR_CODES.has(e.code));
+      const errors =
+        lead === undefined ? candidateDetail.errors : [lead, ...candidateDetail.errors.filter((e) => e !== lead)];
       return { ok: false, errors, validation: candidateDetail };
+    } else {
+      return { ok: true, validation: candidateDetail };
     }
-
-    return { ok: true, validation: candidateDetail };
   }
 
-  /** Check names that may fail on append while signatures/delegation are still pending. */
-  const APPEND_ALLOWED_FAILURE_CHECKS = new Set(['signaturesValid', 'thresholdMet', 'delegationValid']);
+  /**
+   * KERI superseding recovery: may `rot` (at sn N) replace `existingFromN` (the stored events at N and after)?
+   * Checks: `p` is the SAID at N-1 and `rot` sits at the first superseded sn; every superseded event is an `ixn` (an
+   * establishment event is never superseded); `rot` is a fully valid rotation on `kelUpToNminus1` — signed to threshold
+   * by the keys the prior establishment event pre-committed (`n`), so a compromised current key cannot produce it.
+   */
+  export function validateSupersede(
+    kelUpToNminus1: readonly CESREvent[],
+    existingFromN: readonly CESREvent[],
+    rot: CESREvent,
+  ): Result<true, SupersedeError> {
+    const invalid = (reason: string) => err({ kind: 'kel-invalid' as const, reason });
+    if (!isCesrEvent(rot)) return invalid('superseding event is not a KEL event');
+    if (kelUpToNminus1.length === 0 || !kelUpToNminus1.every(isCesrEvent)) return invalid('no prior KEL to recover on');
+    if (existingFromN.length === 0 || !existingFromN.every(isCesrEvent)) return invalid('nothing to supersede');
+    if (!existingFromN.every((e) => e.event.t === 'ixn')) return invalid('only ixn events may be superseded');
+    if (rot.event.s !== existingFromN[0]!.event.s) return invalid('rotation is not at the first superseded sn');
+    const prior = kelUpToNminus1[kelUpToNminus1.length - 1]!.event.d;
+    if ((rot.event as { p?: unknown }).p !== prior) return invalid(`p is not the SAID at sn N-1 (${prior})`);
+
+    const t = rot.event.t;
+    // a delegated AID (dip) recovers only with delegator approval, whatever the supplied ilk (a plain rot is refused too)
+    if (kelUpToNminus1[0]!.event.t === 'dip') return err({ kind: 'supersede-unsupported', case: 'delegated' });
+    if (t === 'drt') return err({ kind: 'supersede-unsupported', case: 'delegated' });
+    else if (t === 'icp' || t === 'dip' || t === 'ixn') return invalid(`a ${t} cannot supersede`);
+    else if (t !== 'rot') return invalid(`unknown event type ${String(t)}`);
+
+    const appended = validateAppend([...kelUpToNminus1], rot);
+    if (!appended.ok) return invalid(appended.errors.map((e) => e.message).join('; '));
+    const forged = appended.validation.checks.signaturesValid.dropped?.find((d) => d.reason === 'signature-invalid');
+    if (forged) return invalid(`signature at keyIndex ${forged.keyIndex} does not verify`);
+    return ok(true);
+  }
 
   /**
-   * True when every failing validation check is limited to controller signatures
-   * or signing threshold (pending establishment). Used by KELAPI.append — not
-   * for message-regex matching, which mis-classifies e.g. key-chain nt failures.
+   * The only definition of "pending": error codes raised by the signature and delegation checks (thresholdMet,
+   * delegationValid), which more signatures or the delegator's approval may still satisfy.
+   */
+  const APPEND_PENDING_ERROR_CODES = new Set<ValidationError['code']>([
+    'THRESHOLD_NOT_MET',
+    'KT_UNMET',
+    'PRIOR_NT_UNMET',
+    'ONDEX_MISMATCH',
+    'MISSING_PARENT_KEL',
+    'PARENT_SIGNATURE_INVALID',
+    'PARENT_THRESHOLD_NOT_MET',
+  ]);
+
+  /**
+   * True when the event failed and every error it raised is a pending code (each rule records its own error, so
+   * a chain-rule failure beside an under-signature makes this false). Used by KELAPI.append and replayChain.
    */
   export function isOnlyPendingSignatureFailures(validation: EventValidationDetail): boolean {
-    let hasFailure = false;
-    for (const [name, check] of Object.entries(validation.checks)) {
-      if (!check || check.passed) continue;
-      hasFailure = true;
-      if (!APPEND_ALLOWED_FAILURE_CHECKS.has(name)) return false;
-    }
-    return hasFailure;
+    return validation.errors.length > 0 && validation.errors.every((e) => APPEND_PENDING_ERROR_CODES.has(e.code));
   }
+
+  /** The signature codes among the pending ones: more controller signatures may still satisfy kt and the prior nt. */
+  const SIGNATURE_PENDING_ERROR_CODES = new Set<ValidationError['code']>([
+    'THRESHOLD_NOT_MET',
+    'KT_UNMET',
+    'PRIOR_NT_UNMET',
+    'ONDEX_MISMATCH',
+  ]);
 
   /**
-   * Resolve the current signing keys for a rotation event by looking up the
-   * public keys that match the prior event's next key digest commitments.
-   *
-   * Accepts an injected lookup function — no persistence handle required.
-   *
-   * @param priorKsn - The prior event's next key commitments (n[] digests + nt threshold)
-   * @param lookupKey - Async function resolving a digest to its public key
-   * @returns Resolved signing keys and threshold for the rotation event
-   * @throws Error if any committed digest cannot be resolved
+   * True when a persisted event still awaits controller signatures: validation says its kt or its prior nt (counted by
+   * revealed keys' ondex) is unmet. Signature presence is not enough (spec §2: signatures satisfy thresholds).
    */
-  export async function resolveCurrentKeys(
-    priorKsn: { n: string[]; nt: Threshold },
-    lookupKey: (digest: string) => Promise<string | undefined>,
-  ): Promise<{ k: string[]; kt: Threshold }> {
-    const k: string[] = [];
-
-    for (const digest of priorKsn.n) {
-      const publicKey = await lookupKey(digest);
-      if (publicKey === undefined) {
-        throw new Error(
-          `Cannot resolve next key digest: ${digest}. The public key for this committed digest was not found.`,
-        );
-      }
-      k.push(publicKey);
-    }
-
-    return { k, kt: priorKsn.nt };
+  export function isAwaitingSignatures(validation: EventValidationDetail): boolean {
+    return validation.errors.some((e) => SIGNATURE_PENDING_ERROR_CODES.has(e.code));
   }
 
-  /**
-   * Match proposed signing keys against the prior event's next key digest
-   * commitments, supporting subset revelation and key augmentation.
-   *
-   * Keys whose digest matches an entry in priorN are "revealed".
-   * Keys with no matching digest are "augmented".
-   * Only revealed keys count toward satisfying priorNt.
-   */
-  export function matchKeyRevelation(input: MatchKeyRevelationInput): MatchKeyRevelationResult {
-    const { priorN, priorNt, proposedK } = input;
-    const errors: string[] = [];
+  /** Delegate to rotation.ts — single source of truth for key resolution. */
+  export const resolveCurrentKeys = _resolveCurrentKeys;
 
-    // Reject duplicate digests in priorN
-    const digestSet = new Set<string>();
-    for (const digest of priorN) {
-      if (digestSet.has(digest)) {
-        errors.push(`Ambiguous prior n[]: duplicate digest ${digest}`);
-        return { revealed: [], augmented: [], priorNtSatisfied: false, errors };
-      }
-      digestSet.add(digest);
-    }
+  /** Delegate to rotation.ts — single source of truth for key revelation matching. */
+  export const matchKeyRevelation = _matchKeyRevelation;
 
-    // Build digest→nIndex map for O(1) lookup
-    const digestToNIndex = new Map<string, number>();
-    for (let i = 0; i < priorN.length; i++) {
-      digestToNIndex.set(priorN[i]!, i);
-    }
-
-    const revealed: { kIndex: number; nIndex: number }[] = [];
-    const augmented: number[] = [];
-    const matchedNIndices = new Set<number>();
-
-    for (let kIdx = 0; kIdx < proposedK.length; kIdx++) {
-      const keyDigest = digestVerfer(proposedK[kIdx]!);
-      const nIdx = digestToNIndex.get(keyDigest);
-
-      if (nIdx !== undefined && !matchedNIndices.has(nIdx)) {
-        revealed.push({ kIndex: kIdx, nIndex: nIdx });
-        matchedNIndices.add(nIdx);
-      } else if (nIdx !== undefined && matchedNIndices.has(nIdx)) {
-        errors.push(`Key at k[${kIdx}] matches n[${nIdx}] which was already matched by another key`);
-      } else {
-        augmented.push(kIdx);
-      }
-    }
-
-    if (errors.length > 0) {
-      return { revealed, augmented, priorNtSatisfied: false, errors };
-    }
-
-    // Check threshold satisfaction using matched nIndex values against priorN.length
-    const matchedIndices = revealed.map((r) => r.nIndex);
-    let priorNtSatisfied = false;
-    if (matchedIndices.length > 0) {
-      const thresholdResult = checkThreshold(priorNt, matchedIndices, priorN.length);
-      priorNtSatisfied = thresholdResult.satisfied;
-    }
-
-    return { revealed, augmented, priorNtSatisfied, errors };
-  }
+  /** Delegate to rotation.ts — pure rotation planner (k, n and who signs). */
+  export const planRotation = _planRotation;
 
   /**
    * Check whether a KEL's inception event declares the "DND" (do-not-delegate)
@@ -377,42 +373,8 @@ export namespace KELOps {
     return Array.isArray(n) && n.length === 0;
   }
 
-  /**
-   * Hash next public keys into their blake3 CESR qb64 digests to form
-   * the next key commitment for an establishment event.
-   *
-   * @param nextPublicKeys - The public keys to commit to
-   * @param nextThreshold - The signing threshold for the next key set
-   * @returns The n[] digests and nt threshold for inclusion in an establishment event
-   */
-  export function buildNextCommitment(
-    nextPublicKeys: string[],
-    nextThreshold: Threshold,
-  ): { n: string[]; nt: Threshold } {
-    const n = nextPublicKeys.map((key) => digestVerfer(key));
-    return { n, nt: nextThreshold };
-  }
-
-  /**
-   * Check whether a simple numeric threshold kt is satisfiable given the
-   * number of signing keys.
-   *
-   * Returns a result union instead of throwing, so callers can decide how
-   * to handle an unsatisfiable threshold.
-   */
-  export function assertThresholdSatisfiable(
-    kt: Threshold,
-    keyCount: number,
-  ): { ok: true } | { ok: false; error: string } {
-    const numericKt = typeof kt === 'string' ? parseInt(kt, 10) : NaN;
-    if (!Number.isNaN(numericKt) && numericKt > keyCount) {
-      return {
-        ok: false,
-        error: `Current threshold not satisfiable: kt=${kt} but only ${keyCount} signing keys provided`,
-      };
-    }
-    return { ok: true };
-  }
+  /** Delegate to rotation.ts — single source of truth for next-key commitment. */
+  export const buildNextCommitment = _buildNextCommitment;
 
   // ─── Validation ──────────────────────────────────────────────────────────
 
@@ -439,6 +401,11 @@ export namespace KELOps {
 
   /** Validate key chain continuity (k[] keys hash to prior n[] digests). */
   export const validateKeyChain = _validateKeyChain;
+
+  /**
+   * Pure check: every `a[]` seal resolves to a matching event in `referencedEvents`.
+   */
+  export const validateAnchorTargets = _validateAnchorTargets;
 
   // ─── Comparison helpers ───────────────────────────────────────────────────
 

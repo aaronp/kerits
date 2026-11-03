@@ -1,0 +1,210 @@
+{
+  "add-device-kt1": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "add-device-kt2-joiner-signs": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "remove-b-nt2-compaction": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "replace-one": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "replace-all": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "refresh-own-carrynext": {
+    "accepted": true,
+    "acceptedThroughSn": 2
+  },
+  "add-remove-replace": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "augmented-keep-a0-c0-reveal-b1": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "nt3-two-rotations": {
+    "accepted": true,
+    "acceptedThroughSn": 2
+  },
+  "weighted-compaction": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "drt-basic": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "sdk-refresh": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "sdk-add-then-refresh": {
+    "accepted": true,
+    "acceptedThroughSn": 2
+  },
+  "sdk-add-then-remove": {
+    "accepted": true,
+    "acceptedThroughSn": 2
+  },
+  "sdk-add-then-replace": {
+    "accepted": true,
+    "acceptedThroughSn": 2
+  },
+  "defaults-single": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "defaults-add-device": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "defaults-two-device-refresh": {
+    "accepted": true,
+    "acceptedThroughSn": 2
+  },
+  "defaults-sliding-window": {
+    "accepted": true,
+    "acceptedThroughSn": 2
+  },
+  "duplicate-sig-a-and-b": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "invalid-unparseable-kt": {
+    "accepted": false,
+    "acceptedThroughSn": 0
+  },
+  "abandon-nt0": {
+    "accepted": false,
+    "acceptedThroughSn": 1
+  },
+  "abandon-then-ixn": {
+    "accepted": false,
+    "acceptedThroughSn": 1
+  },
+  "defaults-explicit-kt-default-nt": {
+    "accepted": true,
+    "acceptedThroughSn": 2
+  },
+  "perm-add-n1-t1": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "perm-add-n2-t1": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "perm-add-n2-t2": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "perm-add-n3-t1": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "perm-add-n3-t2": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "perm-add-n3-t3": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "perm-remove-n2-t1": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "perm-replace-n2-t1": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "perm-remove-n3-t1": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "perm-remove-n3-t2": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "perm-replace-n3-t1": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "perm-replace-n3-t2": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "extra-invalid-signature-dropped": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "kept-key-signs-with-default-ondex": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "invalid-augmented-signs-alone": {
+    "accepted": false,
+    "acceptedThroughSn": 0
+  },
+  "invalid-ondex-mismatch": {
+    "accepted": false,
+    "acceptedThroughSn": 0
+  },
+  "invalid-prior-nt-unmet": {
+    "accepted": false,
+    "acceptedThroughSn": 0
+  },
+  "invalid-kt-unmet": {
+    "accepted": false,
+    "acceptedThroughSn": 0
+  },
+  "invalid-duplicate-signature": {
+    "accepted": false,
+    "acceptedThroughSn": 0
+  },
+  "invalid-unknown-signer": {
+    "accepted": false,
+    "acceptedThroughSn": 0
+  },
+  "invalid-augmented-keep-b1-insufficient": {
+    "accepted": false,
+    "acceptedThroughSn": 0
+  },
+  "hex-sn-ixn-to-10-then-rot": {
+    "accepted": true,
+    "acceptedThroughSn": 17
+  },
+  "sn-leading-zero": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "sn-0x-prefix": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "group-all-members": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "group-smids-subset": {
+    "accepted": true,
+    "acceptedThroughSn": 1
+  },
+  "group-rmids-differs": {
+    "accepted": true,
+    "acceptedThroughSn": 2
+  },
+  "group-cosigner-kt2": {
+    "accepted": true,
+    "acceptedThroughSn": 2
+  }
+}

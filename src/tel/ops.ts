@@ -1,11 +1,12 @@
 import { Value } from '@sinclair/typebox/value';
-import type { AID } from '../common/types.js';
+import { type AID, SequenceNumber } from '../common/types.js';
 import { TELData } from './tel-data.js';
 import {
   BisEventSchema,
   BrvEventSchema,
   IssEventSchema,
   RevEventSchema,
+  type TELScope,
   type TelEvent,
   VcpEventSchema,
   VrtEventSchema,
@@ -102,10 +103,12 @@ function validateEvent(event: TelEvent): TelValidationResult {
     errors.push({ field: 'i', message: 'missing or empty identifier' });
   }
 
-  // Sequence is a valid non-negative integer
-  const sn = parseInt(event.s, 10);
-  if (Number.isNaN(sn) || sn < 0) {
-    errors.push({ field: 's', message: 'sequence must be a non-negative integer string' });
+  // Sequence is keripy hex
+  const sn = SequenceNumber.parse(event.s);
+  if (!sn.ok) {
+    errors.push({ field: 's', message: `sequence must be a hex string: ${sn.error.message}` });
+  } else {
+    /* well formed */
   }
 
   return errors.length === 0 ? { ok: true } : { ok: false, errors };
@@ -114,17 +117,17 @@ function validateEvent(event: TelEvent): TelValidationResult {
 /**
  * Validate that candidate can be appended to the existing chain.
  *
- * Invariants:
+ * scope='registry' (default): VCP genesis, VRT allowed, ISS/REV/BIS/BRV allowed after VCP.
+ * scope='credential': ISS genesis at sn=0, REV at sn=1 (terminal); VCP/VRT/BIS/BRV rejected.
+ *
+ * Invariants (both scopes):
  * - s === existing.length (zero-based, contiguous, append-only)
  * - Events with `p` (VRT, REV, BRV) must link to prior event's SAID
- * - Events without `p` (VCP, ISS, BIS) are inception-like at their position
- * - Exactly one VCP at sequence 0; additional VCP events are invalid
- * - VRT requires a prior VCP in the chain
  * - ISS/REV require a non-empty ri field
- * - Registry ID consistency: VCP/VRT use `i`, ISS/REV use `ri`, BIS/BRV use `ra.i`
+ * - Registry ID consistency across all events in chain
  * - No duplicate SAIDs
  */
-function validateAppend(existing: TelEvent[], candidate: TelEvent): TelValidationResult {
+function validateAppend(existing: TelEvent[], candidate: TelEvent, scope: TELScope = 'registry'): TelValidationResult {
   const errors: TelValidationError[] = [];
 
   // Structural validation first
@@ -132,7 +135,7 @@ function validateAppend(existing: TelEvent[], candidate: TelEvent): TelValidatio
   if (!structural.ok) return structural;
 
   const expectedSeq = existing.length;
-  const candidateSeq = parseInt(candidate.s, 10);
+  const candidateSeq = SequenceNumber.of(candidate.s); // structural validation above parsed it
 
   // Sequence contiguity
   if (candidateSeq !== expectedSeq) {
@@ -142,31 +145,42 @@ function validateAppend(existing: TelEvent[], candidate: TelEvent): TelValidatio
     });
   }
 
-  // VCP only at sequence 0
-  if (TELData.isVcp(candidate) && expectedSeq !== 0) {
-    errors.push({
-      field: 't',
-      message: 'VCP is only valid at sequence 0',
-    });
-  }
-
-  // Non-VCP requires existing VCP
-  if (!TELData.isVcp(candidate) && existing.length === 0) {
-    errors.push({
-      field: 't',
-      message: 'first event must be VCP',
-    });
-  }
-
-  // VRT requires prior VCP (registry rotation needs an inception)
-  if (TELData.isVrt(candidate)) {
-    const hasVcp = existing.some((e) => TELData.isVcp(e));
-    if (!hasVcp) {
-      errors.push({
-        field: 't',
-        message: 'VRT requires a prior VCP in the chain',
-      });
+  if (scope === 'registry') {
+    // VCP only at sequence 0
+    if (TELData.isVcp(candidate) && expectedSeq !== 0) {
+      errors.push({ field: 't', message: 'VCP is only valid at sequence 0' });
     }
+
+    // Non-VCP requires existing VCP
+    if (!TELData.isVcp(candidate) && existing.length === 0) {
+      errors.push({ field: 't', message: 'first event must be VCP' });
+    }
+
+    // VRT requires prior VCP (registry rotation needs an inception)
+    if (TELData.isVrt(candidate)) {
+      const hasVcp = existing.some((e) => TELData.isVcp(e));
+      if (!hasVcp) {
+        errors.push({ field: 't', message: 'VRT requires a prior VCP in the chain' });
+      }
+    }
+  } else if (scope === 'credential') {
+    // Only ISS and REV are valid in a credential TEL
+    if (!TELData.isIss(candidate) && !TELData.isRev(candidate)) {
+      errors.push({ field: 't', message: `event type '${candidate.t}' is not allowed in a credential TEL` });
+    }
+
+    // ISS must be genesis
+    if (!TELData.isIss(candidate) && existing.length === 0) {
+      errors.push({ field: 't', message: 'first event in a credential TEL must be ISS' });
+    }
+
+    // REV is terminal — reject any append after a REV exists
+    if (existing.some((e) => TELData.isRev(e))) {
+      errors.push({ field: 't', message: 'credential TEL is terminal: REV has already been appended' });
+    }
+  } else {
+    const _exhaustive: never = scope;
+    throw new Error(`Unsupported TELScope: ${_exhaustive}`);
   }
 
   // Prior SAID linkage: only events with `p` field (VRT, REV, BRV)
@@ -182,20 +196,19 @@ function validateAppend(existing: TelEvent[], candidate: TelEvent): TelValidatio
 
   // ISS/REV require non-empty ri
   if ((TELData.isIss(candidate) || TELData.isRev(candidate)) && !candidate.ri) {
-    errors.push({
-      field: 'ri',
-      message: 'ISS/REV require a non-empty ri field',
-    });
+    errors.push({ field: 'ri', message: 'ISS/REV require a non-empty ri field' });
   }
 
-  // Registry ID consistency: all events must reference the same registry
+  // Registry ID consistency: all events must reference the same registry.
+  // In registry scope the anchor is existing[0].i (VCP's registry SAID).
+  // In credential scope the anchor is existing[0]'s registryId (ISS.ri).
   if (existing.length > 0) {
-    const vcpRegistryId = existing[0]!.i; // VCP's `i` is the registry SAID
+    const anchorRegistryId = TELData.registryId(existing[0]!);
     const candidateRegistryId = TELData.registryId(candidate);
-    if (candidateRegistryId !== vcpRegistryId) {
+    if (candidateRegistryId !== anchorRegistryId) {
       errors.push({
         field: 'i',
-        message: `registry ID mismatch: expected ${vcpRegistryId}, got ${candidateRegistryId}`,
+        message: `registry ID mismatch: expected ${anchorRegistryId}, got ${candidateRegistryId}`,
       });
     }
   }
@@ -203,10 +216,7 @@ function validateAppend(existing: TelEvent[], candidate: TelEvent): TelValidatio
   // Duplicate SAID check
   const existingSaids = new Set(existing.map((e) => e.d));
   if (existingSaids.has(candidate.d)) {
-    errors.push({
-      field: 'd',
-      message: `duplicate SAID: ${candidate.d}`,
-    });
+    errors.push({ field: 'd', message: `duplicate SAID: ${candidate.d}` });
   }
 
   return errors.length === 0 ? { ok: true } : { ok: false, errors };
@@ -214,15 +224,59 @@ function validateAppend(existing: TelEvent[], candidate: TelEvent): TelValidatio
 
 /**
  * Validate full chain integrity by cumulatively applying validateAppend.
+ * Pass scope='credential' for ISS/REV status TELs (ISS genesis at sn=0).
  */
-function validateChain(entries: TelEvent[]): TelValidationResult {
+function validateChain(entries: TelEvent[], scope: TELScope = 'registry'): TelValidationResult {
   for (let i = 0; i < entries.length; i++) {
     const existing = entries.slice(0, i);
     const candidate = entries[i]!;
-    const result = validateAppend(existing, candidate);
+    const result = validateAppend(existing, candidate, scope);
     if (!result.ok) return result;
   }
   return { ok: true };
+}
+
+/**
+ * Split a mixed proof/sync TEL bag into registry events and per-credential status TELs.
+ * Dual-TEL: VCP/VRT live on the management TEL; ISS/REV/BIS/BRV on credential TELs.
+ */
+function partitionByScope(entries: readonly TelEvent[]): {
+  readonly registry: TelEvent[];
+  readonly byCredential: ReadonlyMap<string, TelEvent[]>;
+} {
+  const registry: TelEvent[] = [];
+  const byCredential = new Map<string, TelEvent[]>();
+  for (const event of entries) {
+    if (TELData.isVcp(event) || TELData.isVrt(event)) {
+      registry.push(event);
+      continue;
+    }
+    const credSaid = TELData.credentialId(event);
+    if (!credSaid) continue;
+    const list = byCredential.get(credSaid) ?? [];
+    list.push(event);
+    byCredential.set(credSaid, list);
+  }
+  return { registry, byCredential };
+}
+
+/** One lane of a registry aggregate: the registry's own events, or one credential's. */
+export type TelLane =
+  | { readonly kind: 'registry'; readonly ri: string }
+  | { readonly kind: 'credential'; readonly said: string };
+
+/** The events of `entries` in `lane`: vcp/vrt with `i === ri`, or the events whose credential id is `said`. Pure. */
+function lane(entries: readonly TelEvent[], l: TelLane): TelEvent[] {
+  switch (l.kind) {
+    case 'registry':
+      return entries.filter((e) => (TELData.isVcp(e) || TELData.isVrt(e)) && e.i === l.ri);
+    case 'credential':
+      return entries.filter((e) => !TELData.isVcp(e) && !TELData.isVrt(e) && TELData.credentialId(e) === l.said);
+    default: {
+      const unknownLane: never = l;
+      throw new Error(`Unsupported TEL lane: ${JSON.stringify(unknownLane)}`);
+    }
+  }
 }
 
 export type { TelValidationError, TelValidationResult };
@@ -234,4 +288,6 @@ export const TELOps = {
   validateEvent,
   validateAppend,
   validateChain,
+  partitionByScope,
+  lane,
 } as const;

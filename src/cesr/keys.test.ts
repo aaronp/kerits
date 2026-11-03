@@ -1,3 +1,4 @@
+import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { describe, expect, it } from 'bun:test';
 import { decodeKey, encodeKey } from './keys.js';
 
@@ -38,5 +39,23 @@ describe('cesr/keys', () => {
   it('decodeKey throws on unsupported code', () => {
     // Encode a digest-type qb64 (not a key code) and expect throw
     expect(() => decodeKey('EHello___world______________')).toThrow();
+  });
+
+  it('secp256k1 round-trip: encode 33-byte key → decode preserves bytes and algo', () => {
+    // setup: generate a real secp256k1 compressed public key (33 bytes)
+    const privateKey = secp256k1.utils.randomSecretKey();
+    const publicKey = secp256k1.getPublicKey(privateKey, true);
+    expect(publicKey.length).toBe(33);
+
+    // method under test: encodeKey with secp256k1 algo, then decodeKey
+    const encoded = encodeKey(publicKey, true, 'secp256k1');
+    expect(encoded.algo).toBe('secp256k1');
+    expect(typeof encoded.qb64).toBe('string');
+
+    const decoded = decodeKey(encoded.qb64);
+
+    // assertions: algo and raw bytes are preserved through the round-trip
+    expect(decoded.algo).toBe('secp256k1');
+    expect(decoded.raw).toEqual(publicKey);
   });
 });

@@ -1,17 +1,23 @@
 /**
- * KEL Rotation - Key Revelation Resolution
+ * KEL Rotation - key revelation and rotation planning.
  *
- * In KERI, when you rotate keys, your NEW signing keys must exactly match
- * what the PRIOR event committed to in its next key digests (n[]) and
- * next threshold (nt). This module provides a pure function to resolve
- * committed digests back to their public keys.
+ * Spec: https://trustoverip.github.io/kswg-keri-specification/#general-pre-rotation
+ *
+ * Rules:
+ * - No persistent key slots: a rotation's k and n are fresh lists and compact.
+ *   A current key carries over only if listed explicitly (`keep`).
+ * - Partial rotation: revealed prior-next keys need only meet the prior nt;
+ *   unrevealed commitments may be carried forward into the new n (`carryNext`).
+ * - Augmented rotation: new keys (`add`) sign immediately but never count toward the prior nt.
+ * - Signatures satisfy thresholds, not presence in k: the prior nt counts signatures by
+ *   revealed keys (digest + ondex); the new kt counts signatures by any key in k.
  *
  * @module kel/rotation
  */
 
-import { digestVerfer } from '../cesr/digest.js';
-import type { Threshold } from '../common/types.js';
-import { checkThreshold } from './threshold.js';
+import { digestVerfer, verferMatchesDigest } from '../cesr/digest.js';
+import { type PublicKey, Threshold } from '../common/types.js';
+import { err, ok, type Result } from '../result.js';
 
 /**
  * Resolve the current signing keys for a rotation event by looking up the
@@ -92,19 +98,14 @@ export function matchKeyRevelation(input: MatchKeyRevelationInput): MatchKeyReve
     digestSet.add(digest);
   }
 
-  // Build digest->nIndex map for O(1) lookup
-  const digestToNIndex = new Map<string, number>();
-  for (let i = 0; i < priorN.length; i++) {
-    digestToNIndex.set(priorN[i]!, i);
-  }
-
   const revealed: { kIndex: number; nIndex: number }[] = [];
   const augmented: number[] = [];
   const matchedNIndices = new Set<number>();
 
   for (let kIdx = 0; kIdx < proposedK.length; kIdx++) {
-    const keyDigest = digestVerfer(proposedK[kIdx]!);
-    const nIdx = digestToNIndex.get(keyDigest);
+    // each commitment is hashed with its own digest code (as keripy)
+    const found = priorN.findIndex((d) => verferMatchesDigest(proposedK[kIdx]!, d));
+    const nIdx = found === -1 ? undefined : found;
 
     if (nIdx !== undefined && !matchedNIndices.has(nIdx)) {
       revealed.push({ kIndex: kIdx, nIndex: nIdx });
@@ -122,11 +123,7 @@ export function matchKeyRevelation(input: MatchKeyRevelationInput): MatchKeyReve
 
   // Check threshold satisfaction using matched nIndex values against priorN.length
   const matchedIndices = revealed.map((r) => r.nIndex);
-  let priorNtSatisfied = false;
-  if (matchedIndices.length > 0) {
-    const thresholdResult = checkThreshold(priorNt, matchedIndices, priorN.length);
-    priorNtSatisfied = thresholdResult.satisfied;
-  }
+  const priorNtSatisfied = meetsThreshold(priorNt, matchedIndices, priorN.length);
 
   return { revealed, augmented, priorNtSatisfied, errors };
 }
@@ -158,17 +155,6 @@ export function assertKeyRevelation(priorKsn: { n: string[]; nt: Threshold }, pr
 }
 
 /**
- * Assert that a simple numeric threshold kt is satisfiable given the
- * number of signing keys. Throws if kt exceeds kLength.
- */
-export function assertCurrentThresholdSatisfiable(kt: Threshold, kLength: number): void {
-  const numericKt = typeof kt === 'string' ? Number.parseInt(kt, 10) : Number.NaN;
-  if (!Number.isNaN(numericKt) && numericKt > kLength) {
-    throw new Error(`Current threshold not satisfiable: kt=${kt} but only ${kLength} signing keys provided`);
-  }
-}
-
-/**
  * Hash next public keys into their blake3 CESR qb64 digests to form
  * the next key commitment for an establishment event.
  *
@@ -182,4 +168,120 @@ export function buildNextCommitment(
 ): { n: string[]; nt: Threshold } {
   const n = nextPublicKeys.map((key) => digestVerfer(key));
   return { n, nt: nextThreshold };
+}
+
+// ---------------------------------------------------------------------------
+// Rotation planner
+// ---------------------------------------------------------------------------
+
+export type RotationChange = {
+  readonly keep?: readonly PublicKey[]; // current keys carried over explicitly
+  readonly reveal: readonly PublicKey[]; // pre-images of prior n entries, revealed now
+  readonly add?: readonly PublicKey[]; // augmented keys (no prior commitment)
+  readonly carryNext?: readonly string[]; // prior n digests carried forward unrevealed
+  readonly nextDigests: readonly string[]; // new next-key digests
+  readonly kt: Threshold;
+  readonly nt: Threshold;
+};
+/** ondex: prior-n index (revealed keys only). */
+export type RotationSigner = { readonly kIndex: number; readonly ondex?: number };
+export type RotationPlan = {
+  readonly k: PublicKey[];
+  readonly kt: Threshold;
+  readonly n: string[];
+  readonly nt: Threshold;
+  /** The keys in `available` that sign, with their indices. */
+  readonly signers: RotationSigner[];
+};
+export type RotationPlanError =
+  | { kind: 'not-committed'; key: PublicKey }
+  | { kind: 'prior-nt-unsatisfiable'; nt: Threshold; revealed: number }
+  | { kind: 'kt-unsatisfiable-by'; kt: Threshold; available: number }
+  | { kind: 'duplicate-key'; key: PublicKey }
+  | { kind: 'invalid-threshold'; field: 'kt' | 'nt'; message: string };
+
+/** Threshold met by these indices; a malformed or out-of-range threshold is simply not met. */
+export function meetsThreshold(threshold: Threshold, indices: readonly number[], total: number): boolean {
+  const parsed = Threshold.parse(threshold, total);
+  return parsed.ok ? Threshold.satisfied(parsed.value, indices) : false;
+}
+
+/**
+ * Plan a rotation. k is the kept keys, then the revealed keys, then the added keys.
+ * n is the carried commitments, then the new digests. A removed key's commitment stays
+ * in n when it is carried, so k and n need not stay paired.
+ * Both thresholds must be satisfiable by the signatures of `available` alone
+ * (the keys whose holder will sign this event).
+ */
+export function planRotation(
+  prior: { k: PublicKey[]; kt: Threshold; n: string[]; nt: Threshold },
+  change: RotationChange,
+  available: readonly PublicKey[],
+): Result<RotationPlan, RotationPlanError> {
+  const match = matchKeyRevelation({ priorN: prior.n, priorNt: prior.nt, proposedK: [...change.reveal] });
+  if (match.errors.length > 0) {
+    throw new Error(`planRotation: invalid prior n: ${match.errors.join('; ')}`);
+  } else if (match.augmented.length > 0) {
+    return err({ kind: 'not-committed', key: change.reveal[match.augmented[0]!]! });
+  } else {
+    /* every revealed key is committed */
+  }
+
+  const k = [...(change.keep ?? []), ...change.reveal, ...(change.add ?? [])];
+  const n = [...(change.carryNext ?? []), ...change.nextDigests];
+  const revealOffset = change.keep?.length ?? 0;
+  const ondexByKIndex = new Map(match.revealed.map((r) => [r.kIndex + revealOffset, r.nIndex]));
+
+  // the new thresholds must be well formed for their lists (nt "0" with an empty n abandons the AID)
+  const ktParsed = Threshold.parse(change.kt, k.length);
+  const ntParsed = Threshold.parse(change.nt, n.length);
+  if (!ktParsed.ok) {
+    return err({ kind: 'invalid-threshold', field: 'kt', message: `kt: ${ktParsed.error.message}` });
+  } else if (ktParsed.value.kind === 'numeric' && ktParsed.value.m < 1) {
+    // keripy's builders reject a kt below 1 (nt "0" is allowed: abandonment)
+    return err({ kind: 'invalid-threshold', field: 'kt', message: 'kt: threshold "0" is less than 1' });
+  } else if (!ntParsed.ok) {
+    return err({ kind: 'invalid-threshold', field: 'nt', message: `nt: ${ntParsed.error.message}` });
+  } else {
+    /* both thresholds well formed */
+  }
+
+  const seen = new Set<PublicKey>();
+  for (const key of k) {
+    if (seen.has(key)) {
+      return err({ kind: 'duplicate-key', key });
+    } else {
+      seen.add(key);
+    }
+  }
+
+  const availableSet = new Set(available);
+  const signers: RotationSigner[] = [];
+  k.forEach((key, kIndex) => {
+    const ondex = ondexByKIndex.get(kIndex);
+    if (!availableSet.has(key)) {
+      /* holder not signing */
+    } else if (ondex === undefined) {
+      signers.push({ kIndex });
+    } else {
+      signers.push({ kIndex, ondex });
+    }
+  });
+
+  // prior nt: only revealed keys that will sign, by ondex
+  const ondices = signers.flatMap((s) => (s.ondex === undefined ? [] : [s.ondex]));
+  if (!meetsThreshold(prior.nt, ondices, prior.n.length)) {
+    return err({ kind: 'prior-nt-unsatisfiable', nt: prior.nt, revealed: ondices.length });
+  } else if (
+    !meetsThreshold(
+      change.kt,
+      signers.map((s) => s.kIndex),
+      k.length,
+    )
+  ) {
+    // new kt: any key that will sign
+    return err({ kind: 'kt-unsatisfiable-by', kt: change.kt, available: signers.length });
+  } else {
+    return ok({ k, kt: change.kt, n, nt: change.nt, signers });
+  }
 }

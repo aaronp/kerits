@@ -14,7 +14,7 @@
 import { SAID_PLACEHOLDER } from '../common/data.js';
 import type { DerivationSurface } from '../common/derivation-surface.js';
 import { deriveSaid, serializeForSigning } from '../common/derivation-surface.js';
-import type { AID, SAID } from '../common/types.js';
+import { type AID, type SAID, SequenceNumber } from '../common/types.js';
 import {
   TEL_BIS_SURFACE,
   TEL_BRV_SURFACE,
@@ -38,7 +38,8 @@ export interface VcpParams {
 
 export interface VrtParams {
   registryId: SAID;
-  sequence: string;
+  /** The event's sn; written as keripy hex `s` (SequenceNumber.encode). */
+  sequence: number;
   priorEventSaid: SAID;
   backerThreshold: string;
   backersRemoved: AID[];
@@ -48,14 +49,16 @@ export interface VrtParams {
 export interface IssParams {
   credentialSaid: SAID;
   registryId: SAID;
-  sequence: string;
+  /** The event's sn; written as keripy hex `s` (SequenceNumber.encode). */
+  sequence: number;
   datetime: string;
 }
 
 export interface RevParams {
   credentialSaid: SAID;
   registryId: SAID;
-  sequence: string;
+  /** The event's sn; written as keripy hex `s` (SequenceNumber.encode). */
+  sequence: number;
   priorEventSaid: SAID;
   datetime: string;
 }
@@ -64,14 +67,16 @@ export interface BisParams {
   credentialSaid: SAID;
   issuerAid: AID;
   registrySeal: { i: string; s: string; d: string };
-  sequence: string;
+  /** The event's sn; written as keripy hex `s` (SequenceNumber.encode). */
+  sequence: number;
   datetime: string;
 }
 
 export interface BrvParams {
   credentialSaid: SAID;
   registrySeal: { i: string; s: string; d: string };
-  sequence: string;
+  /** The event's sn; written as keripy hex `s` (SequenceNumber.encode). */
+  sequence: number;
   priorEventSaid: SAID;
   datetime: string;
 }
@@ -142,7 +147,7 @@ export namespace TELEvents {
       d: '',
       i: params.registryId,
       p: params.priorEventSaid,
-      s: params.sequence,
+      s: SequenceNumber.encode(params.sequence),
       bt: params.backerThreshold,
       br: params.backersRemoved,
       ba: params.backersAdded,
@@ -161,7 +166,7 @@ export namespace TELEvents {
       t: 'iss' as const,
       d: '',
       i: params.credentialSaid,
-      s: params.sequence,
+      s: SequenceNumber.encode(params.sequence),
       ri: params.registryId,
       dt: params.datetime,
     };
@@ -179,7 +184,7 @@ export namespace TELEvents {
       t: 'rev' as const,
       d: '',
       i: params.credentialSaid,
-      s: params.sequence,
+      s: SequenceNumber.encode(params.sequence),
       ri: params.registryId,
       p: params.priorEventSaid,
       dt: params.datetime,
@@ -198,7 +203,7 @@ export namespace TELEvents {
       d: '',
       i: params.credentialSaid,
       ii: params.issuerAid,
-      s: params.sequence,
+      s: SequenceNumber.encode(params.sequence),
       ra: params.registrySeal,
       dt: params.datetime,
     };
@@ -216,7 +221,7 @@ export namespace TELEvents {
       t: 'brv' as const,
       d: '',
       i: params.credentialSaid,
-      s: params.sequence,
+      s: SequenceNumber.encode(params.sequence),
       p: params.priorEventSaid,
       ra: params.registrySeal,
       dt: params.datetime,
@@ -269,12 +274,9 @@ export namespace TELEvents {
   }
 
   /**
-   * Increment a sequence number string by 1.
-   *
-   * @param priorSeq - Prior sequence number as string (e.g. '0', '42')
-   * @returns Next sequence number as string (e.g. '1', '43')
+   * The sn after a prior event's hex `s` (e.g. '9' → 10, 'f' → 16), for a builder's `sequence`.
    */
-  export function nextSequence(priorSeq: string): string {
-    return String(Number.parseInt(priorSeq, 10) + 1);
+  export function nextSequence(priorSeq: string): number {
+    return SequenceNumber.of(priorSeq) + 1;
   }
 }

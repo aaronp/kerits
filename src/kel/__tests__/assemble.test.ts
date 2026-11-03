@@ -61,3 +61,36 @@ describe('KELEvents.assembleSignedEvent', () => {
     expect(cesrEvent.attachments).toHaveLength(2);
   });
 });
+
+describe('KELEvents.signatureOndex', () => {
+  test('non-rotation events default ondex to index; rotations only carry an explicit ondex', () => {
+    // setup: an icp and a rot body (only the ilk matters)
+    const pair = KeriKeyPairs.create();
+    const icp = KELEvents.computeSaid(
+      KELEvents.buildIcp({ keys: [pair.publicKey], nextKeyDigests: [digestVerfer(pair.publicKey)] }).unsignedEvent,
+      true,
+    ).event;
+    const rot = KELEvents.computeSaid(
+      KELEvents.buildRot({
+        aid: icp.i,
+        sequence: 1,
+        priorEventSaid: icp.d,
+        keys: [pair.publicKey],
+        nextKeyDigests: [digestVerfer(pair.publicKey)],
+        signingThreshold: '1',
+        nextThreshold: '1',
+      }).unsignedEvent,
+      false,
+    ).event;
+
+    // call our method under test
+    const ondices = [
+      KELEvents.signatureOndex(icp, 1, undefined),
+      KELEvents.signatureOndex(rot, 1, undefined),
+      KELEvents.signatureOndex(rot, 1, 2),
+    ];
+
+    // assertions: icp both lists (keripy default), rot current-only unless planned
+    expect(ondices).toEqual([1, undefined, 2]);
+  });
+});

@@ -114,10 +114,7 @@ describe('decodeAttachmentGroups', () => {
   it('valid -B group with one witness sig returns correct CesrAttachment shape', () => {
     const wire = makeWireBytes(CtrDex.WitnessIdxSigs, 1, [makeSigerQb64(0)]);
     const result = decodeAttachmentGroups(wire);
-    expect(result).toHaveLength(1);
-    expect(result[0].kind).toBe('sig');
-    expect(result[0].form).toBe('indexed');
-    expect((result[0] as Extract<CesrAttachment, { form: 'indexed' }>).keyIndex).toBe(0);
+    expect(result).toEqual([{ kind: 'wig', keyIndex: 0, sig: validSigQb64 }]);
   });
 
   it('truncated counter (only 2 bytes of 4) throws', () => {
@@ -354,7 +351,7 @@ describe('delegator-seal-source couple (-G)', () => {
     // setup: a seal-source couple with a large sn
     const att: CesrAttachment = {
       kind: 'delegator-seal-source',
-      s: '1000000',
+      s: 'f4240', // 1000000, keripy hex
       d: validDigestQb64,
     };
     // method under test: encode then decode
@@ -404,4 +401,53 @@ describe('count boundaries (decode)', () => {
     expect(restored.count).toBe(4095);
     expect(restored.code).toBe(CtrDex.ControllerIdxSigs);
   });
+});
+
+describe('wig (-B) attachments', () => {
+  it('decodes -B witness indexed sigs as wig, not controller sig', () => {
+    // setup: a -B group with one Ed25519 indexed sig at index 0
+    const counter = new Counter({ code: CtrDex.WitnessIdxSigs, count: 1 });
+    const siger = new Siger({ raw: new Uint8Array(64), code: IdrDex.Ed25519_Sig, index: 0 });
+    const bytes = new TextEncoder().encode(counter.qb64 + siger.qb64);
+    // call our method under test
+    const atts = decodeAttachmentGroups(bytes);
+    // assertions: distinct kind, index preserved
+    expect(atts).toEqual([{ kind: 'wig', keyIndex: 0, sig: validSigQb64 }]);
+  });
+
+  it('never emits -B: encoding a wig throws', () => {
+    // call our method under test; assertions: exact refusal message
+    expect(() => encodeAttachmentGroups([{ kind: 'wig', keyIndex: 0, sig: validSigQb64 }])).toThrow(
+      new Error('wig attachments are not encoded; convert to rct'),
+    );
+  });
+});
+
+describe('indexed signature codes (keripy rules) and ondex round-trip', () => {
+  const sig = (keyIndex: number, ondex?: number): CesrAttachment =>
+    ondex === undefined
+      ? { kind: 'sig', form: 'indexed', keyIndex, sig: validSigQb64 }
+      : { kind: 'sig', form: 'indexed', keyIndex, ondex, sig: validSigQb64 };
+
+  const cases: Array<{ name: string; att: CesrAttachment; prefix: string }> = [
+    { name: 'index == ondex < 64 → A', att: sig(1, 1), prefix: 'AB' },
+    { name: 'index != ondex → 2A (both indices)', att: sig(1, 2), prefix: '2AABAC' },
+    { name: 'no ondex, index < 64 → B (current only)', att: sig(1), prefix: 'BB' },
+    { name: 'no ondex, index >= 64 → 2B', att: sig(64), prefix: '2BBAAA' },
+    { name: 'index == ondex >= 64 → 2A', att: sig(64, 64), prefix: '2ABABA' },
+    { name: 'ondex >= 64 → 2A', att: sig(0, 64), prefix: '2AAABA' },
+  ];
+
+  for (const c of cases) {
+    it(c.name, () => {
+      // call our method under test: encode one controller signature, then decode it
+      const text = new TextDecoder().decode(encodeAttachmentGroups([c.att]));
+      const decoded = decodeAttachmentGroups(new TextEncoder().encode(text));
+
+      // assertions: -A counter of 1, the exact siger code + indices, and ondex survives the round-trip
+      expect(text.slice(0, 4)).toBe('-AAB');
+      expect(text.slice(4, 4 + c.prefix.length)).toBe(c.prefix);
+      expect(decoded).toEqual([c.att]);
+    });
+  }
 });

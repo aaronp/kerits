@@ -54,7 +54,7 @@ const rotNextDigest = nextKeyDigestQb64FromPublicKeyQb64(rotNextQb64);
 // icpEvent.d is the prior event's SAID, icpEvent.i is the AID
 const { unsignedEvent } = KELEvents.buildRot({
   aid: icpEvent.i,
-  sequence: '1',
+  sequence: 1,
   priorEventSaid: icpEvent.d,
   keys: [rotCurrentQb64],
   nextKeyDigests: [rotNextDigest],
@@ -76,7 +76,7 @@ import { KELEvents } from '@kerits/core';
 
 const { unsignedEvent } = KELEvents.buildIxn({
   aid: rotEvent.i,
-  sequence: '2',
+  sequence: 2,
   priorEventSaid: rotEvent.d,
   anchors: [],
 });

@@ -95,7 +95,7 @@ describe('KELEvents Factory', () => {
 
       const { unsignedEvent, isDelegated } = KELEvents.buildRot({
         aid,
-        sequence: '1',
+        sequence: 1,
         priorEventSaid: priorSaid,
         keys: ['DNewKey1'],
         nextKeyDigests: ['ENewNext1'],
@@ -126,7 +126,7 @@ describe('KELEvents Factory', () => {
     test('should include witness fields when witnessesAdded specified', () => {
       const { unsignedEvent } = KELEvents.buildRot({
         aid: 'EAid' as any,
-        sequence: '1',
+        sequence: 1,
         priorEventSaid: 'EPrior' as any,
         keys: ['DKey1'],
         nextKeyDigests: ['ENext1'],
@@ -144,7 +144,7 @@ describe('KELEvents Factory', () => {
     test('should include witnessesRemoved when specified', () => {
       const { unsignedEvent } = KELEvents.buildRot({
         aid: 'EAid' as any,
-        sequence: '1',
+        sequence: 1,
         priorEventSaid: 'EPrior' as any,
         keys: ['DKey1'],
         nextKeyDigests: ['ENext1'],
@@ -165,7 +165,7 @@ describe('KELEvents Factory', () => {
 
       const { unsignedEvent, isDelegated } = KELEvents.buildDrt({
         aid,
-        sequence: '2',
+        sequence: 2,
         priorEventSaid: priorSaid,
         keys: ['DNewKey1'],
         nextKeyDigests: ['ENewNext1'],
@@ -193,7 +193,7 @@ describe('KELEvents Factory', () => {
     test('should include witness fields when witnessesAdded specified', () => {
       const { unsignedEvent } = KELEvents.buildDrt({
         aid: 'EAid' as any,
-        sequence: '2',
+        sequence: 2,
         priorEventSaid: 'EPrior' as any,
         keys: ['DNewKey1'],
         nextKeyDigests: ['ENewNext1'],
@@ -216,7 +216,7 @@ describe('KELEvents Factory', () => {
 
       const { unsignedEvent, isDelegated } = KELEvents.buildIxn({
         aid,
-        sequence: '1',
+        sequence: 1,
         priorEventSaid: priorSaid,
       });
 
@@ -234,7 +234,7 @@ describe('KELEvents Factory', () => {
     test('should include anchors', () => {
       const { unsignedEvent } = KELEvents.buildIxn({
         aid: 'EAid' as any,
-        sequence: '2',
+        sequence: 2,
         priorEventSaid: 'EPrior' as any,
         anchors: [
           {
@@ -274,7 +274,7 @@ describe('KELEvents Factory', () => {
       const aid = 'EAid1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ' as any;
       const { unsignedEvent } = KELEvents.buildRot({
         aid,
-        sequence: '1',
+        sequence: 1,
         priorEventSaid: 'EPrior' as any,
         keys: ['DKey1'],
         nextKeyDigests: ['ENext1'],
@@ -294,7 +294,7 @@ describe('KELEvents Factory', () => {
       const aid = 'EAid1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ' as any;
       const { unsignedEvent } = KELEvents.buildIxn({
         aid,
-        sequence: '3',
+        sequence: 3,
         priorEventSaid: 'EPrior' as any,
         anchors: [{ test: 'anchor' }],
       });
@@ -332,7 +332,7 @@ describe('KELEvents Factory', () => {
       // Step 1: Build unsigned ixn
       const { unsignedEvent } = KELEvents.buildIxn({
         aid: parentAid,
-        sequence: '1',
+        sequence: 1,
         priorEventSaid: 'EPrior' as any,
         anchors: [
           {
@@ -402,16 +402,12 @@ describe('KELEvents Factory', () => {
   });
 
   describe('nextSequence', () => {
-    test('0 → 1', () => {
-      expect(KELEvents.nextSequence('0')).toBe('1');
-    });
+    test('reads the prior hex s and returns the next sn (keripy hex)', () => {
+      // call our method under test: prior s values either side of the decimal/hex split
+      const next = ['0', '9', 'f', '42', '3e7'].map((s) => KELEvents.nextSequence(s));
 
-    test('42 → 43', () => {
-      expect(KELEvents.nextSequence('42')).toBe('43');
-    });
-
-    test('999 → 1000', () => {
-      expect(KELEvents.nextSequence('999')).toBe('1000');
+      // assertions: hex in, number out ('9' → 10, 'f' → 16, '42' → 67)
+      expect(next).toEqual([1, 10, 16, 67, 1000]);
     });
   });
 });

@@ -19,6 +19,7 @@ export namespace Signers {
   export function fromKeyPair(keypair: KeriKeyPair): Ed25519Signer {
     return {
       publicKey: keypair.publicKey,
+      algo: 'ed25519' as const,
 
       async getX25519PublicKey(): Promise<Uint8Array> {
         const publicKeyBytes = decodeKey(keypair.publicKey).raw;

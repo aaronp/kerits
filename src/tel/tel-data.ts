@@ -1,6 +1,6 @@
 import type { DerivationSurface } from '../common/derivation-surface.js';
 import { deriveSaid } from '../common/derivation-surface.js';
-import type { SAID } from '../common/types.js';
+import { type SAID, SequenceNumber, Threshold } from '../common/types.js';
 import type {
   BisEvent,
   BrvEvent,
@@ -57,20 +57,13 @@ function backerList(event: TelEvent, rsn?: RSN): string[] {
 }
 
 /**
- * Resolve backer threshold as a simple integer.
- * Only parses simple (string) thresholds. Weighted thresholds (string[][])
- * are not supported in TEL context — returns 0 for those.
+ * Resolve backer threshold (hex, as keripy) as an integer; a missing, malformed or zero bt resolves to 0.
+ * The range against the backer list is not checked here (a VRT's backers need the prior state).
  */
 function backerThreshold(event: TelEvent, rsn?: RSN): number {
-  let raw: string | string[][] | undefined;
-  if (isVcp(event) || isVrt(event)) {
-    raw = event.bt;
-  } else if (rsn) {
-    raw = rsn.bt;
-  }
-  if (typeof raw !== 'string') return 0;
-  const n = parseInt(raw, 10);
-  return Number.isNaN(n) ? 0 : n;
+  const raw = isVcp(event) || isVrt(event) ? event.bt : rsn?.bt;
+  const bt = raw === undefined ? undefined : Threshold.witness(raw, Number.POSITIVE_INFINITY);
+  return bt?.ok ? bt.value : 0;
 }
 
 /**
@@ -84,9 +77,8 @@ function priorSaid(event: TelEvent): string | undefined {
 }
 
 /**
- * Return the credential SAID from an issuance/revocation event.
- * For ISS/REV/BIS/BRV, the `i` field is the credential SAID.
- * For VCP/VRT, `i` is the registry SAID (not a credential).
+ * Credential TEL prefix (`CredentialEvent.i`) — credential SAID.
+ * Undefined for {@link RegistryEvent} (management TEL; `i` is the registry SAID).
  */
 function credentialId(event: TelEvent): string | undefined {
   if (isIss(event) || isRev(event) || isBis(event) || isBrv(event)) return event.i;
@@ -94,10 +86,10 @@ function credentialId(event: TelEvent): string | undefined {
 }
 
 /**
- * Return the registry identifier for a TEL event.
- * - VCP/VRT: registry SAID is in `i`
- * - ISS/REV: registry SAID is in `ri`
- * - BIS/BRV: registry SAID is in `ra.i`
+ * Registry identifier for a TEL event (cross-lane pointer).
+ * - RegistryEvent (VCP/VRT): `i`
+ * - CredentialEvent ISS/REV: `ri`
+ * - CredentialEvent BIS/BRV: `ra.i`
  */
 function registryId(event: TelEvent): string {
   if (isVcp(event) || isVrt(event)) return event.i;
@@ -107,7 +99,7 @@ function registryId(event: TelEvent): string {
 }
 
 function sequenceNumber(event: TelEvent): number {
-  return parseInt(event.s, 10);
+  return SequenceNumber.of(event.s);
 }
 
 // ── RSN derivation ──────────────────────────────────────────────────

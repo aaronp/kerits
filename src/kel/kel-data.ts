@@ -11,9 +11,10 @@
  *
  * @module kel/kel-data
  */
+import type { AID, SAID } from '../common/types.js';
 import type { DipParams, DrtParams, IcpParams, IxnParams, RotParams, UnsignedEventResult } from './events.js';
 import { KELEvents } from './events.js';
-import type { DipEvent, IcpEvent } from './types.js';
+import type { DipEvent, IcpEvent, IxnEvent } from './types.js';
 
 export namespace KELData {
   // Builder functions only — no domain logic
@@ -45,6 +46,37 @@ export namespace KELData {
     const { unsignedEvent } = KELEvents.buildDip(params);
     const { event, canonFinal } = KELEvents.computeSaid(unsignedEvent, true);
     return { event: event as DipEvent, bytes: canonFinal.raw };
+  }
+
+  /**
+   * Build an interaction event and compute its SAID in one step.
+   *
+   * Returns the finalized event and canonical bytes ready for signing.
+   */
+  export function prepareIxn(params: IxnParams): { event: IxnEvent; bytes: Uint8Array } {
+    const { unsignedEvent } = KELEvents.buildIxn(params);
+    const { event, canonFinal } = KELEvents.computeSaid(unsignedEvent, false);
+    return { event: event as IxnEvent, bytes: canonFinal.raw };
+  }
+
+  /**
+   * Build an IXN that anchors a child delegation event into the parent KEL.
+   *
+   * Computes sequence number from head.sn + 1 and sets the anchor seal.
+   */
+  export function prepareDelegationAnchorIxn(input: {
+    readonly parentAid: AID;
+    readonly head: { readonly sn: number; readonly said: SAID };
+    readonly childAid: AID;
+    readonly childEventSaid: SAID;
+    readonly childEventSn?: string;
+  }): { event: IxnEvent; bytes: Uint8Array } {
+    return prepareIxn({
+      aid: input.parentAid,
+      sequence: input.head.sn + 1,
+      priorEventSaid: input.head.said,
+      anchors: [{ i: input.childAid, s: input.childEventSn ?? '0', d: input.childEventSaid }],
+    });
   }
 }
 

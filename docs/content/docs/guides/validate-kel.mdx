@@ -211,8 +211,10 @@ for (const parentEvent of parentKel) {
 | `MISSING_REQUIRED_FIELD` | all | A mandatory field is absent |
 | `PREVIOUS_EVENT_MISMATCH` | all | `p` does not equal the prior event's `d` |
 | `NEXT_KEY_MISMATCH` | all | Rotation keys do not satisfy prior `n` commitments |
-| `SIGNATURE_INVALID` | all | A controller signature failed verification |
-| `THRESHOLD_NOT_MET` | all | Valid signatures do not meet the signing threshold |
+| `THRESHOLD_NOT_MET` | all | Verified signatures do not meet the signing threshold (`icp`, `dip`, `ixn`) |
+| `KT_UNMET` | all | `rot`/`drt`: verified signatures do not meet the new `kt` |
+| `PRIOR_NT_UNMET` | all | `rot`/`drt`: signatures by revealed keys (matched by digest and `ondex`) do not meet the prior `nt` |
+| `ONDEX_MISMATCH` | all | `rot`/`drt`: the prior `nt` is unmet and at least one signature was skipped because its `ondex` names no matching prior commitment |
 | `AID_INCONSISTENT` | all | Event `i` field differs from KEL's established AID |
 | `SEQUENCE_INVALID` | all | Event sequence number is out of order |
 | `FIRST_EVENT_NOT_INCEPTION` | all | First event is not `icp` or `dip` |
@@ -229,3 +231,13 @@ for (const parentEvent of parentKel) {
 | `PARENT_THRESHOLD_NOT_MET` | all | Valid VRC signatures don't meet delegator's `kt` |
 | `WITNESS_RECEIPT_SIGNATURE_INVALID` | `fully-witnessed` | A witness receipt signature failed verification |
 | `WITNESS_RECEIPT_THRESHOLD_NOT_MET` | `fully-witnessed` | Verified receipt count below `bt` |
+
+### Dropped signatures
+
+As in keripy, a bad controller signature doesn't reject an event by itself: the thresholds decide. Every signature that doesn't count is listed in `checks.signaturesValid.dropped` as `{ keyIndex, reason, error }`:
+
+- `signature-invalid`: it failed verification;
+- `index-out-of-range`: its index names no current key;
+- `ondex-mismatch`: it verified and counts toward `kt`, but its `ondex` names no matching prior commitment, so it's skipped for the prior `nt`.
+
+`validateKel` no longer emits `SIGNATURE_INVALID` (`KELOps.validateControllerSignature` still does). Each key index counts once.

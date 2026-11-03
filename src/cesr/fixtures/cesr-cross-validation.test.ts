@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { SequenceNumber } from '../../common/types.js';
 import { Matter, MtrDex } from 'cesr-ts/src/matter';
 import { Siger } from 'cesr-ts/src/siger';
 import { IdrDex } from 'cesr-ts/src/indexer';
@@ -89,7 +90,7 @@ function mapTransReceiptQuadruples(
       kind: 'vrc' as const,
       seal: {
         i: item.prefixQb64,
-        s: String(item.sn),
+        s: SequenceNumber.encode(item.sn),
         d: item.digestQb64,
       },
       sig: matter.qb64,

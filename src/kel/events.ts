@@ -15,7 +15,7 @@
 import { SAID_PLACEHOLDER } from '../common/data.js';
 import type { DerivationSurface } from '../common/derivation-surface.js';
 import { deriveSaid, serializeForSigning } from '../common/derivation-surface.js';
-import type { AID, PublicKey, SAID, Threshold } from '../common/types.js';
+import { type AID, type PublicKey, type SAID, SequenceNumber, Threshold } from '../common/types.js';
 import {
   KEL_DIP_SURFACE,
   KEL_DRT_SURFACE,
@@ -23,7 +23,7 @@ import {
   KEL_IXN_SURFACE,
   KEL_ROT_SURFACE,
 } from '../said/surfaces.js';
-import type { KELEvent } from './types.js';
+import type { CesrSeal, KELEvent } from './types.js';
 
 /**
  * Parameters for building an inception event (icp)
@@ -51,7 +51,8 @@ export interface DipParams extends IcpParams {
  */
 export interface RotParams {
   aid: AID;
-  sequence: string;
+  /** The event's sn; written as keripy hex `s` (SequenceNumber.encode). */
+  sequence: number;
   priorEventSaid: SAID;
   keys: PublicKey[];
   nextKeyDigests: string[];
@@ -80,9 +81,10 @@ export interface DrtParams extends RotParams {}
  */
 export interface IxnParams {
   aid: AID;
-  sequence: string;
+  /** The event's sn; written as keripy hex `s` (SequenceNumber.encode). */
+  sequence: number;
   priorEventSaid: SAID;
-  anchors?: unknown[];
+  anchors?: readonly CesrSeal[];
 }
 
 /**
@@ -141,9 +143,9 @@ export namespace KELEvents {
       d: '', // SAID placeholder
       i: '', // AID placeholder
       s: '0' as const,
-      kt: params.signingThreshold ?? '1',
+      kt: Threshold.canonical(params.signingThreshold ?? '1', params.keys.length), // keripy wire form
       k: params.keys,
-      nt: params.nextThreshold ?? params.signingThreshold ?? '1',
+      nt: Threshold.canonical(params.nextThreshold ?? params.signingThreshold ?? '1', params.nextKeyDigests.length),
       n: params.nextKeyDigests,
       bt: params.witnessThreshold ?? '0',
       b: params.witnesses ?? [],
@@ -169,9 +171,9 @@ export namespace KELEvents {
       d: '', // SAID placeholder
       i: '', // AID placeholder
       s: '0' as const,
-      kt: params.signingThreshold ?? '1',
+      kt: Threshold.canonical(params.signingThreshold ?? '1', params.keys.length), // keripy wire form
       k: params.keys,
-      nt: params.nextThreshold ?? params.signingThreshold ?? '1',
+      nt: Threshold.canonical(params.nextThreshold ?? params.signingThreshold ?? '1', params.nextKeyDigests.length),
       n: params.nextKeyDigests,
       bt: params.witnessThreshold ?? '0',
       b: params.witnesses ?? [],
@@ -197,11 +199,11 @@ export namespace KELEvents {
       t: 'rot' as const,
       d: '', // SAID placeholder
       i: params.aid,
-      s: params.sequence,
+      s: SequenceNumber.encode(params.sequence),
       p: params.priorEventSaid,
-      kt: params.signingThreshold,
+      kt: Threshold.canonical(params.signingThreshold, params.keys.length), // keripy wire form
       k: params.keys,
-      nt: params.nextThreshold,
+      nt: Threshold.canonical(params.nextThreshold, params.nextKeyDigests.length),
       n: params.nextKeyDigests,
       bt: params.witnessThreshold ?? '0',
       br: params.witnessesRemoved ?? [],
@@ -227,11 +229,11 @@ export namespace KELEvents {
       t: 'drt' as const,
       d: '', // SAID placeholder
       i: params.aid,
-      s: params.sequence,
+      s: SequenceNumber.encode(params.sequence),
       p: params.priorEventSaid,
-      kt: params.signingThreshold,
+      kt: Threshold.canonical(params.signingThreshold, params.keys.length), // keripy wire form
       k: params.keys,
-      nt: params.nextThreshold,
+      nt: Threshold.canonical(params.nextThreshold, params.nextKeyDigests.length),
       n: params.nextKeyDigests,
       bt: params.witnessThreshold ?? '0',
       br: params.witnessesRemoved ?? [],
@@ -257,7 +259,7 @@ export namespace KELEvents {
    * // Build ixn for delegating child event approval
    * const { unsignedEvent } = KELEvents.buildIxn({
    *   aid: parentAid,
-   *   sequence: '1',
+   *   sequence: 1,
    *   priorEventSaid: parentIcpSaid,
    *   anchors: [{ i: childAid, s: '0', d: childDipSaid }],
    * });
@@ -269,7 +271,7 @@ export namespace KELEvents {
       t: 'ixn' as const,
       d: '', // SAID placeholder
       i: params.aid,
-      s: params.sequence,
+      s: SequenceNumber.encode(params.sequence),
       p: params.priorEventSaid,
       a: params.anchors ?? [],
     };
@@ -367,13 +369,10 @@ export namespace KELEvents {
   }
 
   /**
-   * Increment a sequence number string by 1.
-   *
-   * @param priorSeq - Prior sequence number as string (e.g. '0', '42')
-   * @returns Next sequence number as string (e.g. '1', '43')
+   * The sn after a prior event's hex `s` (e.g. '9' → 10, 'f' → 16), for a builder's `sequence`.
    */
-  export function nextSequence(priorSeq: string): string {
-    return String(Number.parseInt(priorSeq, 10) + 1);
+  export function nextSequence(priorSeq: string): number {
+    return SequenceNumber.of(priorSeq) + 1;
   }
 
   /**
@@ -383,18 +382,75 @@ export namespace KELEvents {
    * Structural assembly only — does not verify signatures match event keys.
    * Validation happens in KELOps.validateAppend.
    */
+  /**
+   * Typed accessor for the event type field (t) present on all KEL events.
+   */
+  export function eventType(event: KELEvent): string {
+    return (event as unknown as { t: string }).t;
+  }
+
+  /**
+   * Typed accessor for the AID field (i) present on all KEL events.
+   */
+  export function eventAid(event: KELEvent): AID {
+    return (event as unknown as { i: AID }).i;
+  }
+
+  /**
+   * Typed accessor for the sequence number field (s) present on all KEL events.
+   * Returns the raw hex string; use SequenceNumber.of for its number.
+   */
+  export function eventSn(event: KELEvent): string {
+    return (event as unknown as { s: string }).s;
+  }
+
+  /**
+   * Typed accessor for the SAID field (d) present on all KEL events.
+   */
+  export function eventSaid(event: KELEvent): SAID {
+    return (event as unknown as { d: SAID }).d;
+  }
+
+  /**
+   * Typed accessor for the current signing keys (k[]) on establishment events.
+   * Returns undefined for non-establishment events (ixn).
+   */
+  export function eventKeys(event: KELEvent): readonly string[] | undefined {
+    return (event as unknown as { k?: readonly string[] }).k;
+  }
+
+  /**
+   * Signature ondex as keripy assigns it: non-rotation events (icp, dip, ixn) default to
+   * ondex = index (both lists); a rotation's ondex comes from its plan (revealed key → prior n
+   * index), and absent means current-list only (kept or augmented key).
+   */
+  export function signatureOndex(event: KELEvent, keyIndex: number, ondex: number | undefined): number | undefined {
+    if (ondex !== undefined) {
+      return ondex;
+    } else if (event.t === 'rot' || event.t === 'drt') {
+      return undefined;
+    } else {
+      return keyIndex;
+    }
+  }
+
   export function assembleSignedEvent(params: {
     event: KELEvent;
-    signatures: Array<{ keyIndex: number; sig: string }>;
+    /** ondex: see `signatureOndex` (rotations pass the planner's ondex; others default to keyIndex). */
+    signatures: Array<{ keyIndex: number; ondex?: number; sig: string }>;
     /** Canonical signing bytes (e.g. from `KELData.prepareIcp` or `computeSaid` canonFinal). */
     bytesB64?: string;
   }): import('./types.js').CESREvent {
-    const attachments: import('./types.js').CesrAttachment[] = params.signatures.map((s) => ({
-      kind: 'sig' as const,
-      form: 'indexed' as const,
-      keyIndex: s.keyIndex,
-      sig: s.sig,
-    }));
+    const attachments: import('./types.js').CesrAttachment[] = params.signatures.map((s) => {
+      const ondex = signatureOndex(params.event, s.keyIndex, s.ondex);
+      return {
+        kind: 'sig' as const,
+        form: 'indexed' as const,
+        keyIndex: s.keyIndex,
+        ...(ondex === undefined ? {} : { ondex }),
+        sig: s.sig,
+      };
+    });
     return {
       event: params.event,
       attachments,

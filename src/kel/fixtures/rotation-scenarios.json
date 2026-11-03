@@ -1,0 +1,1794 @@
+{
+  "_comment": "Neutral rotation matrix; keys are TestKeys.iterator refs name[n]. Regenerate expected files with ./scripts/run-keripy.sh scripts/generate-keripy-rotation.py",
+  "counterCodes": "kerits must emit KERI v1 counter codes (-A ControllerIdxSigs, -G SealSourceCouples) to equal keripy 1.3.4 messagize stream bytes; kel-wire-expected.json -J (CtrDex_2_0) is not what keripy emits on the wire. Siger codes: A* both-same, 2A big dual-index (index != ondex), B* current-only.",
+  "keripyVersion": "1.3.4",
+  "scenarios": [
+    {
+      "id": "add-device-kt1",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "joiner[0]"],
+          "kt": "1",
+          "n": ["alice[2]", "joiner[1]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "add-device-kt2-joiner-signs",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "joiner[0]"],
+          "kt": "2",
+          "n": ["alice[2]", "joiner[1]"],
+          "nt": "2",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "joiner[0]",
+              "index": 1,
+              "ondex": null
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "remove-b-nt2-compaction",
+      "inception": {
+        "k": ["alice[0]", "bob[0]", "carol[0]"],
+        "kt": "2",
+        "n": ["alice[1]", "bob[1]", "carol[1]"],
+        "nt": "2"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "carol[1]"],
+          "kt": "2",
+          "n": ["alice[2]", "carol[2]"],
+          "nt": "2",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "carol[1]",
+              "index": 1,
+              "ondex": 2
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "replace-one",
+      "inception": {
+        "k": ["alice[0]", "bob[0]"],
+        "kt": "1",
+        "n": ["alice[1]", "bob[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "joiner[0]"],
+          "kt": "1",
+          "n": ["alice[2]", "joiner[1]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "replace-all",
+      "inception": {
+        "k": ["alice[0]", "bob[0]"],
+        "kt": "2",
+        "n": ["alice[1]", "bob[1]"],
+        "nt": "2"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "bob[1]"],
+          "kt": "2",
+          "n": ["alice[2]", "bob[2]"],
+          "nt": "2",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "bob[1]",
+              "index": 1,
+              "ondex": 1
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "refresh-own-carrynext",
+      "inception": {
+        "k": ["alice[0]", "bob[0]"],
+        "kt": "1",
+        "n": ["alice[1]", "bob[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]"],
+          "kt": "1",
+          "n": ["bob[1]", "alice[2]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "k": ["alice[2]", "bob[1]"],
+          "kt": "1",
+          "n": ["alice[3]", "bob[2]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "bob[1]",
+              "index": 1,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "add-remove-replace",
+      "inception": {
+        "k": ["alice[0]", "bob[0]", "carol[0]"],
+        "kt": "2",
+        "n": ["alice[1]", "bob[1]", "carol[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "joiner[0]", "dave[0]"],
+          "kt": "1",
+          "n": ["alice[2]", "joiner[1]", "dave[1]"],
+          "nt": "2",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "augmented-keep-a0-c0-reveal-b1",
+      "inception": {
+        "k": ["alice[0]", "bob[0]", "carol[0]"],
+        "kt": "1",
+        "n": ["alice[1]", "bob[1]", "carol[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[0]", "carol[0]", "bob[1]"],
+          "kt": "1",
+          "n": ["alice[1]", "carol[1]", "bob[2]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "bob[1]",
+              "index": 2,
+              "ondex": 1
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "nt3-two-rotations",
+      "inception": {
+        "k": ["alice[0]", "bob[0]", "carol[0]"],
+        "kt": "3",
+        "n": ["alice[1]", "bob[1]", "carol[1]"],
+        "nt": "3"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "bob[1]", "carol[1]"],
+          "kt": "3",
+          "n": ["alice[2]", "bob[2]", "carol[2]"],
+          "nt": "2",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "bob[1]",
+              "index": 1,
+              "ondex": 1
+            },
+            {
+              "key": "carol[1]",
+              "index": 2,
+              "ondex": 2
+            }
+          ]
+        },
+        {
+          "k": ["alice[2]", "carol[2]"],
+          "kt": "2",
+          "n": ["alice[3]", "carol[3]"],
+          "nt": "2",
+          "signers": [
+            {
+              "key": "alice[2]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "carol[2]",
+              "index": 1,
+              "ondex": 2
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "weighted-compaction",
+      "inception": {
+        "k": ["alice[0]", "bob[0]", "carol[0]"],
+        "kt": [["1/2", "1/2", "1/2"]],
+        "n": ["alice[1]", "bob[1]", "carol[1]"],
+        "nt": [["1/2", "1/2", "1/2"]]
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "carol[1]"],
+          "kt": [["1/2", "1/2"]],
+          "n": ["alice[2]", "carol[2]"],
+          "nt": [["1/2", "1/2"]],
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "carol[1]",
+              "index": 1,
+              "ondex": 2
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "drt-basic",
+      "delegator": "delegator",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]"],
+          "kt": "1",
+          "n": ["alice[2]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "sdk-refresh",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]"],
+          "kt": "1",
+          "n": ["alice[2]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "sdk-add-then-refresh",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "joiner[0]"],
+          "kt": "1",
+          "n": ["alice[2]", "joiner[1]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "k": ["joiner[0]", "alice[2]"],
+          "kt": "1",
+          "n": ["joiner[1]", "alice[3]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[2]",
+              "index": 1,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "sdk-add-then-remove",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "joiner[0]"],
+          "kt": "1",
+          "n": ["alice[2]", "joiner[1]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "k": ["alice[2]"],
+          "kt": "1",
+          "n": ["alice[3]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[2]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "sdk-add-then-replace",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "joiner[0]"],
+          "kt": "1",
+          "n": ["alice[2]", "joiner[1]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "k": ["alice[2]", "dave[0]"],
+          "kt": "1",
+          "n": ["alice[3]", "dave[1]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[2]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "defaults-single",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]"],
+          "thresholds": "keripy-default",
+          "n": ["alice[2]"],
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "defaults-add-device",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "joiner[0]"],
+          "thresholds": "keripy-default",
+          "n": ["alice[2]", "joiner[1]"],
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "defaults-two-device-refresh",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "joiner[0]"],
+          "thresholds": "keripy-default",
+          "n": ["alice[2]", "joiner[1]"],
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "k": ["joiner[0]", "alice[2]"],
+          "thresholds": "keripy-default",
+          "n": ["joiner[1]", "alice[3]"],
+          "signers": [
+            {
+              "key": "alice[2]",
+              "index": 1,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "defaults-sliding-window",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "alice[3]"],
+          "kt": "1",
+          "n": ["alice[2]", "alice[4]"],
+          "nt": "2",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "alice[3]",
+              "index": 1,
+              "ondex": null
+            }
+          ]
+        },
+        {
+          "k": ["alice[2]", "alice[4]"],
+          "thresholds": "keripy-default",
+          "n": ["alice[5]", "alice[6]"],
+          "signers": [
+            {
+              "key": "alice[2]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "alice[4]",
+              "index": 1,
+              "ondex": 1
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "duplicate-sig-a-and-b",
+      "inception": {
+        "k": ["alice[0]", "bob[0]"],
+        "kt": "1",
+        "n": ["alice[1]", "bob[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "bob[1]"],
+          "kt": "2",
+          "n": ["alice[2]", "bob[2]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": null
+            }
+          ]
+        }
+      ],
+      "expectValid": true,
+      "note": "Documented divergence: keripy 1.3.4 accepts (it counts the A and B encodings of alice[1] as two signatures toward kt=2); kerits counts each key once and rejects. See KNOWN_DIVERGENCES in rotation-cross-validation.test.ts."
+    },
+    {
+      "id": "invalid-unparseable-kt",
+      "inception": {
+        "k": ["alice[0]", "bob[0]"],
+        "kt": "1",
+        "n": ["alice[1]", "bob[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "bob[1]"],
+          "kt": "1",
+          "n": ["alice[2]", "bob[2]"],
+          "nt": "1",
+          "mutate": {
+            "kt": [["1/3", "1/3", "1/3"]]
+          },
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": false
+    },
+    {
+      "id": "abandon-nt0",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]"],
+          "kt": "1",
+          "n": [],
+          "nt": "0",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "k": ["alice[1]"],
+          "kt": "1",
+          "n": ["alice[2]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": null
+            }
+          ]
+        }
+      ],
+      "expectValid": false
+    },
+    {
+      "id": "abandon-then-ixn",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]"],
+          "kt": "1",
+          "n": [],
+          "nt": "0",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "t": "ixn",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": false
+    },
+    {
+      "id": "defaults-explicit-kt-default-nt",
+      "note": "prior kt \"1\" differs from prior nt \"2\"; an explicit kt \"1\" with a default nt gives nt = the new kt \"1\", not the prior nt (keripy Hab.rotate)",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "alice[3]"],
+          "kt": "1",
+          "n": ["alice[2]", "alice[4]"],
+          "nt": "2",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "alice[3]",
+              "index": 1,
+              "ondex": null
+            }
+          ]
+        },
+        {
+          "k": ["alice[2]", "alice[4]"],
+          "kt": "1",
+          "thresholds": "keripy-default",
+          "n": ["alice[5]", "alice[6]"],
+          "signers": [
+            {
+              "key": "alice[2]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "alice[4]",
+              "index": 1,
+              "ondex": 1
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "perm-add-n1-t1",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "joiner[0]"],
+          "kt": "1",
+          "n": ["alice[2]", "joiner[1]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "perm-add-n2-t1",
+      "inception": {
+        "k": ["alice[0]", "bob[0]"],
+        "kt": "1",
+        "n": ["alice[1]", "bob[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "bob[1]", "joiner[0]"],
+          "kt": "1",
+          "n": ["alice[2]", "bob[2]", "joiner[1]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "perm-add-n2-t2",
+      "inception": {
+        "k": ["alice[0]", "bob[0]"],
+        "kt": "2",
+        "n": ["alice[1]", "bob[1]"],
+        "nt": "2"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "bob[1]", "joiner[0]"],
+          "kt": "2",
+          "n": ["alice[2]", "bob[2]", "joiner[1]"],
+          "nt": "2",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "bob[1]",
+              "index": 1,
+              "ondex": 1
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "perm-add-n3-t1",
+      "inception": {
+        "k": ["alice[0]", "bob[0]", "carol[0]"],
+        "kt": "1",
+        "n": ["alice[1]", "bob[1]", "carol[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "bob[1]", "carol[1]", "joiner[0]"],
+          "kt": "1",
+          "n": ["alice[2]", "bob[2]", "carol[2]", "joiner[1]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "perm-add-n3-t2",
+      "inception": {
+        "k": ["alice[0]", "bob[0]", "carol[0]"],
+        "kt": "2",
+        "n": ["alice[1]", "bob[1]", "carol[1]"],
+        "nt": "2"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "bob[1]", "carol[1]", "joiner[0]"],
+          "kt": "2",
+          "n": ["alice[2]", "bob[2]", "carol[2]", "joiner[1]"],
+          "nt": "2",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "bob[1]",
+              "index": 1,
+              "ondex": 1
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "perm-add-n3-t3",
+      "inception": {
+        "k": ["alice[0]", "bob[0]", "carol[0]"],
+        "kt": "3",
+        "n": ["alice[1]", "bob[1]", "carol[1]"],
+        "nt": "3"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "bob[1]", "carol[1]", "joiner[0]"],
+          "kt": "3",
+          "n": ["alice[2]", "bob[2]", "carol[2]", "joiner[1]"],
+          "nt": "3",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "bob[1]",
+              "index": 1,
+              "ondex": 1
+            },
+            {
+              "key": "carol[1]",
+              "index": 2,
+              "ondex": 2
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "perm-remove-n2-t1",
+      "inception": {
+        "k": ["alice[0]", "bob[0]"],
+        "kt": "1",
+        "n": ["alice[1]", "bob[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["bob[1]"],
+          "kt": "1",
+          "n": ["bob[2]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "bob[1]",
+              "index": 0,
+              "ondex": 1
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "perm-replace-n2-t1",
+      "inception": {
+        "k": ["alice[0]", "bob[0]"],
+        "kt": "1",
+        "n": ["alice[1]", "bob[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "joiner[0]"],
+          "kt": "1",
+          "n": ["alice[2]", "joiner[1]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "perm-remove-n3-t1",
+      "inception": {
+        "k": ["alice[0]", "bob[0]", "carol[0]"],
+        "kt": "1",
+        "n": ["alice[1]", "bob[1]", "carol[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["bob[1]", "carol[1]"],
+          "kt": "1",
+          "n": ["bob[2]", "carol[2]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "bob[1]",
+              "index": 0,
+              "ondex": 1
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "perm-remove-n3-t2",
+      "inception": {
+        "k": ["alice[0]", "bob[0]", "carol[0]"],
+        "kt": "2",
+        "n": ["alice[1]", "bob[1]", "carol[1]"],
+        "nt": "2"
+      },
+      "rotations": [
+        {
+          "k": ["bob[1]", "carol[1]"],
+          "kt": "2",
+          "n": ["bob[2]", "carol[2]"],
+          "nt": "2",
+          "signers": [
+            {
+              "key": "bob[1]",
+              "index": 0,
+              "ondex": 1
+            },
+            {
+              "key": "carol[1]",
+              "index": 1,
+              "ondex": 2
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "perm-replace-n3-t1",
+      "inception": {
+        "k": ["alice[0]", "bob[0]", "carol[0]"],
+        "kt": "1",
+        "n": ["alice[1]", "bob[1]", "carol[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "bob[1]", "joiner[0]"],
+          "kt": "1",
+          "n": ["alice[2]", "bob[2]", "joiner[1]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "perm-replace-n3-t2",
+      "inception": {
+        "k": ["alice[0]", "bob[0]", "carol[0]"],
+        "kt": "2",
+        "n": ["alice[1]", "bob[1]", "carol[1]"],
+        "nt": "2"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "bob[1]", "joiner[0]"],
+          "kt": "2",
+          "n": ["alice[2]", "bob[2]", "joiner[1]"],
+          "nt": "2",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "bob[1]",
+              "index": 1,
+              "ondex": 1
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "extra-invalid-signature-dropped",
+      "inception": {
+        "k": ["alice[0]", "bob[0]"],
+        "kt": "1",
+        "n": ["alice[1]", "bob[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "bob[1]"],
+          "kt": "1",
+          "n": ["alice[2]", "bob[2]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "mallory[0]",
+              "index": 1,
+              "ondex": 1
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "kept-key-signs-with-default-ondex",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[0]", "alice[1]"],
+          "kt": "1",
+          "n": ["alice[2]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 1,
+              "ondex": 0
+            },
+            {
+              "key": "alice[0]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "invalid-augmented-signs-alone",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "joiner[0]"],
+          "kt": "1",
+          "n": ["alice[2]", "joiner[1]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "joiner[0]",
+              "index": 1,
+              "ondex": null
+            }
+          ]
+        }
+      ],
+      "expectValid": false
+    },
+    {
+      "id": "invalid-ondex-mismatch",
+      "inception": {
+        "k": ["alice[0]", "bob[0]", "carol[0]"],
+        "kt": "2",
+        "n": ["alice[1]", "bob[1]", "carol[1]"],
+        "nt": "2"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "carol[1]"],
+          "kt": "2",
+          "n": ["alice[2]", "carol[2]"],
+          "nt": "2",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "carol[1]",
+              "index": 1,
+              "ondex": 1
+            }
+          ]
+        }
+      ],
+      "expectValid": false
+    },
+    {
+      "id": "invalid-prior-nt-unmet",
+      "inception": {
+        "k": ["alice[0]", "bob[0]"],
+        "kt": "2",
+        "n": ["alice[1]", "bob[1]"],
+        "nt": "2"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "bob[1]"],
+          "kt": "1",
+          "n": ["alice[2]", "bob[2]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": false
+    },
+    {
+      "id": "invalid-kt-unmet",
+      "inception": {
+        "k": ["alice[0]", "bob[0]"],
+        "kt": "1",
+        "n": ["alice[1]", "bob[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "bob[1]"],
+          "kt": "2",
+          "n": ["alice[2]", "bob[2]"],
+          "nt": "2",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": false
+    },
+    {
+      "id": "invalid-duplicate-signature",
+      "inception": {
+        "k": ["alice[0]", "bob[0]"],
+        "kt": "2",
+        "n": ["alice[1]", "bob[1]"],
+        "nt": "2"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]", "bob[1]"],
+          "kt": "2",
+          "n": ["alice[2]", "bob[2]"],
+          "nt": "2",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": false
+    },
+    {
+      "id": "invalid-unknown-signer",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]"],
+          "kt": "1",
+          "n": ["alice[2]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "mallory[0]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": false
+    },
+    {
+      "id": "invalid-augmented-keep-b1-insufficient",
+      "inception": {
+        "k": ["alice[0]", "bob[0]", "carol[0]"],
+        "kt": "1",
+        "n": ["alice[1]", "bob[1]", "carol[1]"],
+        "nt": "2"
+      },
+      "rotations": [
+        {
+          "k": ["alice[0]", "bob[1]", "carol[0]"],
+          "kt": "2",
+          "n": ["alice[1]", "bob[2]", "carol[1]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[0]",
+              "index": 0,
+              "ondex": null
+            },
+            {
+              "key": "bob[1]",
+              "index": 1,
+              "ondex": 1
+            }
+          ]
+        }
+      ],
+      "expectValid": false
+    },
+    {
+      "id": "hex-sn-ixn-to-10-then-rot",
+      "note": "sixteen interactions take s to \"10\" (hex 16; decimal readers saw 10), then a rotation at \"11\" (17)",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "t": "ixn",
+          "signers": [
+            {
+              "key": "alice[0]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "t": "ixn",
+          "signers": [
+            {
+              "key": "alice[0]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "t": "ixn",
+          "signers": [
+            {
+              "key": "alice[0]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "t": "ixn",
+          "signers": [
+            {
+              "key": "alice[0]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "t": "ixn",
+          "signers": [
+            {
+              "key": "alice[0]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "t": "ixn",
+          "signers": [
+            {
+              "key": "alice[0]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "t": "ixn",
+          "signers": [
+            {
+              "key": "alice[0]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "t": "ixn",
+          "signers": [
+            {
+              "key": "alice[0]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "t": "ixn",
+          "signers": [
+            {
+              "key": "alice[0]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "t": "ixn",
+          "signers": [
+            {
+              "key": "alice[0]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "t": "ixn",
+          "signers": [
+            {
+              "key": "alice[0]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "t": "ixn",
+          "signers": [
+            {
+              "key": "alice[0]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "t": "ixn",
+          "signers": [
+            {
+              "key": "alice[0]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "t": "ixn",
+          "signers": [
+            {
+              "key": "alice[0]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "t": "ixn",
+          "signers": [
+            {
+              "key": "alice[0]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "t": "ixn",
+          "signers": [
+            {
+              "key": "alice[0]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "k": ["alice[1]"],
+          "kt": "1",
+          "n": ["alice[2]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "sn-leading-zero",
+      "note": "a rotation whose s is \"01\": keripy reads int(s, 16) = 1 and accepts; so does kerits (SequenceNumber.parse takes leading zeros)",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]"],
+          "kt": "1",
+          "n": ["alice[2]"],
+          "nt": "1",
+          "mutate": {
+            "s": "01"
+          },
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "sn-0x-prefix",
+      "note": "Documented divergence: a rotation whose s is \"0x1\"; keripy reads int(s, 16) = 1 and accepts, kerits parses hex digits only and rejects (SEQUENCE_INVALID). See KNOWN_DIVERGENCES in rotation-cross-validation.test.ts.",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "k": ["alice[1]"],
+          "kt": "1",
+          "n": ["alice[2]"],
+          "nt": "1",
+          "mutate": {
+            "s": "0x1"
+          },
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "group-all-members",
+      "note": "keripy GroupHab.rotate with smids = rmids = [alice, bob]: both members reveal their next keys and sign dual-indexed (csi, pni).",
+      "inception": {
+        "k": ["alice[0]", "bob[0]"],
+        "kt": "2",
+        "n": ["alice[1]", "bob[1]"],
+        "nt": "2"
+      },
+      "rotations": [
+        {
+          "group": {
+            "smids": ["alice[1]", "bob[1]"],
+            "rmids": ["alice[2]", "bob[2]"],
+            "signing": ["alice[1]", "bob[1]"]
+          },
+          "k": ["alice[1]", "bob[1]"],
+          "kt": "2",
+          "n": ["alice[2]", "bob[2]"],
+          "nt": "2",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "bob[1]",
+              "index": 1,
+              "ondex": 1
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "group-smids-subset",
+      "note": "keripy GroupHab.rotate dropping carol: smids = rmids = [alice, bob] over a three-member group (partial rotation; carol's commitment is not carried).",
+      "inception": {
+        "k": ["alice[0]", "bob[0]", "carol[0]"],
+        "kt": "2",
+        "n": ["alice[1]", "bob[1]", "carol[1]"],
+        "nt": "2"
+      },
+      "rotations": [
+        {
+          "group": {
+            "smids": ["alice[1]", "bob[1]"],
+            "rmids": ["alice[2]", "bob[2]"],
+            "signing": ["alice[1]", "bob[1]"]
+          },
+          "k": ["alice[1]", "bob[1]"],
+          "kt": "2",
+          "n": ["alice[2]", "bob[2]"],
+          "nt": "2",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            },
+            {
+              "key": "bob[1]",
+              "index": 1,
+              "ondex": 1
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "group-rmids-differs",
+      "note": "rmids != smids (brief S2): rotation 1 adds bob as a signer only (smids [alice, bob], rmids [alice]) so k and n differ in length; rotation 2 (smids [bob, alice], rmids [alice]) is the sdk refresh by alice's device on that layout: bob kept, alice's commitment found by digest.",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "group": {
+            "smids": ["alice[1]", "bob[0]"],
+            "rmids": ["alice[2]"],
+            "signing": ["alice[1]"]
+          },
+          "k": ["alice[1]", "bob[0]"],
+          "kt": "1",
+          "n": ["alice[2]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "group": {
+            "smids": ["bob[0]", "alice[2]"],
+            "rmids": ["alice[3]"],
+            "signing": ["alice[2]"]
+          },
+          "k": ["bob[0]", "alice[2]"],
+          "kt": "1",
+          "n": ["alice[3]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[2]",
+              "index": 1,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    },
+    {
+      "id": "group-cosigner-kt2",
+      "note": "The sdk ceremony shape: after add-device-kt1, a kt 2 rotation with smids = rmids = [joiner, alice]: alice reveals (index 1, ondex 0), the joiner co-signs with its kept current key (index 0, current-only).",
+      "inception": {
+        "k": ["alice[0]"],
+        "kt": "1",
+        "n": ["alice[1]"],
+        "nt": "1"
+      },
+      "rotations": [
+        {
+          "group": {
+            "smids": ["alice[1]", "joiner[0]"],
+            "rmids": ["alice[2]", "joiner[1]"],
+            "signing": ["alice[1]"]
+          },
+          "k": ["alice[1]", "joiner[0]"],
+          "kt": "1",
+          "n": ["alice[2]", "joiner[1]"],
+          "nt": "1",
+          "signers": [
+            {
+              "key": "alice[1]",
+              "index": 0,
+              "ondex": 0
+            }
+          ]
+        },
+        {
+          "group": {
+            "smids": ["joiner[0]", "alice[2]"],
+            "rmids": ["joiner[1]", "alice[3]"],
+            "signing": ["joiner[0]", "alice[2]"]
+          },
+          "k": ["joiner[0]", "alice[2]"],
+          "kt": "2",
+          "n": ["joiner[1]", "alice[3]"],
+          "nt": "2",
+          "signers": [
+            {
+              "key": "joiner[0]",
+              "index": 0,
+              "ondex": null
+            },
+            {
+              "key": "alice[2]",
+              "index": 1,
+              "ondex": 0
+            }
+          ]
+        }
+      ],
+      "expectValid": true
+    }
+  ]
+}

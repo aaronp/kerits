@@ -2,6 +2,7 @@ import { Counter, CtrDex } from 'cesr-ts/src/counter';
 import { IdrDex } from 'cesr-ts/src/indexer';
 import { Matter, MtrDex } from 'cesr-ts/src/matter';
 import { Siger } from 'cesr-ts/src/siger';
+import { SequenceNumber } from '../common/types.js';
 import type { CesrAttachment } from '../kel/types.js';
 
 const textEncoder = new TextEncoder();
@@ -9,7 +10,7 @@ const textEncoder = new TextEncoder();
 /**
  * Encode CESR attachment groups to wire bytes (qb64 text domain).
  *
- * Supported: controller indexed signatures (counter code -A, indexer code A).
+ * Supported: controller indexed signatures (counter code -A; indexer codes A/2A both lists, B/2B current only).
  * Throws on unsupported attachment types -- a wire codec must not silently drop material.
  */
 export function encodeAttachmentGroups(attachments: readonly CesrAttachment[]): Uint8Array {
@@ -24,6 +25,8 @@ export function encodeAttachmentGroups(attachments: readonly CesrAttachment[]): 
   for (const att of attachments) {
     if (att.kind === 'sig' && att.form === 'indexed') {
       indexedSigs.push(att as Extract<CesrAttachment, { kind: 'sig'; form: 'indexed' }>);
+    } else if (att.kind === 'wig') {
+      throw new Error('wig attachments are not encoded; convert to rct');
     } else if (att.kind === 'rct') {
       receiptCouples.push(att as Extract<CesrAttachment, { kind: 'rct' }>);
     } else if (att.kind === 'vrc') {
@@ -86,7 +89,13 @@ export function encodeAttachmentGroups(attachments: readonly CesrAttachment[]): 
   return textEncoder.encode(result);
 }
 
-const textDecoder = new TextDecoder();
+/** One char per byte (latin1-style), so string positions are byte offsets; attachments are ASCII qb64. */
+const byteChars = (bytes: Uint8Array): string => {
+  let out = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) out += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return out;
+};
+const OPEN_BRACE = 0x7b;
 
 /**
  * Stream-aware CESR attachment group decoder.
@@ -107,7 +116,9 @@ export function decodeAttachmentGroupsFromStream(data: Uint8Array): {
 } {
   if (data.length === 0) return { attachments: [], bytesConsumed: 0 };
 
-  const text = textDecoder.decode(data);
+  // qb64 never contains '{', so a following event body bounds the text we need to decode
+  const nextBody = data.indexOf(OPEN_BRACE);
+  const text = byteChars(nextBody === -1 ? data : data.subarray(0, nextBody));
   const attachments: CesrAttachment[] = [];
   let pos = 0;
 
@@ -128,11 +139,12 @@ export function decodeAttachmentGroupsFromStream(data: Uint8Array): {
     pos += counterSize;
 
     if (counter.code === CtrDex.ControllerIdxSigs || counter.code === CtrDex.WitnessIdxSigs) {
+      const isWitness = counter.code === CtrDex.WitnessIdxSigs;
       for (let i = 0; i < counter.count; i++) {
         if (pos >= text.length) {
           throw new Error(`Truncated: expected ${counter.count} indexed sigs, got ${i}`);
         }
-        const { attachment, consumed } = decodeIndexedSig(text, pos);
+        const { attachment, consumed } = decodeIndexedSig(text, pos, isWitness);
         attachments.push(attachment);
         pos += consumed;
       }
@@ -168,8 +180,7 @@ export function decodeAttachmentGroupsFromStream(data: Uint8Array): {
     }
   }
 
-  const bytesConsumed = textEncoder.encode(text.slice(0, pos)).length;
-  return { attachments, bytesConsumed };
+  return { attachments, bytesConsumed: pos };
 }
 
 /**
@@ -199,7 +210,11 @@ function getCounterSize(code: string): number {
   return sizage.fs;
 }
 
-function decodeIndexedSig(text: string, pos: number): { attachment: CesrAttachment; consumed: number } {
+function decodeIndexedSig(
+  text: string,
+  pos: number,
+  witness = false,
+): { attachment: CesrAttachment; consumed: number } {
   let siger: InstanceType<typeof Siger>;
   try {
     siger = new Siger({ qb64: text.slice(pos) });
@@ -209,8 +224,10 @@ function decodeIndexedSig(text: string, pos: number): { attachment: CesrAttachme
     );
   }
 
-  if (siger.code !== IdrDex.Ed25519_Sig && siger.code !== IdrDex.Ed25519_Big_Sig) {
+  if (!ED25519_SIGER_CODES.has(siger.code)) {
     throw new Error(`Unsupported indexer code: ${siger.code}. Only Ed25519 indexed signatures are supported.`);
+  } else {
+    /* Ed25519 both-lists or current-only code */
   }
 
   const sigMatter = new Matter({ raw: siger.raw, code: MtrDex.Ed25519_Sig });
@@ -220,19 +237,48 @@ function decodeIndexedSig(text: string, pos: number): { attachment: CesrAttachme
     throw new Error(`Cannot determine size for indexer code: ${siger.code}`);
   }
 
+  // -B (witness) indexed sigs are witness sigs, never controller sigs.
+  // Controller sigs keep ondex (prior-n index); current-only codes have none.
+  const ondex = siger.ondex;
+  const attachment: CesrAttachment = witness
+    ? { kind: 'wig', keyIndex: siger.index, sig: sigMatter.qb64 }
+    : ondex === undefined
+      ? { kind: 'sig', form: 'indexed', keyIndex: siger.index, sig: sigMatter.qb64 }
+      : { kind: 'sig', form: 'indexed', keyIndex: siger.index, ondex, sig: sigMatter.qb64 };
   return {
-    attachment: {
-      kind: 'sig',
-      form: 'indexed',
-      keyIndex: siger.index,
-      sig: sigMatter.qb64,
-    },
+    attachment,
     consumed: sizage.fs,
   };
 }
 
+const ED25519_SIGER_CODES = new Set<string>([
+  IdrDex.Ed25519_Sig,
+  IdrDex.Ed25519_Big_Sig,
+  IdrDex.Ed25519_Crt_Sig,
+  IdrDex.Ed25519_Big_Crt_Sig,
+]);
+
+/**
+ * Ed25519 Siger qb64, choosing the indexer code as keripy does:
+ * - ondex absent (current list only): Ed25519_Crt_Sig, or Ed25519_Big_Crt_Sig from index 64;
+ * - ondex === index < 64 (same in both lists): Ed25519_Sig;
+ * - otherwise (e.g. compaction, index != ondex): Ed25519_Big_Sig carrying both indices.
+ */
+function encodeEd25519Siger(raw: Uint8Array, index: number, ondex: number | undefined): string {
+  if (ondex === undefined) {
+    const code = index < 64 ? IdrDex.Ed25519_Crt_Sig : IdrDex.Ed25519_Big_Crt_Sig;
+    return new Siger({ raw, code, index }).qb64;
+  } else if (!Number.isInteger(ondex) || ondex < 0) {
+    throw new Error(`Invalid ondex: must be a non-negative integer, got ${ondex}`);
+  } else if (ondex === index && index < 64) {
+    return new Siger({ raw, code: IdrDex.Ed25519_Sig, index, ondex }).qb64;
+  } else {
+    return new Siger({ raw, code: IdrDex.Ed25519_Big_Sig, index, ondex }).qb64;
+  }
+}
+
 function encodeIndexedSig(att: Extract<CesrAttachment, { kind: 'sig'; form: 'indexed' }>): string {
-  const { keyIndex, sig } = att;
+  const { keyIndex, ondex, sig } = att;
 
   if (keyIndex === undefined || keyIndex === null) {
     throw new Error('keyIndex is required for indexed signatures');
@@ -249,14 +295,7 @@ function encodeIndexedSig(att: Extract<CesrAttachment, { kind: 'sig'; form: 'ind
     throw new Error(`Only Ed25519 signatures are supported, got Matter code: ${matter.code}`);
   }
 
-  const indexerCode = keyIndex < 64 ? IdrDex.Ed25519_Sig : IdrDex.Ed25519_Big_Sig;
-  const siger = new Siger({
-    raw: matter.raw,
-    code: indexerCode,
-    index: keyIndex,
-    ondex: keyIndex,
-  });
-  return siger.qb64;
+  return encodeEd25519Siger(matter.raw, keyIndex, ondex);
 }
 
 function encodeReceiptCouple(att: Extract<CesrAttachment, { kind: 'rct' }>): string {
@@ -271,7 +310,7 @@ function encodeTransReceiptQuadruple(att: Extract<CesrAttachment, { kind: 'vrc' 
   const prefixQb64 = seal.i;
 
   // Seqner: encode sequence number as code '0A' (Salt_128, 16 bytes)
-  const snNum = parseInt(seal.s, 10);
+  const snNum = SequenceNumber.of(seal.s);
   const raw = new Uint8Array(16);
   const view = new DataView(raw.buffer);
   view.setUint32(12, snNum, false); // big-endian in last 4 bytes
@@ -286,10 +325,8 @@ function encodeTransReceiptQuadruple(att: Extract<CesrAttachment, { kind: 'vrc' 
     throw new Error(`Only Ed25519 signatures are supported for -D quadruples, got: ${sigMatter.code}`);
   }
   const idx = keyIndex ?? 0;
-  const indexerCode = idx < 64 ? IdrDex.Ed25519_Sig : IdrDex.Ed25519_Big_Sig;
-  const siger = new Siger({ raw: sigMatter.raw, code: indexerCode, index: idx, ondex: idx });
-
-  return prefixQb64 + seqnerQb64 + digestQb64 + siger.qb64;
+  // receipt signer's own establishment key: same index in both lists (keripy default)
+  return prefixQb64 + seqnerQb64 + digestQb64 + encodeEd25519Siger(sigMatter.raw, idx, idx);
 }
 
 function decodeTransReceiptQuadruple(text: string, pos: number): { attachment: CesrAttachment; consumed: number } {
@@ -329,7 +366,7 @@ function decodeTransReceiptQuadruple(text: string, pos: number): { attachment: C
       kind: 'vrc',
       seal: {
         i: prefix.matter.qb64,
-        s: String(sn),
+        s: SequenceNumber.encode(sn),
         d: digest.matter.qb64,
       },
       sig: sigMatter.qb64,
@@ -372,7 +409,7 @@ function decodeReceiptCouple(text: string, pos: number): { attachment: CesrAttac
 }
 
 function encodeSealSourceCouple(att: Extract<CesrAttachment, { kind: 'delegator-seal-source' }>): string {
-  const snNum = parseInt(att.s, 10);
+  const snNum = SequenceNumber.of(att.s);
   const raw = new Uint8Array(16);
   const view = new DataView(raw.buffer);
   view.setUint32(12, snNum, false); // big-endian in last 4 bytes
@@ -393,7 +430,7 @@ function decodeSealSourceCouple(text: string, pos: number): { attachment: CesrAt
   return {
     attachment: {
       kind: 'delegator-seal-source',
-      s: String(sn),
+      s: SequenceNumber.encode(sn),
       d: digest.matter.qb64,
     },
     consumed: seqner.consumed + digest.consumed,

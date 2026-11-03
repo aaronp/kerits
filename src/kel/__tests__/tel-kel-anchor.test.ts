@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { KELEvent } from '../types.js';
-import { assessTelKelAnchor } from '../tel-kel-anchor.js';
+import { anchoredLane, anchoredPrefix, assessTelKelAnchor } from '../tel-kel-anchor.js';
 
 const TEL_SAID = 'EtelSaid00000000000000000000000000000000000';
 const OTHER_TEL = 'EotherTel000000000000000000000000000000000';
@@ -97,5 +97,66 @@ describe('assessTelKelAnchor', () => {
     if (result.status === 'invalid') {
       expect(result.reason.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('anchoredPrefix', () => {
+  test('stops at the first TEL event the issuer KEL does not seal', () => {
+    // setup: KEL seals the iss only; the rev that follows is unanchored
+    const kel = [icpOnly(), ixnAnchoring(TEL_SAID)];
+    const iss = { d: TEL_SAID };
+    const revUnanchored = { d: OTHER_TEL };
+
+    // call out our method under test
+    const prefix = anchoredPrefix([iss, revUnanchored], kel);
+
+    // only the anchored iss counts
+    expect(prefix).toEqual([iss]);
+  });
+
+  test('all anchored → every event; first unanchored → empty; empty input → empty', () => {
+    // setup: KEL sealing TEL_SAID only
+    const kel = [icpOnly(), ixnAnchoring(TEL_SAID)];
+    const anchored = { d: TEL_SAID };
+    const unanchored = { d: OTHER_TEL };
+
+    // call out our method under test
+    const all = anchoredPrefix([anchored, anchored], kel);
+    const none = anchoredPrefix([unanchored, anchored], kel);
+    const empty = anchoredPrefix([], kel);
+
+    // a prefix never skips a gap: an unanchored first event hides everything after it
+    expect(all).toEqual([anchored, anchored]);
+    expect(none).toEqual([]);
+    expect(empty).toEqual([]);
+  });
+});
+
+describe('anchoredLane', () => {
+  test('an unanchored inception is kept, so the anchor check reports it', () => {
+    // setup: the KEL seals nothing for this lane; its inception (iss) and a later event are stored
+    const kel = [icpOnly()];
+    const iss = { d: TEL_SAID };
+    const rev = { d: OTHER_TEL };
+
+    // call out our method under test
+    const lane = anchoredLane([iss, rev], kel);
+
+    // only the inception: never an empty lane for a stored TEL
+    expect(lane).toEqual([iss]);
+  });
+
+  test('an anchored prefix with trailing unanchored events reads as the prefix (as anchoredPrefix)', () => {
+    // setup: the iss is sealed; the rev after it is not (stored junk past the anchored head)
+    const kel = [icpOnly(), ixnAnchoring(TEL_SAID)];
+    const iss = { d: TEL_SAID };
+    const rev = { d: OTHER_TEL };
+
+    // call out our method under test
+    const lane = anchoredLane([iss, rev], kel);
+
+    // the trailing unanchored rev is never read; an empty input stays empty
+    expect(lane).toEqual([iss]);
+    expect(anchoredLane([], kel)).toEqual([]);
   });
 });

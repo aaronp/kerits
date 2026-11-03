@@ -1,3 +1,5 @@
+import { SequenceNumber, Threshold } from '../common/types.js';
+import { snOf } from './anchor-targets.js';
 import type { CESREvent, KELEvent } from './types.js';
 
 /* ------------------------------------------------------------------------------------------------
@@ -62,9 +64,9 @@ export function validateDelegation(input: DelegationValidationInput): Delegation
   }
 
   // 5. Find parent event at the sequence number referenced by the seal-source
-  const targetSn = parseInt(sealSource.s, 10);
-  const parentEvent = parentKel.find((e) => parseInt(String(e.event.s), 10) === targetSn);
-  if (!parentEvent) {
+  const targetSn = snOf(sealSource.s);
+  const parentEvent = targetSn === undefined ? undefined : parentKel.find((e) => snOf(e.event.s) === targetSn);
+  if (!parentEvent || targetSn === undefined) {
     return { passed: false, parentAid, reason: 'parent-event-not-found' };
   }
 
@@ -85,8 +87,11 @@ export function validateDelegation(input: DelegationValidationInput): Delegation
 
   // 9. Check that the parent event anchors a seal referencing the child event
   const anchors = (parentEvent.event as KELEvent & { a?: unknown[] }).a ?? [];
+  const childSn = snOf(event.s);
+  const childSnh = childSn === undefined ? undefined : SequenceNumber.encode(childSn);
   const hasAnchor = (anchors as Array<{ i?: string; s?: string; d?: string }>).some(
-    (anchor) => anchor.i === event.i && anchor.s === String(event.s) && anchor.d === event.d,
+    // keripy compares the seal's s with the event's canonical hex (`dseal.s == serder.sner.numh`)
+    (anchor) => childSnh !== undefined && anchor.i === event.i && anchor.s === childSnh && anchor.d === event.d,
   );
   if (!hasAnchor) {
     return { passed: false, parentAid, reason: 'anchor-seal-missing' };
@@ -111,8 +116,8 @@ function verifyParentEventSignatures(
   let establishment: CESREvent | undefined;
 
   for (const e of parentKel) {
-    const sn = parseInt(String(e.event.s), 10);
-    if (sn > targetSn) break;
+    const sn = snOf(e.event.s);
+    if (sn === undefined || sn > targetSn) break;
     if (establishmentTypes.has(e.event.t)) {
       establishment = e;
     }
@@ -120,16 +125,15 @@ function verifyParentEventSignatures(
 
   if (!establishment) return false;
 
-  const estEvent = establishment.event as KELEvent & { k?: string[]; kt?: string };
+  const estEvent = establishment.event as KELEvent & { k?: string[]; kt?: Threshold };
   const keys = estEvent.k;
   if (!keys || keys.length === 0) return false;
 
   const sigs = parentEvent.attachments.filter((a) => a.kind === 'sig');
   if (sigs.length === 0) return false;
 
-  const kt = (estEvent.kt ?? '1') as string;
-  const threshold = parseInt(kt, 10);
-  // Weighted threshold (non-numeric kt) — just check at least one sig present
-  if (Number.isNaN(threshold)) return sigs.length > 0;
-  return sigs.length >= threshold;
+  // signer index per attachment (a non-indexed signature stands for its position)
+  const kt = Threshold.parse((estEvent.kt ?? '1') as Threshold, keys.length);
+  const indices = sigs.map((s, i) => (s.kind === 'sig' && typeof s.keyIndex === 'number' ? s.keyIndex : i));
+  return kt.ok ? Threshold.satisfied(kt.value, indices) : false;
 }

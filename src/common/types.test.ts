@@ -27,19 +27,15 @@ import {
   NonEmpty,
   parseAidQb64,
   parseBlake3Hex,
-  parseBlake3Qb64,
   parseEd25519PrivateQb64,
   parseEd25519PublicQb64,
-  parseEd25519SignatureQb64,
   parseSaidQb64,
   parseSha256Hex,
-  parseBlake3Qb64Digest,
   Qb64Schema,
   ThresholdExpressionPattern,
   ThresholdExpressionSchema,
   ThresholdSchema,
   TimestampSchema,
-  toEd25519KeyPairBranded,
   VersionSchema,
   WeightedThresholdSchema,
 } from './types.js';
@@ -81,11 +77,14 @@ describe('VersionSchema', () => {
 
 describe('ThresholdExpressionSchema', () => {
   it('validates simple threshold', () => {
+    // hex M-of-N only (keripy Tholder); a bare fraction or an empty string is rejected
     expect(Value.Check(ThresholdExpressionSchema, '1')).toBe(true);
-    expect(Value.Check(ThresholdExpressionSchema, '2/3')).toBe(true);
+    expect(Value.Check(ThresholdExpressionSchema, 'a')).toBe(true);
+    expect(Value.Check(ThresholdExpressionSchema, '2/3')).toBe(false);
+    expect(Value.Check(ThresholdExpressionSchema, '')).toBe(false);
   });
   it('has correct pattern', () => {
-    expect(ThresholdExpressionPattern).toBe('^[0-9]+(/[0-9]+)?$');
+    expect(ThresholdExpressionPattern).toBe('^[0-9a-fA-F]+$');
   });
 });
 
@@ -223,30 +222,10 @@ describe('parseSha256Hex', () => {
   });
 });
 
-describe('parseBlake3Qb64Digest', () => {
-  // parseBlake3Qb64Digest calls Value.Check(CesrDigestSchema) which uses format 'qb64-digest'.
-  // TypeBox v0.34 rejects unknown formats; throws in unregistered environment. See B-007.
-  it('throws for any input (CesrDigestSchema format not registered in pure core)', () => {
-    expect(() => parseBlake3Qb64Digest(`E${'A'.repeat(43)}`)).toThrow();
-  });
-});
-
 describe('parseBlake3Hex', () => {
   const validHex = 'b'.repeat(64);
   it('accepts valid hex', () => {
     expect(parseBlake3Hex(validHex)).toBe(validHex);
-  });
-});
-
-describe('parseBlake3Qb64', () => {
-  it('throws for any input (CesrDigestSchema format not registered in pure core)', () => {
-    expect(() => parseBlake3Qb64(`E${'A'.repeat(43)}`)).toThrow();
-  });
-});
-
-describe('parseEd25519SignatureQb64', () => {
-  it('throws for any input (CesrSignatureSchema format not registered in pure core)', () => {
-    expect(() => parseEd25519SignatureQb64(`0B${'A'.repeat(86)}`)).toThrow();
   });
 });
 
@@ -261,14 +240,5 @@ describe('parseSaidQb64', () => {
   it('returns the input as SAID (SaidQb64 is now an alias for SAID)', () => {
     const input = `E${'A'.repeat(43)}`;
     expect(parseSaidQb64(input)).toBe(input);
-  });
-});
-
-describe('toEd25519KeyPairBranded', () => {
-  it('throws because parseEd25519PublicQb64 will fail (format not registered)', () => {
-    const pub = `D${'A'.repeat(43)}`;
-    const priv = 'A'.repeat(44);
-    // parseEd25519PublicQb64 calls Value.Check(KeriPublicKeySchema) which uses qb64-key format
-    expect(() => toEd25519KeyPairBranded({ publicKey: pub, privateKey: priv, transferable: true })).toThrow();
   });
 });

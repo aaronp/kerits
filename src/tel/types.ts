@@ -9,6 +9,19 @@ import {
 } from '../common/types.js';
 import { CesrSealSchema } from '../kel/types.js';
 
+/**
+ * TEL event types — two separate histories (git analogy: lanes with cross-refs).
+ *
+ * Registry (management) TEL: configuration only (`vcp` / `vrt`). Does not advance on issue/revoke.
+ * Credential TEL: status for one credential SAID (`iss` / `rev`, or backed `bis` / `brv`).
+ *
+ * Field pointers (NB profile):
+ * - vcp.ii → issuer AID; vcp.i / vcp.d → registry inception SAID
+ * - iss.ri / rev.ri → registry inception SAID; iss.i / rev.i → credential SAID
+ * - iss.d / rev.d → this event SAID; rev.p → prior credential event SAID
+ * - bis/brv.ra → { i, s, d } of applicable registry state (vcp or later vrt)
+ */
+
 // ── VCP Event (Registry Inception) ──────────────────────────────────
 // Keripy canonical order: ['v', 't', 'd', 'i', 'ii', 's', 'c', 'bt', 'b', 'n']
 // Saids: d and i are both SAIDified (registry AID === its SAID)
@@ -114,18 +127,25 @@ export const BrvEventSchema = Type.Object(
 );
 export type BrvEvent = Static<typeof BrvEventSchema>;
 
-// ── Unions ──────────────────────────────────────────────────────────
-export const TelEventSchema = Type.Union([
-  VcpEventSchema,
-  VrtEventSchema,
-  IssEventSchema,
-  RevEventSchema,
-  BisEventSchema,
-  BrvEventSchema,
-]);
+// ── Scope ────────────────────────────────────────────────────────────
+// registry: management TEL — VCP genesis, VRT allowed
+// credential: credential status TEL — ISS genesis, REV terminal
+export type TELScope = 'registry' | 'credential';
+
+// ── Unions (lane ADTs) ───────────────────────────────────────────────
+/** Management TEL events — registry configuration history. */
+export const RegistryEventSchema = Type.Union([VcpEventSchema, VrtEventSchema]);
+export type RegistryEvent = Static<typeof RegistryEventSchema>;
+
+/** Credential TEL events — status history for one credential SAID. */
+export const CredentialEventSchema = Type.Union([IssEventSchema, RevEventSchema, BisEventSchema, BrvEventSchema]);
+export type CredentialEvent = Static<typeof CredentialEventSchema>;
+
+export const TelEventSchema = Type.Union([RegistryEventSchema, CredentialEventSchema]);
 export type TelEvent = Static<typeof TelEventSchema>;
 
-export type EstablishmentTelEvent = VcpEvent | VrtEvent;
+/** @deprecated Prefer {@link RegistryEvent} — same set (vcp | vrt). */
+export type EstablishmentTelEvent = RegistryEvent;
 
 // ── RSN (Registry State Notice) ─────────────────────────────────────
 export const RSNSchema = Type.Object(

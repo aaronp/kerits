@@ -40,7 +40,7 @@ function buildRot(
   const nextDigests = nextKeys.map((k) => digestVerfer(k.publicKey));
   const { unsignedEvent } = KELEvents.buildRot({
     aid: icpEvent.i,
-    sequence: '1',
+    sequence: 1,
     priorEventSaid: priorSaid,
     keys: newKeys.map((k) => k.publicKey),
     nextKeyDigests: nextDigests,
@@ -55,7 +55,7 @@ function buildRot(
   return event;
 }
 
-function buildIxn(icpEvent: any, priorSaid: string, seq = '1') {
+function buildIxn(icpEvent: any, priorSaid: string, seq = 1) {
   const { unsignedEvent } = KELEvents.buildIxn({
     aid: icpEvent.i,
     sequence: seq,
@@ -181,8 +181,8 @@ describe('reduceKelState', () => {
 
     test('expectedSequence increments per event', () => {
       const icp = buildIcp();
-      const ixn1 = buildIxn(icp, icp.d, '1');
-      const ixn2 = buildIxn(icp, ixn1.d, '2');
+      const ixn1 = buildIxn(icp, icp.d, 1);
+      const ixn2 = buildIxn(icp, ixn1.d, 2);
       const states = reduceKelState([wrapEvent(icp), wrapEvent(ixn1), wrapEvent(ixn2)]);
       expect(states[0]!.expectedSequence).toBe('0');
       expect(states[1]!.expectedSequence).toBe('1');
@@ -202,7 +202,7 @@ describe('reduceKelState', () => {
     test('first event is ixn — emits unexpected-event-type note', () => {
       const { unsignedEvent } = KELEvents.buildIxn({
         aid: 'Efake' as AID,
-        sequence: '0',
+        sequence: 0,
         priorEventSaid: 'Efake' as SAID,
       });
       const { event } = KELEvents.finalize(unsignedEvent, false);
@@ -243,7 +243,7 @@ describe('reduceKelState', () => {
       expect(states[0]!.notes).toContainEqual(
         expect.objectContaining({ code: 'unparseable-threshold' }),
       );
-      expect(states[0]!.signingThreshold).toEqual({ type: 'simple', m: 1, n: 1 });
+      expect(states[0]!.signingThreshold).toEqual({ kind: 'numeric', m: 1 });
     });
 
     test('br references non-existent witness — emits malformed-witnesses note', () => {

@@ -7,7 +7,7 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "cesr-ts/src/*": ["../codex/src/vendor/cesr-ts/src/*"]
+      "cesr-ts/src/*": ["./src/cesr/vendor/cesr-ts/src/*"]
     }
   },
   "include": ["src/**/*"],

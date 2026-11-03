@@ -63,7 +63,7 @@ describe('CanonicalPaths', () => {
 
   test('credentialMetadata returns correct path for aid + schemaSaid', () => {
     expect(CanonicalPaths.credentialMetadata(fakeAid, fakeSaid)).toBe(
-      `/.well-known/keri/aid/${fakeAid}/credential-metadata/${fakeSaid}`,
+      `/.well-known/keri/aid/${fakeAid}/credential-designs/${fakeSaid}`,
     );
   });
 

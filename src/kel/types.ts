@@ -208,7 +208,12 @@ export const KSNSchema = Type.Object(
 
     // Identity & linkage
     i: CesrAidSchema, // controller AID
-    s: NonEmpty('Sequence', 'Current sequence number as string', ['0', '1', '2']),
+    s: Type.String({
+      title: 'Sequence',
+      description: 'Current sequence number, keripy hex (read with SequenceNumber)',
+      pattern: '^[0-9a-fA-F]+$',
+      examples: ['0', 'a', '10'],
+    }),
     p: CesrDigestSchema, // prior SAID (prev)
     d: CesrDigestSchema, // last event SAID (current head)
     et: Type.Union(
@@ -419,9 +424,9 @@ export namespace KSNs {
     // icp/dip set initial witnesses (b); rot/drt apply deltas (br/ba).
     let currentKeys: string[] = [];
     let nextDigests: string[] = [];
-    let signingThreshold: string | string[][] = '1';
-    let nextThreshold: string | string[][] = '1';
-    let witnessThreshold: string | string[][] = '0';
+    let signingThreshold: Threshold = '1';
+    let nextThreshold: Threshold = '1';
+    let witnessThreshold: Threshold = '0';
     let witnesses: string[] = [];
     let config: string[] = [];
 
@@ -584,6 +589,8 @@ export const CesrAttachment_Signature = Type.Object(
     }),
     signerAid: Type.Optional(CesrAidSchema), // helpful for provenance, not always present on-wire
     keyIndex: Type.Optional(KeyIndexSchema), // required if form=indexed
+    // prior-next (n) index of the signing key; absent = current-list only (augmented/kept key)
+    ondex: Type.Optional(Type.Integer({ minimum: 0 })),
     sig: CesrSignatureSchema, // qb64 signature
   },
   {
@@ -591,6 +598,16 @@ export const CesrAttachment_Signature = Type.Object(
     title: 'Controller Signature Attachment',
     description: 'Signature over the serialized event bytes. When form="indexed", keyIndex MUST be present.',
   },
+);
+
+/** Witness indexed signature (-B group). Decode-only: never encoded back as -B. */
+export const CesrAttachment_WitnessIndexedSig = Type.Object(
+  {
+    kind: Type.Literal('wig'),
+    keyIndex: Type.Integer({ minimum: 0 }),
+    sig: CesrSignatureSchema,
+  },
+  { additionalProperties: false, title: 'Witness Indexed Signature (wig)' },
 );
 
 /** Non-transferable (witness) receipt: simple signature (rct). */
@@ -669,6 +686,7 @@ export const CesrAttachment_DelegatorSealSource = Type.Object(
 export const CesrAttachmentSchema = Type.Union(
   [
     CesrAttachment_Signature,
+    CesrAttachment_WitnessIndexedSig,
     CesrAttachment_WitnessReceipt,
     CesrAttachment_ValidatorReceipt,
     CesrAttachment_DelegatorSealSource,

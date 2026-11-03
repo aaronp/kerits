@@ -35,7 +35,10 @@ export const CanonicalPaths = {
   telEvent: (said: SAID) => `${KERI_PREFIX}/tel/${said}/event`,
   profile: (aid: AID) => `${KERI_PREFIX}/aid/${aid}/profile`,
   members: (aid: AID) => `${KERI_PREFIX}/aid/${aid}/members`,
-  credentialMetadata: (aid: AID, schemaSaid: SAID) => `${KERI_PREFIX}/aid/${aid}/credential-metadata/${schemaSaid}`,
+  /** Projected membership write/admin Snapshot (purpose + keys + hash). */
+  membersAcl: (aid: AID) => `${KERI_PREFIX}/aid/${aid}/members-acl`,
+  /** Published credential display (CDD) on the public keri store / well-known path. */
+  credentialMetadata: (aid: AID, schemaSaid: SAID) => `${KERI_PREFIX}/aid/${aid}/credential-designs/${schemaSaid}`,
   /** Content-addressed PresentationDefinition (global). */
   policy: (said: SAID) => `/policies/${said}`,
   /** Content-addressed kerits-policy requirement document (portable policy M2+). */

@@ -94,19 +94,18 @@ export type GroupMemberInput = {
   readonly contributingKey: string;
 };
 
-/** Build a {@link PublishedMembershipDirectory} from coupled member inputs. */
+/** Build a {@link PublishedMembershipDirectory} from member entries (a member with no contributing key does not sign). */
 export function buildPublishedMembershipDirectory(input: {
   readonly subjectAid: AID;
-  readonly members: readonly GroupMemberInput[];
+  readonly members: readonly MemberDirectoryEntry[];
   readonly kelSequenceNumber: number;
 }): PublishedMembershipDirectory {
   return {
     v: 'kerits-members/1',
     subjectAid: input.subjectAid,
-    members: input.members.map((m) => ({
-      aid: m.aid,
-      contributingKey: m.contributingKey,
-    })),
+    members: input.members.map((m) =>
+      m.contributingKey === undefined ? { aid: m.aid } : { aid: m.aid, contributingKey: m.contributingKey },
+    ),
     kelSequenceNumber: input.kelSequenceNumber,
     updatedAt: new Date().toISOString(),
   };

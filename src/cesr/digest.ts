@@ -1,4 +1,7 @@
-import { Diger } from 'cesr-ts/src/diger';
+import { blake2b, blake2s } from '@noble/hashes/blake2.js';
+import { blake3 } from '@noble/hashes/blake3.js';
+import { sha256, sha512 } from '@noble/hashes/sha2.js';
+import { sha3_256, sha3_512 } from '@noble/hashes/sha3.js';
 import { Matter, MtrDex } from 'cesr-ts/src/matter';
 import { decodeKey } from './keys.js';
 
@@ -112,12 +115,58 @@ export function decodeDigest(cesr: string): CESRDecoded {
 }
 
 /**
- * Compute digest of a CESR-encoded verifier (public key)
- * Used for creating next key commitments (n field) in KERI events
+ * Next-key commitment digest (an `n` entry) of a CESR-encoded verifier (public key).
+ *
+ * Rule (https://trustoverip.github.io/kswg-keri-specification/#general-pre-rotation):
+ * the commitment is the digest of the key's fully qualified qb64 text, not its raw bytes,
+ * as keripy commits `Diger(ser=verfer.qb64b)`.
  */
 export function digestVerfer(verferQb64: string, algorithm: string = MtrDex.Blake3_256): string {
-  const decoded = decodeKey(verferQb64);
-  // Pass the raw bytes to be hashed as second parameter, and the digest algorithm code in options
-  const diger = new Diger({ code: algorithm }, decoded.raw);
-  return diger.qb64;
+  decodeKey(verferQb64); // reject anything that isn't a qb64 key
+  const digester = DIGESTERS[algorithm];
+  if (digester === undefined) {
+    throw new Error(`Unsupported digest code for a next-key commitment: ${algorithm}`);
+  } else {
+    return new Matter({ raw: digester(new TextEncoder().encode(verferQb64)), code: algorithm }).qb64;
+  }
+}
+
+/**
+ * The digest algorithms keripy's `Diger` supports, by CESR code. The vendored cesr-ts `Diger` only implements
+ * Blake3-256, so commitments made with any other code (crypto agility) are computed here.
+ */
+export const DigestCodes = {
+  Blake3_256: 'E',
+  Blake2b_256: 'F',
+  Blake2s_256: 'G',
+  SHA3_256: 'H',
+  SHA2_256: 'I',
+  Blake3_512: '0D',
+  Blake2b_512: '0E',
+  SHA3_512: '0F',
+  SHA2_512: '0G',
+} as const;
+
+const DIGESTERS: Readonly<Record<string, (ser: Uint8Array) => Uint8Array>> = {
+  [DigestCodes.Blake3_256]: (ser) => blake3(ser, { dkLen: 32 }),
+  [DigestCodes.Blake3_512]: (ser) => blake3(ser, { dkLen: 64 }),
+  [DigestCodes.Blake2b_256]: (ser) => blake2b(ser, { dkLen: 32 }),
+  [DigestCodes.Blake2b_512]: (ser) => blake2b(ser, { dkLen: 64 }),
+  [DigestCodes.Blake2s_256]: (ser) => blake2s(ser, { dkLen: 32 }),
+  [DigestCodes.SHA3_256]: (ser) => sha3_256(ser),
+  [DigestCodes.SHA3_512]: (ser) => sha3_512(ser),
+  [DigestCodes.SHA2_256]: (ser) => sha256(ser),
+  [DigestCodes.SHA2_512]: (ser) => sha512(ser),
+};
+
+/**
+ * Whether a verifier is the pre-image of a next-key commitment, hashing with the commitment's own
+ * digest code (crypto agility, as keripy). False for an unparseable or unsupported digest.
+ */
+export function verferMatchesDigest(verferQb64: string, digestQb64: string): boolean {
+  try {
+    return digestVerfer(verferQb64, decode(digestQb64).code) === digestQb64;
+  } catch {
+    return false;
+  }
 }

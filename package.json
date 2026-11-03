@@ -1,6 +1,6 @@
 {
   "name": "@kerits/core",
-  "version": "0.3.114",
+  "version": "0.5.28",
   "type": "module",
   "exports": {
     ".": {
@@ -8,9 +8,26 @@
       "react-native": "./src/index.ts",
       "types": "./src/index.ts",
       "worker": "./src/index.ts",
-      "browser": "./dist/browser.js",
+      "browser": "./src/index.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./acl": {
+      "bun": "./src/acl/index.ts",
+      "react-native": "./src/acl/index.ts",
+      "types": "./src/acl/index.ts",
+      "worker": "./src/acl/index.ts",
+      "browser": "./src/acl/index.ts",
+      "import": "./src/acl/index.ts",
+      "default": "./src/acl/index.ts"
+    },
+    "./remote/schema-publish-types": {
+      "bun": "./src/remote/schema-publish-types.ts",
+      "react-native": "./src/remote/schema-publish-types.ts",
+      "types": "./src/remote/schema-publish-types.ts",
+      "worker": "./src/remote/schema-publish-types.ts",
+      "import": "./src/remote/schema-publish-types.ts",
+      "default": "./src/remote/schema-publish-types.ts"
     },
     "./crypto": {
       "bun": "./src/crypto/index.ts",
@@ -39,6 +56,7 @@
     "format": "biome format --write src"
   },
   "dependencies": {
+    "@noble/ciphers": "^2.4.0",
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1",
     "@scure/bip39": "^2.0.1",

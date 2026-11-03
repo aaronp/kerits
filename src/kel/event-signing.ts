@@ -9,6 +9,7 @@
 
 import type { Signer } from '../signature/signer.js';
 import { canonicalizeEvent } from './event-crypto.js';
+import { KELEvents } from './events.js';
 import type { AID, CESREvent, CesrAttachment, KELEvent } from './types.js';
 
 /**
@@ -47,6 +48,7 @@ export function encodeEventBytes(event: KELEvent, encoding: 'JSON' | 'CBOR' | 'M
  * @param signer - The Signer instance to use for signing
  * @param aid - The AID of the controller signing this event
  * @param keyIndex - The index of the key in the event's k[] array (default: 0)
+ * @param ondex - Prior-n index for a revealed rotation key; non-rotation events default to keyIndex
  * @returns Updated CESR event envelope with signature attached
  */
 export async function signCesrEventWithSigner(
@@ -54,6 +56,7 @@ export async function signCesrEventWithSigner(
   signer: Signer,
   aid: AID,
   keyIndex = 0,
+  ondex?: number,
 ): Promise<CESREvent> {
   // Encode event to canonical bytes
   const eventBytes = encodeEventBytes(env.event, env.enc);
@@ -62,11 +65,13 @@ export async function signCesrEventWithSigner(
   const signature = await signer.signBytes(eventBytes);
 
   // Create indexed signature attachment
+  const sigOndex = KELEvents.signatureOndex(env.event, keyIndex, ondex);
   const sigAttachment: CesrAttachment = {
     kind: 'sig',
     form: 'indexed',
     signerAid: aid,
     keyIndex,
+    ...(sigOndex === undefined ? {} : { ondex: sigOndex }),
     sig: signature,
   };
 

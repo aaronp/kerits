@@ -1,0 +1,42 @@
+{
+  "v": "kerits-acl-msg/1",
+  "cases": [
+    {
+      "name": "write-ok",
+      "privateKey": "DAAAADIAAAA2AAAAOgAAAD4AAABCAAAARgAAAEoAAABO",
+      "publicKey": "DDKebxtQbUb8M_qdB0S76IBqykq_ueB4zc1BWSD52T9r",
+      "message": {
+        "v": "kerits-acl-msg/1",
+        "system": "r2:membership:EFoo",
+        "operation": "write",
+        "aclHash": "EFtoUAXaintRcTu6_BXKutT-W7Ab6BNx-sha3_pNYv39",
+        "payloadDigest": "ED_cWnrm_nzbvDSwzENu421bWtW9QTMu9yTOKDBawIkJ",
+        "messageId": "golden-ok",
+        "expiresAt": 1700000060000,
+        "signerPublicKey": "DDKebxtQbUb8M_qdB0S76IBqykq_ueB4zc1BWSD52T9r",
+        "signature": "0BBTCG5rrtDadF0K5DXNrD1JD92mqiOI_T5qp9nMt93X2-aJL0g4KhozzlLvFXtiD_vcB0x1vnGbvKF605lObdgF",
+        "payloadHex": "676f6c64656e2d626f6479"
+      },
+      "payloadHex": "676f6c64656e2d626f6479",
+      "canonicalUtf8Hex": "7b2261636c48617368223a224546746f55415861696e7452635475365f42584b7574542d5737416236424e782d736861335f704e59763339222c22657870697265734174223a313730303030303036303030302c226d6573736167654964223a22676f6c64656e2d6f6b222c226f7065726174696f6e223a227772697465222c227061796c6f6164446967657374223a2245445f63576e726d5f6e7a62764453777a454e75343231625774573951544d753979544f4b44426177496b4a222c227369676e65725075626c69634b6579223a2244444b6562787451625562384d5f71644230533736494271796b715f756542347a6331425753443532543972222c2273797374656d223a2272323a6d656d626572736869703a45466f6f222c2276223a226b65726974732d61636c2d6d73672f31227d",
+      "expect": "ok"
+    },
+    {
+      "name": "tamper-system",
+      "message": {
+        "v": "kerits-acl-msg/1",
+        "system": "evil",
+        "operation": "write",
+        "aclHash": "EFtoUAXaintRcTu6_BXKutT-W7Ab6BNx-sha3_pNYv39",
+        "payloadDigest": "ED_cWnrm_nzbvDSwzENu421bWtW9QTMu9yTOKDBawIkJ",
+        "messageId": "golden-ok",
+        "expiresAt": 1700000060000,
+        "signerPublicKey": "DDKebxtQbUb8M_qdB0S76IBqykq_ueB4zc1BWSD52T9r",
+        "signature": "0BBTCG5rrtDadF0K5DXNrD1JD92mqiOI_T5qp9nMt93X2-aJL0g4KhozzlLvFXtiD_vcB0x1vnGbvKF605lObdgF",
+        "payloadHex": "676f6c64656e2d626f6479"
+      },
+      "payloadHex": "676f6c64656e2d626f6479",
+      "expect": "signature-invalid"
+    }
+  ]
+}

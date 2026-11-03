@@ -26,6 +26,14 @@ export class CoreError extends Error {
 }
 
 /**
+ * Records an error a best-effort step deliberately carries on past. Never swallow silently: return a typed
+ * error, rethrow with context, or call this. The one sanctioned side effect in core.
+ */
+export function warnContinued(where: string, error: unknown): void {
+  console.warn(`[kerits] continued past ${where}:`, error);
+}
+
+/**
  * Validation errors - invalid input or configuration
  */
 export class ValidationError extends CoreError {

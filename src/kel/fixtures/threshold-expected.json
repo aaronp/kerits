@@ -1,0 +1,569 @@
+{
+  "source": "keripy 1.3.4 Tholder; bt via eventing.incept",
+  "cases": [
+    {
+      "name": "hex-1",
+      "sith": "1",
+      "keyCount": 1,
+      "weighted": false,
+      "size": 1,
+      "encoded": "1",
+      "thold": 1,
+      "satisfy": [
+        {
+          "indices": [],
+          "satisfied": false
+        },
+        {
+          "indices": [0],
+          "satisfied": true
+        }
+      ]
+    },
+    {
+      "name": "hex-2-of-3",
+      "sith": "2",
+      "keyCount": 3,
+      "weighted": false,
+      "size": 2,
+      "encoded": "2",
+      "thold": 2,
+      "satisfy": [
+        {
+          "indices": [0],
+          "satisfied": false
+        },
+        {
+          "indices": [0, 2],
+          "satisfied": true
+        },
+        {
+          "indices": [0, 1, 2],
+          "satisfied": true
+        }
+      ]
+    },
+    {
+      "name": "hex-a",
+      "sith": "a",
+      "keyCount": 10,
+      "weighted": false,
+      "size": 10,
+      "encoded": "a",
+      "thold": 10,
+      "satisfy": [
+        {
+          "indices": [0, 1, 2, 3, 4, 5, 6, 7, 8],
+          "satisfied": false
+        },
+        {
+          "indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+          "satisfied": true
+        }
+      ]
+    },
+    {
+      "name": "hex-10-is-16",
+      "sith": "10",
+      "keyCount": 16,
+      "weighted": false,
+      "size": 16,
+      "encoded": "10",
+      "thold": 16,
+      "satisfy": [
+        {
+          "indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+          "satisfied": false
+        },
+        {
+          "indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+          "satisfied": true
+        }
+      ]
+    },
+    {
+      "name": "hex-10-of-10-keys",
+      "sith": "10",
+      "keyCount": 10,
+      "error": "size 16 > keys 10"
+    },
+    {
+      "name": "hex-uppercase-A",
+      "sith": "A",
+      "keyCount": 10,
+      "weighted": false,
+      "size": 10,
+      "encoded": "a",
+      "thold": 10,
+      "satisfy": [
+        {
+          "indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+          "satisfied": true
+        }
+      ]
+    },
+    {
+      "name": "hex-zero",
+      "sith": "0",
+      "keyCount": 0,
+      "weighted": false,
+      "size": 0,
+      "encoded": "0",
+      "thold": 0,
+      "satisfy": [
+        {
+          "indices": [],
+          "satisfied": false
+        }
+      ]
+    },
+    {
+      "name": "hex-zero-with-keys",
+      "sith": "0",
+      "keyCount": 2,
+      "weighted": false,
+      "size": 0,
+      "encoded": "0",
+      "thold": 0,
+      "satisfy": [
+        {
+          "indices": [0, 1],
+          "satisfied": false
+        }
+      ]
+    },
+    {
+      "name": "m-greater-than-n",
+      "sith": "3",
+      "keyCount": 2,
+      "error": "size 3 > keys 2"
+    },
+    {
+      "name": "bare-fraction",
+      "sith": "1/2",
+      "keyCount": 2,
+      "error": "ValueError: invalid literal for int() with base 16: '1/2'"
+    },
+    {
+      "name": "bare-fraction-1-of-1",
+      "sith": "1/1",
+      "keyCount": 1,
+      "error": "ValueError: invalid literal for int() with base 16: '1/1'"
+    },
+    {
+      "name": "empty-string",
+      "sith": "",
+      "keyCount": 1,
+      "error": "EmptyMaterialError: Empty threshold expression."
+    },
+    {
+      "name": "not-hex",
+      "sith": "g",
+      "keyCount": 1,
+      "error": "ValueError: invalid literal for int() with base 16: 'g'"
+    },
+    {
+      "name": "negative",
+      "sith": "-1",
+      "keyCount": 1,
+      "error": "ValueError: Non-positive int threshold = -1."
+    },
+    {
+      "name": "empty-list",
+      "sith": [],
+      "keyCount": 1,
+      "error": "ValueError: Empty weight list = []."
+    },
+    {
+      "name": "flat-halves",
+      "sith": ["1/2", "1/2"],
+      "keyCount": 2,
+      "weighted": true,
+      "size": 2,
+      "encoded": ["1/2", "1/2"],
+      "thold": [["1/2", "1/2"]],
+      "satisfy": [
+        {
+          "indices": [],
+          "satisfied": false
+        },
+        {
+          "indices": [0],
+          "satisfied": false
+        },
+        {
+          "indices": [1],
+          "satisfied": false
+        },
+        {
+          "indices": [0, 1],
+          "satisfied": true
+        }
+      ]
+    },
+    {
+      "name": "nested-one-clause-is-flat",
+      "sith": [["1/2", "1/2"]],
+      "keyCount": 2,
+      "weighted": true,
+      "size": 2,
+      "encoded": ["1/2", "1/2"],
+      "thold": [["1/2", "1/2"]],
+      "satisfy": [
+        {
+          "indices": [0],
+          "satisfied": false
+        },
+        {
+          "indices": [0, 1],
+          "satisfied": true
+        }
+      ]
+    },
+    {
+      "name": "flat-mixed-weights",
+      "sith": ["1/2", "1/4", "1/4", "1"],
+      "keyCount": 4,
+      "weighted": true,
+      "size": 4,
+      "encoded": ["1/2", "1/4", "1/4", "1"],
+      "thold": [["1/2", "1/4", "1/4", "1/1"]],
+      "satisfy": [
+        {
+          "indices": [0, 1],
+          "satisfied": false
+        },
+        {
+          "indices": [0, 1, 2],
+          "satisfied": true
+        },
+        {
+          "indices": [3],
+          "satisfied": true
+        },
+        {
+          "indices": [1, 2],
+          "satisfied": false
+        }
+      ]
+    },
+    {
+      "name": "flat-unreduced-2-4",
+      "sith": ["2/4", "2/4"],
+      "keyCount": 2,
+      "weighted": true,
+      "size": 2,
+      "encoded": ["1/2", "1/2"],
+      "thold": [["1/2", "1/2"]],
+      "satisfy": [
+        {
+          "indices": [0],
+          "satisfied": false
+        },
+        {
+          "indices": [0, 1],
+          "satisfied": true
+        }
+      ]
+    },
+    {
+      "name": "flat-1-over-1",
+      "sith": ["1/1", "0/1"],
+      "keyCount": 2,
+      "weighted": true,
+      "size": 2,
+      "encoded": ["1", "0"],
+      "thold": [["1/1", "0/1"]],
+      "satisfy": [
+        {
+          "indices": [0],
+          "satisfied": true
+        },
+        {
+          "indices": [1],
+          "satisfied": false
+        }
+      ]
+    },
+    {
+      "name": "nested-two-clauses",
+      "sith": [["1/2", "1/2"], ["1", "1"]],
+      "keyCount": 4,
+      "weighted": true,
+      "size": 4,
+      "encoded": [["1/2", "1/2"], ["1", "1"]],
+      "thold": [["1/2", "1/2"], ["1/1", "1/1"]],
+      "satisfy": [
+        {
+          "indices": [0, 1],
+          "satisfied": false
+        },
+        {
+          "indices": [0, 1, 2],
+          "satisfied": true
+        },
+        {
+          "indices": [2, 3],
+          "satisfied": false
+        },
+        {
+          "indices": [0, 2],
+          "satisfied": false
+        }
+      ]
+    },
+    {
+      "name": "nested-three-clauses",
+      "sith": [["1/2", "1/2"], ["1/3", "1/3", "1/3"], ["1"]],
+      "keyCount": 6,
+      "weighted": true,
+      "size": 6,
+      "encoded": [["1/2", "1/2"], ["1/3", "1/3", "1/3"], ["1"]],
+      "thold": [["1/2", "1/2"], ["1/3", "1/3", "1/3"], ["1/1"]],
+      "satisfy": [
+        {
+          "indices": [0, 1, 2, 3, 4, 5],
+          "satisfied": true
+        },
+        {
+          "indices": [0, 1, 2, 3, 5],
+          "satisfied": false
+        }
+      ]
+    },
+    {
+      "name": "weighted-fewer-weights-than-keys",
+      "sith": ["1/2", "1/2"],
+      "keyCount": 3,
+      "weighted": true,
+      "size": 2,
+      "encoded": ["1/2", "1/2"],
+      "thold": [["1/2", "1/2"]],
+      "satisfy": [
+        {
+          "indices": [0, 1],
+          "satisfied": true
+        },
+        {
+          "indices": [0, 1, 2],
+          "satisfied": false
+        }
+      ]
+    },
+    {
+      "name": "clause-under-one",
+      "sith": ["1/2", "1/4"],
+      "keyCount": 2,
+      "error": "ValueError: Invalid sith clause = [Fraction(1, 2), Fraction(1, 4)], all top levelclause weight sums must be >= 1."
+    },
+    {
+      "name": "nested-clause-under-one",
+      "sith": [["1/2", "1/2"], ["1/3", "1/3"]],
+      "keyCount": 4,
+      "error": "ValueError: Invalid sith clause = [Fraction(1, 3), Fraction(1, 3)], all top levelclause weight sums must be >= 1."
+    },
+    {
+      "name": "weight-over-one",
+      "sith": ["3/2", "1/2"],
+      "keyCount": 2,
+      "error": "ValueError: Invalid weight not 0 <= 3/2 <= 1."
+    },
+    {
+      "name": "weight-int-2",
+      "sith": ["2", "1"],
+      "keyCount": 2,
+      "error": "ValueError: Invalid weight not 0 <= 2 <= 1."
+    },
+    {
+      "name": "weight-zero-denominator",
+      "sith": ["1/0", "1"],
+      "keyCount": 2,
+      "error": "ZeroDivisionError: Fraction(1, 0)"
+    },
+    {
+      "name": "weight-decimal",
+      "sith": ["0.5", "0.5"],
+      "keyCount": 2,
+      "error": "ValueError: Invalid weight str got float w={w}."
+    },
+    {
+      "name": "weight-not-a-number",
+      "sith": ["x", "1"],
+      "keyCount": 2,
+      "error": "ValueError: Invalid literal for Fraction: 'x'"
+    },
+    {
+      "name": "weighted-size-greater-than-keys",
+      "sith": ["1/2", "1/2", "1/2"],
+      "keyCount": 2,
+      "error": "size 3 > keys 2"
+    },
+    {
+      "name": "mixed-flat-and-nested",
+      "sith": ["1/2", ["1/2"]],
+      "keyCount": 2,
+      "error": "ValueError: Invalid sith = [['1/2', ['1/2']]] some weights inclause ['1/2', ['1/2']] are non string."
+    },
+    {
+      "name": "empty-clause",
+      "sith": [[]],
+      "keyCount": 1,
+      "error": "ValueError: Invalid sith clause = [], all top levelclause weight sums must be >= 1."
+    }
+  ],
+  "lenient": [
+    {
+      "name": "lenient-hex-0x-prefix",
+      "sith": "0x10",
+      "keyCount": 16,
+      "weighted": false,
+      "size": 16,
+      "encoded": "10",
+      "thold": 16,
+      "satisfy": []
+    },
+    {
+      "name": "lenient-hex-leading-space",
+      "sith": " 1",
+      "keyCount": 1,
+      "weighted": false,
+      "size": 1,
+      "encoded": "1",
+      "thold": 1,
+      "satisfy": []
+    },
+    {
+      "name": "lenient-hex-underscore",
+      "sith": "1_0",
+      "keyCount": 16,
+      "weighted": false,
+      "size": 16,
+      "encoded": "10",
+      "thold": 16,
+      "satisfy": []
+    },
+    {
+      "name": "lenient-weight-decimal-1.0",
+      "sith": ["1.0", "0"],
+      "keyCount": 2,
+      "weighted": true,
+      "size": 2,
+      "encoded": ["1", "0"],
+      "thold": [["1/1", "0/1"]],
+      "satisfy": []
+    },
+    {
+      "name": "lenient-weight-exponent",
+      "sith": ["1e0"],
+      "keyCount": 1,
+      "weighted": true,
+      "size": 1,
+      "encoded": ["1"],
+      "thold": [["1/1"]],
+      "satisfy": []
+    },
+    {
+      "name": "lenient-weight-leading-space",
+      "sith": [" 1/2", " 1/2"],
+      "keyCount": 2,
+      "weighted": true,
+      "size": 2,
+      "encoded": ["1/2", "1/2"],
+      "thold": [["1/2", "1/2"]],
+      "satisfy": []
+    },
+    {
+      "name": "lenient-weight-map",
+      "sith": [
+        {
+          "1": ["1/2", "1/2"]
+        }
+      ],
+      "keyCount": 2,
+      "weighted": true,
+      "size": 2,
+      "encoded": [
+        {
+          "1": ["1/2", "1/2"]
+        }
+      ],
+      "thold": [
+        [
+          {
+            "1/1": ["1/2", "1/2"]
+          }
+        ]
+      ],
+      "satisfy": []
+    },
+    {
+      "name": "lenient-negative-index",
+      "sith": ["1/2", "1/2"],
+      "keyCount": 2,
+      "weighted": true,
+      "size": 2,
+      "encoded": ["1/2", "1/2"],
+      "thold": [["1/2", "1/2"]],
+      "satisfy": [
+        {
+          "indices": [-1, 0],
+          "satisfied": true
+        }
+      ]
+    }
+  ],
+  "witness": [
+    {
+      "name": "bt-0-no-witnesses",
+      "bt": "0",
+      "witnessCount": 0,
+      "accepted": true
+    },
+    {
+      "name": "bt-1-no-witnesses",
+      "bt": "1",
+      "witnessCount": 0,
+      "accepted": false,
+      "error": "ValueError: Invalid toad = 1"
+    },
+    {
+      "name": "bt-0-with-witnesses",
+      "bt": "0",
+      "witnessCount": 2,
+      "accepted": false,
+      "error": "ValueError: Invalid toad = 0"
+    },
+    {
+      "name": "bt-1-of-2",
+      "bt": "1",
+      "witnessCount": 2,
+      "accepted": true
+    },
+    {
+      "name": "bt-2-of-2",
+      "bt": "2",
+      "witnessCount": 2,
+      "accepted": true
+    },
+    {
+      "name": "bt-3-of-2",
+      "bt": "3",
+      "witnessCount": 2,
+      "accepted": false,
+      "error": "ValueError: Invalid toad = 3"
+    },
+    {
+      "name": "bt-a-of-10",
+      "bt": "a",
+      "witnessCount": 10,
+      "accepted": true
+    },
+    {
+      "name": "bt-10-of-10",
+      "bt": "10",
+      "witnessCount": 10,
+      "accepted": false,
+      "error": "ValueError: Invalid toad = 16"
+    }
+  ]
+}

@@ -11,9 +11,8 @@
  * verifyWitnessReceipt must be replaced with witness key state resolution.
  */
 
-import type { AID, PublicKey, Signature, Threshold } from '../common/types.js';
+import { type AID, type PublicKey, type Signature, Threshold } from '../common/types.js';
 import { verifyEventSignature } from './event-crypto.js';
-import { checkNormalizedThreshold, normalizeThreshold } from './threshold-normalize.js';
 import type { KELEvent } from './types.js';
 
 /**
@@ -114,15 +113,9 @@ export function verifyVrcAgainstThreshold(
 
   const sortedIndices = Array.from(validKeyIndices).sort((a, b) => a - b);
 
-  // Check threshold — normalize raw threshold first, then check against valid indices
-  let thresholdMet = false;
-  try {
-    const normalized = normalizeThreshold(parentEstablishment.kt, parentEstablishment.k.length);
-    const thresholdResult = checkNormalizedThreshold(normalized, validKeyIndices);
-    thresholdMet = thresholdResult.satisfied;
-  } catch {
-    thresholdMet = false;
-  }
+  // Check threshold — parse the raw threshold, then check against valid indices (malformed is unmet)
+  const kt = Threshold.parse(parentEstablishment.kt, parentEstablishment.k.length);
+  const thresholdMet = kt.ok ? Threshold.satisfied(kt.value, validKeyIndices) : false;
 
   if (thresholdMet) {
     return { passed: true, validKeyIndices: sortedIndices };

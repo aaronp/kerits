@@ -7,16 +7,34 @@
  * - Threshold validation (enough valid signatures to meet threshold)
  * - Delegate validation (parent signature verification)
  *
- * Uses existing threshold.ts utilities - does NOT reimplement threshold parsing.
+ * Thresholds (kt, nt, bt) are read only through the `Threshold` namespace (keripy `Tholder` rules: hex
+ * M-of-N, fractions only inside weighted lists, empty rejected) - this module never parses them itself.
+ *
+ * Rotation (rot/drt) thresholds are met by signatures, not by presence in k
+ * (https://trustoverip.github.io/kswg-keri-specification/#general-pre-rotation):
+ * - prior nt: counts only signatures whose key digest equals priorN[ondex] (revealed keys),
+ *   hashed with that digest's own code. As keripy's `exposeds`, a signature with a missing,
+ *   out-of-range or mismatched ondex is skipped for the prior nt (listed in `dropped` when it
+ *   claimed an ondex); if the prior nt is then unmet the error is ONDEX_MISMATCH, else PRIOR_NT_UNMET;
+ * - new kt: counts verified signatures by any key in k;
+ * - each key index counts once (duplicate signatures don't add weight). Documented divergence (spec §4f,
+ *   alongside the canonical-threshold-encoding, canonical-sequence-number and nt-size divergences): keripy
+ *   1.3.4 de-duplicates by encoded siger, so the A and B encodings of one key count twice toward a threshold
+ *   there (vector `duplicate-sig-a-and-b`, KNOWN_DIVERGENCES); kerits stays strict. Candidate upstream report.
+ * - after a rotation to nt "0" with an empty n (abandonment, accepted as keripy), no event may follow: ABANDONED.
+ *
+ * Sequence numbers `s` are keripy hex, read only through `SequenceNumber`. Every rule records its own failing
+ * check and its error (`EventValidationDetail.errors`), so an event is pending only when every failure is a
+ * pending-signature failure (KELOps.isOnlyPendingSignatureFailures).
  *
  * @module kel/validation
  */
 
-import { digestVerfer } from '../cesr/digest.js';
+import { digestVerfer, verferMatchesDigest } from '../cesr/digest.js';
 import { SAID_PLACEHOLDER } from '../common/data.js';
 import type { DerivationSurface } from '../common/derivation-surface.js';
 import { recomputeSaid } from '../common/derivation-surface.js';
-import type { PublicKey, Signature, Threshold } from '../common/types.js';
+import { type PublicKey, SequenceNumber, type Signature, Threshold } from '../common/types.js';
 import {
   KEL_DIP_SURFACE,
   KEL_DRT_SURFACE,
@@ -27,9 +45,7 @@ import {
 import { validateDelegation } from './delegation-validation.js';
 import { verifyEventSignature } from './event-crypto.js';
 import { type DerivedState, reduceKelState } from './kel-state.js';
-import { matchKeyRevelation } from './rotation.js';
-import { checkThreshold, type ThresholdSpec } from './threshold.js';
-import { checkNormalizedThreshold } from './threshold-normalize.js';
+import { matchKeyRevelation, meetsThreshold } from './rotation.js';
 import type { AID, CESREvent, CesrAttachment, DipEvent, DrtEvent, IcpEvent, KELEvent, RotEvent } from './types.js';
 import { verifyWitnessReceipt } from './validation-predicates.js';
 
@@ -59,7 +75,13 @@ export type ValidationErrorCode =
   | 'DUPLICATE_NEXT_DIGESTS'
   | 'WITNESS_RECEIPT_SIGNATURE_INVALID'
   | 'PARENT_THRESHOLD_NOT_MET'
-  | 'VRC_KEY_INDEX_INVALID';
+  | 'VRC_KEY_INDEX_INVALID'
+  | 'KT_UNMET'
+  | 'PRIOR_NT_UNMET'
+  | 'ONDEX_MISMATCH'
+  | 'THRESHOLD_INVALID'
+  | 'ABANDONED'
+  | 'ROTATION_ILK_MISMATCH';
 
 /**
  * Validation error with details
@@ -87,6 +109,17 @@ export interface ValidationResult {
 export interface CheckResult {
   passed: boolean;
   error?: string;
+}
+
+/**
+ * A signature dropped before threshold counting (keripy drops each invalid signature and lets
+ * the thresholds decide whether the event is accepted).
+ */
+export interface DroppedSignature {
+  keyIndex: number;
+  /** ondex-mismatch: verified, counts toward kt, but skipped for the prior nt (its ondex names no matching commitment). */
+  reason: 'index-out-of-range' | 'signature-invalid' | 'ondex-mismatch';
+  error: string;
 }
 
 /**
@@ -125,10 +158,38 @@ export interface EventValidationDetail {
       missing?: string[];
     };
 
-    /** All signatures verify against their keys */
+    /** Signatures checked against their keys; invalid ones are dropped (listed), not fatal */
     signaturesValid: CheckResult & {
       details?: SignatureDetail[];
+      dropped?: DroppedSignature[];
     };
+
+    /** Establishment events: kt and nt are well formed for k and n (never defaulted) */
+    thresholdValid?: CheckResult;
+
+    /** Nothing follows a non-transferable or abandoned state (failing: ABANDONED / NON_TRANSFERABLE_VIOLATION) */
+    transferable?: CheckResult;
+
+    /** i is the KEL's AID; an inception's i is its d (AID_DERIVATION_INVALID / AID_INCONSISTENT) */
+    aidValid?: CheckResult;
+
+    /** s is the event's sn in keripy hex (SEQUENCE_INVALID) */
+    sequenceValid?: CheckResult;
+
+    /** The first event is an inception (FIRST_EVENT_NOT_INCEPTION) */
+    inceptionFirst?: CheckResult;
+
+    /** EO blocks ixn; a rotation keeps the inception traits (CONFIG_TRAIT_VIOLATION / CONFIG_TRAIT_REMOVED) */
+    configTraitsValid?: CheckResult;
+
+    /** Establishment: no duplicate keys or next digests (DUPLICATE_KEYS / DUPLICATE_NEXT_DIGESTS) */
+    uniqueKeys?: CheckResult;
+
+    /** Establishment: bt well formed and satisfiable, witness deltas valid (WITNESS_THRESHOLD_UNSATISFIABLE / WITNESS_DELTA_INVALID) */
+    witnessesValid?: CheckResult;
+
+    /** fully-witnessed mode: receipts verify and meet bt (WITNESS_RECEIPT_*) */
+    witnessReceiptsValid?: CheckResult;
 
     /** Enough valid signatures to meet threshold */
     thresholdMet: CheckResult & {
@@ -154,6 +215,9 @@ export interface EventValidationDetail {
       missingParentKel?: boolean;
     };
   };
+
+  /** Every error this event raised, in rule order (each failing check above records one or more). */
+  errors: ValidationError[];
 }
 
 /**
@@ -187,6 +251,13 @@ export interface KelValidationOptions {
 
   /** Validation mode (default: 'structural') */
   mode?: ValidationPreset;
+
+  /**
+   * Controller signatures were verified when stored: each in-range one counts as valid without re-verifying it;
+   * key-index, threshold and every other check still run. Only for reads of the caller's own store, whose write
+   * path verifies every signature before storing it — never for supplied (unverified) material.
+   */
+  signaturesVerified?: true;
 }
 
 // --------------------------------------------------------------------------------------
@@ -293,36 +364,38 @@ function checkRequiredFields(event: KELEvent): { passed: boolean; missing?: stri
 function validateSignaturesWithDetails(
   cesrEvent: CESREvent,
   keys: PublicKey[],
+  signaturesVerified: boolean,
 ): {
   details: SignatureDetail[];
-  allValid: boolean;
+  dropped: DroppedSignature[];
   validKeyIndices: Set<number>;
+  /** Verified key index → every claimed prior-n index (undefined = current-list only). */
+  ondicesByKeyIndex: Map<number, (number | undefined)[]>;
 } {
   const event = cesrEvent.event;
   const sigAttachments = getSignatureAttachments(cesrEvent);
   const details: SignatureDetail[] = [];
+  const dropped: DroppedSignature[] = [];
   const validKeyIndices = new Set<number>();
-  let allValid = true;
+  const ondicesByKeyIndex = new Map<number, (number | undefined)[]>();
 
   for (const sigAtt of sigAttachments) {
     const keyIndex = typeof sigAtt.keyIndex === 'number' ? sigAtt.keyIndex : parseInt(sigAtt.keyIndex as any, 10);
 
-    if (keyIndex < 0 || keyIndex >= keys.length) {
-      details.push({
-        keyIndex,
-        publicKey: 'unknown',
-        valid: false,
-        error: `Key index ${keyIndex} out of range (0-${keys.length - 1})`,
-      });
-      allValid = false;
+    if (!Number.isInteger(keyIndex) || keyIndex < 0 || keyIndex >= keys.length) {
+      const error = `Key index ${keyIndex} out of range (0-${keys.length - 1})`;
+      details.push({ keyIndex, publicKey: 'unknown', valid: false, error });
+      dropped.push({ keyIndex, reason: 'index-out-of-range', error });
       continue;
+    } else {
+      /* index names a current key */
     }
 
     const publicKey = keys[keyIndex]!;
     let isValid = false;
     let verifyError: string | undefined;
     try {
-      isValid = verifyEventSignature(event, publicKey, sigAtt.sig);
+      isValid = signaturesVerified || verifyEventSignature(event, publicKey, sigAtt.sig);
     } catch (err) {
       verifyError = err instanceof Error ? err.message : 'Signature verification failed';
     }
@@ -335,13 +408,97 @@ function validateSignaturesWithDetails(
     });
 
     if (isValid) {
+      // counts once per index; every verified ondex claim is kept for the prior-nt match
       validKeyIndices.add(keyIndex);
+      ondicesByKeyIndex.set(keyIndex, [...(ondicesByKeyIndex.get(keyIndex) ?? []), sigAtt.ondex]);
     } else {
-      allValid = false;
+      dropped.push({
+        keyIndex,
+        reason: 'signature-invalid',
+        error: verifyError ?? 'Signature verification failed',
+      });
     }
   }
 
-  return { details, allValid, validKeyIndices };
+  return { details, dropped, validKeyIndices, ondicesByKeyIndex };
+}
+
+const fmtThreshold = (t: Threshold): string => (typeof t === 'string' ? t : JSON.stringify(t));
+
+/** The parse error for a malformed kt or nt, else undefined (nt "0" with an empty n abandons the AID). */
+function establishmentThresholdError(event: IcpEvent | RotEvent | DipEvent | DrtEvent): string | undefined {
+  const kt = Threshold.parse(event.kt as Threshold, event.k.length);
+  const nt = Threshold.parse(event.nt as Threshold, event.n.length);
+  if (!kt.ok) {
+    return `kt: ${kt.error.message}`;
+  } else if (!nt.ok) {
+    return `nt: ${nt.error.message}`;
+  } else {
+    return undefined;
+  }
+}
+
+type RotationThresholdFailure = { code: 'KT_UNMET' | 'PRIOR_NT_UNMET' | 'ONDEX_MISMATCH'; message: string };
+
+/**
+ * Rotation signature thresholds: new kt over every verified index, then prior nt over verified
+ * revealed keys whose ondex names their own commitment. Signatures claiming a non-matching ondex
+ * are skipped for the prior nt and returned in `skipped`.
+ */
+function checkRotationSignatureThresholds(
+  k: readonly string[],
+  kt: Threshold,
+  ktMet: boolean,
+  prior: { n: readonly string[]; nt: Threshold },
+  ondicesByKeyIndex: ReadonlyMap<number, readonly (number | undefined)[]>,
+): { failure: RotationThresholdFailure | undefined; skipped: DroppedSignature[] } {
+  const ondices: number[] = [];
+  const skipped: DroppedSignature[] = [];
+  for (const [keyIndex, claims] of ondicesByKeyIndex) {
+    const exposed = claims.find(
+      (o) => o !== undefined && prior.n[o] !== undefined && verferMatchesDigest(k[keyIndex]!, prior.n[o]!),
+    );
+    if (exposed !== undefined) {
+      ondices.push(exposed);
+    } else {
+      // current-only (no ondex) is normal for kept/augmented keys; a claimed ondex that names no matching commitment is listed
+      for (const o of claims) {
+        if (o === undefined) {
+          /* current-list only */
+        } else {
+          skipped.push({
+            keyIndex,
+            reason: 'ondex-mismatch',
+            error: `signature at k index ${keyIndex} claims prior n index ${o}, but its key digest does not match n[${o}]; not counted toward prior nt`,
+          });
+        }
+      }
+    }
+  }
+  const kIndices = [...ondicesByKeyIndex.keys()];
+  const priorNtMet = meetsThreshold(prior.nt, ondices, prior.n.length);
+  const ntDetail = `prior nt ${fmtThreshold(prior.nt)} not met; revealed-key signatures at prior n indices [${ondices.join(', ')}]`;
+  if (!ktMet) {
+    return {
+      failure: {
+        code: 'KT_UNMET',
+        message: `KT_UNMET: kt ${fmtThreshold(kt)} not met; verified signatures at k indices [${kIndices.join(', ')}]`,
+      },
+      skipped,
+    };
+  } else if (!priorNtMet && skipped.length > 0) {
+    return {
+      failure: {
+        code: 'ONDEX_MISMATCH',
+        message: `ONDEX_MISMATCH: ${ntDetail}; skipped mismatched ondex at k indices [${skipped.map((d) => d.keyIndex).join(', ')}]`,
+      },
+      skipped,
+    };
+  } else if (!priorNtMet) {
+    return { failure: { code: 'PRIOR_NT_UNMET', message: `PRIOR_NT_UNMET: ${ntDetail}` }, skipped };
+  } else {
+    return { failure: undefined, skipped };
+  }
 }
 
 /**
@@ -465,15 +622,18 @@ function validateKeyChainWithDetails(
  *
  * @param cesrEvent - The delegated event
  * @param parentKel - Optional parent KEL events for validation
+ * @param delegatorAid - Optional delegator AID (required for drt events which have no di field)
  * @returns Check result with delegation details
  */
 function validateDelegationWithDetails(
   cesrEvent: CESREvent,
   parentKel?: CESREvent[],
+  delegatorAid?: string,
 ): CheckResult & { parentAid?: string; missingParentKel?: boolean; vrcFailureReason?: string } {
   const result = validateDelegation({
     childEvent: cesrEvent,
     parentKel,
+    ...(delegatorAid !== undefined ? { delegatorAid } : {}),
   });
 
   if (result.passed) {
@@ -681,25 +841,49 @@ export function validateKel(
       signaturesValid: { passed: true },
       thresholdMet: { passed: true },
     };
+    // every rule records its own failing check (above) and its error here, so a caller can tell an event whose
+    // only failures are pending signatures from one that also breaks a chain rule
+    const errors: ValidationError[] = [];
+    const fail = (code: ValidationErrorCode, scope: ValidationError['scope'], message: string, missingAid?: AID) => {
+      const error: ValidationError = {
+        code,
+        scope,
+        severity: 'error',
+        message,
+        eventIndex: i,
+        ...(missingAid === undefined ? {} : { missingAid }),
+      };
+      errors.push(error);
+      firstError ??= error;
+      overallValid = false;
+    };
+
+    // 0. Nothing follows a non-transferable state: an n=[] inception (NON_TRANSFERABLE_VIOLATION), or a rotation
+    // to nt "0" with an empty n, which abandons the identifier (ABANDONED; keripy accepts the abandoning rotation
+    // itself and rejects whatever follows). Judged on the state before this event.
+    const priorState = i > 0 ? states[i - 1] : undefined;
+    if (priorState?.nonTransferable) {
+      const abandoned = lastEstablishment?.t === 'rot' || lastEstablishment?.t === 'drt';
+      const message = abandoned
+        ? `ABANDONED: the identifier was abandoned (nt 0, empty n); no event may follow, got ${event.t} at index ${i}`
+        : `Non-transferable AID cannot have any event after inception at index ${i}`;
+      checks.transferable = { passed: false, error: message };
+      fail(abandoned ? 'ABANDONED' : 'NON_TRANSFERABLE_VIOLATION', 'event', message);
+    } else {
+      /* transferable so far */
+    }
 
     // 1. Event type validation
     const validTypes = ['icp', 'rot', 'ixn', 'dip', 'drt'];
     const typeValid = validTypes.includes(event.t);
-    let typeError: string | undefined;
-    if (!typeValid) {
-      typeError = `Invalid event type '${event.t}'. Must be one of: ${validTypes.join(', ')}`;
-    }
+    const typeError = typeValid
+      ? undefined
+      : `Invalid event type '${event.t}'. Must be one of: ${validTypes.join(', ')}`;
     checks.isValidKeriEvent = { passed: typeValid, error: typeError };
-
-    if (!typeValid && !firstError) {
-      firstError = {
-        code: 'MISSING_REQUIRED_FIELD',
-        scope: 'event',
-        severity: 'error',
-        message: typeError ?? 'Invalid KERI event type',
-        eventIndex: i,
-      };
-      overallValid = false;
+    if (typeError !== undefined) {
+      fail('MISSING_REQUIRED_FIELD', 'event', typeError);
+    } else {
+      /* a known ilk */
     }
 
     // 2. SAID validation
@@ -711,30 +895,19 @@ export function validateKel(
       actual: event.d,
       error: saidMatches ? undefined : `SAID mismatch: expected ${computedSaid}, got ${event.d}`,
     };
-
-    if (!saidMatches && !firstError) {
-      firstError = {
-        code: 'SAID_MISMATCH',
-        scope: 'event',
-        severity: 'error',
-        message: `SAID mismatch for event ${i}`,
-        eventIndex: i,
-      };
-      overallValid = false;
+    if (!saidMatches) {
+      fail('SAID_MISMATCH', 'event', `SAID mismatch for event ${i}`);
+    } else {
+      /* SAID verified */
     }
 
     // 2b. AID derivation check for inception events (only if SAID is valid)
     if (saidMatches && (event.t === 'icp' || event.t === 'dip') && event.i !== event.d) {
-      if (!firstError) {
-        firstError = {
-          code: 'AID_DERIVATION_INVALID',
-          scope: 'event',
-          severity: 'error',
-          message: `AID derivation invalid at event ${i}: i=${event.i} but d=${event.d} (must be equal for inception events)`,
-          eventIndex: i,
-        };
-      }
-      overallValid = false;
+      const message = `AID derivation invalid at event ${i}: i=${event.i} but d=${event.d} (must be equal for inception events)`;
+      checks.aidValid = { passed: false, error: message };
+      fail('AID_DERIVATION_INVALID', 'event', message);
+    } else {
+      checks.aidValid = { passed: true };
     }
 
     // 3. Required fields validation
@@ -744,32 +917,37 @@ export function validateKel(
       missing: requiredResult.missing,
       error: requiredResult.passed ? undefined : `Missing required fields: ${requiredResult.missing?.join(', ')}`,
     };
-
-    if (!requiredResult.passed && !firstError) {
-      firstError = {
-        code: 'MISSING_REQUIRED_FIELD',
-        scope: 'event',
-        severity: 'error',
-        message: `Missing required fields in event ${i}: ${requiredResult.missing?.join(', ')}`,
-        eventIndex: i,
-      };
-      overallValid = false;
+    if (!requiredResult.passed) {
+      fail(
+        'MISSING_REQUIRED_FIELD',
+        'event',
+        `Missing required fields in event ${i}: ${requiredResult.missing?.join(', ')}`,
+      );
+    } else {
+      /* all present */
     }
 
     // 4. Previous event link validation (p field matches prior event's SAID)
     const previousEvent = i > 0 ? events[i - 1]?.event : undefined;
     const prevEventResult = validatePreviousEventLink(event, previousEvent);
     checks.previousEventValid = prevEventResult;
+    if (!prevEventResult.passed) {
+      fail('PREVIOUS_EVENT_MISMATCH', 'chain', prevEventResult.error ?? `Previous event link invalid in event ${i}`);
+    } else {
+      /* linked */
+    }
 
-    if (!prevEventResult.passed && !firstError) {
-      firstError = {
-        code: 'PREVIOUS_EVENT_MISMATCH',
-        scope: 'chain',
-        severity: 'error',
-        message: prevEventResult.error ?? `Previous event link invalid in event ${i}`,
-        eventIndex: i,
-      };
-      overallValid = false;
+    // 4b. kt/nt must be well formed for k/n: rejected, never defaulted (keripy Tholder / Kevery; spec §4f)
+    if (isEstablishmentEvent(event)) {
+      const thresholdError = establishmentThresholdError(event);
+      if (thresholdError === undefined) {
+        checks.thresholdValid = { passed: true };
+      } else {
+        checks.thresholdValid = { passed: false, error: thresholdError };
+        fail('THRESHOLD_INVALID', 'event', `THRESHOLD_INVALID: ${thresholdError} (event ${i})`);
+      }
+    } else {
+      /* interactions carry no thresholds */
     }
 
     // Get keys and threshold for signature validation
@@ -789,27 +967,21 @@ export function validateKel(
 
     // 5. Signature validation with details (skip when event type is not a known KERI ilk)
     const sigResult = typeValid
-      ? validateSignaturesWithDetails(cesrEvent, keys)
-      : { details: [], allValid: false, validKeyIndices: new Set<number>() };
+      ? validateSignaturesWithDetails(cesrEvent, keys, options?.signaturesVerified === true)
+      : {
+          details: [],
+          dropped: [],
+          validKeyIndices: new Set<number>(),
+          ondicesByKeyIndex: new Map<number, (number | undefined)[]>(),
+        };
 
     if (typeValid) {
+      // invalid signatures are dropped (listed) and the thresholds below decide, as keripy does
       checks.signaturesValid = {
-        passed: sigResult.allValid,
+        passed: true,
         details: sigResult.details,
-        error: sigResult.allValid ? undefined : 'One or more signatures failed verification',
+        dropped: sigResult.dropped,
       };
-
-      if (!sigResult.allValid && !firstError) {
-        const firstInvalid = sigResult.details.find((d) => !d.valid);
-        firstError = {
-          code: 'SIGNATURE_INVALID',
-          scope: 'attachment',
-          severity: 'error',
-          message: `Signature at index ${firstInvalid?.keyIndex ?? 'unknown'} is invalid`,
-          eventIndex: i,
-        };
-        overallValid = false;
-      }
     } else {
       checks.signaturesValid = {
         passed: false,
@@ -822,19 +994,11 @@ export function validateKel(
     let thresholdMet = false;
     if (typeValid) {
       if (state) {
-        const normalizedResult = checkNormalizedThreshold(state.signingThreshold, sigResult.validKeyIndices);
-        thresholdMet = normalizedResult.satisfied;
+        thresholdMet = Threshold.satisfied(state.signingThreshold, sigResult.validKeyIndices);
       } else {
-        try {
-          const thresholdSpec: ThresholdSpec = threshold;
-          const thresholdResult = checkThreshold(thresholdSpec, Array.from(sigResult.validKeyIndices), keys.length);
-          thresholdMet = thresholdResult.satisfied;
-        } catch {
-          thresholdMet = false;
-        }
+        thresholdMet = meetsThreshold(threshold, [...sigResult.validKeyIndices], keys.length);
       }
     }
-
     checks.thresholdMet = {
       passed: thresholdMet,
       required: typeof threshold === 'string' ? threshold : JSON.stringify(threshold),
@@ -846,40 +1010,62 @@ export function validateKel(
         : (typeError ?? 'Cannot verify threshold for invalid event type'),
     };
 
-    if (typeValid && !thresholdMet && !firstError) {
-      firstError = {
-        code: 'THRESHOLD_NOT_MET',
-        scope: 'attachment',
-        severity: 'error',
-        message: `Threshold not met for event ${i}: ${sigResult.validKeyIndices.size} valid signatures`,
-        eventIndex: i,
+    // 6b. Rotations: kt and prior nt are met by signatures (prior nt by revealed keys + ondex)
+    // Classification: their codes are pending in KELOps.isOnlyPendingSignatureFailures. That holds only
+    // while more signatures could still meet the thresholds: when the revealed keys present in k can't meet
+    // the prior nt, keyChainValid fails too (NEXT_KEY_MISMATCH), and that code isn't pending.
+    const rotation =
+      typeValid && (event.t === 'rot' || event.t === 'drt') && lastEstablishment
+        ? checkRotationSignatureThresholds(
+            event.k,
+            event.kt,
+            thresholdMet,
+            lastEstablishment,
+            sigResult.ondicesByKeyIndex,
+          )
+        : undefined;
+    const rotationFailure = rotation?.failure;
+    if (rotation && rotation.skipped.length > 0 && typeValid) {
+      checks.signaturesValid = {
+        ...checks.signaturesValid,
+        dropped: [...(checks.signaturesValid.dropped ?? []), ...rotation.skipped],
       };
-      overallValid = false;
+    } else {
+      /* nothing skipped for its ondex */
+    }
+
+    if (rotationFailure) {
+      checks.thresholdMet = { ...checks.thresholdMet, passed: false, error: rotationFailure.message };
+      fail(rotationFailure.code, 'attachment', `${rotationFailure.message} (event ${i})`);
+    } else if (typeValid && !thresholdMet) {
+      fail(
+        'THRESHOLD_NOT_MET',
+        'attachment',
+        `Threshold not met for event ${i}: ${sigResult.validKeyIndices.size} valid signatures`,
+      );
+    } else {
+      /* threshold met, or the event type is invalid (already recorded) */
     }
 
     // 7. Key chain validation for rotation events
     if ((event.t === 'rot' || event.t === 'drt') && lastEstablishment) {
       const keyChainResult = validateKeyChainWithDetails(event, lastEstablishment);
       checks.keyChainValid = keyChainResult;
-
-      if (!keyChainResult.passed && !firstError) {
-        firstError = {
-          code: 'NEXT_KEY_MISMATCH',
-          scope: 'event',
-          severity: 'error',
-          message: `Keys in event ${i} do not match previous event's next key commitments`,
-          eventIndex: i,
-        };
-        overallValid = false;
+      if (!keyChainResult.passed) {
+        fail('NEXT_KEY_MISMATCH', 'event', `Keys in event ${i} do not match previous event's next key commitments`);
+      } else {
+        /* revealed keys match the prior commitments */
       }
     }
 
     // 8. Delegation validation for delegated events
     if (isDelegatedEvent(event)) {
-      const delegationResult = validateDelegationWithDetails(cesrEvent, parentKel);
+      const inception = events[0]?.event as { t?: string; di?: string } | undefined;
+      const delegatorAid = inception?.t === 'dip' ? inception.di : undefined;
+      const delegationResult = validateDelegationWithDetails(cesrEvent, parentKel, delegatorAid);
       checks.delegationValid = delegationResult;
 
-      if (!delegationResult.passed && !firstError) {
+      if (!delegationResult.passed) {
         let errorCode: ValidationErrorCode;
         if (delegationResult.missingParentKel) {
           errorCode = 'MISSING_PARENT_KEL';
@@ -896,174 +1082,153 @@ export function validateKel(
           const reason = delegationResult.vrcFailureReason;
           errorCode = (reason && REASON_TO_CODE[reason]) || 'PARENT_SIGNATURE_INVALID';
         }
-        firstError = {
-          code: errorCode,
-          scope: 'attachment',
-          severity: 'error',
-          message: delegationResult.error ?? 'Delegation validation failed',
-          eventIndex: i,
-          missingAid: delegationResult.parentAid as AID | undefined,
-        };
-        overallValid = false;
+        fail(
+          errorCode,
+          'attachment',
+          delegationResult.error ?? 'Delegation validation failed',
+          delegationResult.parentAid as AID | undefined,
+        );
+      } else {
+        /* delegator approval verified */
       }
     }
 
-    // 9. Sequence number validation (uses derived state)
-    if (state && event.s !== state.expectedSequence) {
-      if (!firstError) {
-        firstError = {
-          code: 'SEQUENCE_INVALID',
-          scope: 'event',
-          severity: 'error',
-          message: `Sequence number mismatch at event ${i}: expected ${state.expectedSequence}, got ${event.s}`,
-          eventIndex: i,
-        };
-        overallValid = false;
+    // 9. Sequence number: s is this event's sn in keripy hex (SequenceNumber)
+    if (state) {
+      const sn = SequenceNumber.parse(event.s);
+      if (!sn.ok || sn.value !== i) {
+        const message = `Sequence number mismatch at event ${i}: expected ${state.expectedSequence}, got ${event.s}`;
+        checks.sequenceValid = { passed: false, error: message };
+        fail('SEQUENCE_INVALID', 'event', message);
+      } else {
+        checks.sequenceValid = { passed: true };
       }
+    } else {
+      /* no derived state: sequence unchecked */
     }
 
     // 10. AID consistency (uses derived state)
     if (state && i > 0 && event.i !== (state.kelAid as string)) {
-      if (!firstError) {
-        firstError = {
-          code: 'AID_INCONSISTENT',
-          scope: 'chain',
-          severity: 'error',
-          message: `AID mismatch at event ${i}: expected ${state.kelAid}, got ${event.i}`,
-          eventIndex: i,
-        };
-        overallValid = false;
-      }
+      const message = `AID mismatch at event ${i}: expected ${state.kelAid}, got ${event.i}`;
+      checks.aidValid = checks.aidValid?.passed === false ? checks.aidValid : { passed: false, error: message };
+      fail('AID_INCONSISTENT', 'chain', message);
+    } else {
+      /* the KEL's own AID */
     }
 
     // 11. First event must be inception (uses derived state)
     if (state && i === 0 && event.t !== 'icp' && event.t !== 'dip') {
-      if (!firstError) {
-        firstError = {
-          code: 'FIRST_EVENT_NOT_INCEPTION',
-          scope: 'chain',
-          severity: 'error',
-          message: `First event must be icp or dip, got ${event.t}`,
-          eventIndex: i,
-        };
-        overallValid = false;
-      }
+      const message = `First event must be icp or dip, got ${event.t}`;
+      checks.inceptionFirst = { passed: false, error: message };
+      fail('FIRST_EVENT_NOT_INCEPTION', 'chain', message);
+    } else {
+      /* an inception first, or a later event */
     }
 
-    // 12. Non-transferable violation (uses derived state)
-    // A non-transferable AID (n=[]) cannot have ANY subsequent events.
-    if (state?.nonTransferable && i > start) {
-      if (!firstError) {
-        firstError = {
-          code: 'NON_TRANSFERABLE_VIOLATION',
-          scope: 'event',
-          severity: 'error',
-          message: `Non-transferable AID cannot have any event after inception at index ${i}`,
-          eventIndex: i,
-        };
-        overallValid = false;
-      }
+    // 12. Rotation ilk matches the inception: a delegated AID (dip) rotates only with drt, a non-delegated one (icp)
+    // only with rot (keripy rejects either mismatch)
+    const inceptionIlk = events[0]?.event.t;
+    if (i > 0 && event.t === 'rot' && inceptionIlk === 'dip') {
+      fail(
+        'ROTATION_ILK_MISMATCH',
+        'event',
+        `ROTATION_ILK_MISMATCH: a delegated AID must rotate with drt, got rot at index ${i}`,
+      );
+    } else if (i > 0 && event.t === 'drt' && inceptionIlk === 'icp') {
+      fail(
+        'ROTATION_ILK_MISMATCH',
+        'event',
+        `ROTATION_ILK_MISMATCH: a non-delegated AID must rotate with rot, got drt at index ${i}`,
+      );
+    } else {
+      /* the rotation ilk matches the inception, or not a rot */
     }
 
-    // 13. Config trait: EO (establishment only) blocks ixn
-    if (state?.inceptionTraits.has('EO') && event.t === 'ixn') {
-      if (!firstError) {
-        firstError = {
-          code: 'CONFIG_TRAIT_VIOLATION',
-          scope: 'event',
-          severity: 'error',
-          message: `Establishment-only (EO) AID cannot have interaction event at ${i}`,
-          eventIndex: i,
-        };
-        overallValid = false;
+    // 13. Config traits: EO (establishment only) blocks ixn; a rotation cannot remove inception traits
+    if (state) {
+      const removed =
+        (event.t === 'rot' || event.t === 'drt') && state.inceptionTraits.size > 0
+          ? [...state.inceptionTraits].find((trait) => !((event as RotEvent | DrtEvent).c ?? []).includes(trait))
+          : undefined;
+      if (state.inceptionTraits.has('EO') && event.t === 'ixn') {
+        const message = `Establishment-only (EO) AID cannot have interaction event at ${i}`;
+        checks.configTraitsValid = { passed: false, error: message };
+        fail('CONFIG_TRAIT_VIOLATION', 'event', message);
+      } else if (removed !== undefined) {
+        const message = `Rotation at event ${i} removes inception trait '${removed}'`;
+        checks.configTraitsValid = { passed: false, error: message };
+        fail('CONFIG_TRAIT_REMOVED', 'event', message);
+      } else {
+        checks.configTraitsValid = { passed: true };
       }
-    }
-
-    // 13b. Config trait immutability: rotation cannot remove inception traits
-    if (state && (event.t === 'rot' || event.t === 'drt') && state.inceptionTraits.size > 0) {
-      const rotTraits = new Set((event as RotEvent | DrtEvent).c ?? []);
-      for (const trait of state.inceptionTraits) {
-        if (!rotTraits.has(trait)) {
-          if (!firstError) {
-            firstError = {
-              code: 'CONFIG_TRAIT_REMOVED',
-              scope: 'event',
-              severity: 'error',
-              message: `Rotation at event ${i} removes inception trait '${trait}'`,
-              eventIndex: i,
-            };
-          }
-          overallValid = false;
-          break;
-        }
-      }
+    } else {
+      /* no derived state: traits unchecked */
     }
 
     // 14. Duplicate keys check
     if (isEstablishmentEvent(event)) {
       const dupKeys = checkArrayUniqueness(event.k as string[]);
-      if (dupKeys.length > 0 && !firstError) {
-        firstError = {
-          code: 'DUPLICATE_KEYS',
-          scope: 'event',
-          severity: 'error',
-          message: `Duplicate signing keys at event ${i}: ${dupKeys.join(', ')}`,
-          eventIndex: i,
-        };
-        overallValid = false;
-      }
-
       const dupNextDigests = checkArrayUniqueness(event.n as string[]);
-      if (dupNextDigests.length > 0 && !firstError) {
-        firstError = {
-          code: 'DUPLICATE_NEXT_DIGESTS',
-          scope: 'event',
-          severity: 'error',
-          message: `Duplicate next key digests at event ${i}: ${dupNextDigests.join(', ')}`,
-          eventIndex: i,
-        };
-        overallValid = false;
+      const keyErrors = [
+        ...(dupKeys.length > 0
+          ? [
+              {
+                code: 'DUPLICATE_KEYS' as const,
+                message: `Duplicate signing keys at event ${i}: ${dupKeys.join(', ')}`,
+              },
+            ]
+          : []),
+        ...(dupNextDigests.length > 0
+          ? [
+              {
+                code: 'DUPLICATE_NEXT_DIGESTS' as const,
+                message: `Duplicate next key digests at event ${i}: ${dupNextDigests.join(', ')}`,
+              },
+            ]
+          : []),
+      ];
+      checks.uniqueKeys =
+        keyErrors.length === 0
+          ? { passed: true }
+          : { passed: false, error: keyErrors.map((e) => e.message).join('; ') };
+      for (const e of keyErrors) {
+        fail(e.code, 'event', e.message);
       }
     }
 
     // 15. Witness validation (uses derived state)
     if (state && isEstablishmentEvent(event)) {
-      const bt = typeof state.witnessThreshold === 'string' ? parseInt(state.witnessThreshold, 10) || 0 : 0;
       const witnessCount = state.witnesses.size;
-
-      // 15a. Witness threshold must be satisfiable (bt <= witness count)
-      if (bt > witnessCount) {
-        if (!firstError) {
-          firstError = {
-            code: 'WITNESS_THRESHOLD_UNSATISFIABLE',
-            scope: 'event',
-            severity: 'error',
-            message: `Witness threshold ${bt} exceeds witness count ${witnessCount} at event ${i}`,
-            eventIndex: i,
-          };
-        }
-        overallValid = false;
-      }
-
-      // 15b. Witness delta validity for rotation events
+      const bt = Threshold.witness(state.witnessThreshold, witnessCount);
       const witnessNotes = state.notes.filter((n) => n.code === 'malformed-witnesses');
-      if (witnessNotes.length > 0) {
-        if (!firstError) {
-          firstError = {
-            code: 'WITNESS_DELTA_INVALID',
-            scope: 'event',
-            severity: 'error',
-            message: witnessNotes[0]!.message,
-            eventIndex: i,
-          };
-        }
-        overallValid = false;
+      const witnessErrors = [
+        // 15a. Witness threshold must be well formed (hex) and satisfiable (bt <= witness count)
+        ...(bt.ok
+          ? []
+          : [
+              {
+                code: 'WITNESS_THRESHOLD_UNSATISFIABLE' as const,
+                message: `Witness threshold invalid at event ${i}: ${bt.error.message}`,
+              },
+            ]),
+        // 15b. Witness delta validity for rotation events
+        ...(witnessNotes.length > 0
+          ? [{ code: 'WITNESS_DELTA_INVALID' as const, message: witnessNotes[0]!.message }]
+          : []),
+      ];
+      checks.witnessesValid =
+        witnessErrors.length === 0
+          ? { passed: true }
+          : { passed: false, error: witnessErrors.map((e) => e.message).join('; ') };
+      for (const e of witnessErrors) {
+        fail(e.code, 'event', e.message);
       }
     }
 
     // 15c. Witness receipt threshold + signature verification (fully-witnessed mode only)
     if (state && options?.mode === 'fully-witnessed' && isEstablishmentEvent(event)) {
-      const bt = typeof state.witnessThreshold === 'string' ? parseInt(state.witnessThreshold, 10) || 0 : 0;
+      const btResult = Threshold.witness(state.witnessThreshold, state.witnesses.size);
+      const bt = btResult.ok ? btResult.value : 0; // an invalid bt is already reported (15a)
       if (bt > 0) {
         const rctAttachments = getRctAttachments(cesrEvent);
         // Filter to receipts from known witnesses, then verify signatures
@@ -1074,29 +1239,30 @@ export function validateKel(
           if (!sigValid) receiptSigInvalid = true;
           return sigValid;
         });
-
-        if (receiptSigInvalid && !firstError) {
-          firstError = {
-            code: 'WITNESS_RECEIPT_SIGNATURE_INVALID',
-            scope: 'attachment',
-            severity: 'error',
-            message: `Witness receipt signature verification failed at event ${i}`,
-            eventIndex: i,
-          };
-          overallValid = false;
-        }
-
-        if (verifiedReceipts.length < bt) {
-          if (!firstError) {
-            firstError = {
-              code: 'WITNESS_RECEIPT_THRESHOLD_NOT_MET',
-              scope: 'attachment',
-              severity: 'error',
-              message: `Witness receipt threshold not met at event ${i}: ${verifiedReceipts.length} verified receipts, need ${bt}`,
-              eventIndex: i,
-            };
-          }
-          overallValid = false;
+        const receiptErrors = [
+          ...(receiptSigInvalid
+            ? [
+                {
+                  code: 'WITNESS_RECEIPT_SIGNATURE_INVALID' as const,
+                  message: `Witness receipt signature verification failed at event ${i}`,
+                },
+              ]
+            : []),
+          ...(verifiedReceipts.length < bt
+            ? [
+                {
+                  code: 'WITNESS_RECEIPT_THRESHOLD_NOT_MET' as const,
+                  message: `Witness receipt threshold not met at event ${i}: ${verifiedReceipts.length} verified receipts, need ${bt}`,
+                },
+              ]
+            : []),
+        ];
+        checks.witnessReceiptsValid =
+          receiptErrors.length === 0
+            ? { passed: true }
+            : { passed: false, error: receiptErrors.map((e) => e.message).join('; ') };
+        for (const e of receiptErrors) {
+          fail(e.code, 'attachment', e.message);
         }
       }
     }
@@ -1112,24 +1278,15 @@ export function validateKel(
       eventType,
       eventSaid: event.d,
       checks,
+      errors,
     });
 
     // Update overall validity based on all checks
-    const allChecksPassed =
-      checks.isValidKeriEvent.passed &&
-      checks.saidValid.passed &&
-      checks.requiredFieldsPresent.passed &&
-      (checks.previousEventValid?.passed ?? true) &&
-      checks.signaturesValid.passed &&
-      checks.thresholdMet.passed &&
-      (checks.keyChainValid?.passed ?? true) &&
-      (checks.delegationValid?.passed ?? true);
-
+    const allChecksPassed = Object.values(checks).every((check) => check === undefined || check.passed);
     if (!allChecksPassed) {
       overallValid = false;
     }
   }
-
   return {
     valid: overallValid,
     eventDetails,

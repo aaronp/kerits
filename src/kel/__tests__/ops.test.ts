@@ -5,6 +5,7 @@ import { KeriKeyPairs } from '../../crypto/keypairs.js';
 import { digestVerfer } from '../../cesr/digest.js';
 import type { AID, KeriKeyPair, Signature } from '../../common/types.js';
 import type { CESREvent, KELEvent } from '../types.js';
+import type { EventValidationDetail, ValidationErrorCode } from '../validation.js';
 import { sign } from '../../signature/primitives.js';
 import { decodeKey } from '../../cesr/keys.js';
 import { encodeSig } from '../../cesr/sigs.js';
@@ -132,40 +133,58 @@ describe('KELOps.validateAppend', () => {
 });
 
 describe('KELOps.isOnlyPendingSignatureFailures', () => {
-  test('returns true when only signatures and signing threshold fail', () => {
-    const validation = {
-      eventIndex: 0,
-      eventType: 'icp' as const,
-      eventSaid: 'Esaid',
-      checks: {
-        isValidKeriEvent: { passed: true },
-        saidValid: { passed: true },
-        requiredFieldsPresent: { passed: true },
-        signaturesValid: { passed: false, error: 'bad sig' },
-        thresholdMet: { passed: false, error: '0 / 1' },
-      },
-    };
-    expect(KELOps.isOnlyPendingSignatureFailures(validation)).toBe(true);
+  /** A failed detail raising errors with these codes (the checks are not consulted). */
+  const failedWith = (codes: ValidationErrorCode[]): EventValidationDetail => ({
+    eventIndex: 1,
+    eventType: 'rot',
+    eventSaid: 'Erot',
+    checks: {
+      isValidKeriEvent: { passed: true },
+      saidValid: { passed: true },
+      requiredFieldsPresent: { passed: true },
+      signaturesValid: { passed: true },
+      thresholdMet: { passed: false },
+    },
+    errors: codes.map((code) => ({ code, scope: 'event', severity: 'error', message: code, eventIndex: 1 })),
   });
 
-  test('returns false when key chain fails', () => {
-    const validation = {
-      eventIndex: 1,
-      eventType: 'rot' as const,
-      eventSaid: 'Erot',
-      checks: {
-        isValidKeriEvent: { passed: true },
-        saidValid: { passed: true },
-        requiredFieldsPresent: { passed: true },
-        signaturesValid: { passed: true },
-        thresholdMet: { passed: true },
-        keyChainValid: {
-          passed: false,
-          error: 'Prior establishment n[] commitments not satisfied: revealed 0 of 1',
-        },
-      },
-    };
-    expect(KELOps.isOnlyPendingSignatureFailures(validation)).toBe(false);
+  test('pending only when every error is a signature or delegation code', () => {
+    // setup: each pending code alone, a chain-rule code beside one, and no error at all
+    const pending: ValidationErrorCode[] = [
+      'THRESHOLD_NOT_MET',
+      'KT_UNMET',
+      'PRIOR_NT_UNMET',
+      'ONDEX_MISMATCH',
+      'MISSING_PARENT_KEL',
+      'PARENT_SIGNATURE_INVALID',
+      'PARENT_THRESHOLD_NOT_MET',
+    ];
+
+    // call our method under test
+    const alone = pending.map((c) => KELOps.isOnlyPendingSignatureFailures(failedWith([c])));
+    const withChainRule = KELOps.isOnlyPendingSignatureFailures(failedWith(['THRESHOLD_NOT_MET', 'SEQUENCE_INVALID']));
+    const keyChain = KELOps.isOnlyPendingSignatureFailures(failedWith(['NEXT_KEY_MISMATCH']));
+    const none = KELOps.isOnlyPendingSignatureFailures(failedWith([]));
+
+    // assertions: every pending code alone is pending; a chain rule, or no failure, is not
+    expect(alone).toEqual(pending.map(() => true));
+    expect([withChainRule, keyChain, none]).toEqual([false, false, false]);
+  });
+
+  test('isAwaitingSignatures: a stored event awaits signatures only for a kt / prior-nt code', () => {
+    // setup: each signature code, each delegation code, and none
+    const signature: ValidationErrorCode[] = ['THRESHOLD_NOT_MET', 'KT_UNMET', 'PRIOR_NT_UNMET', 'ONDEX_MISMATCH'];
+    const delegation: ValidationErrorCode[] = ['MISSING_PARENT_KEL', 'PARENT_SIGNATURE_INVALID', 'PARENT_THRESHOLD_NOT_MET'];
+
+    // call our method under test
+    const bySignature = signature.map((c) => KELOps.isAwaitingSignatures(failedWith([c])));
+    const byDelegation = delegation.map((c) => KELOps.isAwaitingSignatures(failedWith([c])));
+    const both = KELOps.isAwaitingSignatures(failedWith(['MISSING_PARENT_KEL', 'PRIOR_NT_UNMET']));
+
+    // assertions: a delegator's approval alone is not awaiting controller signatures
+    expect(bySignature).toEqual([true, true, true, true]);
+    expect(byDelegation).toEqual([false, false, false]);
+    expect([both, KELOps.isAwaitingSignatures(failedWith([]))]).toEqual([true, false]);
   });
 });
 
@@ -177,17 +196,6 @@ describe('KELOps.buildNextCommitment', () => {
     expect(n[0]).toBeString();
     expect(n[0]).not.toBe(pair.publicKey);
     expect(nt).toBe('1');
-  });
-});
-
-describe('KELOps.assertThresholdSatisfiable', () => {
-  test('threshold within key count is ok', () => {
-    expect(KELOps.assertThresholdSatisfiable('1', 2)).toEqual({ ok: true });
-  });
-
-  test('threshold exceeding key count fails', () => {
-    const result = KELOps.assertThresholdSatisfiable('3', 2);
-    expect(result.ok).toBe(false);
   });
 });
 
