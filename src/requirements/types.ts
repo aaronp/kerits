@@ -168,8 +168,23 @@ export type Expression = Extract<Requirement, { type: 'and' | 'or' }>;
 
 // ── Policy ──
 
+/** Where someone goes to obtain what this policy asks for. Part of the policy id. */
+export const OnboardingResourceSchema = Type.Union([
+  Type.Object({ type: Type.Literal('url'), url: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
+  Type.Object({ type: Type.Literal('email'), email: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
+  Type.Object({ type: Type.Literal('kerits'), aid: AidSchema }, { additionalProperties: false }),
+  Type.Object({ type: Type.Literal('kerits'), user: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
+]);
+export type OnboardingResource = Static<typeof OnboardingResourceSchema>;
+
 export const PolicySchema = Type.Object(
-  { d: SaidSchema, purpose: Type.Optional(Type.String()), requirement: RequirementSchema },
+  {
+    d: SaidSchema,
+    purpose: Type.Optional(Type.String()),
+    /** Absent when there are none. An empty list is not a valid policy. */
+    onboarding: Type.Optional(Type.Array(OnboardingResourceSchema, { minItems: 1 })),
+    requirement: RequirementSchema,
+  },
   { additionalProperties: false },
 );
 export type Policy = Static<typeof PolicySchema>;

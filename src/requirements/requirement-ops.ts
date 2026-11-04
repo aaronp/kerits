@@ -220,6 +220,6 @@ export const PolicyOps = {
     if (!Value.Check(PolicySchema, p)) return fail('invalid-shape', []);
     const v = validate(p.requirement);
     if (!v.ok) return v;
-    return p.d === PolicyData.digest(p.requirement, p.purpose) ? ok(p) : fail('said-mismatch', ['d']);
+    return p.d === PolicyData.digest(p.requirement, p.purpose, p.onboarding) ? ok(p) : fail('said-mismatch', ['d']);
   },
 } as const;

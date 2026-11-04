@@ -115,6 +115,36 @@ describe('PolicyData / PolicyOps', () => {
     expect('purpose' in blank).toBe(false);
   });
 
+  test('onboarding is part of the policy id, and an empty list is the same as none', () => {
+    // setup: the same requirement with and without a place to get it
+    const url = { type: 'url' as const, url: 'https://acme.example/join' };
+    const email = { type: 'email' as const, email: 'join@acme.example' };
+    const plain = PolicyData.create(member);
+    const withLink = PolicyData.create(member, undefined, [url]);
+    const withTwo = PolicyData.create(member, undefined, [url, email]);
+    const keritsUser = PolicyData.create(member, undefined, [{ type: 'kerits', user: 'acme' }]);
+    const keritsAid = PolicyData.create(member, undefined, [{ type: 'kerits', aid: I }]);
+
+    // call our method under test
+    const empty = PolicyData.create(member, undefined, []);
+    const swapped = PolicyOps.validate({ ...withLink, d: plain.d });
+    const both = PolicyOps.validate({
+      ...plain,
+      onboarding: [{ type: 'kerits', aid: I, user: 'acme' }],
+    } as never);
+
+    // assertions: empty list does not change the id; a different list does; a kerits resource is one target
+    expect(empty).toEqual(plain);
+    expect(withLink.d).not.toBe(plain.d);
+    expect(withTwo.d).not.toBe(withLink.d);
+    expect(keritsUser.d).not.toBe(keritsAid.d);
+    expect(PolicyOps.validate(withLink).ok).toBe(true);
+    expect(PolicyOps.validate(keritsUser).ok).toBe(true);
+    expect(PolicyOps.validate(keritsAid).ok).toBe(true);
+    expect(swapped.ok ? 'ok' : swapped.error.kind).toBe('said-mismatch');
+    expect(both.ok ? 'ok' : both.error.kind).toBe('invalid-shape');
+  });
+
   test('policy d digests the whole tree: changing a named child changes d', () => {
     // setup: same name, different child
     const a = PolicyData.create(RequirementData.and({ foo: member }));

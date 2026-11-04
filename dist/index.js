@@ -16209,7 +16209,18 @@ var RequirementSchema = Type.Recursive((Self) => Type.Union([
   HasCredentialSchema,
   Type.Object({ type: Type.Union([Type.Literal("and"), Type.Literal("or")]), requirements: Type.Record(Type.String(), Self) }, { additionalProperties: false })
 ]), { $id: "Requirement" });
-var PolicySchema = Type.Object({ d: SaidSchema, purpose: Type.Optional(Type.String()), requirement: RequirementSchema }, { additionalProperties: false });
+var OnboardingResourceSchema = Type.Union([
+  Type.Object({ type: Type.Literal("url"), url: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
+  Type.Object({ type: Type.Literal("email"), email: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
+  Type.Object({ type: Type.Literal("kerits"), aid: AidSchema }, { additionalProperties: false }),
+  Type.Object({ type: Type.Literal("kerits"), user: Type.String({ minLength: 1 }) }, { additionalProperties: false })
+]);
+var PolicySchema = Type.Object({
+  d: SaidSchema,
+  purpose: Type.Optional(Type.String()),
+  onboarding: Type.Optional(Type.Array(OnboardingResourceSchema, { minItems: 1 })),
+  requirement: RequirementSchema
+}, { additionalProperties: false });
 function isOobiRef(x) {
   return typeof x === "object" && x !== null && !Array.isArray(x) && "oobi" in x && !("value" in x);
 }
@@ -20661,13 +20672,18 @@ var RequirementData = {
   and: (requirements) => ({ type: "and", requirements }),
   or: (requirements) => ({ type: "or", requirements })
 };
-function policyDigest(requirement, purpose) {
-  return Data.digestFor(normalized(purpose === undefined ? { requirement } : { purpose, requirement }));
+function policyDigest(requirement, purpose, onboarding) {
+  return Data.digestFor(normalized({
+    ...purpose !== undefined ? { purpose } : {},
+    ...onboarding !== undefined && onboarding.length > 0 ? { onboarding: [...onboarding] } : {},
+    requirement
+  }));
 }
 var PolicyData = {
-  create: (requirement, purpose) => {
+  create: (requirement, purpose, onboarding) => {
     const p = purpose === "" ? undefined : purpose;
-    return normalized({ d: policyDigest(requirement, p), purpose: p, requirement });
+    const list = onboarding !== undefined && onboarding.length > 0 ? [...onboarding] : undefined;
+    return normalized({ d: policyDigest(requirement, p, list), purpose: p, onboarding: list, requirement });
   },
   digest: policyDigest
 };
@@ -20850,7 +20866,7 @@ var PolicyOps = {
     const v = validate2(p.requirement);
     if (!v.ok)
       return v;
-    return p.d === PolicyData.digest(p.requirement, p.purpose) ? ok(p) : fail2("said-mismatch", ["d"]);
+    return p.d === PolicyData.digest(p.requirement, p.purpose, p.onboarding) ? ok(p) : fail2("said-mismatch", ["d"]);
   }
 };
 
@@ -22651,8 +22667,8 @@ var Tel = {
   ...TELEvents
 };
 // src/version.ts
-var VERSION = "0.5.28";
-var GIT_SHA = "5b16aab102b41d3194bd65171c528b1771067409";
+var VERSION = "0.5.30";
+var GIT_SHA = "52fb4a4a5ed2f33e0b5d0ab8b9eaf7b752fd9495";
 var export_canonicalize = import_json_canonicalize2.canonicalize;
 
 export {
@@ -22755,6 +22771,7 @@ export {
   NetworkError,
   NonEmpty,
   NotFoundError,
+  OnboardingResourceSchema,
   OobiAllowList,
   PermissionError,
   PolicyData,

@@ -2,7 +2,7 @@
 
 import { Data } from '../common/data.js';
 import type { AID, SAID } from '../common/types.js';
-import type { Expression, HasCredential, IsMember, Policy, Requirement } from './types.js';
+import type { Expression, HasCredential, IsMember, OnboardingResource, Policy, Requirement } from './types.js';
 
 /** Drop `undefined` optionals so the digest depends only on present fields. */
 function normalized<T>(value: T): T {
@@ -34,15 +34,23 @@ export const RequirementData = {
   or: (requirements: Record<string, Requirement>): Expression => ({ type: 'or', requirements }),
 } as const;
 
-function policyDigest(requirement: Requirement, purpose?: string): SAID {
-  return Data.digestFor(normalized(purpose === undefined ? { requirement } : { purpose, requirement })) as SAID;
+function policyDigest(requirement: Requirement, purpose?: string, onboarding?: readonly OnboardingResource[]): SAID {
+  // key order is the digest: purpose, then onboarding, then requirement. Omitting an absent field keeps old ids.
+  return Data.digestFor(
+    normalized({
+      ...(purpose !== undefined ? { purpose } : {}),
+      ...(onboarding !== undefined && onboarding.length > 0 ? { onboarding: [...onboarding] } : {}),
+      requirement,
+    }),
+  ) as SAID;
 }
 
 export const PolicyData = {
-  /** An empty `purpose` counts as none. */
-  create: (requirement: Requirement, purpose?: string): Policy => {
+  /** An empty `purpose` counts as none. An empty onboarding list counts as none. */
+  create: (requirement: Requirement, purpose?: string, onboarding?: readonly OnboardingResource[]): Policy => {
     const p = purpose === '' ? undefined : purpose;
-    return normalized({ d: policyDigest(requirement, p), purpose: p, requirement });
+    const list = onboarding !== undefined && onboarding.length > 0 ? [...onboarding] : undefined;
+    return normalized({ d: policyDigest(requirement, p, list), purpose: p, onboarding: list, requirement });
   },
   digest: policyDigest,
 } as const;
