@@ -4046,7 +4046,7 @@ __export(exports_hashing, {
 // src/signature/primitives.ts
 var exports_primitives = {};
 __export(exports_primitives, {
-  bytesToHex: () => bytesToHex4,
+  bytesToHex: () => bytesToHex3,
   canonicalize: () => import_json_canonicalize2.canonicalize,
   canonicalizeToBytes: () => canonicalizeToBytes,
   decodeBase64Url: () => decodeBase64Url,
@@ -19109,42 +19109,113 @@ var Algos;
   Algos.Ed25519 = "ed25519";
   Algos.Secp256k1 = "secp256k1";
 })(Algos ||= {});
-// src/keys/unlock-providers.ts
-function bytesToHex3(bytes, length) {
-  return Array.from(bytes.slice(0, length)).map((b) => b.toString(16).padStart(2, "0")).join("");
+// src/keys/unlock-ref.ts
+function base64url(bytes) {
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
-var DEFAULT_PASSPHRASE_UNLOCK_PROVIDER_ID = "passphrase:default";
-var UI_PASSPHRASE_UNLOCK_PROVIDER_ID = "passphrase:ui";
-var UNUSED_UNLOCK_PROVIDER_ID = "unused:must-set-explicit";
+function unreachable(ref) {
+  throw new Error(`Unsupported unlock mechanism: ${JSON.stringify(ref)}`);
+}
+var UnlockRefs;
+((UnlockRefs) => {
+  function passkeyPrf(credentialId) {
+    return { mechanism: "passkey-prf", credentialId };
+  }
+  UnlockRefs.passkeyPrf = passkeyPrf;
+  function passphrase(passphraseId) {
+    return { mechanism: "passphrase", passphraseId };
+  }
+  UnlockRefs.passphrase = passphrase;
+  function unused() {
+    return { mechanism: "unused" };
+  }
+  UnlockRefs.unused = unused;
+  function passphraseIdFor(secret) {
+    const info = new TextEncoder().encode("kerits-passphrase-id");
+    return base64url(hkdf(sha256, secret, new Uint8Array(0), info, 16));
+  }
+  UnlockRefs.passphraseIdFor = passphraseIdFor;
+  function equals(a, b) {
+    switch (a.mechanism) {
+      case "passkey-prf":
+        return b.mechanism === "passkey-prf" && a.credentialId === b.credentialId;
+      case "passphrase":
+        return b.mechanism === "passphrase" && a.passphraseId === b.passphraseId;
+      case "unused":
+        return b.mechanism === "unused";
+      default:
+        return unreachable(a);
+    }
+  }
+  UnlockRefs.equals = equals;
+  function toJSON(ref) {
+    switch (ref.mechanism) {
+      case "passkey-prf":
+        return { mechanism: ref.mechanism, credentialId: ref.credentialId };
+      case "passphrase":
+        return { mechanism: ref.mechanism, passphraseId: ref.passphraseId };
+      case "unused":
+        return { mechanism: ref.mechanism };
+      default:
+        return unreachable(ref);
+    }
+  }
+  UnlockRefs.toJSON = toJSON;
+  function fromJSON(raw) {
+    const invalid = err({ kind: "invalid-unlock-ref", raw });
+    if (typeof raw !== "object" || raw === null)
+      return invalid;
+    const { mechanism, credentialId, passphraseId } = raw;
+    const nonEmpty = (v) => typeof v === "string" && v.length > 0;
+    if (mechanism === "passkey-prf")
+      return nonEmpty(credentialId) ? ok(passkeyPrf(credentialId)) : invalid;
+    if (mechanism === "passphrase")
+      return nonEmpty(passphraseId) ? ok(passphrase(passphraseId)) : invalid;
+    if (mechanism === "unused")
+      return ok(unused());
+    return invalid;
+  }
+  UnlockRefs.fromJSON = fromJSON;
+  function describe(ref) {
+    switch (ref.mechanism) {
+      case "passkey-prf":
+        return `passkey-prf:${ref.credentialId}`;
+      case "passphrase":
+        return `passphrase:${ref.passphraseId}`;
+      case "unused":
+        return "unused";
+      default:
+        return unreachable(ref);
+    }
+  }
+  UnlockRefs.describe = describe;
+})(UnlockRefs ||= {});
+
+// src/keys/unlock-providers.ts
+function fixedSecretProvider(secret) {
+  const ref = UnlockRefs.passphrase(UnlockRefs.passphraseIdFor(secret));
+  return {
+    ref,
+    withGrant(optionsOrFn, maybeFn) {
+      const [options, fn] = typeof optionsOrFn === "function" ? [{}, optionsOrFn] : [optionsOrFn, maybeFn];
+      return fn({ ref, secret, salt: options.salt });
+    }
+  };
+}
 var UnlockProviders;
 ((UnlockProviders) => {
-  function passphrase(phrase, id = DEFAULT_PASSPHRASE_UNLOCK_PROVIDER_ID) {
+  function passphrase(phrase) {
     const encoder = new TextEncoder;
-    const secret = hkdf(sha256, encoder.encode(phrase), new Uint8Array(0), encoder.encode("vault-passphrase"), 32);
-    const providerId = id;
-    return {
-      id: providerId,
-      withGrant(optionsOrFn, maybeFn) {
-        const [options, fn] = typeof optionsOrFn === "function" ? [{}, optionsOrFn] : [optionsOrFn, maybeFn];
-        return fn({ unlockProviderId: providerId, secret, salt: options.salt });
-      }
-    };
+    return fixedSecretProvider(hkdf(sha256, encoder.encode(phrase), new Uint8Array(0), encoder.encode("vault-passphrase"), 32));
   }
   UnlockProviders.passphrase = passphrase;
   function fixed(secret) {
-    const id = `fixed:${bytesToHex3(secret, 4)}`;
-    return {
-      id,
-      withGrant(optionsOrFn, maybeFn) {
-        const [options, fn] = typeof optionsOrFn === "function" ? [{}, optionsOrFn] : [optionsOrFn, maybeFn];
-        return fn({ unlockProviderId: id, secret, salt: options.salt });
-      }
-    };
+    return fixedSecretProvider(secret);
   }
   UnlockProviders.fixed = fixed;
-  function unused(message = "BUG: vault defaultProvider is unused — register the profile UnlockProvider on open, then Identity.withControllerGrant") {
+  function unused(message = "No unlock secret configured for this vault — open grants via Identity.withControllerGrant") {
     return {
-      id: UNUSED_UNLOCK_PROVIDER_ID,
+      ref: UnlockRefs.unused(),
       withGrant(_optionsOrFn, _maybeFn) {
         return Promise.reject(new Error(message));
       }
@@ -19809,13 +19880,55 @@ function deriveEncryptionKey(grant) {
     return grant.secret;
   return hkdf(sha256, grant.secret, grant.salt, VAULT_HKDF_INFO, 32);
 }
+function refOf2(provider) {
+  try {
+    return provider.ref;
+  } catch {
+    return;
+  }
+}
+function matchesRef(provider, ref) {
+  const own = refOf2(provider);
+  return own !== undefined && UnlockRefs.equals(own, ref);
+}
+function resolverFor(resolvers, ref) {
+  switch (ref.mechanism) {
+    case "passkey-prf":
+      return resolvers["passkey-prf"];
+    case "passphrase":
+      return resolvers.passphrase;
+    case "unused":
+      return;
+    default: {
+      const unknown = ref;
+      throw new Error(`Unsupported unlock mechanism: ${JSON.stringify(unknown)}`);
+    }
+  }
+}
 function createVault(config) {
   const persistence = config.persistence ?? KeyPersistences.inMemory();
   const encryption = config.encryption ?? EncryptionPlugins.aesGcm();
   const algos = new Map((config.algos ?? [AlgoPlugins.ed25519(), AlgoPlugins.secp256k1()]).map((p) => [p.algo, p]));
-  const providers = new Map(config.providers.map((p) => [p.id, p]));
-  if (!providers.has(config.defaultProvider.id)) {
-    throw new Error(`defaultProvider '${config.defaultProvider.id}' is not in the providers list`);
+  const resolvers = config.resolvers ?? {};
+  const providers = [...config.providers];
+  if (!providers.some((p) => matchesRef(p, config.defaultProvider.ref))) {
+    throw new Error(`defaultProvider '${UnlockRefs.describe(config.defaultProvider.ref)}' is not in the providers list`);
+  }
+  async function decryptEntry(grant, entry) {
+    if (!UnlockRefs.equals(entry.ref, grant.ref)) {
+      return err({ kind: "wrong-unlock", publicKey: entry.publicKey, expected: entry.ref, actual: grant.ref });
+    }
+    let encKey;
+    try {
+      encKey = deriveEncryptionKey(grant);
+    } catch (cause) {
+      return err({ kind: "store-error", storeId: "vault", cause });
+    }
+    try {
+      return ok(await encryption.decrypt(encKey, entry.encryptedPrivateKey, entry.iv));
+    } catch {
+      return err({ kind: "wrong-secret", publicKey: entry.publicKey, ref: entry.ref });
+    }
   }
   function makeSigner(publicKey, privateKey, algo) {
     const algoPlugin = algos.get(algo);
@@ -19881,54 +19994,38 @@ function createVault(config) {
         const entry = await persistence.lookup(publicKey);
         if (!entry)
           return err({ kind: "key-not-found", publicKey });
-        if (entry.unlockProviderId !== grant.unlockProviderId) {
-          return err({
-            kind: "wrong-provider",
-            publicKey,
-            expected: entry.unlockProviderId,
-            actual: grant.unlockProviderId
-          });
-        }
-        try {
-          const encKey = deriveEncryptionKey(grant);
-          const privateKey = await encryption.decrypt(encKey, entry.encryptedPrivateKey, entry.iv);
-          const withSignerFn = async (fn) => {
-            try {
-              return await fn(makeSigner(publicKey, privateKey, entry.algo));
-            } finally {
-              privateKey.fill(0);
-            }
-          };
-          return ok({
-            withSigner: withSignerFn,
-            withEd25519Signer: async (fn) => {
-              return withSignerFn(async (signer) => {
-                if (!isEd25519Signer(signer)) {
-                  return err({ kind: "unexpected-algo", expected: "ed25519", actual: signer.algo });
-                }
-                return ok(await fn(signer));
-              });
-            }
-          });
-        } catch (cause) {
-          return err({ kind: "store-error", storeId: "vault", cause });
-        }
+        const decrypted = await decryptEntry(grant, entry);
+        if (!decrypted.ok)
+          return decrypted;
+        const privateKey = decrypted.value;
+        const withSignerFn = async (fn) => {
+          try {
+            return await fn(makeSigner(publicKey, privateKey, entry.algo));
+          } finally {
+            privateKey.fill(0);
+          }
+        };
+        return ok({
+          withSigner: withSignerFn,
+          withEd25519Signer: async (fn) => {
+            return withSignerFn(async (signer) => {
+              if (!isEd25519Signer(signer)) {
+                return err({ kind: "unexpected-algo", expected: "ed25519", actual: signer.algo });
+              }
+              return ok(await fn(signer));
+            });
+          }
+        });
       },
       async exportKeyPair(publicKey) {
         const entry = await persistence.lookup(publicKey);
         if (!entry)
           return err({ kind: "key-not-found", publicKey });
-        if (entry.unlockProviderId !== grant.unlockProviderId) {
-          return err({
-            kind: "wrong-provider",
-            publicKey,
-            expected: entry.unlockProviderId,
-            actual: grant.unlockProviderId
-          });
-        }
+        const decrypted = await decryptEntry(grant, entry);
+        if (!decrypted.ok)
+          return decrypted;
+        const privateKey = decrypted.value;
         try {
-          const encKey = deriveEncryptionKey(grant);
-          const privateKey = await encryption.decrypt(encKey, entry.encryptedPrivateKey, entry.iv);
           const pair = {
             publicKey: encodeKey(publicKey, true, entry.algo === "secp256k1" ? "secp256k1" : "ed25519").qb64,
             privateKey: encodeKey(privateKey, true).qb64,
@@ -19994,7 +20091,7 @@ function createVault(config) {
         algo: pair.algo,
         encryptedPrivateKey: ciphertext,
         iv,
-        unlockProviderId: grant.unlockProviderId,
+        ref: grant.ref,
         publicKeyDigest: computeDigest(pair.publicKey),
         createdAt: new Date().toISOString()
       });
@@ -20027,20 +20124,35 @@ function createVault(config) {
       const entry = await persistence.lookup(publicKey);
       if (!entry)
         return;
-      return providers.get(entry.unlockProviderId);
+      return providers.find((p) => matchesRef(p, entry.ref));
+    },
+    async resolveProviderForKey(publicKey, context) {
+      const entry = await persistence.lookup(publicKey);
+      if (!entry)
+        return err({ kind: "key-not-found" });
+      const resolver = resolverFor(resolvers, entry.ref);
+      if (!resolver)
+        return err({ kind: "no-resolver", mechanism: entry.ref.mechanism });
+      const provider = await resolver(entry.ref, context);
+      return provider ? ok(provider) : err({ kind: "resolver-declined", ref: entry.ref });
     },
     async describeKey(publicKey) {
       const entry = await persistence.lookup(publicKey);
       if (!entry)
         return;
       return {
-        unlockProviderId: entry.unlockProviderId,
+        ref: entry.ref,
         algo: entry.algo,
         publicKeyDigest: entry.publicKeyDigest
       };
     },
     registerProvider(provider) {
-      providers.set(provider.id, provider);
+      const ref = refOf2(provider);
+      const i = ref === undefined ? -1 : providers.findIndex((p) => matchesRef(p, ref));
+      if (i >= 0)
+        providers[i] = provider;
+      else
+        providers.push(provider);
     },
     async lookupByDigest(digest) {
       return persistence.lookupByDigest(digest);
@@ -22619,13 +22731,13 @@ function sha2562(data) {
   return sha256(data);
 }
 function sha256Hex(data) {
-  return bytesToHex4(sha256(data));
+  return bytesToHex3(sha256(data));
 }
 function sha5122(data) {
   return sha512(data);
 }
 function sha512Hex(data) {
-  return bytesToHex4(sha512(data));
+  return bytesToHex3(sha512(data));
 }
 function canonicalizeToBytes(obj) {
   const text = import_json_canonicalize2.canonicalize(obj);
@@ -22650,7 +22762,7 @@ function hexToBytes3(hex) {
   }
   return bytes;
 }
-function bytesToHex4(bytes) {
+function bytesToHex3(bytes) {
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
@@ -22667,8 +22779,8 @@ var Tel = {
   ...TELEvents
 };
 // src/version.ts
-var VERSION = "0.5.30";
-var GIT_SHA = "52fb4a4a5ed2f33e0b5d0ab8b9eaf7b752fd9495";
+var VERSION = "0.5.31";
+var GIT_SHA = "816fa0611a1d53d8bfcc7a15a41c8c0e814b5716";
 var export_canonicalize = import_json_canonicalize2.canonicalize;
 
 export {
@@ -22714,7 +22826,6 @@ export {
   CoreError,
   CredentialDisclosureSchema,
   CredentialEligibility,
-  DEFAULT_PASSPHRASE_UNLOCK_PROVIDER_ID,
   DEFAULT_RESOLUTION_LIMITS,
   Data,
   DigestSealSchema,
@@ -22822,8 +22933,8 @@ export {
   ThresholdExpressionSchema,
   ThresholdSchema,
   TimestampSchema,
-  UI_PASSPHRASE_UNLOCK_PROVIDER_ID,
   UnlockProviders,
+  UnlockRefs,
   Usernames,
   VERSION,
   ValidationError,
@@ -22849,7 +22960,7 @@ export {
   buildAccountRecoverySigningPath,
   buildDeviceRecoverySigningPath,
   buildPublishedMembershipDirectory,
-  bytesToHex4 as bytesToHex,
+  bytesToHex3 as bytesToHex,
   canonical,
   canonicalAclRef,
   export_canonicalize as canonicalize,

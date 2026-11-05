@@ -1,69 +1,85 @@
 import { describe, expect, test } from 'bun:test';
 import { UnlockProviders } from '../unlock-providers.js';
+import { UnlockRefs } from '../unlock-ref.js';
 
 describe('UnlockProviders', () => {
   describe('passphrase', () => {
-    test('withGrant provides a grant with a 32-byte derived secret', async () => {
+    test('withGrant provides a grant with a 32-byte derived secret stamped with the provider ref', async () => {
+      // setup
       const provider = UnlockProviders.passphrase('hunter2');
-      const result = await provider.withGrant(async (grant) => {
-        return { secret: grant.secret, providerId: grant.unlockProviderId };
-      });
+
+      // call out our method under test
+      const result = await provider.withGrant(async (grant) => ({ secret: grant.secret, ref: grant.ref }));
+
+      // assertions: 32-byte secret; grant carries the provider's passphrase ref
       expect(result.secret.length).toBe(32);
-      expect(typeof (result.providerId as string)).toBe('string');
-      expect((result.providerId as string).startsWith('passphrase:')).toBe(true);
+      expect(result.ref.mechanism).toBe('passphrase');
+      expect(UnlockRefs.equals(result.ref, provider.ref)).toBe(true);
     });
 
     test('same passphrase produces same secret', async () => {
+      // setup
       const p1 = UnlockProviders.passphrase('hunter2');
       const p2 = UnlockProviders.passphrase('hunter2');
+
+      // call out our method under test
       const s1 = await p1.withGrant(async (g) => g.secret);
       const s2 = await p2.withGrant(async (g) => g.secret);
+
+      // assertions
       expect(s1).toEqual(s2);
     });
 
-    test('different passphrases produce different secrets but same default id', async () => {
-      // setup: id is a stable handle, not a secret fingerprint
-      const p1 = UnlockProviders.passphrase('hunter2');
-      const p2 = UnlockProviders.passphrase('wrong');
+    test('passphrase built twice has equal refs; different phrases differ', async () => {
+      // setup
+      const a1 = UnlockProviders.passphrase('hunter2');
+      const a2 = UnlockProviders.passphrase('hunter2');
+      const b = UnlockProviders.passphrase('wrong');
 
       // call out our method under test
-      const s1 = await p1.withGrant(async (g) => ({ secret: g.secret, id: g.unlockProviderId }));
-      const s2 = await p2.withGrant(async (g) => ({ secret: g.secret, id: g.unlockProviderId }));
+      const sameRef = UnlockRefs.equals(a1.ref, a2.ref);
+      const otherRef = UnlockRefs.equals(a1.ref, b.ref);
 
-      // assertions: secrets differ; default id is stable across phrases
-      expect(s1.secret).not.toEqual(s2.secret);
-      expect(s1.id).toBe(s2.id);
-      expect(s1.id).toBe('passphrase:default');
-    });
-
-    test('optional id overrides the default passphrase provider id', () => {
-      // setup / method under test
-      const provider = UnlockProviders.passphrase('hunter2', 'passphrase:alice');
-
-      // assertions
-      expect(provider.id).toBe('passphrase:alice');
+      // assertions: the ref is derived from the secret, so it identifies the phrase
+      expect(sameRef).toBe(true);
+      expect(otherRef).toBe(false);
+      expect(a1.ref).toEqual(UnlockRefs.passphrase(UnlockRefs.passphraseIdFor(await a1.withGrant(async (g) => g.secret))));
     });
 
     test('withGrant returns the callback result', async () => {
+      // setup
       const provider = UnlockProviders.passphrase('test');
+
+      // call out our method under test
       const result = await provider.withGrant(async () => 42);
+
+      // assertions
       expect(result).toBe(42);
     });
   });
 
   describe('fixed', () => {
     test('withGrant provides the exact secret bytes', async () => {
+      // setup
       const secret = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
       const provider = UnlockProviders.fixed(secret);
+
+      // call out our method under test
       const result = await provider.withGrant(async (grant) => grant.secret);
+
+      // assertions
       expect(result).toEqual(secret);
     });
 
-    test('id starts with fixed: prefix', () => {
+    test('fixed(secret) is a passphrase ref', () => {
+      // setup
       const secret = new Uint8Array([0xab, 0xcd, 0xef, 0x01, 0x99]);
+
+      // call out our method under test
       const provider = UnlockProviders.fixed(secret);
-      expect((provider.id as string).startsWith('fixed:')).toBe(true);
-      expect((provider.id as string)).toBe('fixed:abcdef01');
+
+      // assertions: ref is the passphrase ref derived from the secret
+      expect(provider.ref).toEqual(UnlockRefs.passphrase(UnlockRefs.passphraseIdFor(secret)));
     });
   });
 
@@ -72,9 +88,12 @@ describe('UnlockProviders', () => {
       // setup
       const provider = UnlockProviders.unused('test-unused');
 
-      // method under test / assertions
-      await expect(provider.withGrant(async () => 1)).rejects.toThrow('test-unused');
-      expect(provider.id).toBe('unused:must-set-explicit');
+      // call out our method under test
+      const attempt = provider.withGrant(async () => 1);
+
+      // assertions
+      await expect(attempt).rejects.toThrow('test-unused');
+      expect(provider.ref).toEqual(UnlockRefs.unused());
     });
   });
 });

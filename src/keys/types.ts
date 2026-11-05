@@ -2,6 +2,7 @@ import type { Brand } from '../common/brand.js';
 import type { KeriKeyPair, Timestamp } from '../common/types.js';
 import type { Result } from '../result.js';
 import type { Ed25519Signer, Signer, UnexpectedAlgoError } from '../signature/signer.js';
+import type { UnlockMechanism, UnlockRef } from './unlock-ref.js';
 
 /**
  * Raw public key bytes. 32 bytes for ed25519, 33 bytes for secp256k1 (compressed).
@@ -16,9 +17,6 @@ export { Algos } from '../common/algo.js';
 // Local alias so the type is available within this file.
 type Algo = _Algo;
 
-/** Opaque provider identifier — e.g. 'passphrase:ab1234cd', 'passkey:abc123'. Core stores and compares, never interprets. */
-export type UnlockProviderId = Brand<'UnlockProviderId', string>;
-
 /**
  * Decryption material for vault-stored keys, scoped to a single withGrant callback.
  * The secret is the raw key used by EncryptionPlugin to decrypt private keys.
@@ -31,7 +29,7 @@ export type UnlockProviderId = Brand<'UnlockProviderId', string>;
  * (shared by all Profiles in a wallet).
  */
 export type Grant = {
-  readonly unlockProviderId: UnlockProviderId;
+  readonly ref: UnlockRef;
   readonly secret: Uint8Array;
   /** Wallet-scoped salt for HKDF key derivation. When present, vault derives encryption key from secret + salt. */
   readonly salt?: Uint8Array;
@@ -49,7 +47,10 @@ export type WithGrantOptions = {
  * Platform packages implement concrete providers (passkey PRF, iOS Keychain, etc.).
  */
 export type UnlockProvider = {
-  readonly id: UnlockProviderId;
+  /** Which secret this provider unlocks. May throw before the provider has one (e.g. passkey with no credential yet). */
+  readonly ref: UnlockRef;
+  /** The mechanism, readable before {@link ref} is (a fresh passkey sets it). Absent: `ref.mechanism`. */
+  readonly mechanism?: UnlockMechanism;
   withGrant<A>(fn: (grant: Grant) => Promise<A>): Promise<A>;
   withGrant<A>(options: WithGrantOptions, fn: (grant: Grant) => Promise<A>): Promise<A>;
 };
@@ -69,7 +70,7 @@ export type AlgoPlugin = {
 
 /**
  * Encrypted key entry stored by the vault. The private key is encrypted with the grant secret
- * via EncryptionPlugin and tagged with the UnlockProviderId that produced the grant.
+ * via EncryptionPlugin and tagged with the UnlockRef of the grant that encrypted it.
  * The vault never stores plaintext private keys.
  */
 export type EncryptedKeyEntry = {
@@ -78,8 +79,8 @@ export type EncryptedKeyEntry = {
   readonly encryptedPrivateKey: Uint8Array;
   /** Initialization vector used by EncryptionPlugin. Stored alongside ciphertext for decryption. */
   readonly iv: Uint8Array;
-  /** Which UnlockProvider's grant was used to encrypt this key. Used to route re-auth challenges. */
-  readonly unlockProviderId: UnlockProviderId;
+  /** Which secret encrypted this key. Used to route re-auth challenges. */
+  readonly ref: UnlockRef;
   /** Blake3 hash of publicKey bytes, hex-encoded. Always computed by generator at key creation time. */
   readonly publicKeyDigest: string;
   readonly createdAt: Timestamp;
@@ -115,6 +116,10 @@ export type KeyScope = {
 
 /** A source of keys that can produce signers. */
 export type KeyStore = {
+  /**
+   * Not a durable reference: an external key's store is found only by asking live registered stores. Intended fix:
+   * a typed `StoreRef` resolved by the wallet, matching `UnlockRef` (see docs/superpowers/specs/2026-11-04-unlock-ref-design.md).
+   */
   readonly id: string;
   hasKey(publicKey: RawPublicKey): Promise<boolean>;
   resolve(publicKey: RawPublicKey): Promise<Result<KeyScope, ResolveKeyError>>;
@@ -137,6 +142,26 @@ export type KeyGenerator = {
   generateBatch(algo: Algo, count: number): Promise<Result<readonly GeneratedKey[], GenerateKeyError>>;
 };
 
+/**
+ * Produces a live UnlockProvider for a ref the registry does not hold (e.g. prompt for a passphrase, open a passkey).
+ * `undefined` = declined (user cancelled, unknown ref).
+ */
+export type UnlockResolver = (
+  ref: UnlockRef,
+  context: { readonly profileId: string },
+) => Promise<UnlockProvider | undefined>;
+
+/** One resolver per mechanism. `unused` never resolves. */
+export type UnlockResolvers = {
+  readonly 'passkey-prf'?: UnlockResolver;
+  readonly passphrase?: UnlockResolver;
+};
+
+export type ResolveProviderError =
+  | { readonly kind: 'key-not-found' }
+  | { readonly kind: 'no-resolver'; readonly mechanism: UnlockMechanism }
+  | { readonly kind: 'resolver-declined'; readonly ref: UnlockRef };
+
 export type VaultConfig = {
   /** UnlockProviders known to this vault. At least one required. */
   readonly providers: readonly UnlockProvider[];
@@ -148,6 +173,8 @@ export type VaultConfig = {
   readonly persistence?: KeyPersistence;
   /** Encryption strategy. Defaults to AES-256-GCM if omitted. */
   readonly encryption?: EncryptionPlugin;
+  /** Per-mechanism resolvers consulted by {@link Vault.resolveProviderForKey}. */
+  readonly resolvers?: UnlockResolvers;
 };
 
 /** Returned by Vaults.* factories. Long-lived, holds registered algos and providers. */
@@ -156,27 +183,27 @@ export type Vault = {
   readonly defaultProvider: UnlockProvider;
   /** Check whether a key exists in the vault. No grant needed — reads public metadata only. */
   hasKey(publicKey: RawPublicKey): Promise<boolean>;
-  /** Look up which UnlockProvider encrypted a given key. Returns undefined if key not in vault or provider not registered. */
+  /** Registered provider whose ref equals the key's ref. Registry only; undefined if key not in vault or no match. */
   getProviderForKey(publicKey: RawPublicKey): Promise<UnlockProvider | undefined>;
   /**
-   * Public vault key metadata (unlockProviderId, algo, digest). No grant —
-   * does not require the UnlockProvider instance to be registered.
+   * Ask the configured resolver for the key's `ref.mechanism` for a provider. Does not register it
+   * (the caller registers once the provider proves the secret). `unused` → `no-resolver`.
    */
+  resolveProviderForKey(
+    publicKey: RawPublicKey,
+    context: { readonly profileId: string },
+  ): Promise<Result<UnlockProvider, ResolveProviderError>>;
+  /** Public vault key metadata (ref, algo, digest). No grant; no provider needs to be registered. */
   describeKey(
     publicKey: RawPublicKey,
-  ): Promise<
-    { readonly unlockProviderId: UnlockProviderId; readonly algo: Algo; readonly publicKeyDigest: string } | undefined
-  >;
-  /**
-   * Bind or replace a live UnlockProvider instance (e.g. passkey + credentialId on profile open).
-   * Keys stamped with `provider.id` resolve via {@link getProviderForKey}.
-   */
+  ): Promise<{ readonly ref: UnlockRef; readonly algo: Algo; readonly publicKeyDigest: string } | undefined>;
+  /** Bind a live UnlockProvider; replaces any registered provider with an equal ref. */
   registerProvider(provider: UnlockProvider): void;
   /** Find a public key by its pre-computed digest (Blake3 hex). O(n) scan, sufficient for typical key counts. */
   lookupByDigest(digest: string): Promise<RawPublicKey | undefined>;
-  /** Grant-scoped KeyStore. resolve checks provider mismatch before decryption. */
+  /** Grant-scoped KeyStore. resolve checks ref mismatch before decryption. */
   keyStore(grant: Grant): KeyStore;
-  /** Grant-scoped KeyGenerator. Generated keys encrypted with grant.secret, tagged with grant.unlockProviderId. */
+  /** Grant-scoped KeyGenerator. Generated keys encrypted with grant.secret, tagged with grant.ref. */
   generator(grant: Grant): KeyGenerator;
   /**
    * Encrypt and store an existing private key under the grant (same path as generate).
@@ -188,11 +215,12 @@ export type Vault = {
 export type ResolveKeyError =
   | { readonly kind: 'key-not-found'; readonly publicKey: RawPublicKey }
   | {
-      readonly kind: 'wrong-provider';
+      readonly kind: 'wrong-unlock';
       readonly publicKey: RawPublicKey;
-      readonly expected: UnlockProviderId;
-      readonly actual: UnlockProviderId;
+      readonly expected: UnlockRef;
+      readonly actual: UnlockRef;
     }
+  | { readonly kind: 'wrong-secret'; readonly publicKey: RawPublicKey; readonly ref: UnlockRef }
   | { readonly kind: 'store-error'; readonly storeId: string; readonly cause: unknown };
 
 export type GenerateKeyError =

@@ -33,10 +33,15 @@ import type {
   KeyStore,
   RawPublicKey,
   ResolveKeyError,
+  ResolveProviderError,
   UnlockProvider,
+  UnlockResolver,
+  UnlockResolvers,
   Vault,
   VaultConfig,
 } from './types.js';
+import type { UnlockRef } from './unlock-ref.js';
+import { UnlockRefs } from './unlock-ref.js';
 
 /** Next-key commitment digest (KERI n[] entry) of the key, so lookupByDigest resolves n[] digests. */
 function computeDigest(publicKey: RawPublicKey): string {
@@ -51,16 +56,67 @@ function deriveEncryptionKey(grant: Grant): Uint8Array {
   return hkdf(sha256, grant.secret, grant.salt, VAULT_HKDF_INFO, 32);
 }
 
+/** Provider's ref, or undefined when its getter throws (e.g. a passkey provider before its first credential). */
+function refOf(provider: UnlockProvider): UnlockRef | undefined {
+  try {
+    return provider.ref;
+  } catch {
+    return undefined;
+  }
+}
+
+function matchesRef(provider: UnlockProvider, ref: UnlockRef): boolean {
+  const own = refOf(provider);
+  return own !== undefined && UnlockRefs.equals(own, ref);
+}
+
+/** Exhaustive per mechanism; `unused` never resolves. */
+function resolverFor(resolvers: UnlockResolvers, ref: UnlockRef): UnlockResolver | undefined {
+  switch (ref.mechanism) {
+    case 'passkey-prf':
+      return resolvers['passkey-prf'];
+    case 'passphrase':
+      return resolvers.passphrase;
+    case 'unused':
+      return undefined;
+    default: {
+      const unknown: never = ref;
+      throw new Error(`Unsupported unlock mechanism: ${JSON.stringify(unknown)}`);
+    }
+  }
+}
+
 function createVault(config: VaultConfig): Vault {
   const persistence = config.persistence ?? KeyPersistences.inMemory();
   const encryption = config.encryption ?? EncryptionPlugins.aesGcm();
   const algos = new Map<Algo, AlgoPlugin>(
     (config.algos ?? [AlgoPlugins.ed25519(), AlgoPlugins.secp256k1()]).map((p) => [p.algo, p]),
   );
-  const providers = new Map<string, UnlockProvider>(config.providers.map((p) => [p.id as string, p]));
+  const resolvers = config.resolvers ?? {};
+  const providers: UnlockProvider[] = [...config.providers];
 
-  if (!providers.has(config.defaultProvider.id as string)) {
-    throw new Error(`defaultProvider '${config.defaultProvider.id}' is not in the providers list`);
+  if (!providers.some((p) => matchesRef(p, config.defaultProvider.ref))) {
+    throw new Error(
+      `defaultProvider '${UnlockRefs.describe(config.defaultProvider.ref)}' is not in the providers list`,
+    );
+  }
+
+  /** Decrypt the entry; any cipher failure means the grant's secret is wrong (ciphertext is our own). */
+  async function decryptEntry(grant: Grant, entry: EncryptedKeyEntry): Promise<Result<Uint8Array, ResolveKeyError>> {
+    if (!UnlockRefs.equals(entry.ref, grant.ref)) {
+      return err({ kind: 'wrong-unlock', publicKey: entry.publicKey, expected: entry.ref, actual: grant.ref });
+    }
+    let encKey: Uint8Array;
+    try {
+      encKey = deriveEncryptionKey(grant);
+    } catch (cause) {
+      return err({ kind: 'store-error', storeId: 'vault', cause });
+    }
+    try {
+      return ok(await encryption.decrypt(encKey, entry.encryptedPrivateKey, entry.iv));
+    } catch {
+      return err({ kind: 'wrong-secret', publicKey: entry.publicKey, ref: entry.ref });
+    }
   }
 
   function makeSigner(publicKey: RawPublicKey, privateKey: Uint8Array, algo: Algo): Signer {
@@ -137,43 +193,31 @@ function createVault(config: VaultConfig): Vault {
         const entry = await persistence.lookup(publicKey);
         if (!entry) return err({ kind: 'key-not-found', publicKey });
 
-        if (entry.unlockProviderId !== grant.unlockProviderId) {
-          return err({
-            kind: 'wrong-provider',
-            publicKey,
-            expected: entry.unlockProviderId,
-            actual: grant.unlockProviderId,
-          });
-        }
+        const decrypted = await decryptEntry(grant, entry);
+        if (!decrypted.ok) return decrypted;
+        const privateKey = decrypted.value;
 
-        try {
-          const encKey = deriveEncryptionKey(grant);
-          const privateKey = await encryption.decrypt(encKey, entry.encryptedPrivateKey, entry.iv);
+        const withSignerFn = async <A>(fn: (signer: Signer) => Promise<A>): Promise<A> => {
+          try {
+            return await fn(makeSigner(publicKey, privateKey, entry.algo));
+          } finally {
+            privateKey.fill(0);
+          }
+        };
 
-          const withSignerFn = async <A>(fn: (signer: Signer) => Promise<A>): Promise<A> => {
-            try {
-              return await fn(makeSigner(publicKey, privateKey, entry.algo));
-            } finally {
-              privateKey.fill(0);
-            }
-          };
-
-          return ok({
-            withSigner: withSignerFn,
-            withEd25519Signer: async <A>(
-              fn: (signer: Ed25519Signer) => Promise<A>,
-            ): Promise<Result<A, UnexpectedAlgoError>> => {
-              return withSignerFn(async (signer) => {
-                if (!isEd25519Signer(signer)) {
-                  return err({ kind: 'unexpected-algo' as const, expected: 'ed25519' as Algo, actual: signer.algo });
-                }
-                return ok(await fn(signer));
-              });
-            },
-          });
-        } catch (cause) {
-          return err({ kind: 'store-error', storeId: 'vault', cause });
-        }
+        return ok({
+          withSigner: withSignerFn,
+          withEd25519Signer: async <A>(
+            fn: (signer: Ed25519Signer) => Promise<A>,
+          ): Promise<Result<A, UnexpectedAlgoError>> => {
+            return withSignerFn(async (signer) => {
+              if (!isEd25519Signer(signer)) {
+                return err({ kind: 'unexpected-algo' as const, expected: 'ed25519' as Algo, actual: signer.algo });
+              }
+              return ok(await fn(signer));
+            });
+          },
+        });
       },
 
       // FIXME: TECH-DEBT — vault escape hatch for merits per-request signing.
@@ -182,18 +226,11 @@ function createVault(config: VaultConfig): Vault {
         const entry = await persistence.lookup(publicKey);
         if (!entry) return err({ kind: 'key-not-found', publicKey });
 
-        if (entry.unlockProviderId !== grant.unlockProviderId) {
-          return err({
-            kind: 'wrong-provider',
-            publicKey,
-            expected: entry.unlockProviderId,
-            actual: grant.unlockProviderId,
-          });
-        }
+        const decrypted = await decryptEntry(grant, entry);
+        if (!decrypted.ok) return decrypted;
+        const privateKey = decrypted.value;
 
         try {
-          const encKey = deriveEncryptionKey(grant);
-          const privateKey = await encryption.decrypt(encKey, entry.encryptedPrivateKey, entry.iv);
           const pair: KeriKeyPair = {
             publicKey: encodeKey(publicKey as Uint8Array, true, entry.algo === 'secp256k1' ? 'secp256k1' : 'ed25519')
               .qb64,
@@ -272,7 +309,7 @@ function createVault(config: VaultConfig): Vault {
         algo: pair.algo,
         encryptedPrivateKey: ciphertext,
         iv,
-        unlockProviderId: grant.unlockProviderId,
+        ref: grant.ref,
         publicKeyDigest: computeDigest(pair.publicKey),
         createdAt: new Date().toISOString() as Timestamp,
       });
@@ -312,21 +349,36 @@ function createVault(config: VaultConfig): Vault {
     async getProviderForKey(publicKey: RawPublicKey) {
       const entry = await persistence.lookup(publicKey);
       if (!entry) return undefined;
-      return providers.get(entry.unlockProviderId as string);
+      return providers.find((p) => matchesRef(p, entry.ref));
+    },
+
+    async resolveProviderForKey(
+      publicKey: RawPublicKey,
+      context: { readonly profileId: string },
+    ): Promise<Result<UnlockProvider, ResolveProviderError>> {
+      const entry = await persistence.lookup(publicKey);
+      if (!entry) return err({ kind: 'key-not-found' });
+      const resolver = resolverFor(resolvers, entry.ref);
+      if (!resolver) return err({ kind: 'no-resolver', mechanism: entry.ref.mechanism });
+      const provider = await resolver(entry.ref, context);
+      return provider ? ok(provider) : err({ kind: 'resolver-declined', ref: entry.ref });
     },
 
     async describeKey(publicKey: RawPublicKey) {
       const entry = await persistence.lookup(publicKey);
       if (!entry) return undefined;
       return {
-        unlockProviderId: entry.unlockProviderId,
+        ref: entry.ref,
         algo: entry.algo,
         publicKeyDigest: entry.publicKeyDigest,
       };
     },
 
     registerProvider(provider: UnlockProvider) {
-      providers.set(provider.id as string, provider);
+      const ref = refOf(provider);
+      const i = ref === undefined ? -1 : providers.findIndex((p) => matchesRef(p, ref));
+      if (i >= 0) providers[i] = provider;
+      else providers.push(provider);
     },
 
     async lookupByDigest(digest: string) {

@@ -5,6 +5,11 @@ import { err } from '../result.js';
 import { publicKeyHex } from './raw-public-key.js';
 import type { Algo, KeyGenerator, KeyScope, KeyStore, RawPublicKey, ResolveKeyError } from './types.js';
 
+/**
+ * Store ids (`KeyStore.id`) are not a durable reference: an external key's store is found only by asking live
+ * registered stores. Intended fix: a typed `StoreRef` resolved by the wallet, matching `UnlockRef`
+ * (see docs/superpowers/specs/2026-11-04-unlock-ref-design.md).
+ */
 export type Keychain = {
   register(store: KeyStore, generator?: KeyGenerator): void;
   getStore(id: string): KeyStore | undefined;

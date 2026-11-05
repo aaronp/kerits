@@ -1,62 +1,40 @@
 import { hkdf } from '@noble/hashes/hkdf.js';
 import { sha256 } from '@noble/hashes/sha2.js';
-import type { Grant, UnlockProvider, UnlockProviderId, WithGrantOptions } from './types.js';
+import type { Grant, UnlockProvider, WithGrantOptions } from './types.js';
+import { UnlockRefs } from './unlock-ref.js';
 
-function bytesToHex(bytes: Uint8Array, length: number): string {
-  return Array.from(bytes.slice(0, length))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+/** Provider handing out a fixed secret, stamped with the passphrase ref derived from it. */
+function fixedSecretProvider(secret: Uint8Array): UnlockProvider {
+  const ref = UnlockRefs.passphrase(UnlockRefs.passphraseIdFor(secret));
+  return {
+    ref,
+    withGrant<A>(
+      optionsOrFn: WithGrantOptions | ((grant: Grant) => Promise<A>),
+      maybeFn?: (grant: Grant) => Promise<A>,
+    ): Promise<A> {
+      const [options, fn] = typeof optionsOrFn === 'function' ? [{}, optionsOrFn] : [optionsOrFn, maybeFn!];
+      return fn({ ref, secret, salt: options.salt });
+    },
+  };
 }
-
-/** Default stable id for passphrase unlock — not derived from the secret (kind:implementation). */
-export const DEFAULT_PASSPHRASE_UNLOCK_PROVIDER_ID = 'passphrase:default' as UnlockProviderId;
-
-/** Product UI passphrase UnlockProvider id (modal prompt / login-bound instance). */
-export const UI_PASSPHRASE_UNLOCK_PROVIDER_ID = 'passphrase:ui' as UnlockProviderId;
-
-/** Id for {@link UnlockProviders.unused} — must never encrypt real keys. */
-export const UNUSED_UNLOCK_PROVIDER_ID = 'unused:must-set-explicit' as UnlockProviderId;
 
 export namespace UnlockProviders {
   /**
-   * Fixed passphrase — derives a 32-byte secret via HKDF-SHA256.
-   * Id is a stable handle (default {@link DEFAULT_PASSPHRASE_UNLOCK_PROVIDER_ID});
-   * wrong phrase still fails vault decrypt.
+   * Fixed passphrase — derives a 32-byte secret via HKDF-SHA256. Ref = passphrase ref derived from that secret,
+   * so the same phrase always yields an equal ref and different phrases differ.
    * Note: pre-computes secret at construction — acceptable for deterministic test providers.
    * Real platform providers (passkey PRF, iOS Keychain) challenge the user inside withGrant.
    */
-  export function passphrase(phrase: string, id: string = DEFAULT_PASSPHRASE_UNLOCK_PROVIDER_ID): UnlockProvider {
+  export function passphrase(phrase: string): UnlockProvider {
     const encoder = new TextEncoder();
-    const secret = hkdf(sha256, encoder.encode(phrase), new Uint8Array(0), encoder.encode('vault-passphrase'), 32);
-    const providerId = id as UnlockProviderId;
-    return {
-      id: providerId,
-      withGrant<A>(
-        optionsOrFn: WithGrantOptions | ((grant: Grant) => Promise<A>),
-        maybeFn?: (grant: Grant) => Promise<A>,
-      ): Promise<A> {
-        const [options, fn] = typeof optionsOrFn === 'function' ? [{}, optionsOrFn] : [optionsOrFn, maybeFn!];
-        return fn({ unlockProviderId: providerId, secret, salt: options.salt });
-      },
-    };
+    return fixedSecretProvider(
+      hkdf(sha256, encoder.encode(phrase), new Uint8Array(0), encoder.encode('vault-passphrase'), 32),
+    );
   }
 
-  /**
-   * Fixed secret — for testing. Caller supplies the raw secret bytes.
-   * The id is 'fixed:<hex of first 4 bytes>'.
-   */
+  /** Fixed secret — for testing. Caller supplies the raw secret bytes; ref is a passphrase ref derived from them. */
   export function fixed(secret: Uint8Array): UnlockProvider {
-    const id = `fixed:${bytesToHex(secret, 4)}` as UnlockProviderId;
-    return {
-      id,
-      withGrant<A>(
-        optionsOrFn: WithGrantOptions | ((grant: Grant) => Promise<A>),
-        maybeFn?: (grant: Grant) => Promise<A>,
-      ): Promise<A> {
-        const [options, fn] = typeof optionsOrFn === 'function' ? [{}, optionsOrFn] : [optionsOrFn, maybeFn!];
-        return fn({ unlockProviderId: id, secret, salt: options.salt });
-      },
-    };
+    return fixedSecretProvider(secret);
   }
 
   /**
@@ -70,10 +48,10 @@ export namespace UnlockProviders {
    * Passkey cannot be the SDK default (platform-specific).
    */
   export function unused(
-    message = 'BUG: vault defaultProvider is unused — register the profile UnlockProvider on open, then Identity.withControllerGrant',
+    message = 'No unlock secret configured for this vault — open grants via Identity.withControllerGrant',
   ): UnlockProvider {
     return {
-      id: UNUSED_UNLOCK_PROVIDER_ID,
+      ref: UnlockRefs.unused(),
       withGrant<A>(
         _optionsOrFn: WithGrantOptions | ((grant: Grant) => Promise<A>),
         _maybeFn?: (grant: Grant) => Promise<A>,

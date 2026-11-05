@@ -30,17 +30,16 @@ export type {
   KeyStore,
   RawPublicKey,
   ResolveKeyError,
+  ResolveProviderError,
   UnlockProvider,
-  UnlockProviderId,
+  UnlockResolver,
+  UnlockResolvers,
   Vault,
   VaultConfig,
   WithGrantOptions,
 } from './types.js';
 export { Algos } from './types.js';
-export {
-  DEFAULT_PASSPHRASE_UNLOCK_PROVIDER_ID,
-  UI_PASSPHRASE_UNLOCK_PROVIDER_ID,
-  UNUSED_UNLOCK_PROVIDER_ID,
-  UnlockProviders,
-} from './unlock-providers.js';
+export { UnlockProviders } from './unlock-providers.js';
+export type { InvalidUnlockRef, UnlockMechanism, UnlockRef, UnlockRefJson } from './unlock-ref.js';
+export { UnlockRefs } from './unlock-ref.js';
 export { Vaults } from './vault.js';

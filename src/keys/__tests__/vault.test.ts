@@ -13,7 +13,9 @@ import { Algos } from '../types.js';
 import { Signers, isEd25519Signer, isSecp256k1Signer } from '../../signature/index.js';
 import { toCESRPublicKey } from '../raw-public-key.js';
 import { asRawPublicKey } from '../raw-public-key.js';
-import type { KeyPersistence, UnlockProvider } from '../types.js';
+import type { EncryptionPlugin, Grant, KeyPersistence, RawPublicKey, UnlockProvider, Vault, WithGrantOptions } from '../types.js';
+import { UnlockRefs } from '../unlock-ref.js';
+import type { UnlockRef } from '../unlock-ref.js';
 
 /** Helper: create a vault with XOR + in-memory persistence for byte-inspection tests */
 function createTestVault(provider: UnlockProvider, persistence?: KeyPersistence) {
@@ -73,7 +75,7 @@ describe('Vault', () => {
       const entry = entries[0]!;
 
       expect(entry.encryptedPrivateKey.length).toBe(32);
-      expect(entry.unlockProviderId).toBe(provider.id);
+      expect(entry.ref).toEqual(provider.ref);
       expect(entry.publicKeyDigest.length).toBeGreaterThan(0);
       expect(entry.algo).toBe('ed25519');
 
@@ -118,8 +120,9 @@ describe('Vault', () => {
     });
   });
 
-  // Scenario 3 (spec): corrupted ciphertext with AES-GCM returns store-error
-  test('scenario 3: corrupted ciphertext with AES-GCM returns store-error', async () => {
+  // Scenario 3 (spec): corrupted ciphertext with AES-GCM fails decrypt → wrong-secret
+  // (ciphertext comes from our own storage, so any decrypt failure is reported as the secret being wrong)
+  test('scenario 3: corrupted ciphertext with AES-GCM returns wrong-secret', async () => {
     const persistence = KeyPersistences.inMemory();
     const provider = UnlockProviders.passphrase('hunter2');
     const vault = Vaults.create({
@@ -144,13 +147,13 @@ describe('Vault', () => {
 
       expect(resolveResult.ok).toBe(false);
       if (!resolveResult.ok) {
-        expect(resolveResult.error.kind).toBe('store-error');
+        expect(resolveResult.error.kind).toBe('wrong-secret');
       }
     });
   });
 
-  // Scenario 4: Wrong provider type returns wrong-provider
-  test('scenario 4: wrong provider returns wrong-provider error', async () => {
+  // Scenario 4: Grant for a different ref returns wrong-unlock
+  test('scenario 4: wrong provider returns wrong-unlock error', async () => {
     const passphraseProvider = UnlockProviders.passphrase('hunter2');
     const fixedProvider = UnlockProviders.fixed(new Uint8Array(32).fill(0x99));
     const vault = Vaults.create({
@@ -173,10 +176,10 @@ describe('Vault', () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.kind).toBe('wrong-provider');
-      if (result.error.kind === 'wrong-provider') {
-        expect(result.error.expected).toBe(passphraseProvider.id);
-        expect(result.error.actual).toBe(fixedProvider.id);
+      expect(result.error.kind).toBe('wrong-unlock');
+      if (result.error.kind === 'wrong-unlock') {
+        expect(result.error.expected).toEqual(passphraseProvider.ref);
+        expect(result.error.actual).toEqual(fixedProvider.ref);
       }
     }
   });
@@ -209,8 +212,8 @@ describe('Vault', () => {
     const p2 = await vault.getProviderForKey(key2!);
 
     // assertions
-    expect(p1?.id).toBe(providerA.id);
-    expect(p2?.id).toBe(providerB.id);
+    expect(p1).toBe(providerA);
+    expect(p2).toBe(providerB);
   });
 
   // Scenario 6: Multiple algos, same provider
@@ -485,7 +488,7 @@ describe('Vault', () => {
     // assertions: all keys route to the correct provider
     for (const key of keys) {
       const p = await vault.getProviderForKey(key.publicKey);
-      expect(p?.id).toBe(provider.id);
+      expect(p).toBe(provider);
     }
 
     // assertions: re-opening grant with same provider resolves all keys
@@ -623,7 +626,7 @@ describe('Vault', () => {
     });
     expect(bobResult.ok).toBe(false);
     if (!bobResult.ok) {
-      expect(bobResult.error.kind).toBe('store-error');
+      expect(bobResult.error.kind).toBe('wrong-secret');
     }
   });
 
@@ -792,5 +795,206 @@ describe('Vault', () => {
         expect(result.error.actual).toBe('secp256k1');
       }
     });
+  });
+});
+
+/** XOR plugin that counts decrypt calls. */
+function countingXor(): { plugin: EncryptionPlugin; decrypts: () => number } {
+  const inner = EncryptionPlugins.xor();
+  let count = 0;
+  return {
+    plugin: {
+      encrypt: inner.encrypt,
+      async decrypt(secret, ciphertext, iv) {
+        count++;
+        return inner.decrypt(secret, ciphertext, iv);
+      },
+    },
+    decrypts: () => count,
+  };
+}
+
+/** Provider stamping `ref` on grants carrying an arbitrary `secret` (ref and secret deliberately decoupled). */
+function providerWith(ref: UnlockRef, secret: Uint8Array): UnlockProvider {
+  return {
+    ref,
+    withGrant<A>(
+      optionsOrFn: WithGrantOptions | ((grant: Grant) => Promise<A>),
+      maybeFn?: (grant: Grant) => Promise<A>,
+    ): Promise<A> {
+      const [options, fn] = typeof optionsOrFn === 'function' ? [{}, optionsOrFn] : [optionsOrFn, maybeFn!];
+      return fn({ ref, secret, salt: options.salt });
+    },
+  };
+}
+
+async function generateUnder(vault: Vault, provider: UnlockProvider): Promise<RawPublicKey> {
+  return provider.withGrant(async (grant) => {
+    const r = await vault.generator(grant).generate(Algos.Ed25519);
+    if (!r.ok) throw new Error('gen failed');
+    return r.value.publicKey;
+  });
+}
+
+describe('Vault UnlockRef matching', () => {
+  test('a grant for another passphrase gets wrong-unlock before any decrypt', async () => {
+    // setup: keys A and B under different passphrases in one vault, counting decrypts
+    const a = UnlockProviders.passphrase('a');
+    const b = UnlockProviders.passphrase('b');
+    const { plugin, decrypts } = countingXor();
+    const vault = Vaults.create({ providers: [a, b], defaultProvider: a, encryption: plugin });
+    await generateUnder(vault, a);
+    const keyB = await generateUnder(vault, b);
+
+    // call out our method under test
+    const result = await a.withGrant((grant) => vault.keyStore(grant).resolve(keyB));
+
+    // assertions: typed wrong-unlock naming both refs; the cipher was never touched
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toEqual({ kind: 'wrong-unlock', publicKey: keyB, expected: b.ref, actual: a.ref });
+    }
+    expect(decrypts()).toBe(0);
+  });
+
+  test('right ref, wrong secret → wrong-secret', async () => {
+    // setup: key A under passphrase 'a' with AES-GCM; impostor has A's ref but other secret bytes
+    const a = UnlockProviders.passphrase('a');
+    const vault = Vaults.create({ providers: [a], defaultProvider: a, encryption: EncryptionPlugins.aesGcm() });
+    const keyA = await generateUnder(vault, a);
+    const impostor = providerWith(a.ref, new Uint8Array(32).fill(0x07));
+
+    // call out our method under test
+    const result = await impostor.withGrant((grant) => vault.keyStore(grant).resolve(keyA));
+    const exported = await impostor.withGrant((grant) => vault.keyStore(grant).exportKeyPair!(keyA));
+
+    // assertions: authentication failure is reported as wrong-secret for A's ref
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toEqual({ kind: 'wrong-secret', publicKey: keyA, ref: a.ref });
+    expect(exported.ok).toBe(false);
+    if (!exported.ok) expect(exported.error).toEqual({ kind: 'wrong-secret', publicKey: keyA, ref: a.ref });
+  });
+
+  test('getProviderForKey matches by ref equality', async () => {
+    // setup: passphrase 'a' built twice (two instances); key B under 'b' (not registered)
+    const a1 = UnlockProviders.passphrase('a');
+    const a2 = UnlockProviders.passphrase('a');
+    const b = UnlockProviders.passphrase('b');
+    const vault = Vaults.create({ providers: [a1], defaultProvider: a1, encryption: EncryptionPlugins.xor() });
+    vault.registerProvider(a2);
+    const keyA = await generateUnder(vault, a1);
+    const keyB = await generateUnder(vault, b);
+
+    // call out our method under test
+    const forA = await vault.getProviderForKey(keyA);
+    const forB = await vault.getProviderForKey(keyB);
+
+    // assertions: an equal-ref instance is found for A; nothing registered for B
+    expect(forA === a1 || forA === a2).toBe(true);
+    expect(forB).toBeUndefined();
+  });
+
+  test('registerProvider replaces a provider with an equal ref', async () => {
+    // setup
+    const a1 = UnlockProviders.passphrase('a');
+    const a2 = UnlockProviders.passphrase('a');
+    const vault = Vaults.create({ providers: [a1], defaultProvider: a1, encryption: EncryptionPlugins.xor() });
+    const keyA = await generateUnder(vault, a1);
+
+    // call out our method under test
+    vault.registerProvider(a2);
+
+    // assertions: the newer instance wins
+    expect(await vault.getProviderForKey(keyA)).toBe(a2);
+  });
+
+  test('getProviderForKey skips a provider whose ref getter throws', async () => {
+    // setup: a registered provider with no ref yet (e.g. passkey before its credential exists)
+    const a = UnlockProviders.passphrase('a');
+    const pending: UnlockProvider = {
+      get ref(): UnlockRef {
+        throw new Error('no credential yet');
+      },
+      withGrant: a.withGrant,
+    };
+    const vault = Vaults.create({ providers: [a], defaultProvider: a, encryption: EncryptionPlugins.xor() });
+    vault.registerProvider(pending);
+    const keyA = await generateUnder(vault, a);
+
+    // call out our method under test
+    const found = await vault.getProviderForKey(keyA);
+
+    // assertions
+    expect(found).toBe(a);
+  });
+
+  test('resolveProviderForKey calls the mechanism resolver and does not register', async () => {
+    // setup: key B under 'b'; passphrase resolver records calls
+    const a = UnlockProviders.passphrase('a');
+    const b = UnlockProviders.passphrase('b');
+    const calls: [UnlockRef, { readonly profileId: string }][] = [];
+    const vault = Vaults.create({
+      providers: [a],
+      defaultProvider: a,
+      encryption: EncryptionPlugins.xor(),
+      resolvers: {
+        passphrase: async (ref, context) => {
+          calls.push([ref, context]);
+          return UnlockProviders.passphrase('b');
+        },
+      },
+    });
+    const keyB = await generateUnder(vault, b);
+
+    // call out our method under test
+    const result = await vault.resolveProviderForKey(keyB, { profileId: 'p-ben' });
+
+    // assertions: ok, resolver called once with (refB, context), registry untouched
+    expect(result.ok).toBe(true);
+    expect(calls).toEqual([[b.ref, { profileId: 'p-ben' }]]);
+    expect(await vault.getProviderForKey(keyB)).toBeUndefined();
+  });
+
+  test('resolveProviderForKey without a resolver → no-resolver naming the mechanism', async () => {
+    // setup
+    const a = UnlockProviders.passphrase('a');
+    const vault = Vaults.create({ providers: [a], defaultProvider: a, encryption: EncryptionPlugins.xor() });
+    const keyA = await generateUnder(vault, a);
+
+    // call out our method under test
+    const result = await vault.resolveProviderForKey(keyA, { profileId: 'p' });
+
+    // assertions
+    expect(result).toEqual({ ok: false, error: { kind: 'no-resolver', mechanism: 'passphrase' } });
+  });
+
+  test('resolveProviderForKey when the resolver returns undefined → resolver-declined', async () => {
+    // setup
+    const a = UnlockProviders.passphrase('a');
+    const vault = Vaults.create({
+      providers: [a],
+      defaultProvider: a,
+      encryption: EncryptionPlugins.xor(),
+      resolvers: { passphrase: async () => undefined },
+    });
+    const keyA = await generateUnder(vault, a);
+
+    // call out our method under test
+    const result = await vault.resolveProviderForKey(keyA, { profileId: 'p' });
+
+    // assertions
+    expect(result).toEqual({ ok: false, error: { kind: 'resolver-declined', ref: a.ref } });
+  });
+
+  test('resolveProviderForKey for an unknown key → key-not-found', async () => {
+    // setup
+    const a = UnlockProviders.passphrase('a');
+    const vault = Vaults.create({ providers: [a], defaultProvider: a, encryption: EncryptionPlugins.xor() });
+
+    // call out our method under test
+    const result = await vault.resolveProviderForKey(asRawPublicKey(new Uint8Array(32).fill(9)), { profileId: 'p' });
+
+    // assertions
+    expect(result).toEqual({ ok: false, error: { kind: 'key-not-found' } });
   });
 });

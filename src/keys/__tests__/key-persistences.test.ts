@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { KeyPersistences } from '../key-persistences.js';
 import { asRawPublicKey } from '../raw-public-key.js';
-import type { EncryptedKeyEntry, UnlockProviderId } from '../types.js';
+import type { EncryptedKeyEntry } from '../types.js';
+import { UnlockRefs } from '../unlock-ref.js';
 import type { Timestamp } from '../../common/types.js';
 
 describe('KeyPersistences.inMemory', () => {
@@ -12,7 +13,7 @@ describe('KeyPersistences.inMemory', () => {
       algo: 'ed25519',
       encryptedPrivateKey: new Uint8Array(32).fill(byte + 1),
       iv: new Uint8Array(12),
-      unlockProviderId: 'test:provider' as UnlockProviderId,
+      ref: UnlockRefs.passphrase('test-provider'),
       publicKeyDigest: `digest-${byte}`,
       createdAt: '2026-01-01T00:00:00Z' as Timestamp,
     };
