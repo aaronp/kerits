@@ -1,6 +1,6 @@
 {
   "name": "@kerits/core",
-  "version": "0.5.31",
+  "version": "0.5.34",
   "type": "module",
   "exports": {
     ".": {

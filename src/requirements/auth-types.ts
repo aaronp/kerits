@@ -32,6 +32,8 @@ export const RequestEntrySchema = Type.Object(
     purpose: Type.String(),
     /** Namespaced path (within this alias's disclosed object, e.g. `url` or `foo.url`) holding a resource URL. */
     audienceFrom: Type.Optional(Type.String({ minLength: 1 })),
+    /** Fixed resource URL; this entry's alias (+ includes) go in that resource's access token. */
+    audience: Type.Optional(Type.String({ minLength: 1 })),
     /** Other aliases also carried in this resource's access token (allow-list). */
     audienceIncludes: Type.Optional(Type.Array(AliasSchema)),
   },

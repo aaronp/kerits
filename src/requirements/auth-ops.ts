@@ -64,12 +64,27 @@ export type RequestError = {
     | 'reserved-alias'
     | 'bad-alias'
     | 'includes-without-audience'
+    | 'audience-and-audience-from'
+    | 'audience-invalid'
     | 'unknown-include'
     | 'self-include';
   as: string;
 };
 
 const RESERVED_ALIASES = new Set(['v', 'policySAIDs']);
+
+/** `https:`, or `http:` only for loopback hosts. */
+function isAllowedAudience(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return (
+      u.protocol === 'https:' || (u.protocol === 'http:' && (u.hostname === 'localhost' || u.hostname === '127.0.0.1'))
+    );
+  } catch {
+    return false;
+  }
+}
+
 const ALIAS_RE = new RegExp(ALIAS_PATTERN);
 
 /** Alias rules the schema cannot express: uniqueness, reserved keys, and `audienceIncludes` references. */
@@ -84,7 +99,9 @@ function validateRequest(r: AuthRequest): Result<AuthRequest, RequestError[]> {
     else if (!ALIAS_RE.test(e.as)) fail('bad-alias');
     seen.add(e.as);
     const includes = e.audienceIncludes ?? [];
-    if (includes.length > 0 && !e.audienceFrom) fail('includes-without-audience');
+    if (e.audience !== undefined && e.audienceFrom !== undefined) fail('audience-and-audience-from');
+    else if (e.audience !== undefined && !isAllowedAudience(e.audience)) fail('audience-invalid');
+    else if (includes.length > 0 && !e.audience && !e.audienceFrom) fail('includes-without-audience');
     else if (includes.includes(e.as)) fail('self-include');
     else if (includes.some((a) => !aliases.has(a))) fail('unknown-include');
   }

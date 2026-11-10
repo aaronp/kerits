@@ -126,13 +126,19 @@ function project(
   const resources: ResourceGrant[] = [];
   for (const re of request.entries) {
     const p = projected.get(re.as);
-    if (!re.audienceFrom || !p) continue;
-    const value = getPath(p.fields, re.audienceFrom);
-    const origin = originOf(value);
-    if (origin === undefined) {
-      failures.push({ kind: 'audience-invalid', as: re.as, reason: value === undefined ? 'missing' : 'not-a-url' });
-      continue;
+    if (!(re.audience || re.audienceFrom) || !p) continue;
+    let origin: string | undefined;
+    if (re.audience) {
+      origin = originOf(re.audience);
+    } else {
+      const value = getPath(p.fields, re.audienceFrom!);
+      origin = originOf(value);
+      if (origin === undefined) {
+        failures.push({ kind: 'audience-invalid', as: re.as, reason: value === undefined ? 'missing' : 'not-a-url' });
+        continue;
+      }
     }
+    if (origin === undefined) continue; // unreachable: validateRequest rejects a non-URL audience
     const included = (re.audienceIncludes ?? []).filter((a) => projected.has(a));
     resources.push({ origin, aliases: [re.as, ...included] });
   }

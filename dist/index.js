@@ -17404,7 +17404,6 @@ async function decryptKeyManagement(entry, enc, key, encryptedKey, joseHeader, m
     case "PBKDF2": {
       if (typeof joseHeader.p2c != "number")
         throw new JWEInvalid('JOSE Header "p2c" (PBES2 Count) missing or invalid');
-      validateMaxPBES2Count(maxPBES2Count);
       const p2cLimit = maxPBES2Count ?? 1e4;
       if (joseHeader.p2c > p2cLimit)
         throw new JWEInvalid('JOSE Header "p2c" (PBES2 Count) out is of acceptable bounds');
@@ -17580,12 +17579,17 @@ function shareJWE(jwe) {
   ];
 }
 function prepareDecrypt(options) {
+  const keyManagementAlgorithms = options && validateAlgorithms("keyManagementAlgorithms", options.keyManagementAlgorithms), contentEncryptionAlgorithms = options && validateAlgorithms("contentEncryptionAlgorithms", options.contentEncryptionAlgorithms), { crit, maxPBES2Count, maxDecompressedLength } = options ?? {};
+  validateMaxPBES2Count(maxPBES2Count);
+  const decompressionLimit = maxDecompressedLength ?? 250000;
+  if (decompressionLimit !== 0 && decompressionLimit !== 1 / 0 && (!Number.isSafeInteger(decompressionLimit) || decompressionLimit < 1))
+    throw new TypeError("maxDecompressedLength must be 0, a positive safe integer, or Infinity");
   return [
-    options && validateAlgorithms("keyManagementAlgorithms", options.keyManagementAlgorithms),
-    options && validateAlgorithms("contentEncryptionAlgorithms", options.contentEncryptionAlgorithms),
-    options?.crit,
-    options?.maxPBES2Count,
-    options?.maxDecompressedLength
+    keyManagementAlgorithms,
+    contentEncryptionAlgorithms,
+    crit,
+    maxPBES2Count,
+    maxDecompressedLength
   ];
 }
 async function decryptJWE(jwe, shared, key, token = shareJWE(jwe)) {
@@ -17656,8 +17660,6 @@ async function decryptJWE(jwe, shared, key, token = shareJWE(jwe)) {
     const decompressionLimit = maxDecompressedLength ?? 250000;
     if (decompressionLimit === 0)
       throw new JOSENotSupported('JWE "zip" (Compression Algorithm) Header Parameter is not supported.');
-    if (decompressionLimit !== 1 / 0 && (!Number.isSafeInteger(decompressionLimit) || decompressionLimit < 1))
-      throw new TypeError("maxDecompressedLength must be 0, a positive safe integer, or Infinity");
     plaintext = await decompress(plaintext, decompressionLimit).catch((cause) => {
       throw cause instanceof JWEInvalid ? cause : new JWEInvalid("Failed to decompress plaintext", { cause });
     });
@@ -17686,9 +17688,10 @@ async function generalDecrypt(jwe, key, options) {
     throw new JWEInvalid("JWE Recipients missing or incorrect type");
   if (!recipients.length)
     throw new JWEInvalid("JWE Recipients has no members");
-  let shared, sharedJwe, token;
+  const shared = prepareDecrypt(options);
+  let sharedJwe, token;
   try {
-    shared = prepareDecrypt(options), sharedJwe = snapshotSharedJWE(jwe), token = shareJWE(sharedJwe);
+    sharedJwe = snapshotSharedJWE(jwe), token = shareJWE(sharedJwe);
   } catch {
     throw new JWEDecryptionFailed;
   }
@@ -20469,6 +20472,7 @@ var RequestEntrySchema = Type.Object({
   need: Type.Union([Type.Literal("required"), Type.Literal("optional")]),
   purpose: Type.String(),
   audienceFrom: Type.Optional(Type.String({ minLength: 1 })),
+  audience: Type.Optional(Type.String({ minLength: 1 })),
   audienceIncludes: Type.Optional(Type.Array(AliasSchema))
 }, { additionalProperties: false });
 var AuthRequestSchema = Type.Object({
@@ -20996,6 +21000,14 @@ function resolve3(ref, fetch) {
 }
 var PolicyRefOps = { resolve: resolve3 };
 var RESERVED_ALIASES = new Set(["v", "policySAIDs"]);
+function isAllowedAudience(value) {
+  try {
+    const u = new URL(value);
+    return u.protocol === "https:" || u.protocol === "http:" && (u.hostname === "localhost" || u.hostname === "127.0.0.1");
+  } catch {
+    return false;
+  }
+}
 var ALIAS_RE = new RegExp(ALIAS_PATTERN2);
 function validateRequest(r) {
   const aliases = new Set(r.entries.map((e) => e.as));
@@ -21011,7 +21023,11 @@ function validateRequest(r) {
       fail("bad-alias");
     seen.add(e.as);
     const includes = e.audienceIncludes ?? [];
-    if (includes.length > 0 && !e.audienceFrom)
+    if (e.audience !== undefined && e.audienceFrom !== undefined)
+      fail("audience-and-audience-from");
+    else if (e.audience !== undefined && !isAllowedAudience(e.audience))
+      fail("audience-invalid");
+    else if (includes.length > 0 && !e.audience && !e.audienceFrom)
       fail("includes-without-audience");
     else if (includes.includes(e.as))
       fail("self-include");
@@ -21969,14 +21985,21 @@ function project2(request, verified, published) {
   const resources = [];
   for (const re of request.entries) {
     const p = projected.get(re.as);
-    if (!re.audienceFrom || !p)
+    if (!(re.audience || re.audienceFrom) || !p)
       continue;
-    const value = getPath(p.fields, re.audienceFrom);
-    const origin = originOf(value);
-    if (origin === undefined) {
-      failures.push({ kind: "audience-invalid", as: re.as, reason: value === undefined ? "missing" : "not-a-url" });
-      continue;
+    let origin;
+    if (re.audience) {
+      origin = originOf(re.audience);
+    } else {
+      const value = getPath(p.fields, re.audienceFrom);
+      origin = originOf(value);
+      if (origin === undefined) {
+        failures.push({ kind: "audience-invalid", as: re.as, reason: value === undefined ? "missing" : "not-a-url" });
+        continue;
+      }
     }
+    if (origin === undefined)
+      continue;
     const included = (re.audienceIncludes ?? []).filter((a) => projected.has(a));
     resources.push({ origin, aliases: [re.as, ...included] });
   }
@@ -22779,8 +22802,8 @@ var Tel = {
   ...TELEvents
 };
 // src/version.ts
-var VERSION = "0.5.31";
-var GIT_SHA = "816fa0611a1d53d8bfcc7a15a41c8c0e814b5716";
+var VERSION = "0.5.34";
+var GIT_SHA = "7c88be9a8e90db8ce2b802df9e333e1a8f16a689";
 var export_canonicalize = import_json_canonicalize2.canonicalize;
 
 export {

@@ -15,6 +15,7 @@ import {
   type VerifiedAuth,
   type VerifiedEntry,
 } from '../../index.js';
+import { err } from '../../result.js';
 import { DEFAULT_SCHEMA } from './fixtures.js';
 
 const SUB = 'ESubject000000000000000000000000000000000000' as AID;
@@ -279,6 +280,40 @@ describe('KeritsClaimsOps.project', () => {
 
     // assertions
     expect(r.ok && r.value.resources).toEqual([{ origin: 'https://bridge.example', aliases: ['data-source', 'membership'] }]);
+  });
+
+  test('audience builds a resource grant from the literal URL', () => {
+    // setup: a literal audience entry including another satisfied alias
+    const request = requestOf([
+      reqEntry(membership, 'member', { audience: 'https://bridge.example/x', audienceIncludes: ['other'] }),
+      reqEntry(membership, 'other'),
+    ]);
+    const verified = authOf([
+      verifiedEntry('member', membership, { level: 'g' }),
+      verifiedEntry('other', membership, { level: 'h' }),
+    ]);
+
+    // call out our method under test
+    const r = KeritsClaimsOps.project(request, verified);
+
+    // assertions
+    expect(r.ok && r.value.resources).toEqual([{ origin: 'https://bridge.example', aliases: ['member', 'other'] }]);
+  });
+
+  test('declined optional audience entry has no resource grant', () => {
+    // setup: the audience entry is optional and not satisfied
+    const request = requestOf([
+      reqEntry(membership, 'member', { need: 'optional', audience: 'https://bridge.example' }),
+      reqEntry(membership, 'other'),
+    ]);
+    const verified = authOf([verifiedEntry('other', membership, { level: 'h' })]);
+
+    // call out our method under test
+    const r = KeritsClaimsOps.project(request, verified);
+
+    // assertions
+    expect(r.ok && r.value.resources).toEqual([]);
+    expect(r.ok && KeritsClaimsOps.forResource(r.value, 'https://bridge.example')).toEqual(err('invalid_target'));
   });
 
   test('two any-of entries lifting the same OIDC key fail oidc-conflict', () => {

@@ -45,13 +45,37 @@ describe('AuthRequest / AuthResponse schemas', () => {
 describe('AuthOps.validateRequest', () => {
   test('valid request passes through', () => {
     // setup
-    const r = req([entry('loc', { audienceFrom: 'url', audienceIncludes: ['email'] }), entry('email')]);
+    const r = req([
+      entry('loc', { audienceFrom: 'url', audienceIncludes: ['email'] }),
+      entry('email'),
+      entry('member', { audience: 'https://bridge.example', audienceIncludes: ['email'] }),
+    ]);
 
     // call out our method under test
     const out = AuthOps.validateRequest(r);
 
     // assertions
     expect(out.ok && out.value).toBe(r);
+  });
+
+  test('audience: both fields, bad URL, http non-localhost', () => {
+    // setup: one entry per audience rule; localhost http is allowed
+    const r = req([
+      entry('both', { audience: 'https://a.example', audienceFrom: 'url' }),
+      entry('bad', { audience: 'not a url' }),
+      entry('plain', { audience: 'http://bridge.example' }),
+      entry('local', { audience: 'http://localhost:8790' }),
+    ]);
+
+    // call out our method under test
+    const out = AuthOps.validateRequest(r);
+
+    // assertions
+    expect(!out.ok && out.error).toEqual([
+      { kind: 'audience-and-audience-from', as: 'both' },
+      { kind: 'audience-invalid', as: 'bad' },
+      { kind: 'audience-invalid', as: 'plain' },
+    ]);
   });
 
   test('reports each RequestError kind with its alias', () => {
