@@ -12158,7 +12158,7 @@ function projectAccessControls(tree, system, expandAid = () => []) {
 }
 
 // src/acl/snapshot.ts
-function isPurpose(p) {
+function isKeyUse(p) {
   return p === "sign" || p === "enc";
 }
 function validateKeys(purpose, keys) {
@@ -12191,7 +12191,7 @@ function freezeSnapshot(purpose, keys, hash) {
   });
 }
 function snapshotOf(purpose, keys) {
-  if (!isPurpose(purpose)) {
+  if (!isKeyUse(purpose)) {
     throw new Error(`invalid snapshot purpose: ${purpose}`);
   }
   const validated = validateKeys(purpose, keys);
@@ -12202,7 +12202,7 @@ function snapshotOf(purpose, keys) {
   return freezeSnapshot(purpose, validated.value, hash);
 }
 function importSnapshot(raw) {
-  if (!isPurpose(raw.purpose)) {
+  if (!isKeyUse(raw.purpose)) {
     return err({ kind: "invalid-purpose", purpose: raw.purpose });
   }
   const validated = validateKeys(raw.purpose, raw.keys);
@@ -18684,18 +18684,6 @@ function buildKeyStore(keys, id) {
           });
         }
       });
-    },
-    async exportKeyPair(publicKey) {
-      const entry = keys.get(publicKeyHex(publicKey));
-      if (!entry)
-        return err({ kind: "key-not-found", publicKey });
-      const pair = {
-        publicKey: toCESRPublicKey(publicKey),
-        privateKey: encodeKey(entry.privateKey, true).qb64,
-        transferable: true,
-        algo: entry.algo
-      };
-      return ok(pair);
     }
   };
 }
@@ -18805,18 +18793,18 @@ var Keychains;
         }
         return;
       },
-      async resolve(publicKey) {
+      async resolve(publicKey, purpose) {
         const hex = publicKeyHex(publicKey);
         const indexedId = keyIndex.get(hex);
         if (indexedId) {
           const store = stores.get(indexedId);
           if (store)
-            return store.resolve(publicKey);
+            return store.resolve(publicKey, purpose);
         }
         for (const [id, store] of stores) {
           if (await store.hasKey(publicKey)) {
             keyIndex.set(hex, id);
-            return store.resolve(publicKey);
+            return store.resolve(publicKey, purpose);
           }
         }
         return err({ kind: "key-not-found", publicKey });
@@ -22802,8 +22790,8 @@ var Tel = {
   ...TELEvents
 };
 // src/version.ts
-var VERSION = "0.5.34";
-var GIT_SHA = "7c88be9a8e90db8ce2b802df9e333e1a8f16a689";
+var VERSION = "0.5.37";
+var GIT_SHA = "5514d5a47652c00c153e022ce10dda9599e75942";
 var export_canonicalize = import_json_canonicalize2.canonicalize;
 
 export {

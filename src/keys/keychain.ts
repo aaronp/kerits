@@ -3,6 +3,7 @@
 import type { Result } from '../result.js';
 import { err } from '../result.js';
 import { publicKeyHex } from './raw-public-key.js';
+import type { SignPurpose } from './sign-purpose.js';
 import type { Algo, KeyGenerator, KeyScope, KeyStore, RawPublicKey, ResolveKeyError } from './types.js';
 
 /**
@@ -19,7 +20,7 @@ export type Keychain = {
   hasKey(publicKey: RawPublicKey): Promise<boolean>;
   /** Store id that holds this public key, if any. No unlock. */
   findStoreId(publicKey: RawPublicKey): Promise<string | undefined>;
-  resolve(publicKey: RawPublicKey): Promise<Result<KeyScope, ResolveKeyError>>;
+  resolve(publicKey: RawPublicKey, purpose: SignPurpose): Promise<Result<KeyScope, ResolveKeyError>>;
 };
 
 export namespace Keychains {
@@ -74,21 +75,21 @@ export namespace Keychains {
         return undefined;
       },
 
-      async resolve(publicKey: RawPublicKey): Promise<Result<KeyScope, ResolveKeyError>> {
+      async resolve(publicKey: RawPublicKey, purpose: SignPurpose): Promise<Result<KeyScope, ResolveKeyError>> {
         const hex = publicKeyHex(publicKey);
 
         // Fast path: check index
         const indexedId = keyIndex.get(hex);
         if (indexedId) {
           const store = stores.get(indexedId);
-          if (store) return store.resolve(publicKey);
+          if (store) return store.resolve(publicKey, purpose);
         }
 
         // Slow path: iterate all stores
         for (const [id, store] of stores) {
           if (await store.hasKey(publicKey)) {
             keyIndex.set(hex, id);
-            return store.resolve(publicKey);
+            return store.resolve(publicKey, purpose);
           }
         }
 

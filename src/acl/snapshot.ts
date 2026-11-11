@@ -9,10 +9,17 @@ import type { PublicKey, SAID } from '../common/types.js';
 import { err, ok, type Result } from '../result.js';
 import { normalizeKeys } from './normalize.js';
 
-export type KeyPurpose = 'sign' | 'enc';
+/**
+ * KeyUse: which kind of key an ACL snapshot lists — `sign` (writers' signing keys) or `enc` (readers'
+ * encryption keys). Part of the snapshot's hash (the `purpose` field keeps its name for that reason).
+ *
+ * Not to be confused with `SignPurpose` (why a sign request is being made) or the sdk's `KeyLabel`
+ * (a stored label on a key-store row).
+ */
+export type KeyUse = 'sign' | 'enc';
 
 export type Snapshot = {
-  readonly purpose: KeyPurpose;
+  readonly purpose: KeyUse;
   readonly keys: readonly PublicKey[];
   readonly hash: SAID;
 };
@@ -22,11 +29,11 @@ export type SnapshotError =
   | { kind: 'invalid-key'; key: string; reason: string }
   | { kind: 'snapshot-hash-mismatch'; expected: SAID; provided: SAID };
 
-function isPurpose(p: string): p is KeyPurpose {
+function isKeyUse(p: string): p is KeyUse {
   return p === 'sign' || p === 'enc';
 }
 
-function validateKeys(purpose: KeyPurpose, keys: Iterable<PublicKey>): Result<PublicKey[], SnapshotError> {
+function validateKeys(purpose: KeyUse, keys: Iterable<PublicKey>): Result<PublicKey[], SnapshotError> {
   const out: PublicKey[] = [];
   for (const key of keys) {
     try {
@@ -48,11 +55,11 @@ function validateKeys(purpose: KeyPurpose, keys: Iterable<PublicKey>): Result<Pu
   return ok(normalizeKeys(out));
 }
 
-function computeHash(purpose: KeyPurpose, keys: readonly PublicKey[]): SAID {
+function computeHash(purpose: KeyUse, keys: readonly PublicKey[]): SAID {
   return saidOf({ purpose, keys, d: '' }) as SAID;
 }
 
-function freezeSnapshot(purpose: KeyPurpose, keys: readonly PublicKey[], hash: SAID): Snapshot {
+function freezeSnapshot(purpose: KeyUse, keys: readonly PublicKey[], hash: SAID): Snapshot {
   return Object.freeze({
     purpose,
     keys: Object.freeze([...keys]) as readonly PublicKey[],
@@ -61,8 +68,8 @@ function freezeSnapshot(purpose: KeyPurpose, keys: readonly PublicKey[], hash: S
 }
 
 /** Build a snapshot from purpose + keys (always recomputes hash). */
-export function snapshotOf(purpose: KeyPurpose, keys: Iterable<PublicKey>): Snapshot {
-  if (!isPurpose(purpose)) {
+export function snapshotOf(purpose: KeyUse, keys: Iterable<PublicKey>): Snapshot {
+  if (!isKeyUse(purpose)) {
     throw new Error(`invalid snapshot purpose: ${purpose}`);
   }
   const validated = validateKeys(purpose, keys);
@@ -79,7 +86,7 @@ export function importSnapshot(raw: {
   keys: readonly string[];
   hash?: string;
 }): Result<Snapshot, SnapshotError> {
-  if (!isPurpose(raw.purpose)) {
+  if (!isKeyUse(raw.purpose)) {
     return err({ kind: 'invalid-purpose', purpose: raw.purpose });
   }
   const validated = validateKeys(raw.purpose, raw.keys as PublicKey[]);

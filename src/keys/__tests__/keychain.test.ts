@@ -6,6 +6,8 @@ import { FakeHsmKeyStores } from '../fake-hsm-key-store.js';
 import { asRawPublicKey, toCESRPublicKey } from '../raw-public-key.js';
 import { Signers } from '../../signature/index.js';
 
+const testPurpose = { purpose: { type: 'test' }, purposeText: 'test' };
+
 describe('Keychain', () => {
   test('resolve routes to correct store and signs with correct key', async () => {
     // setup: two stores, each with one key
@@ -21,7 +23,7 @@ describe('Keychain', () => {
     const data = new TextEncoder().encode('routing test');
 
     // method under test: resolve keyA → sign → verify with keyA's public key
-    const resultA = await keychain.resolve(keyA.publicKey);
+    const resultA = await keychain.resolve(keyA.publicKey, testPurpose);
     expect(resultA.ok).toBe(true);
     if (!resultA.ok) return;
     const sigA = await resultA.value.withSigner(async (s) => s.signBytes(data));
@@ -30,7 +32,7 @@ describe('Keychain', () => {
     expect(Signers.verify(toCESRPublicKey(keyB.publicKey), sigA, data)).toBe(false);
 
     // method under test: resolve keyB → sign → verify with keyB's public key
-    const resultB = await keychain.resolve(keyB.publicKey);
+    const resultB = await keychain.resolve(keyB.publicKey, testPurpose);
     expect(resultB.ok).toBe(true);
     if (!resultB.ok) return;
     const sigB = await resultB.value.withSigner(async (s) => s.signBytes(data));
@@ -46,8 +48,8 @@ describe('Keychain', () => {
     keychain.register(store, store);
 
     // method under test: first resolve (iterates), second resolve (indexed)
-    const r1 = await keychain.resolve(key.publicKey);
-    const r2 = await keychain.resolve(key.publicKey);
+    const r1 = await keychain.resolve(key.publicKey, testPurpose);
+    const r2 = await keychain.resolve(key.publicKey, testPurpose);
 
     // assertions: both succeed
     expect(r1.ok).toBe(true);
@@ -60,7 +62,7 @@ describe('Keychain', () => {
     const unknownKey = asRawPublicKey(new Uint8Array(32));
 
     // method under test
-    const result = await keychain.resolve(unknownKey);
+    const result = await keychain.resolve(unknownKey, testPurpose);
 
     // assertions
     expect(result.ok).toBe(false);
@@ -105,7 +107,7 @@ describe('Keychain', () => {
     keychain.register(store, store);
 
     // method under test: full chain — keychain → store → scope → signer → sign
-    const result = await keychain.resolve(key.publicKey);
+    const result = await keychain.resolve(key.publicKey, testPurpose);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 

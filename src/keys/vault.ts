@@ -30,7 +30,6 @@ import type {
   KeyGenerator,
   KeyPersistence,
   KeyScope,
-  KeyStore,
   RawPublicKey,
   ResolveKeyError,
   ResolveProviderError,
@@ -39,6 +38,7 @@ import type {
   UnlockResolvers,
   Vault,
   VaultConfig,
+  VaultKeyStore,
 } from './types.js';
 import type { UnlockRef } from './unlock-ref.js';
 import { UnlockRefs } from './unlock-ref.js';
@@ -181,7 +181,7 @@ function createVault(config: VaultConfig): Vault {
     return { publicKey: cesrPub, algo, exists, signBytes, signSaid };
   }
 
-  function makeKeyStore(grant: Grant): KeyStore {
+  function makeKeyStore(grant: Grant): VaultKeyStore {
     return {
       id: 'vault',
 

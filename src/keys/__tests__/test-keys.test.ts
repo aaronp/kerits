@@ -3,6 +3,8 @@ import { TestKeys } from '../test-keys.js';
 import { publicKeyHex, toCESRPublicKey } from '../raw-public-key.js';
 import { Signers } from '../../signature/index.js';
 
+const testPurpose = { purpose: { type: 'test' }, purposeText: 'test' };
+
 describe('TestKeys', () => {
   test('get() delegates to create() with default keys', () => {
     // setup: just call the factory — no state needed
@@ -92,7 +94,7 @@ describe('TestKeys', () => {
     expect(k.ok).toBe(true);
     if (!k.ok) return;
     // call our method under test
-    const scope = await tk.resolve(k.value.publicKey);
+    const scope = await tk.resolve(k.value.publicKey, testPurpose);
     expect(scope.ok).toBe(true);
     if (!scope.ok) return;
     // signer should produce a valid signature verifiable against the public key
@@ -108,7 +110,7 @@ describe('TestKeys', () => {
     const k = await otherTk.generate('ed25519');
     if (!k.ok) return;
     // call our method under test
-    const r = await tk.resolve(k.value.publicKey);
+    const r = await tk.resolve(k.value.publicKey, testPurpose);
     // tk never issued that key, so it must not resolve
     expect(r.ok).toBe(false);
   });

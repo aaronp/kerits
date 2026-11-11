@@ -99,7 +99,7 @@ export {
   signAclMessageWithSigner,
   verifyAclMessageSignature,
 } from './signed-message.js';
-export type { KeyPurpose, Snapshot, SnapshotError } from './snapshot.js';
+export type { KeyUse, Snapshot, SnapshotError } from './snapshot.js';
 export { importSnapshot, snapshotOf } from './snapshot.js';
 export type { AclAdminPatch, CheckError, CheckOpts, VerifyFn };
 export {

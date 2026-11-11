@@ -5,6 +5,8 @@ import { Signers, isEd25519Signer } from '../../signature/index.js';
 import { asRawPublicKey, publicKeyHex, toCESRPublicKey } from '../raw-public-key.js';
 import type { Ed25519Signer } from '../../signature/signer.js';
 
+const testPurpose = { purpose: { type: 'test' }, purposeText: 'test' };
+
 describe('InMemoryKeyStore', () => {
   test('generate ed25519 → hasKey → resolve → sign → verify', async () => {
     // setup
@@ -22,7 +24,7 @@ describe('InMemoryKeyStore', () => {
     expect(await store.hasKey(publicKey)).toBe(true);
 
     // method under test: resolve → withSigner → sign
-    const resolveResult = await store.resolve(publicKey);
+    const resolveResult = await store.resolve(publicKey, testPurpose);
     expect(resolveResult.ok).toBe(true);
     if (!resolveResult.ok) return;
 
@@ -40,7 +42,7 @@ describe('InMemoryKeyStore', () => {
     // setup
     const store = InMemoryKeyStores.create();
     const key = (await store.generate('ed25519')).value!;
-    const result = await store.resolve(key.publicKey);
+    const result = await store.resolve(key.publicKey, testPurpose);
     if (!result.ok) return;
 
     // method under test: signer should pass isEd25519Signer type guard
@@ -69,7 +71,7 @@ describe('InMemoryKeyStore', () => {
     const data = new TextEncoder().encode('batch test');
     for (const key of batchResult.value) {
       expect(await store.hasKey(key.publicKey)).toBe(true);
-      const r = await store.resolve(key.publicKey);
+      const r = await store.resolve(key.publicKey, testPurpose);
       expect(r.ok).toBe(true);
       if (!r.ok) continue;
       const sig = await r.value.withSigner(async (signer) => signer.signBytes(data));
@@ -83,7 +85,7 @@ describe('InMemoryKeyStore', () => {
     const unknownKey = asRawPublicKey(new Uint8Array(32));
 
     // method under test
-    const result = await store.resolve(unknownKey);
+    const result = await store.resolve(unknownKey, testPurpose);
 
     // assertions
     expect(result.ok).toBe(false);
@@ -137,7 +139,7 @@ describe('InMemoryKeyStore', () => {
     expect(publicKey.length).toBe(33);
 
     // method under test: resolve → withSigner → sign
-    const resolveResult = await store.resolve(publicKey);
+    const resolveResult = await store.resolve(publicKey, testPurpose);
     expect(resolveResult.ok).toBe(true);
     if (!resolveResult.ok) return;
 
@@ -158,8 +160,8 @@ describe('InMemoryKeyStore', () => {
     const bobKey = (await store.generate('ed25519')).value!;
 
     // get each party's x25519 public key
-    const aliceResult = await store.resolve(aliceKey.publicKey);
-    const bobResult = await store.resolve(bobKey.publicKey);
+    const aliceResult = await store.resolve(aliceKey.publicKey, testPurpose);
+    const bobResult = await store.resolve(bobKey.publicKey, testPurpose);
     if (!aliceResult.ok || !bobResult.ok) return;
 
     let aliceX25519Pub!: Uint8Array;
@@ -175,8 +177,8 @@ describe('InMemoryKeyStore', () => {
     const info = new TextEncoder().encode('test-key-agreement');
 
     // method under test: Alice derives with Bob's public key, Bob derives with Alice's
-    const aliceResolve2 = await store.resolve(aliceKey.publicKey);
-    const bobResolve2 = await store.resolve(bobKey.publicKey);
+    const aliceResolve2 = await store.resolve(aliceKey.publicKey, testPurpose);
+    const bobResolve2 = await store.resolve(bobKey.publicKey, testPurpose);
     if (!aliceResolve2.ok || !bobResolve2.ok) return;
 
     const aliceDerived = await aliceResolve2.value.withSigner(async (signer) =>
@@ -217,7 +219,7 @@ describe('InMemoryKeyStores.fromPrivateKey', () => {
     expect(await store.hasKey(publicKey)).toBe(true);
 
     // assertions: store can sign and the signature is valid
-    const resolveR = await store.resolve(publicKey);
+    const resolveR = await store.resolve(publicKey, testPurpose);
     expect(resolveR.ok).toBe(true);
     if (resolveR.ok) {
       const message = new TextEncoder().encode('test-message');
@@ -237,7 +239,7 @@ describe('InMemoryKeyStores.fromPrivateKey', () => {
     expect(await store.hasKey(otherKey)).toBe(false);
 
     // method under test: resolve unknown key
-    const resolveR = await store.resolve(otherKey);
+    const resolveR = await store.resolve(otherKey, testPurpose);
 
     // assertions: key-not-found error
     expect(resolveR.ok).toBe(false);

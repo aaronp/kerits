@@ -1,10 +1,9 @@
 import { ed25519 } from '@noble/curves/ed25519.js';
 import { secp256k1 } from '@noble/curves/secp256k1.js';
-import { encodeKey } from '../cesr/keys.js';
 import { encodeSig } from '../cesr/sigs.js';
 import type { SigAlgo } from '../cesr/types.js';
 import type { Algo as AlgoType } from '../common/algo.js';
-import type { KeriKeyPair, PublicKey, SAID, Signature } from '../common/types.js';
+import type { PublicKey, SAID, Signature } from '../common/types.js';
 import { hkdfBlake3 } from '../crypto/hkdf.js';
 import { deriveSharedSecret, ed25519ToX25519Private, ed25519ToX25519Public } from '../crypto/x25519.js';
 import type { Result } from '../result.js';
@@ -121,20 +120,6 @@ function buildKeyStore(keys: Map<string, KeyEntry>, id: string): KeyStore {
           });
         },
       });
-    },
-
-    // FIXME: TECH-DEBT — vault escape hatch for merits per-request signing.
-    // Remove when merits moves to session tokens.
-    async exportKeyPair(publicKey: RawPublicKey): Promise<Result<KeriKeyPair, ResolveKeyError>> {
-      const entry = keys.get(publicKeyHex(publicKey));
-      if (!entry) return err({ kind: 'key-not-found', publicKey });
-      const pair: KeriKeyPair = {
-        publicKey: toCESRPublicKey(publicKey),
-        privateKey: encodeKey(entry.privateKey, true).qb64,
-        transferable: true,
-        algo: entry.algo as KeriKeyPair['algo'],
-      };
-      return ok(pair);
     },
   };
 }

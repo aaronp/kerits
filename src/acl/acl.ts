@@ -6,7 +6,7 @@ import { err, ok, type Result } from '../result.js';
 import { type AccessControls, type AccessControlsError, projectAccessControls } from './access-controls.js';
 import { makeAclNode } from './make-node.js';
 import { type AidKeyLookup, resolve as resolveNode } from './resolve.js';
-import { type KeyPurpose, type Snapshot, snapshotOf } from './snapshot.js';
+import { type KeyUse, type Snapshot, snapshotOf } from './snapshot.js';
 import type { AclOp, AclTree } from './tree.js';
 import type { AclNode, AclRef, PublicKey, ResolutionError } from './types.js';
 
@@ -56,7 +56,7 @@ function snapshot(
   tree: AclTree,
   system: string,
   op: AclOp,
-  purpose: KeyPurpose,
+  purpose: KeyUse,
   expandAid?: AidKeyLookup,
 ): Result<Snapshot, ResolutionError | { kind: 'privilege-not-found'; system: string; op: AclOp }> {
   const nodeId = tree.privileges[system]?.[op];
@@ -98,7 +98,7 @@ export class AclOps {
   snapshot(
     system: string,
     op: AclOp,
-    purpose: KeyPurpose,
+    purpose: KeyUse,
     expandAid?: AidKeyLookup,
   ): Result<Snapshot, ResolutionError | { kind: 'privilege-not-found'; system: string; op: AclOp }> {
     return snapshot(this.tree, system, op, purpose, expandAid);

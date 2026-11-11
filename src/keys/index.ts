@@ -14,6 +14,7 @@ export {
   toEd25519PublicRaw,
   toRawPublicKey,
 } from './raw-public-key.js';
+export type { SignPurpose } from './sign-purpose.js';
 export type { TestKeyEntry } from './test-keys.js';
 export { TestKeys } from './test-keys.js';
 export type {
@@ -36,6 +37,7 @@ export type {
   UnlockResolvers,
   Vault,
   VaultConfig,
+  VaultKeyStore,
   WithGrantOptions,
 } from './types.js';
 export { Algos } from './types.js';

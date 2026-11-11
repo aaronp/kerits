@@ -17,6 +17,8 @@ import type { EncryptionPlugin, Grant, KeyPersistence, RawPublicKey, UnlockProvi
 import { UnlockRefs } from '../unlock-ref.js';
 import type { UnlockRef } from '../unlock-ref.js';
 
+const testPurpose = { purpose: { type: 'test' }, purposeText: 'test' };
+
 /** Helper: create a vault with XOR + in-memory persistence for byte-inspection tests */
 function createTestVault(provider: UnlockProvider, persistence?: KeyPersistence) {
   const p = persistence ?? KeyPersistences.inMemory();
@@ -42,7 +44,7 @@ describe('Vault', () => {
       if (!genResult.ok) return;
       const { publicKey } = genResult.value;
 
-      const resolveResult = await vault.keyStore(grant).resolve(publicKey);
+      const resolveResult = await vault.keyStore(grant).resolve(publicKey, testPurpose);
       expect(resolveResult.ok).toBe(true);
       if (!resolveResult.ok) return;
 
@@ -109,7 +111,7 @@ describe('Vault', () => {
       const corrupted = { ...entry, encryptedPrivateKey: new Uint8Array(32).fill(0xff) };
       await persistence.store(corrupted);
 
-      const resolveResult = await vault.keyStore(grant).resolve(publicKey);
+      const resolveResult = await vault.keyStore(grant).resolve(publicKey, testPurpose);
 
       expect(resolveResult.ok).toBe(true);
       if (!resolveResult.ok) return;
@@ -143,7 +145,7 @@ describe('Vault', () => {
       const corrupted = { ...entry, encryptedPrivateKey: new Uint8Array(entry.encryptedPrivateKey.length).fill(0xff) };
       await persistence.store(corrupted);
 
-      const resolveResult = await vault.keyStore(grant).resolve(publicKey);
+      const resolveResult = await vault.keyStore(grant).resolve(publicKey, testPurpose);
 
       expect(resolveResult.ok).toBe(false);
       if (!resolveResult.ok) {
@@ -171,7 +173,7 @@ describe('Vault', () => {
     });
 
     const result = await fixedProvider.withGrant(async (grant) => {
-      return vault.keyStore(grant).resolve(publicKey);
+      return vault.keyStore(grant).resolve(publicKey, testPurpose);
     });
 
     expect(result.ok).toBe(false);
@@ -234,14 +236,14 @@ describe('Vault', () => {
       const store = vault.keyStore(grant);
 
       // method under test: both resolvable and produce valid signatures
-      const edResult = await store.resolve(ed.value.publicKey);
+      const edResult = await store.resolve(ed.value.publicKey, testPurpose);
       expect(edResult.ok).toBe(true);
       if (edResult.ok) {
         const sig = await edResult.value.withSigner(async (s) => s.signBytes(data));
         expect(Signers.verify(toCESRPublicKey(ed.value.publicKey), sig, data)).toBe(true);
       }
 
-      const secResult = await store.resolve(sec.value.publicKey);
+      const secResult = await store.resolve(sec.value.publicKey, testPurpose);
       expect(secResult.ok).toBe(true);
       if (secResult.ok) {
         const sig = await secResult.value.withSigner(async (s) => s.signBytes(data));
@@ -274,7 +276,7 @@ describe('Vault', () => {
       const data = new TextEncoder().encode('keychain dispatch');
 
       // method under test: resolve vault key through keychain
-      const vaultResult = await keychain.resolve(vaultKey.publicKey);
+      const vaultResult = await keychain.resolve(vaultKey.publicKey, testPurpose);
       expect(vaultResult.ok).toBe(true);
       if (vaultResult.ok) {
         const sig = await vaultResult.value.withSigner(async (s) => s.signBytes(data));
@@ -282,7 +284,7 @@ describe('Vault', () => {
       }
 
       // method under test: resolve external key through keychain
-      const extResult = await keychain.resolve(externalKey.publicKey);
+      const extResult = await keychain.resolve(externalKey.publicKey, testPurpose);
       expect(extResult.ok).toBe(true);
       if (extResult.ok) {
         const sig = await extResult.value.withSigner(async (s) => s.signBytes(data));
@@ -306,7 +308,7 @@ describe('Vault', () => {
 
     // method under test: login lifecycle — extract X25519 pub, grant closes
     const sessionMaterial = await provider.withGrant(async (grant) => {
-      const result = await vault.keyStore(grant).resolve(publicKey);
+      const result = await vault.keyStore(grant).resolve(publicKey, testPurpose);
       if (!result.ok) throw new Error(result.error.kind);
 
       return result.value.withSigner(async (signer) => {
@@ -339,7 +341,7 @@ describe('Vault', () => {
 
     // method under test: one-shot signing in a fresh grant
     const sig = await provider.withGrant(async (grant) => {
-      const result = await vault.keyStore(grant).resolve(publicKey);
+      const result = await vault.keyStore(grant).resolve(publicKey, testPurpose);
       if (!result.ok) throw new Error(result.error.kind);
       return result.value.withSigner(async (signer) => signer.signBytes(data));
     });
@@ -372,7 +374,7 @@ describe('Vault', () => {
 
     // Verify it's resolvable through the vault
     await provider.withGrant(async (grant) => {
-      const result = await vault.keyStore(grant).resolve(found!);
+      const result = await vault.keyStore(grant).resolve(found!, testPurpose);
       expect(result.ok).toBe(true);
     });
   });
@@ -395,8 +397,8 @@ describe('Vault', () => {
       const store = vault.keyStore(grant);
 
       // Get X25519 public keys
-      const aliceResult = await store.resolve(aliceKey);
-      const bobResult = await store.resolve(bobKey);
+      const aliceResult = await store.resolve(aliceKey, testPurpose);
+      const bobResult = await store.resolve(bobKey, testPurpose);
       if (!aliceResult.ok || !bobResult.ok) throw new Error('resolve failed');
 
       const aliceX25519Pub = await aliceResult.value.withSigner(async (s) => {
@@ -412,8 +414,8 @@ describe('Vault', () => {
       const info = new TextEncoder().encode('test-ecdh');
 
       // method under test: Alice derives with Bob's pub, Bob derives with Alice's pub
-      const aliceResolve2 = await store.resolve(aliceKey);
-      const bobResolve2 = await store.resolve(bobKey);
+      const aliceResolve2 = await store.resolve(aliceKey, testPurpose);
+      const bobResolve2 = await store.resolve(bobKey, testPurpose);
       if (!aliceResolve2.ok || !bobResolve2.ok) throw new Error('resolve2 failed');
 
       const aliceDerived = await aliceResolve2.value.withSigner(async (s) => {
@@ -495,7 +497,7 @@ describe('Vault', () => {
     await provider.withGrant(async (grant) => {
       const store = vault.keyStore(grant);
       for (const key of keys) {
-        const result = await store.resolve(key.publicKey);
+        const result = await store.resolve(key.publicKey, testPurpose);
         expect(result.ok).toBe(true);
       }
     });
@@ -514,7 +516,7 @@ describe('Vault', () => {
       if (!genResult.ok) return;
 
       const data = new TextEncoder().encode('Vaults.withDefaults smoke');
-      const result = await vault.keyStore(grant).resolve(genResult.value.publicKey);
+      const result = await vault.keyStore(grant).resolve(genResult.value.publicKey, testPurpose);
       expect(result.ok).toBe(true);
       if (!result.ok) return;
 
@@ -616,13 +618,13 @@ describe('Vault', () => {
 
     // method under test: resolve with Alice's salt succeeds
     const aliceResult = await provider.withGrant({ salt: saltAlice }, async (grant) => {
-      return vaultA.keyStore(grant).resolve(aliceKey);
+      return vaultA.keyStore(grant).resolve(aliceKey, testPurpose);
     });
     expect(aliceResult.ok).toBe(true);
 
     // method under test: resolve with Bob's salt fails (wrong encryption key → AES-GCM auth failure)
     const bobResult = await provider.withGrant({ salt: saltBob }, async (grant) => {
-      return vaultB.keyStore(grant).resolve(aliceKey);
+      return vaultB.keyStore(grant).resolve(aliceKey, testPurpose);
     });
     expect(bobResult.ok).toBe(false);
     if (!bobResult.ok) {
@@ -647,7 +649,7 @@ describe('Vault', () => {
     // method under test: sign with same salt
     const data = new TextEncoder().encode('salted signing');
     const sig = await provider.withGrant({ salt }, async (grant) => {
-      const result = await vault.keyStore(grant).resolve(publicKey);
+      const result = await vault.keyStore(grant).resolve(publicKey, testPurpose);
       if (!result.ok) throw new Error(result.error.kind);
       return result.value.withSigner(async (s) => s.signBytes(data));
     });
@@ -673,7 +675,7 @@ describe('Vault', () => {
     // method under test: capture signer reference, verify key is zeroed after callback
     let capturedSigner: { signBytes(data: Uint8Array): Promise<any> } | undefined;
     await provider.withGrant(async (grant) => {
-      const result = await vault.keyStore(grant).resolve(publicKey);
+      const result = await vault.keyStore(grant).resolve(publicKey, testPurpose);
       if (!result.ok) throw new Error(result.error.kind);
 
       await result.value.withSigner(async (signer) => {
@@ -702,7 +704,7 @@ describe('Vault', () => {
       if (!genResult.ok) throw new Error('gen failed');
       const { publicKey } = genResult.value;
 
-      const resolveResult = await vault.keyStore(grant).resolve(publicKey);
+      const resolveResult = await vault.keyStore(grant).resolve(publicKey, testPurpose);
       if (!resolveResult.ok) throw new Error('resolve failed');
 
       const data = new TextEncoder().encode('cesr native test');
@@ -730,7 +732,7 @@ describe('Vault', () => {
       if (!genResult.ok) throw new Error('gen failed');
       const { publicKey } = genResult.value;
 
-      const resolveResult = await vault.keyStore(grant).resolve(publicKey);
+      const resolveResult = await vault.keyStore(grant).resolve(publicKey, testPurpose);
       if (!resolveResult.ok) throw new Error('resolve failed');
 
       const data = new TextEncoder().encode('secp cesr test');
@@ -757,7 +759,7 @@ describe('Vault', () => {
       const genResult = await vault.generator(grant).generate(Algos.Ed25519);
       if (!genResult.ok) throw new Error('gen failed');
 
-      const resolveResult = await vault.keyStore(grant).resolve(genResult.value.publicKey);
+      const resolveResult = await vault.keyStore(grant).resolve(genResult.value.publicKey, testPurpose);
       if (!resolveResult.ok) throw new Error('resolve failed');
 
       // method under test
@@ -781,7 +783,7 @@ describe('Vault', () => {
       const genResult = await vault.generator(grant).generate(Algos.Secp256k1);
       if (!genResult.ok) throw new Error('gen failed');
 
-      const resolveResult = await vault.keyStore(grant).resolve(genResult.value.publicKey);
+      const resolveResult = await vault.keyStore(grant).resolve(genResult.value.publicKey, testPurpose);
       if (!resolveResult.ok) throw new Error('resolve failed');
 
       // method under test
@@ -847,7 +849,7 @@ describe('Vault UnlockRef matching', () => {
     const keyB = await generateUnder(vault, b);
 
     // call out our method under test
-    const result = await a.withGrant((grant) => vault.keyStore(grant).resolve(keyB));
+    const result = await a.withGrant((grant) => vault.keyStore(grant).resolve(keyB, testPurpose));
 
     // assertions: typed wrong-unlock naming both refs; the cipher was never touched
     expect(result.ok).toBe(false);
@@ -865,8 +867,8 @@ describe('Vault UnlockRef matching', () => {
     const impostor = providerWith(a.ref, new Uint8Array(32).fill(0x07));
 
     // call out our method under test
-    const result = await impostor.withGrant((grant) => vault.keyStore(grant).resolve(keyA));
-    const exported = await impostor.withGrant((grant) => vault.keyStore(grant).exportKeyPair!(keyA));
+    const result = await impostor.withGrant((grant) => vault.keyStore(grant).resolve(keyA, testPurpose));
+    const exported = await impostor.withGrant((grant) => vault.keyStore(grant).exportKeyPair(keyA));
 
     // assertions: authentication failure is reported as wrong-secret for A's ref
     expect(result.ok).toBe(false);

@@ -2,6 +2,7 @@ import type { Brand } from '../common/brand.js';
 import type { KeriKeyPair, Timestamp } from '../common/types.js';
 import type { Result } from '../result.js';
 import type { Ed25519Signer, Signer, UnexpectedAlgoError } from '../signature/signer.js';
+import type { SignPurpose } from './sign-purpose.js';
 import type { UnlockMechanism, UnlockRef } from './unlock-ref.js';
 
 /**
@@ -39,11 +40,14 @@ export type Grant = {
 export type WithGrantOptions = {
   /** Wallet-scoped salt. Included on the Grant so the vault derives a unique encryption key. */
   readonly salt?: Uint8Array;
+  /** Why the grant is requested; a prompting provider can show it. */
+  readonly purpose?: SignPurpose;
 };
 
 /**
  * Produces short-lived Grants via a challenge/unlock mechanism.
- * The grant (and its secret) only exist within the withGrant callback — no escape hatch.
+ * The grant (and its secret) only exist within the withGrant callback. The one exception is KeyManagement's session
+ * window, which holds a single copy past the callback (zeroed on close/expiry); nothing else does.
  * Platform packages implement concrete providers (passkey PRF, iOS Keychain, etc.).
  */
 export type UnlockProvider = {
@@ -122,10 +126,16 @@ export type KeyStore = {
    */
   readonly id: string;
   hasKey(publicKey: RawPublicKey): Promise<boolean>;
-  resolve(publicKey: RawPublicKey): Promise<Result<KeyScope, ResolveKeyError>>;
-  // FIXME: TECH-DEBT — vault escape hatch for merits per-request signing.
-  // Remove when merits moves to session tokens.
-  exportKeyPair?(publicKey: RawPublicKey): Promise<Result<KeriKeyPair, ResolveKeyError>>;
+  /** `purpose` says why the key is wanted; stores that prompt can show it, others ignore it. */
+  resolve(publicKey: RawPublicKey, purpose: SignPurpose): Promise<Result<KeyScope, ResolveKeyError>>;
+};
+
+/**
+ * Vault-only KeyStore: adds an export of the private key.
+ * FIXME: TECH-DEBT — key-share is its only caller; remove exportKeyPair when key-share stops sending the private key.
+ */
+export type VaultKeyStore = KeyStore & {
+  exportKeyPair(publicKey: RawPublicKey): Promise<Result<KeriKeyPair, ResolveKeyError>>;
 };
 
 /** Result of key generation. */
@@ -202,7 +212,7 @@ export type Vault = {
   /** Find a public key by its pre-computed digest (Blake3 hex). O(n) scan, sufficient for typical key counts. */
   lookupByDigest(digest: string): Promise<RawPublicKey | undefined>;
   /** Grant-scoped KeyStore. resolve checks ref mismatch before decryption. */
-  keyStore(grant: Grant): KeyStore;
+  keyStore(grant: Grant): VaultKeyStore;
   /** Grant-scoped KeyGenerator. Generated keys encrypted with grant.secret, tagged with grant.ref. */
   generator(grant: Grant): KeyGenerator;
   /**

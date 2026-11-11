@@ -4,6 +4,8 @@ import { asRawPublicKey } from '../raw-public-key.js';
 import { Signers } from '../../signature/index.js';
 import { toCESRPublicKey } from '../raw-public-key.js';
 
+const testPurpose = { purpose: { type: 'test' }, purposeText: 'test' };
+
 describe('FakeHsmKeyStore', () => {
   test('generate → resolve → sign → verify', async () => {
     // setup: simulates an external hardware key source
@@ -15,7 +17,7 @@ describe('FakeHsmKeyStore', () => {
     if (!genResult.ok) return;
 
     // method under test: resolve + sign
-    const resolveResult = await hsm.resolve(genResult.value.publicKey);
+    const resolveResult = await hsm.resolve(genResult.value.publicKey, testPurpose);
     expect(resolveResult.ok).toBe(true);
     if (!resolveResult.ok) return;
 
@@ -43,7 +45,7 @@ describe('FakeHsmKeyStore', () => {
     const unknownKey = asRawPublicKey(new Uint8Array(32));
 
     // method under test: resolve
-    const result = await hsm.resolve(unknownKey);
+    const result = await hsm.resolve(unknownKey, testPurpose);
 
     // assertions: returns key-not-found error
     expect(result.ok).toBe(false);
