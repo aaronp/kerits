@@ -7,9 +7,8 @@ import type { SignPurpose } from './sign-purpose.js';
 import type { Algo, KeyGenerator, KeyScope, KeyStore, RawPublicKey, ResolveKeyError } from './types.js';
 
 /**
- * Store ids (`KeyStore.id`) are not a durable reference: an external key's store is found only by asking live
- * registered stores. Intended fix: a typed `StoreRef` resolved by the wallet, matching `UnlockRef`
- * (see docs/superpowers/specs/2026-11-04-unlock-ref-design.md).
+ * Live registered stores. Store ids (`KeyStore.id`) are durable: key pool rows persist them, so a key its store no
+ * longer lists is still routed to that store by id (`getStore`).
  */
 export type Keychain = {
   register(store: KeyStore, generator?: KeyGenerator): void;
@@ -20,6 +19,8 @@ export type Keychain = {
   hasKey(publicKey: RawPublicKey): Promise<boolean>;
   /** Store id that holds this public key, if any. No unlock. */
   findStoreId(publicKey: RawPublicKey): Promise<string | undefined>;
+  /** First store that holds the key committed to by this next-key digest. */
+  lookupByDigest(digest: string): Promise<RawPublicKey | undefined>;
   resolve(publicKey: RawPublicKey, purpose: SignPurpose): Promise<Result<KeyScope, ResolveKeyError>>;
 };
 
@@ -71,6 +72,14 @@ export namespace Keychains {
             keyIndex.set(hex, id);
             return id;
           }
+        }
+        return undefined;
+      },
+
+      async lookupByDigest(digest: string): Promise<RawPublicKey | undefined> {
+        for (const store of stores.values()) {
+          const found = await store.lookupByDigest?.(digest);
+          if (found) return found;
         }
         return undefined;
       },

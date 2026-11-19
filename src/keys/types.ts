@@ -120,14 +120,13 @@ export type KeyScope = {
 
 /** A source of keys that can produce signers. */
 export type KeyStore = {
-  /**
-   * Not a durable reference: an external key's store is found only by asking live registered stores. Intended fix:
-   * a typed `StoreRef` resolved by the wallet, matching `UnlockRef` (see docs/superpowers/specs/2026-11-04-unlock-ref-design.md).
-   */
+  /** Durable: stable across reloads, since key pool rows persist it as `keyStoreId` to route a key to its store. */
   readonly id: string;
   hasKey(publicKey: RawPublicKey): Promise<boolean>;
   /** `purpose` says why the key is wanted; stores that prompt can show it, others ignore it. */
   resolve(publicKey: RawPublicKey, purpose: SignPurpose): Promise<Result<KeyScope, ResolveKeyError>>;
+  /** The held key whose KERI next-key commitment (`digestVerfer` of its qb64) is `digest`. Public key only. */
+  lookupByDigest?(digest: string): Promise<RawPublicKey | undefined>;
 };
 
 /**
@@ -231,7 +230,9 @@ export type ResolveKeyError =
       readonly actual: UnlockRef;
     }
   | { readonly kind: 'wrong-secret'; readonly publicKey: RawPublicKey; readonly ref: UnlockRef }
-  | { readonly kind: 'store-error'; readonly storeId: string; readonly cause: unknown };
+  | { readonly kind: 'store-error'; readonly storeId: string; readonly cause: unknown }
+  /** The key's recorded store is not registered on the keychain (e.g. its host is not loaded). */
+  | { readonly kind: 'store-not-registered'; readonly publicKey: RawPublicKey; readonly storeId: string };
 
 export type GenerateKeyError =
   | { readonly kind: 'algo-not-supported'; readonly algo: Algo }

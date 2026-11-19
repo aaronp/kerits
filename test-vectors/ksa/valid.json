@@ -1,0 +1,37 @@
+{
+  "description": "A valid KEL assessed by the pinned service key, 60s old.",
+  "rpy": "eyJ2IjoiS0VSSTEwSlNPTjAwMDJiMl8iLCJ0IjoicnB5IiwiZCI6IkVNWnlUVERMYWFOV0dlVk5fay01OHNkRDc4NFN3OURGMFpocWQtQTQyMWlCIiwiZHQiOiIyMDI2LTExLTE3VDEyOjAwOjAwLjAwMFoiLCJyIjoiL2tzYSIsImEiOnsia3NuIjp7InYiOiJLRVJJMTBKU09OMDAwMTJiXyIsImkiOiJFRjllVGFUSzFMRTZyMWFKNTJCQ0VQaTJBQlZOM0pNMnVGczBYWTY1ODFBWiIsInMiOiIwIiwicCI6IkVGOWVUYVRLMUxFNnIxYUo1MkJDRVBpMkFCVk4zSk0ydUZzMFhZNjU4MUFaIiwiZCI6IkVGOWVUYVRLMUxFNnIxYUo1MkJDRVBpMkFCVk4zSk0ydUZzMFhZNjU4MUFaIiwiZXQiOiJpY3AiLCJrdCI6IjEiLCJrIjpbIkRBckhOaXhKOVA0SzQ2UGxCSC1tZjhYZk1yNUU2QlBiZEJLRlgzMnBSSGRNIl0sIm50IjoiMSIsIm4iOlsiRU45SDE5WlUxbEdJdVlpYXdhV0NyZERhY29oMGNFMURzSU92M1BGVl9zNFEiXSwiYnQiOiIwIiwiYiI6W119LCJ2YWxpZGF0aW9uIjp7InN0YXR1cyI6InZhbGlkIn0sInZhbGlkYXRlZEhlYWQiOnsicyI6IjAiLCJkIjoiRUY5ZVRhVEsxTEU2cjFhSjUyQkNFUGkyQUJWTjNKTTJ1RnMwWFk2NTgxQVoiLCJrIjpbIkRBckhOaXhKOVA0SzQ2UGxCSC1tZjhYZk1yNUU2QlBiZEJLRlgzMnBSSGRNIl0sImt0IjoiMSJ9LCJhc3Nlc3NlZEF0IjoiMjAyNi0xMS0xN1QxMjowMDowMC4wMDBaIn19LUNBQkJQcVlmQmpLcnpuWVpXaWdIUUdOODJQR1dMQkNzQ05MeEZJZl93d3QwczNzMEJCb3dxU2dSNkQwMDRfdHZLUENwM3JfX19LeTg0VXBKSF92TEJKd0Yta3JQdXY5ZExnN1YxQ3dGdWVHTTVPLVk5WWd6WDNDSWd1eWhpdTlHemJWMWE0TQ",
+  "verifierKeys": ["BPqYfBjKrznYZWigHQGN82PGWLBCsCNLxFIf_wwt0s3s"],
+  "now": "2026-11-17T12:01:00.000Z",
+  "expected": {
+    "ok": true,
+    "value": {
+      "said": "EMZyTTDLaaNWGeVN_k-58sdD784Sw9DF0Zhqd-A421iB",
+      "assessment": {
+        "ksn": {
+          "v": "KERI10JSON00012b_",
+          "i": "EF9eTaTK1LE6r1aJ52BCEPi2ABVN3JM2uFs0XY6581AZ",
+          "s": "0",
+          "p": "EF9eTaTK1LE6r1aJ52BCEPi2ABVN3JM2uFs0XY6581AZ",
+          "d": "EF9eTaTK1LE6r1aJ52BCEPi2ABVN3JM2uFs0XY6581AZ",
+          "et": "icp",
+          "kt": "1",
+          "k": ["DArHNixJ9P4K46PlBH-mf8XfMr5E6BPbdBKFX32pRHdM"],
+          "nt": "1",
+          "n": ["EN9H19ZU1lGIuYiawaWCrdDacoh0cE1DsIOv3PFV_s4Q"],
+          "bt": "0",
+          "b": []
+        },
+        "validation": { "status": "valid" },
+        "validatedHead": {
+          "s": "0",
+          "d": "EF9eTaTK1LE6r1aJ52BCEPi2ABVN3JM2uFs0XY6581AZ",
+          "k": ["DArHNixJ9P4K46PlBH-mf8XfMr5E6BPbdBKFX32pRHdM"],
+          "kt": "1"
+        },
+        "assessedAt": "2026-11-17T12:00:00.000Z"
+      },
+      "signer": "BPqYfBjKrznYZWigHQGN82PGWLBCsCNLxFIf_wwt0s3s"
+    }
+  }
+}

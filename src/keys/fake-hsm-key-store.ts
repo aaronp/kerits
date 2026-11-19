@@ -1,5 +1,6 @@
 // packages/core/src/keys/fake-hsm-key-store.ts
 import { ed25519 } from '@noble/curves/ed25519.js';
+import { digestVerfer } from '../cesr/digest.js';
 import { encodeSig } from '../cesr/sigs.js';
 import type { Algo } from '../common/algo.js';
 import type { PublicKey, SAID, Signature } from '../common/types.js';
@@ -26,7 +27,7 @@ export namespace FakeHsmKeyStores {
   let counter = 0;
 
   export function create(): KeyStore & KeyGenerator {
-    const keys = new Map<string, { privateKey: Uint8Array; algo: Algo }>();
+    const keys = new Map<string, { privateKey: Uint8Array; algo: Algo; publicKey: RawPublicKey }>();
     const id = `fake-hsm:${counter++}`;
 
     return {
@@ -34,6 +35,10 @@ export namespace FakeHsmKeyStores {
 
       async hasKey(publicKey: RawPublicKey): Promise<boolean> {
         return keys.has(publicKeyHex(publicKey));
+      },
+
+      async lookupByDigest(digest: string): Promise<RawPublicKey | undefined> {
+        return [...keys.values()].find((e) => digestVerfer(toCESRPublicKey(e.publicKey)) === digest)?.publicKey;
       },
 
       async resolve(publicKey: RawPublicKey): Promise<Result<KeyScope, ResolveKeyError>> {
@@ -96,7 +101,7 @@ export namespace FakeHsmKeyStores {
         const privateKey = ed25519.utils.randomSecretKey();
         const publicKeyRaw = ed25519.getPublicKey(privateKey);
         const publicKey = asRawPublicKey(publicKeyRaw);
-        keys.set(publicKeyHex(publicKey), { privateKey, algo });
+        keys.set(publicKeyHex(publicKey), { privateKey, algo, publicKey });
         return ok({ publicKey, algo });
       },
 
@@ -107,7 +112,7 @@ export namespace FakeHsmKeyStores {
           const privateKey = ed25519.utils.randomSecretKey();
           const publicKeyRaw = ed25519.getPublicKey(privateKey);
           const publicKey = asRawPublicKey(publicKeyRaw);
-          keys.set(publicKeyHex(publicKey), { privateKey, algo });
+          keys.set(publicKeyHex(publicKey), { privateKey, algo, publicKey });
           results.push({ publicKey, algo });
         }
         return ok(results);

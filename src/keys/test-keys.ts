@@ -1,6 +1,7 @@
 // packages/core/src/keys/test-keys.ts
 import { ed25519 } from '@noble/curves/ed25519.js';
 import { sha256 } from '@noble/hashes/sha2.js';
+import { digestVerfer } from '../cesr/digest.js';
 import { encodeSig } from '../cesr/sigs.js';
 import type { Algo } from '../common/algo.js';
 import type { PublicKey, SAID, Signature } from '../common/types.js';
@@ -292,6 +293,15 @@ export namespace TestKeys {
 
       async hasKey(publicKey: RawPublicKey): Promise<boolean> {
         return issued.has(publicKeyHex(publicKey));
+      },
+
+      async lookupByDigest(digest: string): Promise<RawPublicKey | undefined> {
+        for (const entry of keys) {
+          const publicKey = asRawPublicKey(entry.publicKey);
+          if (issued.has(publicKeyHex(publicKey)) && digestVerfer(toCESRPublicKey(publicKey)) === digest)
+            return publicKey;
+        }
+        return undefined;
       },
 
       async resolve(publicKey: RawPublicKey): Promise<Result<KeyScope, ResolveKeyError>> {

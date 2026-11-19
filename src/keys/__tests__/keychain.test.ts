@@ -5,6 +5,7 @@ import { InMemoryKeyStores } from '../in-memory-key-store.js';
 import { FakeHsmKeyStores } from '../fake-hsm-key-store.js';
 import { asRawPublicKey, toCESRPublicKey } from '../raw-public-key.js';
 import { Signers } from '../../signature/index.js';
+import { digestVerfer } from '../../cesr/digest.js';
 
 const testPurpose = { purpose: { type: 'test' }, purposeText: 'test' };
 
@@ -175,5 +176,24 @@ describe('Keychain', () => {
 
     // method under test
     expect(keychain.listGeneratorIds()).toEqual([]);
+  });
+
+  test('lookupByDigest finds a key in the store that holds it', async () => {
+    // setup: two fake-HSM stores, a key in the second
+    const a = FakeHsmKeyStores.create();
+    const b = FakeHsmKeyStores.create();
+    await a.generate('ed25519');
+    const key = (await b.generate('ed25519')).value!;
+    const keychain = Keychains.create();
+    keychain.register(a, a);
+    keychain.register(b, b);
+
+    // call out our method under test
+    const found = await keychain.lookupByDigest(digestVerfer(toCESRPublicKey(key.publicKey)));
+    const unknown = await keychain.lookupByDigest('Eunknown');
+
+    // assertions: the held key resolves, an unknown digest does not
+    expect(found).toEqual(key.publicKey);
+    expect(unknown).toBeUndefined();
   });
 });

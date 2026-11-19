@@ -266,6 +266,9 @@ export {
 } from './kel/validation.js';
 // ── KEL validation predicates ────────────────────────────────────────
 export { eventContainsAnchorForSaid, verifyWitnessReceipt } from './kel/validation-predicates.js';
+// ── Signed key state assessment (rpy /ksa) ──────────────────────────
+export type { AttestRefusal } from './keri/assess-kel-head.js';
+export { assessKelHead, serviceAidOf } from './keri/assess-kel-head.js';
 // ── Canonical URL paths ──────────────────────────────────────────────
 export { CanonicalPaths, KERI_PREFIX } from './keri/canonical-paths.js';
 // ── Profile alias (local nicknames; public handles use Usernames) ────
@@ -275,6 +278,8 @@ export {
   normalizeDisplayNameToProfileUsername,
   profileUsernameFromDisplayName,
 } from './keri/profile-username.js';
+export type { KeyStateAssessment, SignedAssessment } from './keri/rpy-ksa.js';
+export { RpyKsa } from './keri/rpy-ksa.js';
 export { Usernames } from './keri/usernames.js';
 // ── Key management ──────────────────────────────────────────────────
 export {

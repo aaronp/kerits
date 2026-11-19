@@ -1,0 +1,46 @@
+{
+  "description": "A drt whose delegator anchor is not published: pending, validatedHead the dip.",
+  "rpy": "eyJ2IjoiS0VSSTEwSlNPTjAwMDM1Y18iLCJ0IjoicnB5IiwiZCI6IkVDRTVGZ2E2M2toSWd4ODI3MlVEVmR6Q1ZVYTI3dVFKZk9vY3QtMU53RzZpIiwiZHQiOiIyMDI2LTExLTE3VDEyOjAwOjAwLjAwMFoiLCJyIjoiL2tzYSIsImEiOnsia3NuIjp7InYiOiJLRVJJMTBKU09OMDAwMTYwXyIsImkiOiJFQmdxcGhNNUJZNEhlMEdENUpEdUdvSE9EcHV2SDF5TFZGVUdCQUxaNVliQSIsInMiOiIxIiwicCI6IkVCZ3FwaE01Qlk0SGUwR0Q1SkR1R29IT0RwdXZIMXlMVkZVR0JBTFo1WWJBIiwiZCI6IkVKb2I0QnpYUEc3QTc2Ym92RWN0QzJGb19EUWtDcmN6cDdPVlpzRWZXcW9EIiwiZXQiOiJkcnQiLCJrdCI6IjEiLCJrIjpbIkRPTi1McldpMDV1X2x5Wm5HZ3hvemtndEVWWC1JS1h2X0FaQVliQzVyeExlIl0sIm50IjoiMSIsIm4iOlsiRUNnVmNFUEpNdjhzcnpVdzJxM2tqWFYzdHcxUW8wRjdTSE9tV042cmpEaTQiXSwiYnQiOiIwIiwiYiI6W119LCJ2YWxpZGF0aW9uIjp7InN0YXR1cyI6InBlbmRpbmciLCJvdXRzdGFuZGluZyI6W3sidHlwZSI6ImRlbGVnYXRpb24tYXBwcm92YWwiLCJldmVudFNhaWQiOiJFSm9iNEJ6WFBHN0E3NmJvdkVjdEMyRm9fRFFrQ3JjenA3T1Zac0VmV3FvRCIsImRlbGVnYXRvckFpZCI6IkVMZVVQdFBPQmFmZmdtRE5wZi1KaU4tNms5clNfYmhVVHlfcFRlMDRrMERJIn1dfSwidmFsaWRhdGVkSGVhZCI6eyJzIjoiMCIsImQiOiJFQmdxcGhNNUJZNEhlMEdENUpEdUdvSE9EcHV2SDF5TFZGVUdCQUxaNVliQSIsImsiOlsiRFAwbWNNZWg0MDF6NVRRemFYeHc0Vy1mOFpxRk5yWWZaZk9TaHNHak0tbEYiXSwia3QiOiIxIn0sImFzc2Vzc2VkQXQiOiIyMDI2LTExLTE3VDEyOjAwOjAwLjAwMFoifX0tQ0FCQlBxWWZCaktyem5ZWldpZ0hRR044MlBHV0xCQ3NDTkx4RklmX3d3dDBzM3MwQkRXZDRhbHVXekRZU2dKNXRCX1hFNEU2d0RrRWloRl9RUVpCYXpPLVQtTUlkbmhya3lqcV9HLVR2Q0VWTjhUX0ppR0h4OVd3aHBiZFRsOW5TQW9RY1FH",
+  "verifierKeys": ["BPqYfBjKrznYZWigHQGN82PGWLBCsCNLxFIf_wwt0s3s"],
+  "now": "2026-11-17T12:01:00.000Z",
+  "expected": {
+    "ok": true,
+    "value": {
+      "said": "ECE5Fga63khIgx8272UDVdzCVUa27uQJfOoct-1NwG6i",
+      "assessment": {
+        "ksn": {
+          "v": "KERI10JSON000160_",
+          "i": "EBgqphM5BY4He0GD5JDuGoHODpuvH1yLVFUGBALZ5YbA",
+          "s": "1",
+          "p": "EBgqphM5BY4He0GD5JDuGoHODpuvH1yLVFUGBALZ5YbA",
+          "d": "EJob4BzXPG7A76bovEctC2Fo_DQkCrczp7OVZsEfWqoD",
+          "et": "drt",
+          "kt": "1",
+          "k": ["DON-LrWi05u_lyZnGgxozkgtEVX-IKXv_AZAYbC5rxLe"],
+          "nt": "1",
+          "n": ["ECgVcEPJMv8srzUw2q3kjXV3tw1Qo0F7SHOmWN6rjDi4"],
+          "bt": "0",
+          "b": []
+        },
+        "validation": {
+          "status": "pending",
+          "outstanding": [
+            {
+              "type": "delegation-approval",
+              "eventSaid": "EJob4BzXPG7A76bovEctC2Fo_DQkCrczp7OVZsEfWqoD",
+              "delegatorAid": "ELeUPtPOBaffgmDNpf-JiN-6k9rS_bhUTy_pTe04k0DI"
+            }
+          ]
+        },
+        "validatedHead": {
+          "s": "0",
+          "d": "EBgqphM5BY4He0GD5JDuGoHODpuvH1yLVFUGBALZ5YbA",
+          "k": ["DP0mcMeh401z5TQzaXxw4W-f8ZqFNrYfZfOShsGjM-lF"],
+          "kt": "1"
+        },
+        "assessedAt": "2026-11-17T12:00:00.000Z"
+      },
+      "signer": "BPqYfBjKrznYZWigHQGN82PGWLBCsCNLxFIf_wwt0s3s"
+    }
+  }
+}

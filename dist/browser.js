@@ -3874,6 +3874,26 @@ __export(exports_predicates, {
   isRot: () => isRot
 });
 
+// src/signature/primitives.ts
+var exports_primitives = {};
+__export(exports_primitives, {
+  bytesToHex: () => bytesToHex3,
+  canonicalize: () => canonicalize,
+  canonicalizeToBytes: () => canonicalizeToBytes,
+  decodeBase64Url: () => decodeBase64Url,
+  encodeBase64Url: () => encodeBase64Url,
+  generateKeyPair: () => generateKeyPair,
+  getPublicKey: () => getPublicKey,
+  hexToBytes: () => hexToBytes3,
+  randomBytes: () => randomBytes3,
+  sha256: () => sha2562,
+  sha256Hex: () => sha256Hex,
+  sha512: () => sha5122,
+  sha512Hex: () => sha512Hex,
+  sign: () => sign,
+  verify: () => verify3
+});
+
 // src/said/next-key-digest.ts
 var exports_next_key_digest = {};
 __export(exports_next_key_digest, {
@@ -3895,26 +3915,6 @@ __export(exports_hashing, {
   hashBase64Url: () => hashBase64Url,
   hashHex: () => hashHex,
   hashObject: () => hashObject
-});
-
-// src/signature/primitives.ts
-var exports_primitives = {};
-__export(exports_primitives, {
-  bytesToHex: () => bytesToHex3,
-  canonicalize: () => canonicalize,
-  canonicalizeToBytes: () => canonicalizeToBytes,
-  decodeBase64Url: () => decodeBase64Url,
-  encodeBase64Url: () => encodeBase64Url,
-  generateKeyPair: () => generateKeyPair,
-  getPublicKey: () => getPublicKey,
-  hexToBytes: () => hexToBytes3,
-  randomBytes: () => randomBytes4,
-  sha256: () => sha2562,
-  sha256Hex: () => sha256Hex,
-  sha512: () => sha5122,
-  sha512Hex: () => sha512Hex,
-  sign: () => sign,
-  verify: () => verify3
 });
 
 // node_modules/@noble/hashes/_u64.js
@@ -18228,6 +18228,8 @@ var jwkMatchesOp = (entry, key, usage) => {
     if (key.use !== expected)
       throw new TypeError(`Invalid key for this operation, its "use" must be "${expected}" when present`);
   }
+  if (key.kty === "AKP" && key.alg === undefined)
+    throw new TypeError('missing "alg" (Algorithm) Parameter value');
   if (key.alg !== undefined && key.alg !== alg)
     throw new TypeError(`Invalid key for this operation, its "alg" must be "${alg}" when present`);
   if (Array.isArray(key.key_ops)) {
@@ -18926,7 +18928,7 @@ async function decryptJWE(jwe, shared, key, token = shareJWE(jwe)) {
     if (decompressionLimit === 0)
       throw new JOSENotSupported('JWE "zip" (Compression Algorithm) Header Parameter is not supported.');
     plaintext = await decompress(plaintext, decompressionLimit).catch((cause) => {
-      throw cause instanceof JWEInvalid ? cause : new JWEInvalid("Failed to decompress plaintext", { cause });
+      throw cause instanceof JWEInvalid || cause instanceof JOSENotSupported ? cause : new JWEInvalid("Failed to decompress plaintext", { cause });
     });
   }
   return {
@@ -19021,7 +19023,7 @@ async function encryptJWE(input, checked, key) {
   const encodedProtectedHeader = protectedHeader ? encode4(JSON.stringify(protectedHeader)) : "", encodedAad = aad?.byteLength ? encode4(aad) : undefined, additionalAuthenticatedData = encode3(encodedAad ? `${encodedProtectedHeader}.${encodedAad}` : encodedProtectedHeader);
   let plaintext = inputPlaintext;
   joseHeader.zip === "DEF" && (plaintext = await compress(plaintext).catch((cause) => {
-    throw new JWEInvalid("Failed to compress plaintext", { cause });
+    throw cause instanceof JOSENotSupported ? cause : new JWEInvalid("Failed to compress plaintext", { cause });
   }));
   let ciphertext, tag, iv;
   algEntry.mode === "integrated-encryption" ? [encryptedKey, ciphertext] = await algEntry.encrypt(cek, plaintext, additionalAuthenticatedData, protectedHeader, joseHeader, keyManagementParameters) : { ciphertext, tag, iv } = await encrypt(encEntry, plaintext, cek, inputIv, additionalAuthenticatedData);
@@ -19625,6 +19627,257 @@ function validateInceptionSignRequest(params) {
   }
   return { ok: true };
 }
+// src/keri/rpy-ksa.ts
+init_esm();
+
+// src/signature/primitives.ts
+function generateKeyPair() {
+  const privateKey = randomBytes3(32);
+  const publicKey = ed25519.getPublicKey(privateKey);
+  return { publicKey, privateKey };
+}
+function getPublicKey(secretSeed) {
+  return ed25519.getPublicKey(secretSeed);
+}
+function sign(data, secretSeed) {
+  return ed25519.sign(data, secretSeed);
+}
+function verify3(signature, data, publicKey) {
+  return ed25519.verify(signature, data, publicKey);
+}
+function sha2562(data) {
+  return sha256(data);
+}
+function sha256Hex(data) {
+  return bytesToHex3(sha256(data));
+}
+function sha5122(data) {
+  return sha512(data);
+}
+function sha512Hex(data) {
+  return bytesToHex3(sha512(data));
+}
+function canonicalizeToBytes(obj) {
+  const text = canonicalize(obj);
+  return new TextEncoder().encode(text);
+}
+function randomBytes3(length) {
+  const bytes = new Uint8Array(length);
+  if (typeof globalThis.crypto !== "undefined" && globalThis.crypto.getRandomValues) {
+    globalThis.crypto.getRandomValues(bytes);
+  } else {
+    throw new Error("crypto.getRandomValues not available");
+  }
+  return bytes;
+}
+function hexToBytes3(hex) {
+  if (hex.length % 2 !== 0) {
+    throw new Error("Hex string must have even length");
+  }
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0;i < hex.length; i += 2) {
+    bytes[i / 2] = Number.parseInt(hex.slice(i, i + 2), 16);
+  }
+  return bytes;
+}
+function bytesToHex3(bytes) {
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// src/keri/rpy-ksa.ts
+for (const f of ["qb64", "qb64-key", "qb64-digest", "qb64-signature", "qb64-key-transferable"]) {
+  if (!Has(f))
+    Set2(f, () => true);
+}
+var closed = { additionalProperties: false };
+var KeyStateAssessmentSchema = Type.Object({
+  ksn: KSNSchema,
+  validation: Type.Union([
+    Type.Object({ status: Type.Literal("valid") }, closed),
+    Type.Object({
+      status: Type.Literal("pending"),
+      outstanding: Type.Array(Type.Union([
+        Type.Object({ type: Type.Literal("insufficient-signatures"), eventSaid: Type.String() }, closed),
+        Type.Object({ type: Type.Literal("delegation-approval"), eventSaid: Type.String(), delegatorAid: Type.String() }, closed)
+      ]), { minItems: 1 })
+    }, closed)
+  ]),
+  validatedHead: Type.Union([
+    Type.Object({ s: Type.String(), d: Type.String(), k: Type.Array(Type.String(), { minItems: 1 }), kt: Type.String() }, closed),
+    Type.Null()
+  ]),
+  assessedAt: TimestampSchema
+}, closed);
+var RPY_SURFACE = {
+  saidField: "d",
+  derivedFieldsInOrder: ["v", "t", "d", "dt", "r", "a"],
+  hasVersionString: true,
+  versionStringField: "v",
+  protocol: "KERI"
+};
+var ROUTE = "/ksa";
+var VERSION_HEAD = /^\{"v":"KERI10JSON([0-9a-f]{6})_"/;
+var RpyKsa;
+((RpyKsa) => {
+  function build(assessment, dt) {
+    const rpy = { v: "KERI10JSON000000_", t: "rpy", d: "", dt: dt.toISOString(), r: ROUTE, a: assessment };
+    const { sealed, said } = deriveSaid(rpy, RPY_SURFACE);
+    return { body: serializeForSigning(sealed, RPY_SURFACE).raw, said };
+  }
+  RpyKsa.build = build;
+  function attach(body, signer, signature) {
+    const couple = encodeAttachmentGroups([{ kind: "rct", by: signer, sig: encodeSig(signature, "ed25519").qb64 }]);
+    const out = new Uint8Array(body.length + couple.length);
+    out.set(body);
+    out.set(couple, body.length);
+    return out;
+  }
+  RpyKsa.attach = attach;
+  function parse(bytes) {
+    const head = VERSION_HEAD.exec(new TextDecoder().decode(bytes.subarray(0, 32)));
+    const size = head ? Number.parseInt(head[1], 16) : 0;
+    if (size === 0 || size >= bytes.length)
+      return err("no rpy body and attachment");
+    const body = bytes.subarray(0, size);
+    const bodyText = new TextDecoder().decode(body);
+    const rpy = parseJsonObject(bodyText);
+    if (rpy === undefined)
+      return err("body is not a JSON object");
+    const { t, dt, r, a } = rpy;
+    if (t !== "rpy" || r !== ROUTE)
+      return err("not an rpy /ksa");
+    if (typeof dt !== "string" || !Check(TimestampSchema, dt) || Number.isNaN(Date.parse(dt)))
+      return err("bad dt");
+    if (!Check(KeyStateAssessmentSchema, a))
+      return err("body is not a KeyStateAssessment");
+    const vh = a.validatedHead;
+    const vhSn = vh === null ? undefined : SequenceNumber.parse(vh.s);
+    if (vhSn !== undefined && !vhSn.ok)
+      return err("bad validatedHead.s");
+    if (vh !== null && !Threshold.parse(vh.kt, vh.k.length).ok)
+      return err("bad validatedHead.kt");
+    if (a.validation.status === "valid" && !(vh !== null && isHead(vh, a.ksn))) {
+      return err("valid but validatedHead is not the head");
+    }
+    if (serializeForSigning(rpy, RPY_SURFACE).text !== bodyText)
+      return err("body is not canonical");
+    if (!recomputeSaid(rpy, RPY_SURFACE).matches)
+      return err("SAID mismatch");
+    const threshold = Threshold.parse(a.ksn.kt, a.ksn.k.length);
+    const sn = SequenceNumber.parse(a.ksn.s);
+    if (!sn.ok || !threshold.ok || threshold.value.kind !== "numeric") {
+      return err("key state not supported");
+    }
+    if (a.validation.status === "pending" && vhSn?.ok && vhSn.value >= sn.value) {
+      return err("pending but validatedHead is not before the head");
+    }
+    const couple = singleCouple(bytes.subarray(size));
+    if (couple === undefined)
+      return err("not exactly one Ed25519 -C couple");
+    if (!verifies(couple.signature, body, couple.signer))
+      return err("signature does not verify under its signer");
+    return ok({ bytes, said: String(rpy.d), assessment: a, signer: couple.signer });
+  }
+  RpyKsa.parse = parse;
+})(RpyKsa ||= {});
+function isHead(vh, ksn) {
+  return vh.s === ksn.s && vh.d === ksn.d && vh.kt === ksn.kt && vh.k.length === ksn.k.length && vh.k.every((key, i) => key === ksn.k[i]);
+}
+function verifies(signature, body, signer) {
+  try {
+    const key = decodeKey(signer);
+    return key.algo === "ed25519" && verify3(signature, body, key.raw);
+  } catch {
+    return false;
+  }
+}
+function parseJsonObject(text) {
+  try {
+    const value = JSON.parse(text);
+    return typeof value === "object" && value !== null && !Array.isArray(value) ? value : undefined;
+  } catch {
+    return;
+  }
+}
+function singleCouple(attachment) {
+  try {
+    const groups = decodeAttachmentGroups(attachment);
+    const only = groups.length === 1 ? groups[0] : undefined;
+    if (only === undefined || only.kind !== "rct")
+      return;
+    const sig = decodeSig(only.sig);
+    return sig.algo === "ed25519" && sig.raw.length === 64 ? { signer: only.by, signature: sig.raw } : undefined;
+  } catch {
+    return;
+  }
+}
+
+// src/keri/assess-kel-head.ts
+var ANCHOR_MISSING = new Set(["missing-parent-kel", "missing-seal-source", "parent-event-not-found"]);
+function serviceAidOf(seed) {
+  return encodeKey(ed25519.getPublicKey(seed), false).qb64;
+}
+function assessKelHead(input) {
+  const { aid, kel, delegatorKel, seed, now } = input;
+  if (kel.length === 0)
+    return err({ kind: "not-published" });
+  const inception = kel[0].event;
+  if (inception.i !== aid)
+    return err({ kind: "invalid-kel", reason: "KEL is not for aid" });
+  for (const detail of validateKelChain([...kel]).eventDetails) {
+    const failure = detail.errors.find((e) => e.code !== "MISSING_PARENT_KEL");
+    if (failure)
+      return err({ kind: "invalid-kel", reason: failure.code });
+    if ((detail.checks.signaturesValid.dropped ?? []).some((x) => x.reason !== "ondex-mismatch")) {
+      return err({ kind: "invalid-kel", reason: "invalid signature" });
+    }
+  }
+  const delegatorAid = inception.t === "dip" ? inception.di : undefined;
+  const outstanding = [];
+  let validatedCount = 0;
+  for (const childEvent of kel) {
+    const { t, d } = childEvent.event;
+    if (t === "dip" || t === "drt") {
+      const source = childEvent.attachments.find((a) => a.kind === "delegator-seal-source");
+      if (source?.kind === "delegator-seal-source" && !SequenceNumber.parse(source.s).ok) {
+        return err({ kind: "invalid-kel", reason: "malformed seal source" });
+      }
+      const approved = validateDelegation({
+        childEvent,
+        parentKel: delegatorKel,
+        delegatorAid
+      });
+      if (!approved.passed) {
+        if (!ANCHOR_MISSING.has(approved.reason) || approved.parentAid === undefined) {
+          return err({ kind: "invalid-kel", reason: approved.reason });
+        }
+        outstanding.push({ type: "delegation-approval", eventSaid: d, delegatorAid: approved.parentAid });
+      }
+    }
+    if (outstanding.length === 0)
+      validatedCount++;
+  }
+  const ksn = KSNs.fromKEL(aid, [...kel]);
+  if (!ksn)
+    return err({ kind: "invalid-kel", reason: "no key state" });
+  const atValidated = validatedCount === 0 ? undefined : KSNs.fromKEL(aid, kel.slice(0, validatedCount));
+  const validatedKt = atValidated?.kt;
+  if (atValidated !== undefined && typeof validatedKt !== "string") {
+    return err({ kind: "invalid-kel", reason: "key state not attestable" });
+  }
+  const validatedHead = atValidated === undefined || typeof validatedKt !== "string" ? null : { s: atValidated.s, d: atValidated.d, k: atValidated.k, kt: validatedKt };
+  const assessment = {
+    ksn,
+    validation: outstanding.length === 0 ? { status: "valid" } : { status: "pending", outstanding },
+    validatedHead,
+    assessedAt: now.toISOString()
+  };
+  const { body } = RpyKsa.build(assessment, now);
+  const rpy = RpyKsa.attach(body, serviceAidOf(seed), ed25519.sign(body, seed));
+  if (!RpyKsa.parse(rpy).ok)
+    return err({ kind: "invalid-kel", reason: "key state not attestable" });
+  return ok({ rpy, assessment });
+}
 // src/keri/canonical-paths.ts
 var KERI_PREFIX = "/.well-known/keri";
 var CanonicalPaths = {
@@ -19793,6 +20046,9 @@ var FakeHsmKeyStores;
       async hasKey(publicKey) {
         return keys.has(publicKeyHex(publicKey));
       },
+      async lookupByDigest(digest) {
+        return [...keys.values()].find((e) => digestVerfer(toCESRPublicKey(e.publicKey)) === digest)?.publicKey;
+      },
       async resolve(publicKey) {
         const entry = keys.get(publicKeyHex(publicKey));
         if (!entry)
@@ -19847,7 +20103,7 @@ var FakeHsmKeyStores;
         const privateKey = ed25519.utils.randomSecretKey();
         const publicKeyRaw = ed25519.getPublicKey(privateKey);
         const publicKey = asRawPublicKey(publicKeyRaw);
-        keys.set(publicKeyHex(publicKey), { privateKey, algo });
+        keys.set(publicKeyHex(publicKey), { privateKey, algo, publicKey });
         return ok({ publicKey, algo });
       },
       async generateBatch(algo, count) {
@@ -19858,7 +20114,7 @@ var FakeHsmKeyStores;
           const privateKey = ed25519.utils.randomSecretKey();
           const publicKeyRaw = ed25519.getPublicKey(privateKey);
           const publicKey = asRawPublicKey(publicKeyRaw);
-          keys.set(publicKeyHex(publicKey), { privateKey, algo });
+          keys.set(publicKeyHex(publicKey), { privateKey, algo, publicKey });
           results.push({ publicKey, algo });
         }
         return ok(results);
@@ -20055,6 +20311,14 @@ var Keychains;
             keyIndex.set(hex, id);
             return id;
           }
+        }
+        return;
+      },
+      async lookupByDigest(digest) {
+        for (const store of stores.values()) {
+          const found = await store.lookupByDigest?.(digest);
+          if (found)
+            return found;
         }
         return;
       },
@@ -20347,6 +20611,14 @@ var TestKeys;
       },
       async hasKey(publicKey) {
         return issued.has(publicKeyHex(publicKey));
+      },
+      async lookupByDigest(digest) {
+        for (const entry of keys) {
+          const publicKey = asRawPublicKey(entry.publicKey);
+          if (issued.has(publicKeyHex(publicKey)) && digestVerfer(toCESRPublicKey(publicKey)) === digest)
+            return publicKey;
+        }
+        return;
       },
       async resolve(publicKey) {
         const hex = publicKeyHex(publicKey);
@@ -20689,7 +20961,7 @@ function isAligned32(bytes) {
 function copyBytes3(bytes) {
   return Uint8Array.from(abytes3(bytes));
 }
-function randomBytes3(bytesLength = 32) {
+function randomBytes4(bytesLength = 32) {
   anumber3(bytesLength, "bytesLength");
   const cr = typeof globalThis === "object" ? globalThis.crypto : null;
   if (typeof cr?.getRandomValues !== "function")
@@ -21081,7 +21353,7 @@ var EncryptionPlugins;
   function aesGcm() {
     return {
       async encrypt(secret, plaintext) {
-        const iv = randomBytes3(12);
+        const iv = randomBytes4(12);
         const cipher = gcm(secret, iv);
         const ciphertext = cipher.encrypt(plaintext);
         return { ciphertext, iv };
@@ -23987,60 +24259,6 @@ function hashObject(obj, algorithm = "blake3") {
   return hashBase64Url(canonicalBytes, algorithm);
 }
 
-// src/signature/primitives.ts
-function generateKeyPair() {
-  const privateKey = randomBytes4(32);
-  const publicKey = ed25519.getPublicKey(privateKey);
-  return { publicKey, privateKey };
-}
-function getPublicKey(secretSeed) {
-  return ed25519.getPublicKey(secretSeed);
-}
-function sign(data, secretSeed) {
-  return ed25519.sign(data, secretSeed);
-}
-function verify3(signature, data, publicKey) {
-  return ed25519.verify(signature, data, publicKey);
-}
-function sha2562(data) {
-  return sha256(data);
-}
-function sha256Hex(data) {
-  return bytesToHex3(sha256(data));
-}
-function sha5122(data) {
-  return sha512(data);
-}
-function sha512Hex(data) {
-  return bytesToHex3(sha512(data));
-}
-function canonicalizeToBytes(obj) {
-  const text = canonicalize(obj);
-  return new TextEncoder().encode(text);
-}
-function randomBytes4(length) {
-  const bytes = new Uint8Array(length);
-  if (typeof globalThis.crypto !== "undefined" && globalThis.crypto.getRandomValues) {
-    globalThis.crypto.getRandomValues(bytes);
-  } else {
-    throw new Error("crypto.getRandomValues not available");
-  }
-  return bytes;
-}
-function hexToBytes3(hex) {
-  if (hex.length % 2 !== 0) {
-    throw new Error("Hex string must have even length");
-  }
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0;i < hex.length; i += 2) {
-    bytes[i / 2] = Number.parseInt(hex.slice(i, i + 2), 16);
-  }
-  return bytes;
-}
-function bytesToHex3(bytes) {
-  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
 // src/signature/index.ts
 var Signature = {
   ...exports_primitives,
@@ -24054,8 +24272,8 @@ var Tel = {
   ...TELEvents
 };
 // src/version.ts
-var VERSION = "0.5.37";
-var GIT_SHA = "5514d5a47652c00c153e022ce10dda9599e75942";
+var VERSION = "0.5.39";
+var GIT_SHA = "00d6cd58eb410ff7908258520b18f6859fff2252";
 export {
   ACCOUNT_RECOVERY_PATH_PREFIX,
   ACDCData,
@@ -24176,6 +24394,7 @@ export {
   RequirementOps,
   RequirementSchema,
   RotEventSchema,
+  RpyKsa,
   SAID_PLACEHOLDER,
   Said,
   Schema,
@@ -24226,6 +24445,7 @@ export {
   asEd25519PrivateRaw,
   asEd25519PublicRaw,
   asRawPublicKey,
+  assessKelHead,
   assessTelKelAnchor,
   assessTelKelAnchors,
   buildAAD,
@@ -24336,7 +24556,7 @@ export {
   presentationDefinitionSaid,
   profileUsernameFromDisplayName,
   publicKeyHex,
-  randomBytes4 as randomBytes,
+  randomBytes3 as randomBytes,
   recomputeSaid,
   recoveryCommitmentAt,
   recoveryKeyDerivationSpec,
@@ -24351,6 +24571,7 @@ export {
   schemaSaidOf,
   serializeEnvelope,
   serializeForSigning,
+  serviceAidOf,
   sha2562 as sha256,
   sha256Hex,
   sha5122 as sha512,

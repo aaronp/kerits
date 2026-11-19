@@ -1,0 +1,41 @@
+{
+  "description": "A dip whose delegator anchor is not published: pending, validatedHead null.",
+  "rpy": "eyJ2IjoiS0VSSTEwSlNPTjAwMDJiYV8iLCJ0IjoicnB5IiwiZCI6IkVCZkl2VmhHdXRIdGMxZExtTDk4R0hFYzd4aUdGQmtzWUFidVVaWVVSZXh5IiwiZHQiOiIyMDI2LTExLTE3VDEyOjAwOjAwLjAwMFoiLCJyIjoiL2tzYSIsImEiOnsia3NuIjp7InYiOiJLRVJJMTBKU09OMDAwMTVmXyIsImkiOiJFQmdxcGhNNUJZNEhlMEdENUpEdUdvSE9EcHV2SDF5TFZGVUdCQUxaNVliQSIsInMiOiIwIiwicCI6IiIsImQiOiJFQmdxcGhNNUJZNEhlMEdENUpEdUdvSE9EcHV2SDF5TFZGVUdCQUxaNVliQSIsImV0IjoiZGlwIiwia3QiOiIxIiwiayI6WyJEUDBtY01laDQwMXo1VFF6YVh4dzRXLWY4WnFGTnJZZlpmT1Noc0dqTS1sRiJdLCJudCI6IjEiLCJuIjpbIkVDbklXcFd2dkNQdDFfeEtNdDFfYS1heXN0bE1MNzNzdXh6eWhnb1dMRUQyIl0sImJ0IjoiMCIsImIiOltdfSwidmFsaWRhdGlvbiI6eyJzdGF0dXMiOiJwZW5kaW5nIiwib3V0c3RhbmRpbmciOlt7InR5cGUiOiJkZWxlZ2F0aW9uLWFwcHJvdmFsIiwiZXZlbnRTYWlkIjoiRUJncXBoTTVCWTRIZTBHRDVKRHVHb0hPRHB1dkgxeUxWRlVHQkFMWjVZYkEiLCJkZWxlZ2F0b3JBaWQiOiJFTGVVUHRQT0JhZmZnbUROcGYtSmlOLTZrOXJTX2JoVVR5X3BUZTA0azBESSJ9XX0sInZhbGlkYXRlZEhlYWQiOm51bGwsImFzc2Vzc2VkQXQiOiIyMDI2LTExLTE3VDEyOjAwOjAwLjAwMFoifX0tQ0FCQlBxWWZCaktyem5ZWldpZ0hRR044MlBHV0xCQ3NDTkx4RklmX3d3dDBzM3MwQkNvZUJQUzNBM3dQMDFZMDRtbG5Cd0REVzFBQlBJRkhtWFNtRHNFQ3pqcUtyVFBDVnNJN0JoS3g5cl9kNEJiSE4yRnhJMUs2Rm1Ib1M5S1lRb1doM01B",
+  "verifierKeys": ["BPqYfBjKrznYZWigHQGN82PGWLBCsCNLxFIf_wwt0s3s"],
+  "now": "2026-11-17T12:01:00.000Z",
+  "expected": {
+    "ok": true,
+    "value": {
+      "said": "EBfIvVhGutHtc1dLmL98GHEc7xiGFBksYAbuUZYURexy",
+      "assessment": {
+        "ksn": {
+          "v": "KERI10JSON00015f_",
+          "i": "EBgqphM5BY4He0GD5JDuGoHODpuvH1yLVFUGBALZ5YbA",
+          "s": "0",
+          "p": "",
+          "d": "EBgqphM5BY4He0GD5JDuGoHODpuvH1yLVFUGBALZ5YbA",
+          "et": "dip",
+          "kt": "1",
+          "k": ["DP0mcMeh401z5TQzaXxw4W-f8ZqFNrYfZfOShsGjM-lF"],
+          "nt": "1",
+          "n": ["ECnIWpWvvCPt1_xKMt1_a-aystlML73suxzyhgoWLED2"],
+          "bt": "0",
+          "b": []
+        },
+        "validation": {
+          "status": "pending",
+          "outstanding": [
+            {
+              "type": "delegation-approval",
+              "eventSaid": "EBgqphM5BY4He0GD5JDuGoHODpuvH1yLVFUGBALZ5YbA",
+              "delegatorAid": "ELeUPtPOBaffgmDNpf-JiN-6k9rS_bhUTy_pTe04k0DI"
+            }
+          ]
+        },
+        "validatedHead": null,
+        "assessedAt": "2026-11-17T12:00:00.000Z"
+      },
+      "signer": "BPqYfBjKrznYZWigHQGN82PGWLBCsCNLxFIf_wwt0s3s"
+    }
+  }
+}
