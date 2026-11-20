@@ -37,7 +37,8 @@ export function verifyMembership(
 ): Failures {
   const { lineage, kels } = e;
   const out: Failures = [];
-  if (lineage.length < 2 || lineage[0] !== parentAID || new Set(lineage).size !== lineage.length) {
+  // `[parentAID]` alone is the parent as its own member (ADR-0011): depth 0, its KEL still verified below
+  if (lineage.length < 1 || lineage[0] !== parentAID || new Set(lineage).size !== lineage.length) {
     out.push(failure(path, 'lineage-mismatch'));
   }
   if (lineage[lineage.length - 1] !== subject) out.push(failure(path, 'subject-mismatch'));

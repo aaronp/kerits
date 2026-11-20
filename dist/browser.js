@@ -23178,7 +23178,7 @@ var failure = (path, kind, detail) => detail === undefined ? { path, kind } : { 
 function verifyMembership(parentAID, maxDepth, subject, e, path) {
   const { lineage, kels } = e;
   const out = [];
-  if (lineage.length < 2 || lineage[0] !== parentAID || new Set(lineage).size !== lineage.length) {
+  if (lineage.length < 1 || lineage[0] !== parentAID || new Set(lineage).size !== lineage.length) {
     out.push(failure(path, "lineage-mismatch"));
   }
   if (lineage[lineage.length - 1] !== subject)
@@ -24272,8 +24272,8 @@ var Tel = {
   ...TELEvents
 };
 // src/version.ts
-var VERSION = "0.5.39";
-var GIT_SHA = "00d6cd58eb410ff7908258520b18f6859fff2252";
+var VERSION = "0.5.40";
+var GIT_SHA = "05f737e349c3de21a7756f7b45e0d8ccfb10602f";
 export {
   ACCOUNT_RECOVERY_PATH_PREFIX,
   ACDCData,

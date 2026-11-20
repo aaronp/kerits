@@ -61,11 +61,34 @@ describe('EvidenceOps.verify — is-member', () => {
       [evidence(full.lineage, { ...full.kels, [member.aid]: tamperedKel }), member.aid, req, 'kel-invalid'],
       [evidence(full.lineage, unsealedParent), member.aid, req, 'delegation-unsealed'],
       [evidence([org1.aid, team1.aid, org1.aid, member.aid], full.kels), member.aid, req, 'lineage-mismatch'],
-      [evidence([org1.aid], { [org1.aid]: org1.kel }), org1.aid, req, 'lineage-mismatch'],
+      [evidence([], {}), org1.aid, req, 'lineage-mismatch'],
+      [evidence([org1.aid], { [org1.aid]: org1.kel }), member.aid, req, 'subject-mismatch'],
     ];
 
     // method under test / assertions
     for (const [e, subject, r, kind] of cases) expect(kinds(EvidenceOps.verify(r, subject, e, NOW))).toContain(kind);
+  });
+
+  test('sufficient: an AID is a member of itself (ADR-0011)', () => {
+    // setup: the parent's own one-element lineage
+    const self = evidence([org1.aid], { [org1.aid]: org1.kel });
+
+    // method under test
+    const r = EvidenceOps.verify(RequirementData.isMember(org1.aid), org1.aid, self, NOW);
+
+    // assertions: met at depth 0, even under the tightest maxDepth
+    expect(r.ok).toBe(true);
+    expect(EvidenceOps.verify(RequirementData.isMember(org1.aid, { maxDepth: 1 }), org1.aid, self, NOW).ok).toBe(true);
+  });
+
+  test('a delegated AID is a member of itself only with its ancestor KEL', () => {
+    // setup: team1 (delegated by org1) as its own member
+    const req = RequirementData.isMember(team1.aid);
+    const e = evidence([team1.aid], { [team1.aid]: team1.kel });
+
+    // method under test / assertions: its KEL validates only with the delegator's
+    expect(EvidenceOps.verify(req, team1.aid, { ...e, kels: { ...e.kels, [org1.aid]: org1.kel } }, NOW).ok).toBe(true);
+    expect(kinds(EvidenceOps.verify(req, team1.aid, e, NOW))).toContain('kel-invalid');
   });
 
   test('necessary: KEL must belong to the lineage AID', () => {
