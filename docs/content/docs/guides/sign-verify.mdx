@@ -5,12 +5,12 @@ description: Generate key pairs, sign event bytes, verify signatures, and CESR-e
 
 KERI events are signed over their canonical (RFC 8785) JSON representation. Signatures are not embedded inside the event body — they travel as CESR attachments alongside the event. This keeps events self-describing and verifiable without modifying the signed content.
 
-`@kerits/core` exposes Ed25519 primitives directly (`generateKeyPair`, `sign`, `verify`) and re-exports them through the `Signature` namespace object for a more discoverable API surface.
+`@kerits.id/core` exposes Ed25519 primitives directly (`generateKeyPair`, `sign`, `verify`) and re-exports them through the `Signature` namespace object for a more discoverable API surface.
 
 ## Generate a key pair
 
 ```ts title="keygen.ts"
-import { generateKeyPair } from '@kerits/core';
+import { generateKeyPair } from '@kerits.id/core';
 
 const { publicKey, privateKey } = generateKeyPair();
 // publicKey:  Uint8Array (32 bytes, Ed25519)
@@ -24,7 +24,7 @@ const { publicKey, privateKey } = generateKeyPair();
 `sign` takes a `Uint8Array` payload and the secret seed, and returns a 64-byte Ed25519 signature.
 
 ```ts title="sign.ts"
-import { generateKeyPair, sign, canonicalizeToBytes } from '@kerits/core';
+import { generateKeyPair, sign, canonicalizeToBytes } from '@kerits.id/core';
 
 const { publicKey, privateKey } = generateKeyPair();
 
@@ -41,7 +41,7 @@ The `canonicalizeToBytes` helper serializes any JSON-compatible value using RFC 
 `verify` checks a signature against the original data and public key. The argument order is `(signature, data, publicKey)`.
 
 ```ts title="verify.ts"
-import { verify, canonicalizeToBytes } from '@kerits/core';
+import { verify, canonicalizeToBytes } from '@kerits.id/core';
 
 const eventBytes = canonicalizeToBytes(icpEvent);
 const isValid = verify(sigBytes, eventBytes, publicKey);
@@ -53,7 +53,7 @@ const isValid = verify(sigBytes, eventBytes, publicKey);
 The `Signature` namespace bundles all primitives and the `verify` helper into a single import:
 
 ```ts title="signature-namespace.ts"
-import { Signature } from '@kerits/core';
+import { Signature } from '@kerits.id/core';
 
 const { publicKey, privateKey } = Signature.generateKeyPair();
 
@@ -67,7 +67,7 @@ console.log(ok); // true
 `Signature` also includes hashing utilities:
 
 ```ts title="hashing.ts"
-import { Signature } from '@kerits/core';
+import { Signature } from '@kerits.id/core';
 
 const data = new TextEncoder().encode('payload');
 const hashBytes = Signature.sha256(data);    // Uint8Array
@@ -79,7 +79,7 @@ const hashHex   = Signature.sha256Hex(data); // string
 Raw signature bytes are not directly usable in KERI events. They must be CESR-encoded into the qb64 format that KERI networks and validators expect:
 
 ```ts title="encode-sig.ts"
-import { generateKeyPair, sign, canonicalizeToBytes, encodeSignature } from '@kerits/core';
+import { generateKeyPair, sign, canonicalizeToBytes, encodeSignature } from '@kerits.id/core';
 
 const { publicKey, privateKey } = generateKeyPair();
 const eventBytes = canonicalizeToBytes(icpEvent);
@@ -95,7 +95,7 @@ const encoded = encodeSignature(rawSig);
 Transferable signatures (the default) use code `0B` in CESR. You can also produce a non-transferable encoding by passing `false` as the second argument:
 
 ```ts title="encode-sig-non-transferable.ts"
-import { sign, encodeSignature, canonicalizeToBytes } from '@kerits/core';
+import { sign, encodeSignature, canonicalizeToBytes } from '@kerits.id/core';
 
 const rawSig = sign(eventBytes, privateKey);
 const encoded = encodeSignature(rawSig, false); // non-transferable: code '0A'
@@ -106,7 +106,7 @@ const encoded = encodeSignature(rawSig, false); // non-transferable: code '0A'
 `decodeSignature` reverses the encoding, returning the raw bytes and algorithm:
 
 ```ts title="decode-sig.ts"
-import { decodeSignature } from '@kerits/core';
+import { decodeSignature } from '@kerits.id/core';
 
 const decoded = decodeSignature('0Bsig...');
 // decoded.qb64: '0Bsig...'
@@ -124,8 +124,8 @@ import {
   sign,
   encodeSignature,
   canonicalizeToBytes,
-} from '@kerits/core';
-import type { CESREvent } from '@kerits/core';
+} from '@kerits.id/core';
+import type { CESREvent } from '@kerits.id/core';
 
 const { publicKey, privateKey } = generateKeyPair();
 const eventBytes = canonicalizeToBytes(icpEvent);

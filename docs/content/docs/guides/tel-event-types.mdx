@@ -38,7 +38,7 @@ Creates a new credential registry. The registry identifier equals the inception 
 This is always sequence `0` and has no `p` field — it is the root of the registry's event chain.
 
 ```ts
-import { TELEvents } from '@kerits/core';
+import { TELEvents } from '@kerits.id/core';
 
 const { unsignedEvent } = TELEvents.buildVcp({
   issuerAid: myAid,
@@ -58,7 +58,7 @@ const { event, said } = TELEvents.computeSaid(unsignedEvent, true);
 Rotates the backer set for an existing registry. Carries `br` (backers removed) and `ba` (backers added) delta fields, mirroring how KEL rotation uses witness deltas.
 
 ```ts
-import { TELEvents } from '@kerits/core';
+import { TELEvents } from '@kerits.id/core';
 
 const { unsignedEvent } = TELEvents.buildVrt({
   registryId: vcpEvent.i,
@@ -81,7 +81,7 @@ Issues a credential without backers. Used when the registry was created with no 
 This has no `p` field — it is the first event in the credential's TEL.
 
 ```ts
-import { TELEvents } from '@kerits/core';
+import { TELEvents } from '@kerits.id/core';
 
 const { unsignedEvent } = TELEvents.buildIss({
   credentialSaid: acdcSaid,
@@ -100,7 +100,7 @@ const { event } = TELEvents.computeSaid(unsignedEvent);
 Revokes a previously issued backerless credential. Carries the same fields as `iss` plus `p` (prior event SAID) to chain back to the issuance event.
 
 ```ts
-import { TELEvents } from '@kerits/core';
+import { TELEvents } from '@kerits.id/core';
 
 const { unsignedEvent } = TELEvents.buildRev({
   credentialSaid: acdcSaid,
@@ -122,7 +122,7 @@ Issues a credential with backer witnesses. Instead of a simple `ri` registry ref
 This has no `p` field — it is the first event in the credential's TEL.
 
 ```ts
-import { TELEvents } from '@kerits/core';
+import { TELEvents } from '@kerits.id/core';
 
 const { unsignedEvent } = TELEvents.buildBis({
   credentialSaid: acdcSaid,
@@ -142,7 +142,7 @@ const { event } = TELEvents.computeSaid(unsignedEvent);
 Revokes a backed credential. Carries the same fields as `bis` but with `p` (prior event SAID) and without `ii`. The `ra` seal references the registry event at the time of revocation.
 
 ```ts
-import { TELEvents } from '@kerits/core';
+import { TELEvents } from '@kerits.id/core';
 
 const { unsignedEvent } = TELEvents.buildBrv({
   credentialSaid: acdcSaid,

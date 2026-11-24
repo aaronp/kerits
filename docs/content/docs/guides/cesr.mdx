@@ -12,7 +12,7 @@ The code prefix tells any reader exactly what the value is and how long it is, w
 `encodeKey` wraps raw Ed25519 key bytes in the correct CESR code. Pass `transferable: false` for non-transferable (witness) keys.
 
 ```ts title="keys.ts"
-import { generateKeyPair, encodeKey, decodeKey } from '@kerits/core';
+import { generateKeyPair, encodeKey, decodeKey } from '@kerits.id/core';
 
 const { publicKey } = generateKeyPair();
 
@@ -40,7 +40,7 @@ const decoded = decodeKey(encoded.qb64);
 `encodeSignature` (exported as `encodeSig` internally) wraps a 64-byte Ed25519 signature in CESR qb64 form.
 
 ```ts title="sigs.ts"
-import { sign, encodeSignature, decodeSignature, generateKeyPair, canonicalizeToBytes } from '@kerits/core';
+import { sign, encodeSignature, decodeSignature, generateKeyPair, canonicalizeToBytes } from '@kerits.id/core';
 
 const { publicKey, privateKey } = generateKeyPair();
 const bytes = canonicalizeToBytes({ hello: 'keri' });
@@ -62,7 +62,7 @@ const decoded = decodeSignature(encoded.qb64);
 `encodeDigest` and `decodeDigest` operate on raw digest bytes. They are used, for example, when you compute a hash outside of KERI and need to represent it as a CESR value.
 
 ```ts title="digest.ts"
-import { encodeDigest, decodeDigest, encode, decode } from '@kerits/core';
+import { encodeDigest, decodeDigest, encode, decode } from '@kerits.id/core';
 
 // encodeDigest uses Blake3-256 ('E' prefix) by default
 const digestBytes = new Uint8Array(32).fill(0xab); // placeholder
@@ -86,8 +86,8 @@ const back = decode(generic);
 `inspect` classifies any qb64 string without fully decoding it. Use this when you receive an unknown CESR value and need to determine what kind of primitive it contains before routing it to the correct handler.
 
 ```ts title="inspect.ts"
-import { inspect } from '@kerits/core';
-import type { PrefixInfo } from '@kerits/core';
+import { inspect } from '@kerits.id/core';
+import type { PrefixInfo } from '@kerits.id/core';
 
 const keyInfo: PrefixInfo = inspect('Dabc...');
 // { code: 'D', length: 44, kind: 'key' }
@@ -106,7 +106,7 @@ const digestInfo: PrefixInfo = inspect('Edigest...');
 All CESR functions are also available as a single `Cesr` namespace object:
 
 ```ts title="cesr-namespace.ts"
-import { Cesr } from '@kerits/core';
+import { Cesr } from '@kerits.id/core';
 
 const encoded = Cesr.encodeKey(publicKeyBytes);
 const sig = Cesr.encodeSig(sigBytes);
@@ -135,8 +135,8 @@ KERI events are transmitted with cryptographic attachments — signatures, recei
 `encodeAttachmentGroups` takes an array of typed `CesrAttachment` objects and produces the CESR wire bytes:
 
 ```ts title="encode-attachments.ts"
-import { encodeAttachmentGroups } from '@kerits/core';
-import type { CesrAttachment } from '@kerits/core';
+import { encodeAttachmentGroups } from '@kerits.id/core';
+import type { CesrAttachment } from '@kerits.id/core';
 
 const attachments: CesrAttachment[] = [
   { kind: 'sig', form: 'indexed', keyIndex: 0, sig: '0Bsig...' },
@@ -161,7 +161,7 @@ Supported attachment kinds:
 `decodeAttachmentGroupsFromStream` parses CESR wire bytes back into typed attachment objects:
 
 ```ts title="decode-attachments.ts"
-import { decodeAttachmentGroupsFromStream } from '@kerits/core';
+import { decodeAttachmentGroupsFromStream } from '@kerits.id/core';
 
 const { attachments, bytesConsumed } = decodeAttachmentGroupsFromStream(wireBytes);
 

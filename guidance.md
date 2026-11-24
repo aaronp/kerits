@@ -1,4 +1,4 @@
-# @kerits/core Package Guidance
+# @kerits.id/core Package Guidance
 
 ## Purpose
 
@@ -13,7 +13,7 @@ This package follows the [KERI Domain Modules](../../docs/architecture-keri.md) 
 | `<Name>Data` | Types, schemas, factory functions, parse/encode | `KELEvents` (event builders) |
 | `<Name>Ops` | Pure domain logic: validation, queries, transforms | `KELOps` |
 
-Core does **not** have `*DAO`, `*API`, `*IndexDAO`, or `*AppendCeremony` modules — those belong in the SDK (`@kerits/kerits`). Core provides the pure functions that SDK layers call.
+Core does **not** have `*DAO`, `*API`, `*IndexDAO`, or `*AppendCeremony` modules — those belong in the SDK (`@kerits.id/kerits`). Core provides the pure functions that SDK layers call.
 
 ### KELOps
 

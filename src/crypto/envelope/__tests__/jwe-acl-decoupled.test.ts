@@ -1,5 +1,5 @@
 /**
- * JWE stays independent of ACL types (no @kerits/core/acl imports).
+ * JWE stays independent of ACL types (no @kerits.id/core/acl imports).
  */
 import { describe, expect, it } from 'bun:test';
 import { x25519 } from '@noble/curves/ed25519.js';

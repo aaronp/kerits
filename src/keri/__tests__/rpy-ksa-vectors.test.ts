@@ -1,5 +1,5 @@
 /**
- * Golden `rpy /ksa` vectors (packages/core/test-vectors/ksa) for the offline verifiers: `@kerits/ksn-verifier`
+ * Golden `rpy /ksa` vectors (packages/core/test-vectors/ksa) for the offline verifiers: `@kerits.id/ksn-verifier`
  * `verifyKeyStateAssessment` and the merits module's `ksn.rs` read the same bytes.
  */
 import { describe, expect, test } from 'bun:test';

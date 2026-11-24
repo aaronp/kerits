@@ -16,7 +16,7 @@ A `DerivationSurface` declares how an artifact family (KEL event, TEL event, ACD
 - **Whether the artifact has a version string** and which protocol it belongs to (`KERI` or `ACDC`)
 
 ```ts title="surface-example.ts"
-import type { DerivationSurface } from '@kerits/core';
+import type { DerivationSurface } from '@kerits.id/core';
 
 // A surface for KERI inception events — fields in keripy canonical order
 const KEL_ICP_SURFACE: DerivationSurface = {
@@ -54,7 +54,7 @@ For ACDC credentials with optional fields, use `buildACDCCredentialSurface(artif
 `deriveSaid` takes an artifact and its surface, computes the SAID using insertion-order serialization and BLAKE3-256, and returns the sealed artifact with the SAID written back:
 
 ```ts title="derive-said.ts"
-import { deriveSaid, KEL_IXN_SURFACE } from '@kerits/core';
+import { deriveSaid, KEL_IXN_SURFACE } from '@kerits.id/core';
 
 const artifact = {
   v: 'KERI10JSON000000_',
@@ -79,7 +79,7 @@ For versioned surfaces, `deriveSaid` also computes the version string (e.g. `KER
 `recomputeSaid` checks whether a sealed artifact's declared SAID matches a fresh recomputation:
 
 ```ts title="recompute-said.ts"
-import { recomputeSaid, KEL_IXN_SURFACE } from '@kerits/core';
+import { recomputeSaid, KEL_IXN_SURFACE } from '@kerits.id/core';
 
 const result = recomputeSaid(sealedEvent, KEL_IXN_SURFACE);
 // result.matches:    true if declared SAID matches recomputed
@@ -98,7 +98,7 @@ if (!result.matches) {
 `serializeForSigning` projects a sealed artifact onto its surface field order and serializes it. The result is the canonical byte sequence that should be signed:
 
 ```ts title="serialize-for-signing.ts"
-import { serializeForSigning, KEL_ICP_SURFACE } from '@kerits/core';
+import { serializeForSigning, KEL_ICP_SURFACE } from '@kerits.id/core';
 
 const { raw, text } = serializeForSigning(sealedEvent, KEL_ICP_SURFACE);
 // raw:  Uint8Array — bytes to sign
@@ -112,7 +112,7 @@ This produces the same field order as the SAID preimage, but with the actual SAI
 Inception events are special: both `d` (the event SAID) and `i` (the AID) must be set to the same value because the identifier *is* the inception event's digest.
 
 ```ts title="icp-said.ts"
-import { KELEvents, generateKeyPair, encodeKey, nextKeyDigestQb64FromPublicKeyQb64 } from '@kerits/core';
+import { KELEvents, generateKeyPair, encodeKey, nextKeyDigestQb64FromPublicKeyQb64 } from '@kerits.id/core';
 
 const current = generateKeyPair();
 const next = generateKeyPair();
@@ -138,7 +138,7 @@ For rotation and interaction events only `d` is cleared — `i` retains the orig
 Before publishing an inception or rotation event you must commit to the *next* set of keys without revealing the private keys. `nextKeyDigestQb64FromPublicKeyQb64` computes the BLAKE3-256 digest of a CESR-encoded public key, producing the value that goes into the `n[]` field.
 
 ```ts title="next-key-digest.ts"
-import { generateKeyPair, encodeKey, nextKeyDigestQb64FromPublicKeyQb64 } from '@kerits/core';
+import { generateKeyPair, encodeKey, nextKeyDigestQb64FromPublicKeyQb64 } from '@kerits.id/core';
 
 const nextKeyPair = generateKeyPair();
 const nextKeyQb64 = encodeKey(nextKeyPair.publicKey).qb64;

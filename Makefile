@@ -4,7 +4,7 @@ REPO_ROOT   := $(shell git rev-parse --show-toplevel)
 PACKAGE_DIR := $(REPO_ROOT)/packages/core
 
 help:
-	@echo "@kerits/core - Package build targets"
+	@echo "@kerits.id/core - Package build targets"
 	@echo ""
 	@echo "Available targets:"
 	@echo "  make test        - Run tests"
@@ -24,6 +24,6 @@ typecheck:
 
 test:
 	@bun test
-	@echo "✅ @kerits/core tests pass."
+	@echo "✅ @kerits.id/core tests pass."
 
 .DEFAULT_GOAL := help

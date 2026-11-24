@@ -7,7 +7,7 @@ import { VERSION } from '../version.js';
 const PACKAGE_ROOT = join(import.meta.dir, '../..');
 const packageVersion = JSON.parse(readFileSync(join(PACKAGE_ROOT, 'package.json'), 'utf8')).version as string;
 
-describe('@kerits/core VERSION', () => {
+describe('@kerits.id/core VERSION', () => {
   it('matches package.json version', () => {
     expect(VERSION).toBe(packageVersion);
   });

@@ -12,7 +12,7 @@ Each event in a KEL is a **Self-Addressing Data (SAD)** structure whose `d` fiel
 The inception event (`icp`) establishes the AID. For a basic (non-delegated) identifier, the AID equals the inception event's SAID — `i === d`.
 
 ```ts title="create-kel.ts"
-import { KELEvents, encodeKey, nextKeyDigestQb64FromPublicKeyQb64, generateKeyPair } from '@kerits/core';
+import { KELEvents, encodeKey, nextKeyDigestQb64FromPublicKeyQb64, generateKeyPair } from '@kerits.id/core';
 
 // Generate current and next keypairs
 const current = generateKeyPair();
@@ -42,7 +42,7 @@ The `kt` (key threshold) and `k` (current keys) fields define who can sign on be
 A rotation event (`rot`) replaces the current signing keys with the keys that were committed to in the previous establishment event's `n` field. The `p` field records the SAID of the preceding event.
 
 ```ts title="rotate.ts"
-import { KELEvents, encodeKey, nextKeyDigestQb64FromPublicKeyQb64, generateKeyPair } from '@kerits/core';
+import { KELEvents, encodeKey, nextKeyDigestQb64FromPublicKeyQb64, generateKeyPair } from '@kerits.id/core';
 
 const rotationCurrent = generateKeyPair();
 const rotationNext = generateKeyPair();
@@ -72,7 +72,7 @@ The verifier confirms the rotation is valid by checking that each key in `k` has
 An interaction event (`ixn`) anchors external data (ACDC credential seals, TEL events, etc.) to the KEL without changing keys. It carries the prior SAID in `p` and the data anchors in `a`.
 
 ```ts title="interact.ts"
-import { KELEvents } from '@kerits/core';
+import { KELEvents } from '@kerits.id/core';
 
 const { unsignedEvent } = KELEvents.buildIxn({
   aid: rotEvent.i,

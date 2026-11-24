@@ -5,7 +5,7 @@ description: Verify SAID integrity, structural fields, key-chain continuity, del
 
 KERI's security model requires verifiers to independently validate every event in a KEL before trusting any key state derived from it. There is no trusted third party: validity is a property of the event log itself, derivable from cryptographic rules alone.
 
-`@kerits/core` exposes granular validation helpers, pure predicates for attachment verification, and a high-level `validateKelChain` function that runs all checks in sequence.
+`@kerits.id/core` exposes granular validation helpers, pure predicates for attachment verification, and a high-level `validateKelChain` function that runs all checks in sequence.
 
 ## Validation model assumptions
 
@@ -53,8 +53,8 @@ Use the exported predicates `eventContainsAnchorForSaid` and `isDelegationAnchor
 `validateEventSaid` recomputes an event's SAID from its body and compares it to the `d` field.
 
 ```ts title="validate-said.ts"
-import { validateEventSaid } from '@kerits/core';
-import type { KELEvent } from '@kerits/core';
+import { validateEventSaid } from '@kerits.id/core';
+import type { KELEvent } from '@kerits.id/core';
 
 const result = validateEventSaid(event);
 if (!result.valid) {
@@ -67,7 +67,7 @@ if (!result.valid) {
 `validateRequiredFields` verifies that every field mandated by the event type is present.
 
 ```ts title="validate-fields.ts"
-import { validateRequiredFields, isValidKeriEvent } from '@kerits/core';
+import { validateRequiredFields, isValidKeriEvent } from '@kerits.id/core';
 
 if (!isValidKeriEvent(rawData)) {
   throw new Error('Not a valid KERI event');
@@ -94,7 +94,7 @@ Required fields by event type:
 `validateKeyChain` checks that a rotation event's current keys satisfy the previous establishment event's next-key commitments.
 
 ```ts title="validate-key-chain.ts"
-import { validateKeyChain } from '@kerits/core';
+import { validateKeyChain } from '@kerits.id/core';
 
 const result = validateKeyChain(rotEvent, previousEstablishment);
 if (!result.valid) {
@@ -108,8 +108,8 @@ if (!result.valid) {
 ## Full chain validation
 
 ```ts title="validate-chain.ts"
-import { validateKelChain } from '@kerits/core';
-import type { CESREvent } from '@kerits/core';
+import { validateKelChain } from '@kerits.id/core';
+import type { CESREvent } from '@kerits.id/core';
 
 const events: CESREvent[] = [
   { event: icpEvent, attachments: [{ kind: 'sig', form: 'indexed', keyIndex: 0, sig: 'AAsig...' }], enc: 'JSON' },
@@ -143,14 +143,14 @@ const result = validateKelChain(events, { startIndex: events.length - 3 });
 
 ## Predicates reference
 
-Pure predicates for attachment and anchor verification. These are independently importable from `@kerits/core`.
+Pure predicates for attachment and anchor verification. These are independently importable from `@kerits.id/core`.
 
 ### `verifyWitnessReceipt`
 
 Verify a witness receipt signature against an event's canonical bytes. Assumes the non-transferable basic witness model.
 
 ```ts title="verify-receipt.ts"
-import { verifyWitnessReceipt } from '@kerits/core';
+import { verifyWitnessReceipt } from '@kerits.id/core';
 
 const valid = verifyWitnessReceipt(
   { by: witnessAid, sig: receiptSignature },
@@ -163,8 +163,8 @@ const valid = verifyWitnessReceipt(
 Aggregate VRC verifier: validates attachment structure, verifies each signature, and evaluates the delegator's signing threshold. Returns a discriminated union with typed failure reasons.
 
 ```ts title="verify-vrc.ts"
-import { verifyVrcAgainstThreshold } from '@kerits/core';
-import type { VrcVerificationResult } from '@kerits/core';
+import { verifyVrcAgainstThreshold } from '@kerits.id/core';
+import type { VrcVerificationResult } from '@kerits.id/core';
 
 const result: VrcVerificationResult = verifyVrcAgainstThreshold(
   vrcAttachments,
@@ -183,7 +183,7 @@ if (!result.passed) {
 SAID-only convenience check: does any entry in the event's `a[]` array have a `d` field matching the given SAID? Not a full seal matcher — matches SAID only.
 
 ```ts title="anchor-check.ts"
-import { eventContainsAnchorForSaid } from '@kerits/core';
+import { eventContainsAnchorForSaid } from '@kerits.id/core';
 
 const hasAnchor = eventContainsAnchorForSaid(parentIxnEvent, delegatedEventSaid);
 ```
@@ -193,7 +193,7 @@ const hasAnchor = eventContainsAnchorForSaid(parentIxnEvent, delegatedEventSaid)
 Checks that a parent event can carry delegation seals (`ixn`, `rot`, `drt`) and contains a matching SAID anchor. This is a convenience pre-check — complete delegation anchor verification also requires finding the sealing event in the parent KEL and verifying it in its own KEL context.
 
 ```ts title="delegation-anchor.ts"
-import { isDelegationAnchor } from '@kerits/core';
+import { isDelegationAnchor } from '@kerits.id/core';
 
 for (const parentEvent of parentKel) {
   if (isDelegationAnchor(parentEvent.event, delegatedEventSaid)) {

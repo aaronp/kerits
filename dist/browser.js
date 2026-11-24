@@ -24272,8 +24272,8 @@ var Tel = {
   ...TELEvents
 };
 // src/version.ts
-var VERSION = "0.5.40";
-var GIT_SHA = "05f737e349c3de21a7756f7b45e0d8ccfb10602f";
+var VERSION = "0.5.41";
+var GIT_SHA = "da7fee6abf087a5d877220f46fd0ccd1d9756da7";
 export {
   ACCOUNT_RECOVERY_PATH_PREFIX,
   ACDCData,

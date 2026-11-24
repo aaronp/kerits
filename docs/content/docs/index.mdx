@@ -1,21 +1,21 @@
 ---
 title: Getting Started
-description: Install and use @kerits/core for KERI primitives
+description: Install and use @kerits.id/core for KERI primitives
 ---
 
-## What is @kerits/core?
+## What is @kerits.id/core?
 
-`@kerits/core` provides pure KERI primitives: types, cryptographic operations, CESR encoding, KEL validation, SAID computation, and data canonicalization. It has no I/O, no storage, and no side effects. Every function is deterministic and safe to use in any runtime (browser, Node.js, Bun, Cloudflare Workers).
+`@kerits.id/core` provides pure KERI primitives: types, cryptographic operations, CESR encoding, KEL validation, SAID computation, and data canonicalization. It has no I/O, no storage, and no side effects. Every function is deterministic and safe to use in any runtime (browser, Node.js, Bun, Cloudflare Workers).
 
 ## Installation
 
 ```package-install
-@kerits/core
+@kerits.id/core
 ```
 
 ## Namespace Objects
 
-`@kerits/core` organizes its API into five namespace objects for discoverability:
+`@kerits.id/core` organizes its API into five namespace objects for discoverability:
 
 | Namespace   | Responsibility                                             |
 | ----------- | ---------------------------------------------------------- |
@@ -29,21 +29,21 @@ All functions are also available as flat re-exports for convenience:
 
 ```ts
 // Namespace style
-import { Kel, Cesr } from '@kerits/core';
-import { deriveSaid, KEL_IXN_SURFACE } from '@kerits/core';
+import { Kel, Cesr } from '@kerits.id/core';
+import { deriveSaid, KEL_IXN_SURFACE } from '@kerits.id/core';
 const { sealed, said } = deriveSaid(event, KEL_IXN_SURFACE);
 const encoded = Cesr.encodeKey(rawPublicKey);
 
 // Flat style
-import { deriveSaid, encodeKey } from '@kerits/core';
+import { deriveSaid, encodeKey } from '@kerits.id/core';
 ```
 
 ## Branded Types
 
-`@kerits/core` uses branded types to prevent mixing incompatible string values at compile time.
+`@kerits.id/core` uses branded types to prevent mixing incompatible string values at compile time.
 
 ```ts
-import type { AID, SAID } from '@kerits/core';
+import type { AID, SAID } from '@kerits.id/core';
 
 // AID and SAID are string aliases with compile-time brands.
 // This prevents accidentally passing a raw string where an AID is expected.
@@ -54,7 +54,7 @@ type SAID = string & { __brand: 'SAID' };
 Use the provided parser functions to create branded values from raw strings:
 
 ```ts
-import { parseAidQb64, parseSaidQb64 } from '@kerits/core';
+import { parseAidQb64, parseSaidQb64 } from '@kerits.id/core';
 
 const aid  = parseAidQb64('DExample...');
 const said = parseSaidQb64('EExample...');
@@ -70,7 +70,7 @@ import {
   generateKeyPair,
   encodeKey,
   nextKeyDigestQb64FromPublicKeyQb64,
-} from '@kerits/core';
+} from '@kerits.id/core';
 
 // 1. Generate current and next Ed25519 key pairs
 const current = generateKeyPair();

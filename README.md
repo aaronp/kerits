@@ -1,6 +1,6 @@
-# @kerits/core
+# @kerits.id/core
 
-[![npm version](https://img.shields.io/npm/v/@kerits/core.svg)](https://www.npmjs.com/package/@kerits/core)
+[![npm version](https://img.shields.io/npm/v/@kerits.id/core.svg)](https://www.npmjs.com/package/@kerits.id/core)
 
 Core cryptographic primitives and data structures for KERI (Key Event Receipt Infrastructure) in TypeScript.
 
@@ -13,15 +13,15 @@ Full documentation is available at [kerits.dev](https://kerits.dev).
 ## Installation
 
 ```bash
-bun add @kerits/core
+bun add @kerits.id/core
 # or
-npm install @kerits/core
+npm install @kerits.id/core
 ```
 
 ## Usage
 
 ```typescript
-import { Signature, Said, encodeSAID, Kel } from '@kerits/core';
+import { Signature, Said, encodeSAID, Kel } from '@kerits.id/core';
 
 // Sign and verify data
 const signer = Signature.ed25519(secretKey);

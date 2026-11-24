@@ -26,7 +26,7 @@ Creates the identifier. The AID equals the inception event's SAID (`i === d`). S
 This is always sequence `0` and has no `p` field — it's the root of the chain.
 
 ```ts
-import { KELEvents, encodeKey, nextKeyDigestQb64FromPublicKeyQb64, generateKeyPair } from '@kerits/core';
+import { KELEvents, encodeKey, nextKeyDigestQb64FromPublicKeyQb64, generateKeyPair } from '@kerits.id/core';
 
 const current = generateKeyPair();
 const next = generateKeyPair();
@@ -54,7 +54,7 @@ Replaces the current signing keys with keys that were pre-committed in the previ
 A verifier confirms the rotation by checking that each new key in `k` hashes to one of the prior event's `n` digests.
 
 ```ts
-import { KELEvents } from '@kerits/core';
+import { KELEvents } from '@kerits.id/core';
 
 const { unsignedEvent } = KELEvents.buildRot({
   aid: icpEvent.i,
@@ -76,7 +76,7 @@ const { event } = KELEvents.computeSaid(unsignedEvent, false);
 Anchors external data (ACDC credential seals, TEL events, delegation approvals) to the KEL without changing keys. Carries anchors in the `a` field. Has no key-related fields — the current signing keys from the last establishment event remain active.
 
 ```ts
-import { KELEvents } from '@kerits/core';
+import { KELEvents } from '@kerits.id/core';
 
 const { unsignedEvent } = KELEvents.buildIxn({
   aid: priorEvent.i,
@@ -95,7 +95,7 @@ const { event } = KELEvents.computeSaid(unsignedEvent, false);
 Mirrors `icp` but establishes the AID under a parent identifier's authority. The `di` field records the parent's AID. The parent must approve this event by anchoring its SAID in an `ixn` on the parent's KEL.
 
 ```ts
-import { KELEvents } from '@kerits/core';
+import { KELEvents } from '@kerits.id/core';
 
 const { unsignedEvent } = KELEvents.buildDip({
   keys: [childCurrentKeyQb64],
@@ -117,7 +117,7 @@ const { event, said } = KELEvents.computeSaid(unsignedEvent, true);
 Mirrors `rot` for a delegated identifier. Same key rotation mechanics — the parent's approval is external evidence (an anchoring `ixn` on the parent's KEL), not a field on this event.
 
 ```ts
-import { KELEvents } from '@kerits/core';
+import { KELEvents } from '@kerits.id/core';
 
 const { unsignedEvent } = KELEvents.buildDrt({
   aid: dipEvent.i,

@@ -1,4 +1,4 @@
-// @kerits/core
+// @kerits.id/core
 //
 // Pure KERI primitives: types, cryptographic operations, CESR encoding,
 // KEL validation, SAID computation, and data canonicalization.

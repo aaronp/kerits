@@ -4,7 +4,7 @@
  * Direct imports from @noble libraries for cryptographic operations.
  * All operations are runtime-agnostic (work in browser, Node.js, Bun, Cloudflare Workers).
  *
- * Used by @kerits/merits and @kerits/messaging packages.
+ * Used by @kerits.id/merits and @kerits.id/messaging packages.
  */
 
 import { ed25519 } from '@noble/curves/ed25519.js';
